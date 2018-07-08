@@ -109,8 +109,13 @@ public class Compiler {
 
     public static void main(String[] args) throws IOException {
 
+        String name = "src/example.ns";
+        if (args.length > 0) {
+            name = args[0];
+        }
+
         Compiler c = new Compiler();
-        c.tokenize(c.readFile("src/example.ns"));
+        c.tokenize(c.readFile(name));
         System.out.println("#include <stdlib.h>\n#include <stdio.h>\n\n");
         System.out.println(c.functionDeclerations);
         System.out.println("void main () {");
