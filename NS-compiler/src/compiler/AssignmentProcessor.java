@@ -3,9 +3,9 @@ package compiler;
 import AssignmentUtil.ArrayProcessor;
 import AssignmentUtil.FunctionProcessor;
 import AssignmentUtil.ObjectProcessor;
+import AssignmentUtil.PropertyProcessor;
 
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,6 +26,7 @@ public class AssignmentProcessor implements Processor {
     ArrayProcessor ap;
     ObjectProcessor op;
     FunctionProcessor fp;
+    PropertyProcessor pp;
 
     public AssignmentProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
@@ -33,15 +34,14 @@ public class AssignmentProcessor implements Processor {
         ap = new ArrayProcessor(compiler, debug);
         op = new ObjectProcessor(compiler, debug);
         fp = new FunctionProcessor(compiler, debug);
+        pp = new PropertyProcessor(compiler, debug);
 
         assignment = Pattern.compile("^\\s*(var)?\\s*(\\w+)\\s*=(.*)");
         call = Pattern.compile("^\\s*(\\w+):([\\w\\s\\+\\-\\/\\*]+)");
 
 
-        numOrMath = Pattern.compile("^\\s*([\\s\\d\\+\\*\\/\\-]+)");
-        //returnStatement = Pattern.compile("\\s*return\\s+(.*);");
-        //word = Pattern.compile("^\\s*(\\w+)$");
-        variableMath = Pattern.compile("^\\s*(\\w+)\\s*[\\+\\*\\/\\-\\%\\!]\\s*(\\w+)");
+        //numOrMath = Pattern.compile("^\\s*([\\s\\d\\+\\*\\/\\-]+)");
+        //variableMath = Pattern.compile("^\\s*(\\w+)\\s*[\\+\\*\\/\\-\\%\\!]\\s*(\\w+)");
         hashMapReturnType = new HashMap<>();
     }
 
@@ -61,6 +61,7 @@ public class AssignmentProcessor implements Processor {
 
         String apString = ap.convert(name, assignee);
         if (apString != null) {
+            compiler.insertType(name, Type.ARRAY);
             if(compiler.getScopeLevel() == 0) {
                 compiler.insertStatement(apString);
             }
@@ -71,6 +72,7 @@ public class AssignmentProcessor implements Processor {
 
         String fpString = fp.convert(name, assignee);
         if (fpString != null) {
+            compiler.insertType(name,Type.FUNCTION);
             compiler.insertFunction(fpString);
             return fpString;
         }
@@ -79,16 +81,21 @@ public class AssignmentProcessor implements Processor {
 
         String opString = op.convert(name, assignee);
         if (opString != null) {
+            compiler.insertType(name,Type.OBJECT);
             return opString;
         }
 
-        if (debug) System.out.println("-- not op");
+        String ppString = pp.convert(name, assignee);
+        if (ppString != null) {
+            compiler.insertType(name,Type.NUMBER);
+            return ppString;
+        }
 
         Matcher matcher = call.matcher(assignee);
         if (matcher.find()) {
             String ret = call(name, matcher);
-
             compiler.insertStatement(ret);
+            compiler.insertType(name,Type.NUMBER);
 
             return ret;
         }
@@ -96,6 +103,7 @@ public class AssignmentProcessor implements Processor {
         if (debug) System.out.println("-- not call");
         if (debug) System.out.println("-- returning default");
 
+        compiler.insertType(name,Type.NUMBER);
 
         String pre = (m.group(1) == null) ? "" : "int ";
         String ret = pre + name + " = " + assignee + ";\n";

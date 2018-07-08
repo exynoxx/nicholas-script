@@ -5,3 +5,13 @@ var print = func [int x] {
 };
 
 print: 5;
+
+var obj = object{
+    int add = func[int x, int y] {
+        return x+y;
+    };
+};
+
+var c = obj.add: 5 4;
+
+print: c;

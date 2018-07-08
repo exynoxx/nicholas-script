@@ -31,7 +31,7 @@ public class CallProcessor implements Processor {
         String args = m.group(2).trim();
 
         args = args.replaceAll("\\s+", ",");
-        String line = name + "(" + args + ");";
+        String line = name + "(" + args + ");\n";
         compiler.insertStatement(line);
         return line;
     }

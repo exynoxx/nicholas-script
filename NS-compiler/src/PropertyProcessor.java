@@ -1,5 +1,4 @@
-package compiler;
-
+import compiler.CallProcessor;
 import compiler.Compiler;
 import compiler.Processor;
 
@@ -14,9 +13,11 @@ public class PropertyProcessor implements Processor {
     Pattern property;
 
     Compiler compiler;
+    CallProcessor callProcessor;
     public PropertyProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
         this.compiler = compiler;
+        callProcessor = new CallProcessor(compiler,debug);
         property = Pattern.compile("(\\d+\\.\\.\\d+|\\w+)\\.(\\w+)(.*)");
         range = Pattern.compile("(\\d+)\\.\\.(\\d+)");
         //mapPattern = Pattern.compile("\\s*\\((\\w+)\\)\\s*(?:->|=>)\\s*(.*)");
@@ -36,11 +37,27 @@ public class PropertyProcessor implements Processor {
         String propertyName = m.group(2);
         String rest = m.group(3);
 
+        /*
         Matcher localMatcher = range.matcher(objName);
         if (localMatcher.find()) {
 
         } else {
 
+        }
+        */
+
+        //switch (compiler.getType(objName))
+        if (rest.charAt(0) == ':') {
+            String before = propertyName+"0"+rest;
+            callProcessor.test(before);
+            String line = callProcessor.convert(before);
+
+            //callProcessor call insertStatement
+            /*
+            if (compiler.getScopeLevel() == 0) {
+                compiler.insertStatement(line);
+            }*/
+            return line;
         }
 
 

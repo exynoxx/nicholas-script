@@ -1,5 +1,7 @@
 package compiler;
 
+import AssignmentUtil.PropertyProcessor;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -11,11 +13,13 @@ public class Compiler {
     boolean debug = false;
 
     PreProcessor cleaningProcessor = new PreProcessor();
-    Processor[] processors = new Processor[5];
+    Processor[] processors = new Processor[4];
 
     LinkedList<String> frees;
     HashMap<Integer, LinkedList<String>> scopeHM;
     int scopeLevel = 0;
+
+    HashMap<String, Type> typeHashMap = new HashMap<>();
 
     String functionDeclerations = "";
     String statements = "";
@@ -25,9 +29,8 @@ public class Compiler {
 
         processors[0] = new AssignmentProcessor(this, debug);
         processors[1] = new BranchingProcessor(this, debug);
-        processors[2] = new PropertyProcessor(this,debug);
-        processors[3] = new NoParseProcessor(this,debug);
-        processors[4] = new CallProcessor(this, debug);
+        processors[2] = new NoParseProcessor(this,debug);
+        processors[3] = new CallProcessor(this, debug);
 
         scopeHM = new HashMap<>();
 
@@ -105,6 +108,14 @@ public class Compiler {
     public void insertStatement (String s) {
         statements += s;
 
+    }
+
+    public void insertType (String name, Type type) {
+        typeHashMap.put(name,type);
+    }
+
+    public Type getType (String name) {
+        return typeHashMap.get(name);
     }
 
     public static void main(String[] args) throws IOException {
