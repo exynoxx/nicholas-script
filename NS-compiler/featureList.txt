@@ -1,7 +1,0 @@
-variable assignment
-method assignment
-atomic
-return statement
-parse method body
-array initialization
-string
