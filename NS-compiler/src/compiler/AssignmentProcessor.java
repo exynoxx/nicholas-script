@@ -99,28 +99,6 @@ public class AssignmentProcessor implements Processor {
         if (debug) System.out.println("-- returning default");
 
 
-
-
-        /* NUMBER OR MATH EXPRESSION */
-        /*
-        Matcher matcher = numOrMath.matcher(assignee);
-        if (matcher.find()) {
-            if (debug) System.out.println("---- number or math");
-            hashMapReturnType.put(name, "int");
-            return numberOrMath(name, matcher);
-        }
-*/
-
-        /* MATH OPERATION (+,*,-,/,%) ON VARIABLES */
-        /*
-        matcher = variableMath.matcher(assignee);
-        if (matcher.find()) {
-            if (debug) System.out.println("---- variable math");
-            hashMapReturnType.put(name, hashMapReturnType.get(matcher.group(1)));
-            return assignee;
-        }
-        */
-
         String pre = (m.group(1) == null) ? "" : "int ";
         String ret = pre + name + " = " + assignee + ";\n";
 
@@ -147,12 +125,4 @@ public class AssignmentProcessor implements Processor {
         String line = pre + name + " = " + matcher.group(1) + "(" + args + ");\n";
         return line;
     }
-
-    /*
-
-    private String numberOrMath(String name, Matcher matcher) {
-        String line = "int " + name + " = " + matcher.group(1) + ";";
-        return line;
-    }
-    */
 }

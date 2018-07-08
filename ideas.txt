@@ -16,7 +16,7 @@ print: add: a b;
 print: c;
 
 var d = 1;
-c = d;                      #c and d have to be same type
+c = d;                      #c and d has to be same type
 
 var array = 1..5;           #[1,2,3,4,5]
 print: array.length;        #5
