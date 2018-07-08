@@ -10,10 +10,12 @@ public class CallProcessor implements Processor {
     boolean debug;
     Pattern functionCall;
     Matcher m;
+    Compiler compiler;
 
 
-    public CallProcessor(boolean debug) {
+    public CallProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
+        this.compiler = compiler;
         functionCall = Pattern.compile("^\\s*(\\w+):(.*)");
     }
 
@@ -30,6 +32,7 @@ public class CallProcessor implements Processor {
 
         args = args.replaceAll("\\s+", ",");
         String line = name + "(" + args + ");";
+        compiler.insertStatement(line);
         return line;
     }
 

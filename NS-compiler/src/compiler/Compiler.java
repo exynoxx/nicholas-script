@@ -8,7 +8,7 @@ import java.util.LinkedList;
 
 public class Compiler {
 
-    boolean debug = true;
+    boolean debug = false;
 
     PreProcessor cleaningProcessor = new PreProcessor();
     Processor[] processors = new Processor[5];
@@ -26,8 +26,8 @@ public class Compiler {
         processors[0] = new AssignmentProcessor(this, debug);
         processors[1] = new BranchingProcessor(this, debug);
         processors[2] = new PropertyProcessor(this,debug);
-        processors[3] = new CallProcessor(debug);
-        processors[4] = new NoParseProcessor(this,debug);
+        processors[3] = new NoParseProcessor(this,debug);
+        processors[4] = new CallProcessor(this, debug);
 
         scopeHM = new HashMap<>();
 

@@ -14,7 +14,7 @@ public class FunctionProcessor {
     public FunctionProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
         this.compiler = compiler;
-        functionDecleration = Pattern.compile("^\\s*func\\s*\\[(.*)\\]\\s*:\\s*(\\w+)\\s*\\{\\s*(.*)\\s*\\}");
+        functionDecleration = Pattern.compile("^\\s*func\\s*\\[(.*)\\]\\s*:?\\s*(\\w+)?\\s*\\{\\s*(.*)\\s*\\}");
     }
 
     public String convert(String name, String s) {
@@ -33,6 +33,10 @@ public class FunctionProcessor {
         String args = matcher.group(1);
         String returnType = matcher.group(2);
         String body = matcher.group(3);
+
+        if (returnType == null) {
+            returnType = "void";
+        }
 
         compiler.increaseScopeLevel();
         String translatedBody = compiler.tokenize(body);

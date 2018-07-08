@@ -1,6 +1,6 @@
-var print = func [int x] : void {
+var print = func [int x] {
     (c) {
-        printf("%i",x);
+        printf("%i\n",x);
     };
 };
 
