@@ -1,29 +1,7 @@
-var a = 5;
-var b = 11;
-
-var arr1 = 1..5;
-
-var mult = func [int a, int b] : int {
-    var arr2 = 1..5;
-    return a*b;
-};
-
-
-var arr2 = 1..10 const;
-
-var c = mult: 1 2;
-var d = a+5;
-mult: 4 5;
-
-var obj = object {
-    int a;
-    int b;
-    int func = func [int x, int y] {
-        var c = x+y;
-        return x+y;
+var print = func [int x] : void {
+    (c) {
+        printf("%i",x);
     };
-
 };
 
-var a = [1,6,9,10,11];
-
+print: 5;

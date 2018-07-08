@@ -3,20 +3,15 @@ package compiler;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 
 public class Compiler {
 
-    boolean debug = false;
+    boolean debug = true;
 
     PreProcessor cleaningProcessor = new PreProcessor();
-
-    Processor assignmentProcessor = new AssignmentProcessor(this, debug);
-    Processor branchingProcessor = new BranchingProcessor(this, debug);
-    Processor propertyProcessor = new PropertyProcessor(this,debug);
-    Processor callProcessor = new CallProcessor(debug);
+    Processor[] processors = new Processor[5];
 
     LinkedList<String> frees;
     HashMap<Integer, LinkedList<String>> scopeHM;
@@ -27,6 +22,13 @@ public class Compiler {
 
 
     public Compiler() {
+
+        processors[0] = new AssignmentProcessor(this, debug);
+        processors[1] = new BranchingProcessor(this, debug);
+        processors[2] = new PropertyProcessor(this,debug);
+        processors[3] = new CallProcessor(debug);
+        processors[4] = new NoParseProcessor(this,debug);
+
         scopeHM = new HashMap<>();
 
         for (int i = 0; i < 5; i++) {
@@ -62,17 +64,12 @@ public class Compiler {
     }
 
     public String processString(String string) {
-        String ret;
-        if (assignmentProcessor.test(string)) {
-            ret = assignmentProcessor.convert(string);
-        } else if (branchingProcessor.test(string)){
-            ret = branchingProcessor.convert(string);
-        } else if (callProcessor.test(string)) {
-            ret = callProcessor.convert(string);
-        } else {
-            return string + ";\n";
-        }
+        String ret = string + ";\n";
 
+        for (Processor p : processors) {
+            if (p.test(string))
+                return p.convert(string);
+        }
         return ret;
     }
 

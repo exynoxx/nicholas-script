@@ -71,9 +71,7 @@ public class AssignmentProcessor implements Processor {
 
         String fpString = fp.convert(name, assignee);
         if (fpString != null) {
-            if(compiler.getScopeLevel() == 0) {
-                compiler.insertFunction(fpString);
-            }
+            compiler.insertFunction(fpString);
             return fpString;
         }
 

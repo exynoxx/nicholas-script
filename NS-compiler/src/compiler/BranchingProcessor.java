@@ -34,9 +34,11 @@ public class BranchingProcessor implements Processor {
         String elseBody = m.group(4);
 
         String line =  type + cond + "{\n";
+        compiler.increaseScopeLevel();
         line += compiler.tokenize(body) + "\n}";
 
         if (elseBody != null) {
+            compiler.increaseScopeLevel();
             line += "else {\n" + compiler.tokenize(elseBody) + "\n}";
         }
         return line;
