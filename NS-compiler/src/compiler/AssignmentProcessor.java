@@ -36,7 +36,7 @@ public class AssignmentProcessor implements Processor {
         fp = new FunctionProcessor(compiler, debug);
         pp = new PropertyProcessor(compiler, debug);
 
-        assignment = Pattern.compile("^\\s*(var)?\\s*(\\w+)\\s*=(.*)");
+        assignment = Pattern.compile("^\\s*(var)?\\s*([\\w\\.]+)\\s*=(.*)");
         call = Pattern.compile("^\\s*(\\w+):([\\w\\s\\+\\-\\/\\*]+)");
 
 
@@ -61,6 +61,7 @@ public class AssignmentProcessor implements Processor {
 
         String apString = ap.convert(name, assignee);
         if (apString != null) {
+            if (debug) System.out.println("---- array");
             compiler.insertType(name, Type.ARRAY);
             if(compiler.getScopeLevel() == 0) {
                 compiler.insertStatement(apString);
@@ -68,16 +69,15 @@ public class AssignmentProcessor implements Processor {
             return apString;
         }
 
-        if (debug) System.out.println("-- not ap");
 
         String fpString = fp.convert(name, assignee);
         if (fpString != null) {
+            if (debug) System.out.println("---- function");
             compiler.insertType(name,Type.FUNCTION);
             compiler.insertFunction(fpString);
             return fpString;
         }
 
-        if (debug) System.out.println("-- not fp");
 
         String opString = op.convert(name, assignee);
         if (opString != null) {
@@ -87,12 +87,14 @@ public class AssignmentProcessor implements Processor {
 
         String ppString = pp.convert(name, assignee);
         if (ppString != null) {
+            if (debug) System.out.println("---- property");
             compiler.insertType(name,Type.NUMBER);
             return ppString;
         }
 
         Matcher matcher = call.matcher(assignee);
         if (matcher.find()) {
+            if (debug) System.out.println("---- function call");
             String ret = call(name, matcher);
             compiler.insertStatement(ret);
             compiler.insertType(name,Type.NUMBER);
@@ -100,7 +102,6 @@ public class AssignmentProcessor implements Processor {
             return ret;
         }
 
-        if (debug) System.out.println("-- not call");
         if (debug) System.out.println("-- returning default");
 
         compiler.insertType(name,Type.NUMBER);

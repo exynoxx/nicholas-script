@@ -10,7 +10,7 @@ import java.util.LinkedList;
 
 public class Compiler {
 
-    boolean debug = false;
+    boolean debug = true;
 
     PreProcessor cleaningProcessor = new PreProcessor();
     Processor[] processors = new Processor[4];

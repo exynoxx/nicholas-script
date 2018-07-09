@@ -24,8 +24,6 @@ public class ArrayProcessor {
 
     public String convert(String name, String s) {
 
-        if (debug) System.out.println("---- array processor");
-
         Matcher matcher = normal.matcher(s);
         if (matcher.find()) {
             return arrayNormal(name, matcher);

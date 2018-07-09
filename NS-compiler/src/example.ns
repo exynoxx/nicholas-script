@@ -4,14 +4,19 @@ var print = func [int x] {
     };
 };
 
-print: 5;
-
-var obj = object{
-    int add = func[int x, int y] {
-        return x+y;
-    };
+var obj = object {
+	int a;
+	int b;
+	int adj = func[int x, int y] {
+		return x*3+4*y;
+	};
+	int db = func[int x] {
+		return x*2;
+	};
 };
 
-var c = obj.add: 5 4;
+obj.a = 5;
+var c = obj.adj: 2 5;
+var d = obj.db: c;
 
-print: c;
+print: d;

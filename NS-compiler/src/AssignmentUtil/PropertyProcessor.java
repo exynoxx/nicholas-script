@@ -19,7 +19,7 @@ public class PropertyProcessor {
 
     public String convert(String name, String s) {
 
-        String line = "";
+        String line = null;
 
         Matcher matcher = propertyCall.matcher(s);
         if (matcher.find()) {
