@@ -1,22 +1,14 @@
-var print = func [int x] {
+#var print = func [int x] {
+#   (c) {
+#         printf("%i\n",x);
+#    };
+#};
+
+var println = func [string x] {
     (c) {
-        printf("%i\n",x);
+        printf("%s\n", x->data);
     };
 };
 
-var obj = object {
-	int a;
-	int b;
-	int adj = func[int x, int y] {
-		return x*3+4*y;
-	};
-	int db = func[int x] {
-		return x*2;
-	};
-};
-
-obj.a = 5;
-var c = obj.adj: 2 5;
-var d = obj.db: c;
-
-print: d;
+var s = "hello world";
+println: s;

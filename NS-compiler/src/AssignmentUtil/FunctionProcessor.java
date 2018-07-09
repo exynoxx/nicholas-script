@@ -38,9 +38,20 @@ public class FunctionProcessor {
             returnType = "void";
         }
 
+        String[] argsList = args.split(",");
+        args = args.replaceAll("string", "nstring *");
+
         compiler.increaseScopeLevel();
         String translatedBody = compiler.tokenize(body);
-        //translatedBody += compiler.getFreeStrings();
+
+        //for each variable v in the arguments replace the variable in the body with v->data
+        /*
+        for (String x : argsList) {
+            if (x.contains("string")) {
+                String v = x.split(" ")[1];
+                translatedBody = translatedBody.replaceAll(v, v+"->data");
+            }
+        }*/
 
         String line = returnType + " " + name + "(" + args + ") {\n";
         line += translatedBody;

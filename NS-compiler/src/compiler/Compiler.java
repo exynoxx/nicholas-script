@@ -21,7 +21,7 @@ public class Compiler {
 
     HashMap<String, Type> typeHashMap = new HashMap<>();
 
-    String functionDeclerations = "";
+    String functionDeclerations = "typedef struct _nstring {\nchar *data;\nint size;\nint allocsize;\n} nstring;\n\n";
     String statements = "";
 
 
@@ -83,9 +83,8 @@ public class Compiler {
 
     public String getFreeStrings () {
         String ret = "";
-        for (String s : frees) {
-            ret += s;
-            frees.remove(s);
+        while (frees.size() > 0) {
+            ret += frees.removeFirst();
         }
         scopeLevel--;
         if (scopeLevel < 0) scopeLevel = 0;

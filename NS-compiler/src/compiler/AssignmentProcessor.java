@@ -1,9 +1,6 @@
 package compiler;
 
-import AssignmentUtil.ArrayProcessor;
-import AssignmentUtil.FunctionProcessor;
-import AssignmentUtil.ObjectProcessor;
-import AssignmentUtil.PropertyProcessor;
+import AssignmentUtil.*;
 
 import java.util.HashMap;
 import java.util.regex.Matcher;
@@ -27,17 +24,19 @@ public class AssignmentProcessor implements Processor {
     ObjectProcessor op;
     FunctionProcessor fp;
     PropertyProcessor pp;
+    StringProcessor sp;
 
     public AssignmentProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
         this.compiler = compiler;
         ap = new ArrayProcessor(compiler, debug);
         op = new ObjectProcessor(compiler, debug);
+        sp = new StringProcessor(compiler, debug);
         fp = new FunctionProcessor(compiler, debug);
         pp = new PropertyProcessor(compiler, debug);
 
         assignment = Pattern.compile("^\\s*(var)?\\s*([\\w\\.]+)\\s*=(.*)");
-        call = Pattern.compile("^\\s*(\\w+):([\\w\\s\\+\\-\\/\\*]+)");
+        call = Pattern.compile("^\\s*(\\w+):(.*)");
 
 
         //numOrMath = Pattern.compile("^\\s*([\\s\\d\\+\\*\\/\\-]+)");
@@ -90,6 +89,13 @@ public class AssignmentProcessor implements Processor {
             if (debug) System.out.println("---- property");
             compiler.insertType(name,Type.NUMBER);
             return ppString;
+        }
+
+        String spString = sp.convert(name,assignee);
+        if (spString != null) {
+            if (debug) System.out.println("---- string");
+            compiler.insertType(name,Type.STRING);
+            return spString;
         }
 
         Matcher matcher = call.matcher(assignee);
