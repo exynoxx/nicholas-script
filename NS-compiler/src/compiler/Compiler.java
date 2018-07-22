@@ -10,7 +10,7 @@ import java.util.LinkedList;
 
 public class Compiler {
 
-    boolean debug = true;
+    boolean debug = false;
 
     PreProcessor cleaningProcessor = new PreProcessor();
     Processor[] processors = new Processor[4];
@@ -119,7 +119,7 @@ public class Compiler {
 
     public static void main(String[] args) throws IOException {
 
-        String name = "src/example.ns";
+        String name = "src/example1.ns";
         if (args.length > 0) {
             name = args[0];
         }

@@ -1,9 +1,3 @@
-#var print = func [int x] {
-#   (c) {
-#         printf("%i\n",x);
-#    };
-#};
-
 var println = func [string x] {
     (c) {
         printf("%s\n", x->data);
@@ -12,3 +6,4 @@ var println = func [string x] {
 
 var s = "hello world";
 println: s;
+

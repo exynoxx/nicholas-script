@@ -25,6 +25,7 @@ public class AssignmentProcessor implements Processor {
     FunctionProcessor fp;
     PropertyProcessor pp;
     StringProcessor sp;
+    CallProcessor cp;
 
     public AssignmentProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
@@ -34,8 +35,9 @@ public class AssignmentProcessor implements Processor {
         sp = new StringProcessor(compiler, debug);
         fp = new FunctionProcessor(compiler, debug);
         pp = new PropertyProcessor(compiler, debug);
+        cp = new CallProcessor(compiler,debug);
 
-        assignment = Pattern.compile("^\\s*(var)?\\s*([\\w\\.]+)\\s*=(.*)");
+        assignment = Pattern.compile("^\\s*(var|int|string|arr)?\\s*([\\w\\.]+)\\s*=(.*)");
         call = Pattern.compile("^\\s*(\\w+):(.*)");
 
 
