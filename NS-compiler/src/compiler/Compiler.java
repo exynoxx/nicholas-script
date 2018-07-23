@@ -108,7 +108,6 @@ public class Compiler {
 
     public void insertStatement (String s) {
         statements += s;
-
     }
 
     public void insertType (String name, Type type) {
