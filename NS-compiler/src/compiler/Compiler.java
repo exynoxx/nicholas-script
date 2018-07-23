@@ -55,12 +55,14 @@ public class Compiler {
         for (String s : tokens) {
             if (debug) System.out.println("input: " + s);
             //all "free"-statements come before return-statement
+
             if (s.contains("return")) {
                 out += getFreeStrings();
             }
 
             out += processString(s);
         }
+        out += getFreeStrings();
 
 
         return out;
