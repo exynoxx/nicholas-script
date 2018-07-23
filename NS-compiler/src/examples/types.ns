@@ -1,0 +1,7 @@
+var a = 5;
+var b = "hello";
+var c = 1..5;
+
+int aa = 5;
+string bb = "hello";
+arr cc = 1..5;

@@ -10,6 +10,7 @@ public class PropertyProcessor {
     Pattern propertyCall;
     boolean debug;
     Compiler compiler;
+    Matcher m;
 
     public PropertyProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
@@ -17,19 +18,20 @@ public class PropertyProcessor {
         propertyCall = Pattern.compile("^\\s*(\\w+\\.\\w+):(.*)");
     }
 
-    public String convert(String name, String s) {
+    public boolean test (String s) {
+        m = propertyCall.matcher(s);
+        return m.find();
+    }
+
+    public String convert(String name) {
 
         String line = null;
+        String objAndProp = m.group(1);
+        String args = m.group(2).trim();
 
-        Matcher matcher = propertyCall.matcher(s);
-        if (matcher.find()) {
-            String objAndProp = matcher.group(1);
-            String args = matcher.group(2).trim();
-
-            args = args.replaceAll("\\s+", ",");
-            line = "int " + name + " = " + objAndProp + "(" + args + ");\n";
-            compiler.insertStatement(line);
-        }
+        args = args.replaceAll("\\s+", ",");
+        line = "int " + name + " = " + objAndProp + "(" + args + ");\n";
+        compiler.insertStatement(line);
         return line;
     }
 

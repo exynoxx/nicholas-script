@@ -11,11 +11,13 @@ public class CallProcessor implements Processor {
     Pattern functionCall;
     Matcher m;
     Compiler compiler;
+    boolean standalone;
 
 
-    public CallProcessor(Compiler compiler, boolean debug) {
+    public CallProcessor(Compiler compiler, boolean debug, boolean standalone) {
         this.debug = debug;
         this.compiler = compiler;
+        this.standalone = standalone;
         functionCall = Pattern.compile("^\\s*(\\w+):(.*)");
     }
 
@@ -32,7 +34,7 @@ public class CallProcessor implements Processor {
 
         args = args.replaceAll("\\s+", ",");
         String line = name + "(" + args + ");\n";
-        compiler.insertStatement(line);
+        if (standalone) compiler.insertStatement(line);
         return line;
     }
 

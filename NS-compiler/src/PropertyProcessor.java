@@ -17,7 +17,7 @@ public class PropertyProcessor implements Processor {
     public PropertyProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
         this.compiler = compiler;
-        callProcessor = new CallProcessor(compiler,debug);
+        callProcessor = new CallProcessor(compiler,debug,true);
         property = Pattern.compile("(\\d+\\.\\.\\d+|\\w+)\\.(\\w+)(.*)");
         range = Pattern.compile("(\\d+)\\.\\.(\\d+)");
         //mapPattern = Pattern.compile("\\s*\\((\\w+)\\)\\s*(?:->|=>)\\s*(.*)");

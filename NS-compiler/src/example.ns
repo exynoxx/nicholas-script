@@ -1,9 +1,0 @@
-var println = func [string x] {
-    (c) {
-        printf("%s\n", x->data);
-    };
-};
-
-var s = "hello world";
-println: s;
-

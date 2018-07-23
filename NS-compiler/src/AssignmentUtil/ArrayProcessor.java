@@ -1,7 +1,6 @@
 package AssignmentUtil;
 
 import compiler.Compiler;
-import compiler.Processor;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -13,6 +12,8 @@ public class ArrayProcessor {
     Pattern normal;
     boolean debug;
     Compiler compiler;
+    Matcher normalMatcher;
+    Matcher rangeMatcher;
 
     public ArrayProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
@@ -22,25 +23,31 @@ public class ArrayProcessor {
         normal = Pattern.compile("^\\s*\\[(.*)\\]\\s*(const)?");
     }
 
-    public String convert(String name, String s) {
-
-        Matcher matcher = normal.matcher(s);
-        if (matcher.find()) {
-            return arrayNormal(name, matcher);
-        }
-
-        matcher = range.matcher(s);
-        if (matcher.find()) {
-            return range(name,matcher);
-        }
-
-        return null;
+    public boolean testNormal (String s) {
+        normalMatcher = normal.matcher(s);
+        return normalMatcher.find();
     }
 
-    private String arrayNormal(String name, Matcher matcher) {
-        boolean constant = (matcher.group(2) == null) ? false : true;
+    public boolean testRange (String s) {
+        rangeMatcher = range.matcher(s);
+        return rangeMatcher.find();
+    }
 
-        String arrayContent = matcher.group(1).trim();
+    public String convert(String name, String s, boolean range) {
+        String ret = null;
+
+        if (range) {
+            ret = arrayRange(name);
+        } else {
+            ret = arrayNormal(name);
+        }
+        return ret;
+    }
+
+    private String arrayNormal(String name) {
+        boolean constant = (normalMatcher.group(2) == null) ? false : true;
+
+        String arrayContent = normalMatcher.group(1).trim();
         if (constant) {
             return "int " + name + "[] = {" + arrayContent + "};\n";
         } else {
@@ -58,11 +65,11 @@ public class ArrayProcessor {
     }
 
 
-    private String range(String name, Matcher matcher) {
-        boolean constant = (matcher.group(3) == null) ? false : true;
+    private String arrayRange(String name) {
+        boolean constant = (rangeMatcher.group(3) == null) ? false : true;
 
-        int from = Integer.parseInt(matcher.group(1));
-        int to = Integer.parseInt(matcher.group(2));
+        int from = Integer.parseInt(rangeMatcher.group(1));
+        int to = Integer.parseInt(rangeMatcher.group(2));
 
         if (constant) {
 

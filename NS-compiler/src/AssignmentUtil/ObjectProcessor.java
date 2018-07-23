@@ -15,6 +15,7 @@ public class ObjectProcessor {
     boolean debug;
     Compiler compiler;
     PreProcessor preProcessor;
+    Matcher m;
 
     public ObjectProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
@@ -25,21 +26,19 @@ public class ObjectProcessor {
         objectDecleration = Pattern.compile("^\\s*object\\s*\\{\\s*(.*)\\s*\\}");
     }
 
+    public boolean test (String s) {
+        m = objectDecleration.matcher(s);
+        return m.find();
+    }
+
     public String convert(String name, String s) {
-
-
-        Matcher matcher = objectDecleration.matcher(s);
-        if (matcher.find()) {
-            if (debug) System.out.println("---- object");
-            return object(name, matcher);
-        }
-
-        return null;
+        if (debug) System.out.println("---- object");
+        return object(name);
     }
 
 
-    private String object(String name, Matcher matcher) {
-        String body = matcher.group(1);
+    private String object(String name) {
+        String body = m.group(1);
 
         LinkedList<String> tokens = preProcessor.partition(body);
 

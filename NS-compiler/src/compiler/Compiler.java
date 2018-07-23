@@ -30,7 +30,7 @@ public class Compiler {
         processors[0] = new AssignmentProcessor(this, debug);
         processors[1] = new BranchingProcessor(this, debug);
         processors[2] = new NoParseProcessor(this,debug);
-        processors[3] = new CallProcessor(this, debug);
+        processors[3] = new CallProcessor(this, debug, true);
 
         scopeHM = new HashMap<>();
 
@@ -119,7 +119,7 @@ public class Compiler {
 
     public static void main(String[] args) throws IOException {
 
-        String name = "src/example1.ns";
+        String name = "src/examples/print.ns";
         if (args.length > 0) {
             name = args[0];
         }

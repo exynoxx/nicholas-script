@@ -10,10 +10,6 @@ public class AssignmentProcessor implements Processor {
 
     Pattern assignment;
 
-    Pattern call;
-    Pattern numOrMath;
-    Pattern variableMath;
-
     Matcher m;
     boolean debug;
     Compiler compiler;
@@ -35,14 +31,10 @@ public class AssignmentProcessor implements Processor {
         sp = new StringProcessor(compiler, debug);
         fp = new FunctionProcessor(compiler, debug);
         pp = new PropertyProcessor(compiler, debug);
-        cp = new CallProcessor(compiler,debug);
+        cp = new CallProcessor(compiler, debug, false);
 
         assignment = Pattern.compile("^\\s*(var|int|string|arr)?\\s*([\\w\\.]+)\\s*=(.*)");
-        call = Pattern.compile("^\\s*(\\w+):(.*)");
 
-
-        //numOrMath = Pattern.compile("^\\s*([\\s\\d\\+\\*\\/\\-]+)");
-        //variableMath = Pattern.compile("^\\s*(\\w+)\\s*[\\+\\*\\/\\-\\%\\!]\\s*(\\w+)");
         hashMapReturnType = new HashMap<>();
     }
 
@@ -52,7 +44,7 @@ public class AssignmentProcessor implements Processor {
         return m.find();
     }
 
-    public String cc(String s) {
+    public String detectValue(String s) {
         //boolean dynamic = false;
 
         if (debug) System.out.println("-- assignment");
@@ -60,59 +52,67 @@ public class AssignmentProcessor implements Processor {
         String name = m.group(2);
         String assignee = m.group(3).trim();
 
-        String apString = ap.convert(name, assignee);
-        if (apString != null) {
+        if (ap.testNormal(assignee)) {
             if (debug) System.out.println("---- array");
+            String apString = ap.convert(name,assignee,false);
             compiler.insertType(name, Type.ARRAY);
-            if(compiler.getScopeLevel() == 0) {
+            if (compiler.getScopeLevel() == 0) {
                 compiler.insertStatement(apString);
             }
             return apString;
         }
 
+        if (ap.testRange(assignee)) {
+            if (debug) System.out.println("---- array");
+            String apString = ap.convert(name,assignee,true);
+            compiler.insertType(name, Type.ARRAY);
+            if (compiler.getScopeLevel() == 0) {
+                compiler.insertStatement(apString);
+            }
+            return apString;
+        }
 
-        String fpString = fp.convert(name, assignee);
-        if (fpString != null) {
+        if (fp.test(assignee)) {
             if (debug) System.out.println("---- function");
-            compiler.insertType(name,Type.FUNCTION);
+            String fpString = fp.convert(name, assignee);
+            compiler.insertType(name, Type.FUNCTION);
             compiler.insertFunction(fpString);
             return fpString;
         }
 
 
-        String opString = op.convert(name, assignee);
-        if (opString != null) {
-            compiler.insertType(name,Type.OBJECT);
+        if (op.test(assignee)) {
+            String opString = op.convert(name, assignee);
+            compiler.insertType(name, Type.OBJECT);
             return opString;
         }
 
-        String ppString = pp.convert(name, assignee);
-        if (ppString != null) {
+        if (pp.test(assignee)) {
+            String ppString = pp.convert(name);
             if (debug) System.out.println("---- property");
-            compiler.insertType(name,Type.NUMBER);
+            compiler.insertType(name, Type.NUMBER);
             return ppString;
         }
 
-        String spString = sp.convert(name,assignee);
+        String spString = sp.convert(name, assignee);
         if (spString != null) {
             if (debug) System.out.println("---- string");
-            compiler.insertType(name,Type.STRING);
+            compiler.insertType(name, Type.STRING);
             return spString;
         }
 
-        Matcher matcher = call.matcher(assignee);
-        if (matcher.find()) {
+        if (cp.test(assignee)) {
             if (debug) System.out.println("---- function call");
-            String ret = call(name, matcher);
+            String ret = name + " = " + cp.convert(assignee);
             compiler.insertStatement(ret);
-            compiler.insertType(name,Type.NUMBER);
+            compiler.insertType(name, Type.NUMBER);
 
             return ret;
         }
 
         if (debug) System.out.println("-- returning default");
 
-        compiler.insertType(name,Type.NUMBER);
+        compiler.insertType(name, Type.NUMBER);
 
         String pre = (m.group(1) == null) ? "" : "int ";
         String ret = pre + name + " = " + assignee + ";\n";
@@ -127,17 +127,24 @@ public class AssignmentProcessor implements Processor {
     @Override
     public String convert(String s) {
 
-        String ret = cc(s);
+        String type = m.group(1);
+        String name = m.group(2);
+        String assignee = m.group(3).trim();
+
+        if (type.equals("string")) {
+            return sp.convert(name, assignee);
+        } else if (type.equals("arr")) {
+            if (ap.testNormal(assignee)) {
+                return ap.convert(name,assignee,false);
+            } else {
+                ap.testRange(assignee);
+                return ap.convert(name,assignee,true);
+            }
+        }
+
+        String ret = detectValue(s);
         return ret;
 
     }
 
-
-    private String call(String name, Matcher matcher) {
-        String args = matcher.group(2).trim();
-        String pre = (m.group(1) == null) ? "" : "int ";
-        args = args.replaceAll("\\s+", ",");
-        String line = pre + name + " = " + matcher.group(1) + "(" + args + ");\n";
-        return line;
-    }
 }

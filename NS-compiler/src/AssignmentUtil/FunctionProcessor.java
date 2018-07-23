@@ -10,6 +10,7 @@ public class FunctionProcessor {
     Pattern functionDecleration;
     boolean debug;
     Compiler compiler;
+    Matcher m;
 
     public FunctionProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
@@ -17,22 +18,21 @@ public class FunctionProcessor {
         functionDecleration = Pattern.compile("^\\s*func\\s*\\[(.*)\\]\\s*:?\\s*(\\w+)?\\s*\\{\\s*(.*)\\s*\\}");
     }
 
-    public String convert(String name, String s) {
-
-        Matcher matcher = functionDecleration.matcher(s);
-        if (matcher.find()) {
-            if (debug) System.out.println("---- function decleration");
-            return functionDecleration(name, matcher); //variableValueType called inside function
-        }
-
-        return null;
+    public boolean test (String s) {
+        m = functionDecleration.matcher(s);
+        return m.find();
     }
 
-    private String functionDecleration(String name, Matcher matcher) {
+    public String convert(String name, String s) {
+        if (debug) System.out.println("---- function decleration");
+        return functionDecleration(name); //variableValueType called inside function
+    }
 
-        String args = matcher.group(1);
-        String returnType = matcher.group(2);
-        String body = matcher.group(3);
+    private String functionDecleration(String name) {
+
+        String args = m.group(1);
+        String returnType = m.group(2);
+        String body = m.group(3);
 
         if (returnType == null) {
             returnType = "void";
