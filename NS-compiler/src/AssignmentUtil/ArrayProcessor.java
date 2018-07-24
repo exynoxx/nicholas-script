@@ -45,9 +45,9 @@ public class ArrayProcessor {
         String ret = null;
 
         if (type == 0) {
-            ret = arrayRange(name);
-        } else if (type == 1) {
             ret = arrayNormal(name);
+        } else if (type == 1) {
+            ret = arrayRange(name);
         } else {
             ret = arrayEmpty(name);
         }
@@ -63,7 +63,7 @@ public class ArrayProcessor {
         String type = emptyMatcher.group(1);
         String size = emptyMatcher.group(2);
 
-        String ret = "int * " + name + " = (int *) malloc (" + size + "*sizeof(int));\n";
+        String ret = "int *" + name + " = (int *) malloc (" + size + "*sizeof(int));\n";
         compiler.addFreeString("free("+name+");\n");
         return ret;
     }

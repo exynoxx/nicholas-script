@@ -7,3 +7,4 @@ string bb = "hello";
 arr cc = 1..5;
 
 var aaa = 1..5 const;
+var bbb = int(5);

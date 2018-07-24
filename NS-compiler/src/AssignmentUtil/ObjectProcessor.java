@@ -59,7 +59,7 @@ public class ObjectProcessor {
                 compiler.increaseScopeLevel();
                 functionDefinitions += compiler.tokenize(localMatcher.group(4).trim());
                 //functionDefinitions += compiler.getFreeStrings();
-                functionDefinitions += "\n}";
+                functionDefinitions += "}\n\n";
                 statements += name + "." + localMatcher.group(2) + " = " + localMatcher.group(2) + "0;\n";
                 continue;
             }
@@ -78,7 +78,7 @@ public class ObjectProcessor {
         String struct = "typedef struct __" + name + " {\n";
         struct += headerVariables;
         struct += headerFunctions;
-        struct += "} _" + name + ";\n";
+        struct += "} _" + name + ";\n\n";
 
         compiler.insertFunction(struct);
         compiler.insertFunction(functionDefinitions);
