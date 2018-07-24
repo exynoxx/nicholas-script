@@ -58,7 +58,7 @@ public class ObjectProcessor {
                 functionDefinitions += localMatcher.group(1) + " " + localMatcher.group(2) + "0" + " (" + localMatcher.group(3) + ") {\n";
                 compiler.increaseScopeLevel();
                 functionDefinitions += compiler.tokenize(localMatcher.group(4).trim());
-                //functionDefinitions += compiler.getFreeStrings();
+                functionDefinitions += compiler.getFreeStrings();
                 functionDefinitions += "}\n\n";
                 statements += name + "." + localMatcher.group(2) + " = " + localMatcher.group(2) + "0;\n";
                 continue;

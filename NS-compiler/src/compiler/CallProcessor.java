@@ -21,7 +21,7 @@ public class CallProcessor implements Processor {
         this.compiler = compiler;
         this.standalone = standalone;
         random = new Random();
-        functionCall = Pattern.compile("^\\s*(\\w+):(.*)");
+        functionCall = Pattern.compile("^\\s*([\\w\\.]+):(.*)");
     }
 
     @Override
@@ -79,7 +79,7 @@ public class CallProcessor implements Processor {
 
         int leftLimit = 97; // letter 'a'
         int rightLimit = 122; // letter 'z'
-        int targetStringLength = 10;
+        int targetStringLength = 5;
 
         StringBuilder buffer = new StringBuilder(targetStringLength);
         for (int i = 0; i < targetStringLength; i++) {

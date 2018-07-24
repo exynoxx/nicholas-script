@@ -1,3 +1,9 @@
+var print = func [int x] {
+    (c) {
+        printf("%d\n", x);
+    };
+};
+
 var fifo = object {
 
     int head;
@@ -19,9 +25,10 @@ var fifo = object {
     };
 };
 
-fifo.push: 5;
-fifo.push: 4;
+fifo.push: 11;
+fifo.push: 7;
+var a = fifo.pop:;
+var b = fifo.pop:;
 
-
-#var fifo2 = fifo;
-#fifo.init(0,0,10,int(10),no);
+print: a;
+print: b;
