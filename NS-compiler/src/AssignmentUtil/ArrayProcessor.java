@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 
 public class ArrayProcessor {
 
+    Pattern empty;
     Pattern range;
     Pattern slice;
     Pattern normal;
@@ -14,6 +15,7 @@ public class ArrayProcessor {
     Compiler compiler;
     Matcher normalMatcher;
     Matcher rangeMatcher;
+    Matcher emptyMatcher;
 
     public ArrayProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
@@ -21,6 +23,7 @@ public class ArrayProcessor {
         range = Pattern.compile("^\\s*(\\d+)\\.\\.(\\d+)\\s*(const)?");
         slice = Pattern.compile("^\\s*(\\w+)\\[\\s*(\\d+)\\s*:\\s*(\\d+)\\s*\\]");
         normal = Pattern.compile("^\\s*\\[(.*)\\]\\s*(const)?");
+        empty = Pattern.compile("^\\s*(int|string)\\s*\\(\\s*(\\d+)\\s*\\)");
     }
 
     public boolean testNormal (String s) {
@@ -33,19 +36,35 @@ public class ArrayProcessor {
         return rangeMatcher.find();
     }
 
-    public String convert(String name, String s, boolean range) {
+    public boolean testEmpty (String s) {
+        emptyMatcher = empty.matcher(s);
+        return emptyMatcher.find();
+    }
+
+    public String convert(String name, String s, int type) {
         String ret = null;
 
-        if (range) {
+        if (type == 0) {
             ret = arrayRange(name);
-        } else {
+        } else if (type == 1) {
             ret = arrayNormal(name);
+        } else {
+            ret = arrayEmpty(name);
         }
 
         if (compiler.getScopeLevel() == 0) {
             compiler.insertStatement(ret);
         }
 
+        return ret;
+    }
+
+    private String arrayEmpty (String name) {
+        String type = emptyMatcher.group(1);
+        String size = emptyMatcher.group(2);
+
+        String ret = "int * " + name + " = (int *) malloc (" + size + "*sizeof(int));\n";
+        compiler.addFreeString("free("+name+");\n");
         return ret;
     }
 

@@ -6,7 +6,7 @@ var fifo = object {
     arr array;
 
     #fix syntax!!
-    
+
     void push = func [int x] {
         array[head] = x;
         head++;
@@ -15,4 +15,18 @@ var fifo = object {
         };
 
     };
+
+    #init {
+    #    head = 0;
+    #    tail = 0;
+    #    size = 10;
+    #    array = int(10);
+    #}
 };
+
+fifo.push: 5;
+fifo.push: 4;
+
+
+#var fifo2 = fifo;
+#fifo.init(0,0,10,int(10),no);

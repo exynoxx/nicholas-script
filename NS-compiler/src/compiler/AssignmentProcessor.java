@@ -54,17 +54,21 @@ public class AssignmentProcessor implements Processor {
 
         if (ap.testNormal(assignee)) {
             if (debug) System.out.println("---- array");
-            String apString = ap.convert(name,assignee,false);
+            String apString = ap.convert(name,assignee,0);
             compiler.insertType(name, Type.ARRAY);
-            if (compiler.getScopeLevel() == 0) {
-                compiler.insertStatement(apString);
-            }
             return apString;
         }
 
         if (ap.testRange(assignee)) {
             if (debug) System.out.println("---- array");
-            String apString = ap.convert(name,assignee,true);
+            String apString = ap.convert(name,assignee,1);
+            compiler.insertType(name, Type.ARRAY);
+            return apString;
+        }
+
+        if (ap.testEmpty(assignee)) {
+            if (debug) System.out.println("---- array");
+            String apString = ap.convert(name,assignee,2);
             compiler.insertType(name, Type.ARRAY);
             return apString;
         }
@@ -133,10 +137,13 @@ public class AssignmentProcessor implements Processor {
                 return sp.convert(name, assignee);
             } else if (type.equals("arr")) {
                 if (ap.testNormal(assignee)) {
-                    return ap.convert(name,assignee,false);
-                } else {
-                    ap.testRange(assignee);
-                    return ap.convert(name,assignee,true);
+                    return ap.convert(name,assignee,0);
+                }
+                if (ap.testRange(assignee)){
+                    return ap.convert(name,assignee,1);
+                }
+                if (ap.testEmpty(assignee)) {
+                    return ap.convert(name,assignee,2);
                 }
             }
         }
