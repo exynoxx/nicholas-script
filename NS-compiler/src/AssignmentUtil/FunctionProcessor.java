@@ -58,7 +58,7 @@ public class FunctionProcessor {
         String line = returnType + " " + name + "(" + args + ") {\n";
         line += translatedBody;
         if (shouldAddFrees) line += compiler.getFreeStrings();
-        line += "\n}";
+        line += "}\n\n";
         return line;
     }
 }

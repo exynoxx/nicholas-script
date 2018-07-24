@@ -28,7 +28,9 @@ public class StringProcessor {
             compiler.addFreeString("free("+name+"->data);\n");
             compiler.addFreeString("free("+name+");\n");
 
-            compiler.insertStatement(line);
+            if (compiler.getScopeLevel() == 0) {
+                compiler.insertStatement(line);
+            }
             return line;
         }
         return null;
