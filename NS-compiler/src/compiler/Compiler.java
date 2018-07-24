@@ -1,7 +1,5 @@
 package compiler;
 
-import AssignmentUtil.PropertyProcessor;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -13,7 +11,7 @@ public class Compiler {
     boolean debug = false;
 
     PreProcessor cleaningProcessor = new PreProcessor();
-    Processor[] processors = new Processor[4];
+    Processor[] processors = new Processor[5];
 
     LinkedList<String> frees;
     HashMap<Integer, LinkedList<String>> scopeHM;
@@ -30,7 +28,8 @@ public class Compiler {
         processors[0] = new AssignmentProcessor(this, debug);
         processors[1] = new BranchingProcessor(this, debug);
         processors[2] = new NoParseProcessor(this,debug);
-        processors[3] = new CallProcessor(this, debug, true);
+        processors[3] = new PropertyProcessor(this,debug);
+        processors[4] = new CallProcessor(this, debug, true);
 
         scopeHM = new HashMap<>();
 

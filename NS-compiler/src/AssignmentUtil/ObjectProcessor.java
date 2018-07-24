@@ -41,6 +41,7 @@ public class ObjectProcessor {
         String body = m.group(1);
 
         LinkedList<String> tokens = preProcessor.partition(body);
+        LinkedList<String> fields = new LinkedList<>();
 
         String headerVariables = "";
         String headerFunctions = "";
@@ -53,9 +54,14 @@ public class ObjectProcessor {
         for (String token : tokens) {
             localMatcher = functionDecleration.matcher(token);
             if (localMatcher.find()) {
-                headerFunctions += localMatcher.group(1) + "(*" + localMatcher.group(2) + ")(" + localMatcher.group(3) + ");\n";
 
-                functionDefinitions += localMatcher.group(1) + " " + localMatcher.group(2) + "0" + " (" + localMatcher.group(3) + ") {\n";
+                String args = "_" + name + " *self";
+                if (localMatcher.group(3).trim().length() > 0) {
+                    args += ", " + localMatcher.group(3);
+                }
+                headerFunctions += localMatcher.group(1) + "(*" + localMatcher.group(2) + ")(" + args + ");\n";
+
+                functionDefinitions += localMatcher.group(1) + " " + localMatcher.group(2) + "0" + " (" + args + ") {\n";
                 compiler.increaseScopeLevel();
                 functionDefinitions += compiler.tokenize(localMatcher.group(4).trim());
                 functionDefinitions += compiler.getFreeStrings();
@@ -66,12 +72,14 @@ public class ObjectProcessor {
             localMatcher = variableDecleration.matcher(token);
             if (localMatcher.find()) {
                 String variableType = localMatcher.group(1);
+                String fieldName = localMatcher.group(2);
                 String outType = variableType;
 
                 if (variableType.equals("string")) outType = "nstring *";
                 if (variableType.equals("arr")) outType = "int *";
 
-                headerVariables += outType + " " + localMatcher.group(2) + ";\n";
+                headerVariables += outType + " " + fieldName + ";\n";
+                fields.add(fieldName);
             }
         }
         /* ########################3 */
@@ -79,6 +87,10 @@ public class ObjectProcessor {
         struct += headerVariables;
         struct += headerFunctions;
         struct += "} _" + name + ";\n\n";
+
+        for (String keyword : fields) {
+            functionDefinitions = functionDefinitions.replaceAll("("+keyword+")", "self->$1");
+        }
 
         compiler.insertFunction(struct);
         compiler.insertFunction(functionDefinitions);

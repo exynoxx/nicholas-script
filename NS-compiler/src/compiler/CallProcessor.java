@@ -69,7 +69,7 @@ public class CallProcessor implements Processor {
         newArgs = newArgs.replaceAll("\\s+", ",");
         String line = name + "(" + newArgs + ");\n";
 
-        if (standalone && compiler.getScopeLevel() == 0) {
+        if (compiler.getScopeLevel() == 0) {
             compiler.insertStatement(line);
         }
         return line;
