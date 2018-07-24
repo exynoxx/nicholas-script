@@ -1,0 +1,18 @@
+var fifo = object {
+
+    int head;
+    int tail;
+    int size;
+    arr array;
+
+    #fix syntax!!
+    
+    void push = func [int x] {
+        array[head] = x;
+        head++;
+        if (head >= size) {
+            head = 0;
+        };
+
+    };
+};

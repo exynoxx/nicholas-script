@@ -21,8 +21,8 @@ public class ObjectProcessor {
         this.debug = debug;
         this.compiler = compiler;
         this.preProcessor = new PreProcessor();
-        variableDecleration = Pattern.compile("^\\s*(int|string)\\s*(\\w+)");
-        functionDecleration = Pattern.compile("^\\s*(int|string)\\s*(\\w+)\\s*=\\s*func\\s*\\[(.*)\\]\\s*\\{\\s*(.*)\\s*\\}");
+        variableDecleration = Pattern.compile("^\\s*(int|string|arr)\\s*(\\w+)");
+        functionDecleration = Pattern.compile("^\\s*(int|string|void)\\s*(\\w+)\\s*=\\s*func\\s*\\[(.*)\\]\\s*\\{\\s*(.*)\\s*\\}");
         objectDecleration = Pattern.compile("^\\s*object\\s*\\{\\s*(.*)\\s*\\}");
     }
 
@@ -65,7 +65,13 @@ public class ObjectProcessor {
             }
             localMatcher = variableDecleration.matcher(token);
             if (localMatcher.find()) {
-                headerVariables += localMatcher.group(1) + " " + localMatcher.group(2) + ";\n";
+                String variableType = localMatcher.group(1);
+                String outType = variableType;
+
+                if (variableType.equals("string")) outType = "nstring *";
+                if (variableType.equals("arr")) outType = "int *";
+
+                headerVariables += outType + " " + localMatcher.group(2) + ";\n";
             }
         }
         /* ########################3 */

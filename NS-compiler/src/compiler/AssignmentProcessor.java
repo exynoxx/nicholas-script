@@ -128,14 +128,16 @@ public class AssignmentProcessor implements Processor {
         String name = m.group(2);
         String assignee = m.group(3).trim();
 
-        if (type.equals("string")) {
-            return sp.convert(name, assignee);
-        } else if (type.equals("arr")) {
-            if (ap.testNormal(assignee)) {
-                return ap.convert(name,assignee,false);
-            } else {
-                ap.testRange(assignee);
-                return ap.convert(name,assignee,true);
+        if (type != null) {
+            if (type.equals("string")) {
+                return sp.convert(name, assignee);
+            } else if (type.equals("arr")) {
+                if (ap.testNormal(assignee)) {
+                    return ap.convert(name,assignee,false);
+                } else {
+                    ap.testRange(assignee);
+                    return ap.convert(name,assignee,true);
+                }
             }
         }
 

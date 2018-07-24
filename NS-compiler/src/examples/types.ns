@@ -5,3 +5,5 @@ var c = 1..5;
 int aa = 5;
 string bb = "hello";
 arr cc = 1..5;
+
+var aaa = 1..5 const;
