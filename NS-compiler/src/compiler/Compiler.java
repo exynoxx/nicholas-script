@@ -124,7 +124,7 @@ public class Compiler {
 
     public static void main(String[] args) throws IOException {
 
-        String name = "src/examples/objects.ns";
+        String name = "src/examples/types.ns";
         if (args.length > 0) {
             name = args[0];
         }

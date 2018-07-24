@@ -1,10 +1,17 @@
+#number,string,array using var
 var a = 5;
 var b = "hello";
 var c = 1..5;
 
+#number,string,array with types
 int aa = 5;
 string bb = "hello";
 arr cc = 1..5;
 
+#constant array and empty int array
 var aaa = 1..5 const;
 var bbb = int(5);
+
+#reassignment frees old arrays.
+bbb = int(10);
+cc = 1..10;

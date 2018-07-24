@@ -42,18 +42,18 @@ public class ArrayProcessor {
         return emptyMatcher.find();
     }
 
-    public String convert(String name, String s, int type, boolean dynamicVariable) {
+    public String convert(String name, String s, int type, boolean dynamic) {
         String ret = null;
 
         if (type == 0) {
-            ret = arrayNormal(name);
+            ret = arrayNormal(name,dynamic);
         } else if (type == 1) {
-            ret = arrayRange(name);
+            ret = arrayRange(name,dynamic);
         } else {
-            ret = arrayEmpty(name);
+            ret = arrayEmpty(name,dynamic);
         }
 
-        if (!dynamicVariable) {
+        if (!dynamic) {
             ret = retType + ret;
         }
 
@@ -64,17 +64,18 @@ public class ArrayProcessor {
         return ret;
     }
 
-    private String arrayEmpty (String name) {
+    private String arrayEmpty (String name, boolean dynamic) {
         String type = emptyMatcher.group(1);
         String size = emptyMatcher.group(2);
 
         retType = "int *";
-        String ret = name + " = (int *) malloc (" + size + "*sizeof(int));\n";
-        compiler.addFreeString("free("+name+");\n");
+        String ret = (dynamic) ? "free("+name+");\n" : "";
+        ret += name + " = (int *) malloc (" + size + "*sizeof(int));\n";
+        if (!dynamic) compiler.addFreeString("free("+name+");\n");
         return ret;
     }
 
-    private String arrayNormal(String name) {
+    private String arrayNormal(String name, boolean dynamic) {
         boolean constant = (normalMatcher.group(2) == null) ? false : true;
 
         String arrayContent = normalMatcher.group(1).trim();
@@ -85,8 +86,9 @@ public class ArrayProcessor {
             retType = "int *";
             String c = arrayContent.replaceAll("\\s+", "");
             int size = c.split(",").length;
-            String malLine = name + " = (int *) malloc (" + size + "*sizeof(int));\n";
-            compiler.addFreeString("free("+name+");\n");
+            String malLine = (dynamic)? "free("+name+");\n" : "";
+            malLine += name + " = (int *) malloc (" + size + "*sizeof(int));\n";
+            if (!dynamic) compiler.addFreeString("free("+name+");\n");
             String[] elements = arrayContent.split(",");
             String nextline = "";
             for (int i = 0; i < elements.length; i++) {
@@ -97,7 +99,7 @@ public class ArrayProcessor {
     }
 
 
-    private String arrayRange(String name) {
+    private String arrayRange(String name, boolean dynamic) {
         boolean constant = (rangeMatcher.group(3) == null) ? false : true;
 
         int from = Integer.parseInt(rangeMatcher.group(1));
@@ -115,8 +117,9 @@ public class ArrayProcessor {
         } else {
             retType = "int *";
             int size = to-from+1;
-            String malLine = name + " = (int *) malloc (" + size + "*sizeof(int));\n";
-            compiler.addFreeString("free("+name+");\n");
+            String malLine = (dynamic)? "free("+name+");\n" : "";
+            malLine += name + " = (int *) malloc (" + size + "*sizeof(int));\n";
+            if (!dynamic) compiler.addFreeString("free("+name+");\n");
             String nextline = "for (int i = " + from + ", j = 0; i <= " + to + "; i++, j++)  " + name + "[j] = i;\n"; //name + " = (int["+size+"]){";
             return malLine+nextline;
         }
