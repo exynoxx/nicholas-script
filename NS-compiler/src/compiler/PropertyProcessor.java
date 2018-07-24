@@ -26,7 +26,10 @@ public class PropertyProcessor implements Processor {
     }
 
     public String convert(String name) {
+        return convertAssignment(name,false);
+    }
 
+    public String convertAssignment (String name, boolean assignment){
         String obj = m.group(1);
         String prop = m.group(2);
         String args = m.group(3);
@@ -34,14 +37,16 @@ public class PropertyProcessor implements Processor {
         args = "&"+obj+args;
         String line = obj + "." + prop + ":" + args;
         callProcessor.test(line);
-        return callProcessor.convert(line);
-
-        /*
-        args = args.replaceAll("\\s+", ",");
-        line = "int " + name + " = " + objAndProp + "(" + args + ");\n";
-        compiler.insertStatement(line);
-        return line;
-        */
+        compiler.increaseScopeLevel();
+        String ret = callProcessor.convert(line);
+        if (assignment) {
+            ret = "int " + name + " = " + ret;
+        }
+        compiler.decreaseScopeLevel();
+        if (compiler.getScopeLevel() == 0) {
+            compiler.insertStatement(ret);
+        }
+        return ret;
     }
 
 

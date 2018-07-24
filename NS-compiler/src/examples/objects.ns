@@ -25,10 +25,19 @@ var fifo = object {
     };
 };
 
+fifo.head = 0;
+fifo.tail = 0;
+fifo.size = 10;
+fifo.array = int(10);
+
 fifo.push: 11;
 fifo.push: 7;
+fifo.push: 9;
+
 var a = fifo.pop:;
 var b = fifo.pop:;
+var c = fifo.pop:;
 
 print: a;
 print: b;
+print: c;

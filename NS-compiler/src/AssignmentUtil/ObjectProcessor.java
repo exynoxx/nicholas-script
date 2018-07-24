@@ -55,7 +55,7 @@ public class ObjectProcessor {
             localMatcher = functionDecleration.matcher(token);
             if (localMatcher.find()) {
 
-                String args = "_" + name + " *self";
+                String args = "struct __" + name + " *self";
                 if (localMatcher.group(3).trim().length() > 0) {
                     args += ", " + localMatcher.group(3);
                 }

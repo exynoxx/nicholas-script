@@ -89,7 +89,7 @@ public class AssignmentProcessor implements Processor {
         }
 
         if (pp.test(assignee)) {
-            String ppString = pp.convert(name);
+            String ppString = pp.convertAssignment(name,true);
             if (debug) System.out.println("---- property");
             compiler.insertType(name, Type.NUMBER);
             return ppString;

@@ -82,6 +82,11 @@ public class Compiler {
         frees = scopeHM.get(scopeLevel);
     }
 
+    public void decreaseScopeLevel () {
+        scopeLevel--;
+        frees = scopeHM.get(scopeLevel);
+    }
+
     public String getFreeStrings () {
         String ret = "";
         while (frees.size() > 0) {
