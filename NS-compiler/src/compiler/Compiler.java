@@ -62,7 +62,7 @@ public class Compiler {
 
             out += processString(s);
         }
-        out += getFreeStrings();
+        //out += getFreeStrings();
 
 
         return out;
@@ -120,7 +120,7 @@ public class Compiler {
 
     public static void main(String[] args) throws IOException {
 
-        String name = "src/examples/print.ns";
+        String name = "src/examples/types.ns";
         if (args.length > 0) {
             name = args[0];
         }

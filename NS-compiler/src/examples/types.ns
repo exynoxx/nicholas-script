@@ -5,23 +5,3 @@ var c = 1..5;
 int aa = 5;
 string bb = "hello";
 arr cc = 1..5;
-
-
-
-var println = func [string x] {
-    (c) {
-        printf("%s\n", x->data);
-    };
-};
-
-var printInt = func [int x] {
-    (c) {
-        printf("%d\n", x);
-    };
-};
-
-var s1 = "hello world";
-var s2 = 56;
-
-println: s1;
-printInt: s2;

@@ -41,6 +41,11 @@ public class ArrayProcessor {
         } else {
             ret = arrayNormal(name);
         }
+
+        if (compiler.getScopeLevel() == 0) {
+            compiler.insertStatement(ret);
+        }
+
         return ret;
     }
 

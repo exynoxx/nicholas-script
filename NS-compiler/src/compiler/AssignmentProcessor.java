@@ -66,9 +66,6 @@ public class AssignmentProcessor implements Processor {
             if (debug) System.out.println("---- array");
             String apString = ap.convert(name,assignee,true);
             compiler.insertType(name, Type.ARRAY);
-            if (compiler.getScopeLevel() == 0) {
-                compiler.insertStatement(apString);
-            }
             return apString;
         }
 

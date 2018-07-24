@@ -33,9 +33,11 @@ public class FunctionProcessor {
         String args = m.group(1);
         String returnType = m.group(2);
         String body = m.group(3);
+        boolean shouldAddFrees = false;
 
         if (returnType == null) {
             returnType = "void";
+            shouldAddFrees = true;
         }
 
         String[] argsList = args.split(",");
@@ -55,6 +57,7 @@ public class FunctionProcessor {
 
         String line = returnType + " " + name + "(" + args + ") {\n";
         line += translatedBody;
+        if (shouldAddFrees) line += compiler.getFreeStrings();
         line += "\n}";
         return line;
     }
