@@ -45,30 +45,30 @@ public class AssignmentProcessor implements Processor {
     }
 
     public String detectValue(String s) {
-        //boolean dynamic = false;
+        boolean dynamic = false;
 
         if (debug) System.out.println("-- assignment");
-        //if(m.group(1) == null) dynamic = true;
+        if(m.group(1) == null) dynamic = true;
         String name = m.group(2);
         String assignee = m.group(3).trim();
 
         if (ap.testNormal(assignee)) {
             if (debug) System.out.println("---- array");
-            String apString = ap.convert(name,assignee,0);
+            String apString = ap.convert(name,assignee,0,dynamic);
             compiler.insertType(name, Type.ARRAY);
             return apString;
         }
 
         if (ap.testRange(assignee)) {
             if (debug) System.out.println("---- array");
-            String apString = ap.convert(name,assignee,1);
+            String apString = ap.convert(name,assignee,1,dynamic);
             compiler.insertType(name, Type.ARRAY);
             return apString;
         }
 
         if (ap.testEmpty(assignee)) {
             if (debug) System.out.println("---- array");
-            String apString = ap.convert(name,assignee,2);
+            String apString = ap.convert(name,assignee,2,dynamic);
             compiler.insertType(name, Type.ARRAY);
             return apString;
         }
@@ -137,13 +137,13 @@ public class AssignmentProcessor implements Processor {
                 return sp.convert(name, assignee);
             } else if (type.equals("arr")) {
                 if (ap.testNormal(assignee)) {
-                    return ap.convert(name,assignee,0);
+                    return ap.convert(name,assignee,0,false);
                 }
                 if (ap.testRange(assignee)){
-                    return ap.convert(name,assignee,1);
+                    return ap.convert(name,assignee,1,false);
                 }
                 if (ap.testEmpty(assignee)) {
-                    return ap.convert(name,assignee,2);
+                    return ap.convert(name,assignee,2,false);
                 }
             }
         }

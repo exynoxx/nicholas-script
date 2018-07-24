@@ -25,6 +25,7 @@ var fifo = object {
     };
 };
 
+#fix syntax - introduce "init" feature
 fifo.head = 0;
 fifo.tail = 0;
 fifo.size = 10;
