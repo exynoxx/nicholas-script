@@ -1,0 +1,3 @@
+var world = "world";
+var c = "hello" ~ " " ~ world ~ "!";
+prints: c;

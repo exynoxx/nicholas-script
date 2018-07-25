@@ -95,9 +95,15 @@ public class AssignmentProcessor implements Processor {
             return ppString;
         }
 
-        String spString = sp.convert(name, assignee);
-        if (spString != null) {
+        if (sp.testString(assignee)) {
             if (debug) System.out.println("---- string");
+            String spString = sp.convertString(name);
+            compiler.insertType(name, Type.STRING);
+            return spString;
+        }
+        if (sp.testStringCat(assignee)) {
+            if (debug) System.out.println("---- string");
+            String spString = sp.convertStringCat(name,assignee);
             compiler.insertType(name, Type.STRING);
             return spString;
         }
@@ -107,7 +113,6 @@ public class AssignmentProcessor implements Processor {
             String ret = name + " = " + cp.convert(assignee);
             compiler.insertStatement(ret);
             compiler.insertType(name, Type.NUMBER);
-
             return ret;
         }
 
@@ -134,7 +139,18 @@ public class AssignmentProcessor implements Processor {
 
         if (type != null) {
             if (type.equals("string")) {
-                return sp.convert(name, assignee);
+                if (sp.testString(assignee)) {
+                    if (debug) System.out.println("---- string");
+                    String spString = sp.convertString(name);
+                    compiler.insertType(name, Type.STRING);
+                    return spString;
+                }
+                if (sp.testStringCat(assignee)) {
+                    if (debug) System.out.println("---- string");
+                    String spString = sp.convertStringCat(name,assignee);
+                    compiler.insertType(name, Type.STRING);
+                    return spString;
+                }
             } else if (type.equals("arr")) {
                 if (ap.testNormal(assignee)) {
                     return ap.convert(name,assignee,0,false);

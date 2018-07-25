@@ -28,4 +28,4 @@ f4: "hej" 4;
 #haskell
 #f5 x y = x+y;
 
-prints: f1: 4 "string" 5 6;
+printi: f4: "hello world" 4;
