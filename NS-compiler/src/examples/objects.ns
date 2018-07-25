@@ -1,9 +1,3 @@
-var print = func [int x] {
-    (c) {
-        printf("%d\n", x);
-    };
-};
-
 var fifo = object {
 
     int head;
@@ -39,6 +33,6 @@ var a = fifo.pop:;
 var b = fifo.pop:;
 var c = fifo.pop:;
 
-print: a;
-print: b;
-print: c;
+prints: a;
+prints: b;
+prints: c;

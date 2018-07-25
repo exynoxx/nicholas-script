@@ -39,7 +39,7 @@ public class Compiler {
         }
 
         frees = scopeHM.get(0);
-        functionDeclerations += "typedef struct _nstring {\nchar *data;\nint size;\nint allocsize;\n} nstring;\n\n";
+        functionDeclerations += "typedef struct _nstring {\nchar *data;\nint size;\n} nstring;\n\n";
         //functionDeclerations += "var prints = func [string x] {(c) {printf(\"%s\\n\", x->data);};};var printi = func [int x] {(c) {printf(\"%d\\n\", x);};};";
         functionDeclerations += "void prints(nstring * x) {\nprintf(\"%s\\n\", x->data);\n}\n void printi(int x) {\nprintf(\"%d\\n\", x);\n}\n";
     }
@@ -128,7 +128,7 @@ public class Compiler {
 
     public static void main(String[] args) throws IOException {
 
-        String name = "src/examples/helloworld.ns";
+        String name = "src/examples/functions.ns";
         if (args.length > 0) {
             name = args[0];
         }

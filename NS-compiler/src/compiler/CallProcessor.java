@@ -34,8 +34,24 @@ public class CallProcessor implements Processor {
     public String convert(String s) {
         String name = m.group(1);
         String args = m.group(2).trim();
+        String line = recursiveConvert(name, args) + ";\n";
+
+        if (compiler.getScopeLevel() == 0) {
+            compiler.insertStatement(line);
+        }
+        return line;
+    }
+
+    private String recursiveConvert(String name, String args) {
         String newArgs = "";
         String stringExtract = "";
+
+        //recursive: function call in args.
+        if (args.contains(":")) {
+            if (test(args.trim())) {
+                args = recursiveConvert(m.group(1),m.group(2).trim());
+            }
+        }
 
         //does arguments contain string? yes: extract it into seperate line of code.
         if(args.contains("\"")){
@@ -70,12 +86,7 @@ public class CallProcessor implements Processor {
         }
 
         newArgs = newArgs.replaceAll("\\s+", ",");
-        String line = name + "(" + newArgs + ");\n";
-
-        if (compiler.getScopeLevel() == 0) {
-            compiler.insertStatement(line);
-        }
-        return line;
+        return name + "(" + newArgs + ")";
     }
 
     public String generateRandomName() {

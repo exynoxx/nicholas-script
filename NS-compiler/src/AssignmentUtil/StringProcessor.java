@@ -20,10 +20,11 @@ public class StringProcessor {
 
         Matcher matcher = stringPattern.matcher(s);
         if (matcher.find()) {
+            int size = matcher.group(1).length();
+
             String line = "nstring *" + name + " = (nstring *) malloc (sizeof(nstring));\n";
-            line += name + "->data = (char *) malloc (50);\n";
-            line += name + "->allocsize = 50;\n";
-            line += name + "->size = " + matcher.group(1).length() + ";\n";
+            line += name + "->data = (char *) malloc ("+size+");\n";
+            line += name + "->size = " + size + ";\n";
             line += "strcpy("+name+"->data, \"" + matcher.group(1) + "\");\n";
             compiler.addFreeString("free("+name+"->data);\n");
             compiler.addFreeString("free("+name+");\n");
