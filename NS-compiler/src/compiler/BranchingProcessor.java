@@ -35,12 +35,21 @@ public class BranchingProcessor implements Processor {
 
         String line =  type + cond + "{\n";
         compiler.increaseScopeLevel();
-        line += compiler.tokenize(body) + "\n}";
+        line += compiler.tokenize(body);
+        line += compiler.getFreeStrings();
+        line += "\n}";
 
         if (elseBody != null) {
             compiler.increaseScopeLevel();
-            line += "else {\n" + compiler.tokenize(elseBody) + "\n}";
+            line += "else {\n" + compiler.tokenize(elseBody);
+            line += compiler.getFreeStrings();
+            line += "\n}";
         }
+
+        if (compiler.getScopeLevel() == 0) {
+            compiler.insertStatement(line);
+        }
+
         return line;
     }
 }

@@ -13,5 +13,7 @@ var aaa = 1..5 const;
 var bbb = int(5);
 
 #reassignment frees old arrays.
+#new values of bbb and cc must have same type (array).
 bbb = int(10);
 cc = 1..10;
+cc = int (2);

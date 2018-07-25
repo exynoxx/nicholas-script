@@ -11,7 +11,7 @@ public class Compiler {
     boolean debug = false;
 
     PreProcessor cleaningProcessor = new PreProcessor();
-    Processor[] processors = new Processor[5];
+    Processor[] processors = new Processor[6];
 
     LinkedList<String> frees;
     HashMap<Integer, LinkedList<String>> scopeHM;
@@ -19,7 +19,7 @@ public class Compiler {
 
     HashMap<String, Type> typeHashMap = new HashMap<>();
 
-    String functionDeclerations = "typedef struct _nstring {\nchar *data;\nint size;\nint allocsize;\n} nstring;\n\n";
+    String functionDeclerations = "";
     String statements = "";
 
 
@@ -27,9 +27,10 @@ public class Compiler {
 
         processors[0] = new AssignmentProcessor(this, debug);
         processors[1] = new BranchingProcessor(this, debug);
-        processors[2] = new NoParseProcessor(this,debug);
-        processors[3] = new PropertyProcessor(this,debug);
-        processors[4] = new CallProcessor(this, debug, true);
+        processors[2] = new NoParseProcessor(this, debug);
+        processors[3] = new PropertyProcessor(this, debug);
+        processors[4] = new StdProcessor(this, debug);
+        processors[5] = new CallProcessor(this, debug, true);
 
         scopeHM = new HashMap<>();
 
@@ -38,6 +39,9 @@ public class Compiler {
         }
 
         frees = scopeHM.get(0);
+        functionDeclerations += "typedef struct _nstring {\nchar *data;\nint size;\nint allocsize;\n} nstring;\n\n";
+        //functionDeclerations += "var prints = func [string x] {(c) {printf(\"%s\\n\", x->data);};};var printi = func [int x] {(c) {printf(\"%d\\n\", x);};};";
+        functionDeclerations += "void prints(nstring * x) {\nprintf(\"%s\\n\", x->data);\n}\n void printi(int x) {\nprintf(\"%d\\n\", x);\n}\n";
     }
 
     String readFile(String path) throws IOException {
@@ -77,17 +81,17 @@ public class Compiler {
         return ret;
     }
 
-    public void increaseScopeLevel () {
+    public void increaseScopeLevel() {
         scopeLevel++;
         frees = scopeHM.get(scopeLevel);
     }
 
-    public void decreaseScopeLevel () {
+    public void decreaseScopeLevel() {
         scopeLevel--;
         frees = scopeHM.get(scopeLevel);
     }
 
-    public String getFreeStrings () {
+    public String getFreeStrings() {
         String ret = "";
         while (frees.size() > 0) {
             ret += frees.removeFirst();
@@ -98,11 +102,11 @@ public class Compiler {
         return ret;
     }
 
-    public void addFreeString (String s) {
+    public void addFreeString(String s) {
         frees.add(s);
     }
 
-    public void insertFunction (String s) {
+    public void insertFunction(String s) {
         functionDeclerations += s;
     }
 
@@ -110,21 +114,21 @@ public class Compiler {
         return scopeLevel;
     }
 
-    public void insertStatement (String s) {
+    public void insertStatement(String s) {
         statements += s;
     }
 
-    public void insertType (String name, Type type) {
-        typeHashMap.put(name,type);
+    public void insertType(String name, Type type) {
+        typeHashMap.put(name, type);
     }
 
-    public Type getType (String name) {
+    public Type getType(String name) {
         return typeHashMap.get(name);
     }
 
     public static void main(String[] args) throws IOException {
 
-        String name = "src/examples/types.ns";
+        String name = "src/examples/helloworld.ns";
         if (args.length > 0) {
             name = args[0];
         }

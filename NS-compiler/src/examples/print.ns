@@ -1,10 +1,10 @@
-var println = func [string x] {
+var prints = func [string x] {
     (c) {
         printf("%s\n", x->data);
     };
 };
 
-var printInt = func [int x] {
+var printi = func [int x] {
     (c) {
         printf("%d\n", x);
     };

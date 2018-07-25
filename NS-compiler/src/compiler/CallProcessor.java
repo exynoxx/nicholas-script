@@ -35,6 +35,7 @@ public class CallProcessor implements Processor {
         String name = m.group(1);
         String args = m.group(2).trim();
         String newArgs = "";
+        String stringExtract = "";
 
         //does arguments contain string? yes: extract it into seperate line of code.
         if(args.contains("\"")){
@@ -49,7 +50,9 @@ public class CallProcessor implements Processor {
                     String newName = generateRandomName();
                     //compiler.increaseScopeLevel();
                     String nsString = "string " + newName + " = " + args.substring(lastPos, i + 1) + ";";
-                    compiler.tokenize(nsString);
+                    //string processor will insert statement.
+                    //string XXXXX = "hello wolrd";
+                    stringExtract = compiler.tokenize(nsString);
                     newArgs += newName;
                     lastPos = i+1;
                     continue;
