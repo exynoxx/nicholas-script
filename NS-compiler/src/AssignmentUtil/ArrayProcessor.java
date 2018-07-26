@@ -67,6 +67,7 @@ public class ArrayProcessor {
     private String arrayEmpty (String name, boolean dynamic) {
         String type = emptyMatcher.group(1);
         String size = emptyMatcher.group(2);
+        compiler.insertArraySize(name,Integer.parseInt(size));
 
         retType = "int *";
         String ret = (dynamic) ? "free("+name+");\n" : "";
@@ -81,11 +82,14 @@ public class ArrayProcessor {
         String arrayContent = normalMatcher.group(1).trim();
         if (constant) {
             retType = "int ";
+            int size = arrayContent.split(",").length;
+            compiler.insertArraySize(name,size);
             return name + "[] = {" + arrayContent + "};\n";
         } else {
             retType = "int *";
             String c = arrayContent.replaceAll("\\s+", "");
             int size = c.split(",").length;
+            compiler.insertArraySize(name,size);
             String malLine = (dynamic)? "free("+name+");\n" : "";
             malLine += name + " = (int *) malloc (" + size + "*sizeof(int));\n";
             if (!dynamic) compiler.addFreeString("free("+name+");\n");
@@ -113,6 +117,8 @@ public class ArrayProcessor {
                 from = Integer.parseInt(a);
                 to = Integer.parseInt(b);
             }
+            int size = to-from+1;
+            compiler.insertArraySize(name,size);
 
             retType = "int ";
             String line = name + "[] = {";
@@ -122,6 +128,14 @@ public class ArrayProcessor {
             line += to + "};\n";
             return line;
         } else {
+
+            int from,to;
+            from = (a.matches("\\d+")) ? Integer.parseInt(a) : compiler.getVariableValue(a);
+            to = (b.matches("\\d+")) ? Integer.parseInt(b) : compiler.getVariableValue(b);
+            int size = to-from+1;
+            compiler.insertArraySize(name,size);
+
+
             retType = "int *";
             String malLine = (dynamic)? "free("+name+");\n" : "";
             malLine += name + " = (int *) malloc (("+b+"-"+a+"+1)*sizeof(int));\n";

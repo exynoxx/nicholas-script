@@ -15,9 +15,12 @@ public class Compiler {
 
     LinkedList<String> frees;
     HashMap<Integer, LinkedList<String>> scopeHM;
+
     int scopeLevel = 0;
 
     HashMap<String, Type> typeHashMap = new HashMap<>();
+    HashMap<String, Integer> arraySizeHashMap = new HashMap<>();
+    HashMap<String, Integer> variableValue = new HashMap<>();
 
     String functionDeclerations = "";
     String statements = "";
@@ -126,9 +129,25 @@ public class Compiler {
         return typeHashMap.get(name);
     }
 
+    public void insertArraySize (String name, int size) {
+        arraySizeHashMap.put(name,size);
+    }
+
+    public int getArraySize (String name) {
+        return arraySizeHashMap.get(name);
+    }
+
+    public int getVariableValue(String name) {
+        return variableValue.get(name);
+    }
+
+    public void insertVariableValue(String name, int value) {
+        variableValue.put(name,value);
+    }
+
     public static void main(String[] args) throws IOException {
 
-        String name = "src/examples/strings.ns";
+        String name = "src/examples/map.ns";
         if (args.length > 0) {
             name = args[0];
         }

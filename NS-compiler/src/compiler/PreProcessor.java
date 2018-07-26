@@ -7,7 +7,7 @@ public class PreProcessor {
 
     public String clean(String s) {
         String string = s;
-        string = string.replaceAll("#.*\\n", "");
+        string = string.replaceAll("^\\s*#.*\\n$", "");
         string = string.replaceAll("\\n", " ");
         string = string.replaceAll("\\s+", " ");
         return string;

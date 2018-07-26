@@ -1,0 +1,12 @@
+prints: "##############";
+1..10.map: i -> printi: i;
+
+prints: "##############";
+var ar = 1..7;
+ar.map: i -> func[int i] {
+    prints: i;
+};
+
+prints: "##############";
+var ar2 = [1,7,2,9,3];
+ar2.map: i -> printi: i;

@@ -75,7 +75,7 @@ public class AssignmentProcessor implements Processor {
 
         if (fp.test(assignee)) {
             if (debug) System.out.println("---- function");
-            String fpString = fp.convert(name, assignee);
+            String fpString = fp.convert(name);
             compiler.insertType(name, Type.FUNCTION);
             compiler.insertFunction(fpString);
             return fpString;
@@ -122,6 +122,7 @@ public class AssignmentProcessor implements Processor {
 
         String pre = (m.group(1) == null) ? "" : "int ";
         String ret = pre + name + " = " + assignee + ";\n";
+        compiler.insertVariableValue(name,Integer.parseInt(assignee));
 
         if (compiler.getScopeLevel() == 0) {
             compiler.insertStatement(ret);

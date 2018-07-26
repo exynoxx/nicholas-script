@@ -23,7 +23,7 @@ public class FunctionProcessor {
         return m.find();
     }
 
-    public String convert(String name, String s) {
+    public String convert(String name) {
         if (debug) System.out.println("---- function decleration");
         return functionDecleration(name); //variableValueType called inside function
     }

@@ -1,5 +1,6 @@
 package compiler;
 
+import AssignmentUtil.FunctionProcessor;
 import compiler.Compiler;
 
 import java.util.regex.Matcher;
@@ -7,34 +8,41 @@ import java.util.regex.Pattern;
 
 public class PropertyProcessor implements Processor {
 
+    Pattern map;
     Pattern propertyCall;
     boolean debug;
     Compiler compiler;
+    FunctionProcessor functionProcessor;
     CallProcessor callProcessor;
     Matcher m;
 
     public PropertyProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
         this.compiler = compiler;
-        callProcessor = new CallProcessor(compiler,debug,true);
-        propertyCall = Pattern.compile("^\\s*(\\w+)\\.(\\w+):(.*)");
+        callProcessor = new CallProcessor(compiler, debug, true);
+        functionProcessor = new FunctionProcessor(compiler,debug);
+        propertyCall = Pattern.compile("^\\s*((\\d+|\\w+)\\.\\.(\\d+|\\w+)|\\w+)\\.(\\w+):(.*)");
+        map = Pattern.compile("^\\s*(\\w+)\\s*(?:->|=>)\\s*(.*)");
     }
 
-    public boolean test (String s) {
+    public boolean test(String s) {
         m = propertyCall.matcher(s);
         return m.find();
     }
 
     public String convert(String name) {
-        return convertAssignment(name,false);
+        return convertAssignment(name, false);
     }
 
-    public String convertAssignment (String name, boolean assignment){
+    public String convertAssignment(String name, boolean assignment) {
         String obj = m.group(1);
-        String prop = m.group(2);
-        String args = m.group(3);
+        String prop = m.group(4);
+        String args = m.group(5);
 
-        args = "&"+obj+args;
+        String x = checkBuildInProps(assignment);
+        if (x != null) return x;
+
+        args = "&" + obj + args;
         String line = obj + "." + prop + ":" + args;
         callProcessor.test(line);
         compiler.increaseScopeLevel();
@@ -47,6 +55,63 @@ public class PropertyProcessor implements Processor {
             compiler.insertStatement(ret);
         }
         return ret;
+    }
+
+    private String checkBuildInProps(boolean assignment) {
+        String obj = m.group(1);
+        String a = m.group(2);
+        String b = m.group(3);
+        String prop = m.group(4);
+        String args = m.group(5).trim();
+        String variable = "";
+        String body = "";
+
+        Matcher matcher = map.matcher(args);
+        if (matcher.find()) {
+            variable = matcher.group(1);
+            body = matcher.group(2);
+        }
+        String content = "";
+        if (functionProcessor.test(body)) {
+            String name = callProcessor.generateRandomName();
+            String ret = functionProcessor.convert(name);
+            compiler.insertFunction(ret);
+            content = name + " ("+variable+");\n";
+        } else {
+            compiler.increaseScopeLevel();
+            content = compiler.tokenize(body + ";");
+            content += compiler.getFreeStrings();
+
+        }
+
+        if (prop.equals("map")) {
+            String line = "";
+            if (a == null || b == null) {
+                String newVar = callProcessor.generateRandomName();
+                String arraySize;
+
+                try {
+                    arraySize = String.valueOf(compiler.getArraySize(obj));
+                } catch (Exception e) {
+                    arraySize = "-1";
+                }
+
+                line = "for (int "+newVar+" = 0; "+newVar+" < "+ arraySize +";"+newVar+"++) {\n";
+                line += "int "+variable+" = "+obj+"["+newVar+"];\n";
+                line += content;
+                line += "}\n";
+
+            } else {
+                line = "for (int "+variable+" = "+a+"; "+variable+" <= "+b+"; "+variable+"++) {\n";
+                line += content;
+                line += "}\n";
+            }
+            if (compiler.getScopeLevel() == 0) {
+                compiler.insertStatement(line);
+            }
+            return line;
+        }
+        return null;
     }
 
 
