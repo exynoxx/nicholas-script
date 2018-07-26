@@ -1,7 +1,4 @@
 var x = 0;
 stdin: x;
 
-1..x.map: i -> func [int i] {
-    var s = i ~ " Abracadabra";
-    prints: s;
-};
+1..x.map: i -> prints: i ~ " Abracadabra";

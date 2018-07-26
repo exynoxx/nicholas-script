@@ -1,7 +1,5 @@
 package compiler;
 
-import compiler.Processor;
-
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -14,7 +12,8 @@ public class CallProcessor implements Processor {
     Compiler compiler;
     boolean standalone;
     Random random;
-
+    String before = "";
+    String after = "";
 
     public CallProcessor(Compiler compiler, boolean debug, boolean standalone) {
         this.debug = debug;
@@ -35,6 +34,7 @@ public class CallProcessor implements Processor {
         String name = m.group(1);
         String args = m.group(2).trim();
         String line = recursiveConvert(name, args) + ";\n";
+        line = before + line + after;
 
         if (compiler.getScopeLevel() == 0) {
             compiler.insertStatement(line);
@@ -54,10 +54,13 @@ public class CallProcessor implements Processor {
         }
 
         if (!args.contains(":") && args.contains("~") || args.contains("+") || args.contains("*") || args.contains("/")) {
-            String nsString = "var " + generateRandomName() + " = " + args.trim() + ";";
+            String tmpName = generateRandomName();
+            String nsString = "var " + tmpName + " = " + args.trim() + ";";
             compiler.increaseScopeLevel();
-            String before = compiler.tokenize(nsString);
-            compiler.decreaseScopeLevel();
+            before = compiler.tokenize(nsString);
+            after = compiler.getFreeStrings();
+            //after later
+            args = tmpName;
         }
 
         //does arguments contain string? yes: extract it into seperate line of code.

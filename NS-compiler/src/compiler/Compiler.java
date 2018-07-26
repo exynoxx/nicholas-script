@@ -60,7 +60,7 @@ public class Compiler {
 
         for (String s : tokens) {
             if (debug) System.out.println("input: " + s);
-            //all "free"-statements come before return-statement
+            //all "after"-statements come before return-statement
 
             if (s.contains("return")) {
                 out += getFreeStrings();
