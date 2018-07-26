@@ -1,3 +1,3 @@
 var world = "world";
-var c = "hello" ~ " " ~ world ~ "!";
-prints: c;
+var a = "hello" ~ " " ~ world ~ "!";
+prints: a;

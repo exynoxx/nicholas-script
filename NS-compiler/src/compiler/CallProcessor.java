@@ -53,6 +53,13 @@ public class CallProcessor implements Processor {
             }
         }
 
+        if (!args.contains(":") && args.contains("~") || args.contains("+") || args.contains("*") || args.contains("/")) {
+            String nsString = "var " + generateRandomName() + " = " + args.trim() + ";";
+            compiler.increaseScopeLevel();
+            String before = compiler.tokenize(nsString);
+            compiler.decreaseScopeLevel();
+        }
+
         //does arguments contain string? yes: extract it into seperate line of code.
         if(args.contains("\"")){
             char[] charArray = args.toCharArray();
