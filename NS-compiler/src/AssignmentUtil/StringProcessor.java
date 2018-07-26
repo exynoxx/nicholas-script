@@ -67,7 +67,7 @@ public class StringProcessor {
                     String rname = callProcessor.generateRandomName();
                     before += "char "+rname+"[12];\n";
                     before += "snprintf("+rname+", 12, \"%d\", "+tok+");\n";
-                    size += "strlen ("+rname+")+";
+                    size += "strlen("+rname+")+";
                     tokens[i] = rname;
                 } else {
                     size += tok + "->size+";
@@ -80,7 +80,7 @@ public class StringProcessor {
         String line = before + "nstring *" + name + " = (nstring *) malloc (sizeof(nstring));\n";
         line += name + "->size = "+size+";\n";
         line += name + "->data = (char *) malloc ("+name+"->size);\n";
-        line += "strcpy("+name+"->data, \"\");\n";
+        //line += "strcpy("+name+"->data, \"\");\n";
         for (String tk : tokens) {
             line += "strcat("+name+"->data, " + tk + ");\n";
         }
