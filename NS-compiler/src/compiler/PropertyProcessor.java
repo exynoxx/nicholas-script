@@ -63,13 +63,14 @@ public class PropertyProcessor implements Processor {
         String b = m.group(3);
         String prop = m.group(4);
         String args = m.group(5).trim();
-        String variable = "";
+        String variable = "i";
         String body = "";
 
         Matcher matcher = map.matcher(args);
         if (matcher.find()) {
             variable = matcher.group(1);
             body = matcher.group(2);
+            compiler.insertType(variable,Type.NUMBER);
         }
         String content = "";
         if (functionProcessor.test(body)) {
