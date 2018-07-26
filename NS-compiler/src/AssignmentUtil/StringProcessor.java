@@ -12,7 +12,6 @@ public class StringProcessor {
     CallProcessor callProcessor;
     Pattern stringPattern = Pattern.compile("^\\s*\"([^\"]*)\"\\s*$");
     Pattern stringCat = Pattern.compile("^\\s*(?:\\w+|\".*\")(?:\\s*~\\s*(?:\\w+|\".*\"))+");
-    Pattern word = Pattern.compile("^\\s*\\w+");
     boolean debug;
     Compiler compiler;
     Matcher stringMatcher;
@@ -63,15 +62,15 @@ public class StringProcessor {
             if (matcher.find()) {
                 size += matcher.group(1).length() + "+";
             } else {
-                if (compiler.getType(tok) == Type.NUMBER) {
+                if (compiler.getType(tok) == Type.STRING) {
+                    size += tok + "->size+";
+                    tokens[i] = tok + "->data";
+                } else {
                     String rname = callProcessor.generateRandomName();
                     before += "char "+rname+"[12];\n";
                     before += "snprintf("+rname+", 12, \"%d\", "+tok+");\n";
                     size += "strlen("+rname+")+";
                     tokens[i] = rname;
-                } else {
-                    size += tok + "->size+";
-                    tokens[i] = tok + "->data";
                 }
             }
         }

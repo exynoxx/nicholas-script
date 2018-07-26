@@ -2,6 +2,6 @@ var world = "world";
 var a = "hello" ~ " " ~ world ~ "!";
 prints: a;
 
-var b = 5;
-var c = b ~ " " ~ a;
-prints: c;
+var twothree = "2 3";
+var string = 1 ~ " " ~ twothree ~ " " ~ 4;
+prints: string;
