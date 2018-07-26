@@ -21,7 +21,7 @@ public class ArrayProcessor {
     public ArrayProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
         this.compiler = compiler;
-        range = Pattern.compile("^\\s*(\\d+)\\.\\.(\\d+)\\s*(const)?");
+        range = Pattern.compile("^\\s*(\\d+|\\w+)\\.\\.(\\d+|\\w+)\\s*(const)?");
         slice = Pattern.compile("^\\s*(\\w+)\\[\\s*(\\d+)\\s*:\\s*(\\d+)\\s*\\]");
         normal = Pattern.compile("^\\s*\\[(.*)\\]\\s*(const)?");
         empty = Pattern.compile("^\\s*(int|string)\\s*\\(\\s*(\\d+)\\s*\\)");
@@ -102,10 +102,17 @@ public class ArrayProcessor {
     private String arrayRange(String name, boolean dynamic) {
         boolean constant = (rangeMatcher.group(3) == null) ? false : true;
 
-        int from = Integer.parseInt(rangeMatcher.group(1));
-        int to = Integer.parseInt(rangeMatcher.group(2));
+        String a = rangeMatcher.group(1);
+        String b = rangeMatcher.group(2);
 
         if (constant) {
+            int to = 1;
+            int from = 3;
+
+            if (a.matches("\\d+") && b.matches("\\d+")) {
+                from = Integer.parseInt(a);
+                to = Integer.parseInt(b);
+            }
 
             retType = "int ";
             String line = name + "[] = {";
@@ -116,11 +123,10 @@ public class ArrayProcessor {
             return line;
         } else {
             retType = "int *";
-            int size = to-from+1;
             String malLine = (dynamic)? "free("+name+");\n" : "";
-            malLine += name + " = (int *) malloc (" + size + "*sizeof(int));\n";
+            malLine += name + " = (int *) malloc (("+b+"-"+a+"+1)*sizeof(int));\n";
             if (!dynamic) compiler.addFreeString("free("+name+");\n");
-            String nextline = "for (int i = " + from + ", j = 0; i <= " + to + "; i++, j++)  " + name + "[j] = i;\n"; //name + " = (int["+size+"]){";
+            String nextline = "for (int i = " + a + ", j = 0; i <= " + b + "; i++, j++)  " + name + "[j] = i;\n"; //name + " = (int["+size+"]){";
             return malLine+nextline;
         }
 

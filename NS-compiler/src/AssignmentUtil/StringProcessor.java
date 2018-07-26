@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 public class StringProcessor {
 
     Pattern stringPattern = Pattern.compile("^\\s*\"([^\"]*)\"\\s*$");
-    Pattern stringCat = Pattern.compile("^\\s*(?:\\w+|\".*\")(?:\\s*~\\s*(?:\\w+|\".*\"))*");
+    Pattern stringCat = Pattern.compile("^\\s*(?:\\w+|\".*\")(?:\\s*~\\s*(?:\\w+|\".*\"))+");
     Pattern word = Pattern.compile("^\\s*\\w+");
     boolean debug;
     Compiler compiler;
