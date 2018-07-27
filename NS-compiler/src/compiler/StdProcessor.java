@@ -14,7 +14,7 @@ public class StdProcessor implements Processor {
     public StdProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
         this.compiler = compiler;
-        stdin = Pattern.compile("stdin: (\\w)");
+        stdin = Pattern.compile("^\\s*stdin:\\s*((?:\\w\\s*)*)");
     }
 
     @Override
@@ -25,7 +25,23 @@ public class StdProcessor implements Processor {
 
     @Override
     public String convert(String s) {
-        String line = "scanf (\"%d\", &" + m.group(1) + ");\n";
+
+        String args = m.group(1);
+        String[] tokens = args.trim().split("\\s+");
+        String scanfString = " ";
+        String argString = "";
+
+        for (String t : tokens) {
+            if (compiler.getType(t) == Type.STRING) {
+                scanfString += "%s";
+                argString += t + "->data,";
+            } else {
+                scanfString += "%d";
+                argString += "&" + t + ",";
+            }
+        }
+
+        String line = "scanf (\""+scanfString+"\", "+argString.substring(0,argString.length()-1)+");\n";
         if (compiler.getScopeLevel() == 0) {
             compiler.insertStatement(line);
         }

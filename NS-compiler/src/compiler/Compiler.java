@@ -147,7 +147,7 @@ public class Compiler {
 
     public static void main(String[] args) throws IOException {
 
-        String name = "src/examples/strings.ns";
+        String name = "src/examples/stdin.ns";
         if (args.length > 0) {
             name = args[0];
         }

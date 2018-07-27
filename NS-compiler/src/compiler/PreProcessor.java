@@ -9,7 +9,7 @@ public class PreProcessor {
         String string = s;
         string = string.replaceAll("^\\s*#.*\\n$", "");
         string = string.replaceAll("\\n", " ");
-        string = string.replaceAll("\\s+", " ");
+        //string = string.replaceAll("\\s+", " ");
         return string;
     }
 

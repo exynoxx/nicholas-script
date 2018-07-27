@@ -5,3 +5,6 @@ prints: a;
 var twothree = "2 3";
 var string = 1 ~ " " ~ twothree ~ " " ~ 4;
 prints: string;
+
+#var final = a ~ " " ~ string;
+prints: a ~ " " ~ string;

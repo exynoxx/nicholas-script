@@ -37,10 +37,11 @@ public class FunctionProcessor {
 
         if (returnType == null) {
             returnType = "void";
-            shouldAddFrees = true;
+            shouldAddFrees = true; //compiler.tokenize adds frees if body contains "return"
         }
 
-        String[] argsList = args.split(",");
+
+
         args = args.replaceAll("string", "nstring *");
 
         compiler.increaseScopeLevel();

@@ -1,0 +1,6 @@
+int x = 0;
+string y = "hello hallo halo";
+int z = 0;
+
+stdin: x y z;
+prints: x ~ y ~ z;
