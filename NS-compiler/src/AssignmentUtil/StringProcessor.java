@@ -12,10 +12,13 @@ public class StringProcessor {
     CallProcessor callProcessor;
     Pattern stringPattern = Pattern.compile("^\\s*\"([^\"]*)\"\\s*$");
     Pattern stringCat = Pattern.compile("^\\s*(?:\\w+|\".*\")(?:\\s*~\\s*(?:\\w+|\".*\"))+");
+    Pattern empty = Pattern.compile("^\\s*(string)\\s*\\(\\s*(\\d+)\\s*\\)");
+
     boolean debug;
     Compiler compiler;
     Matcher stringMatcher;
     Matcher catMatcher;
+    Matcher emptyMatcher;
 
     public StringProcessor(Compiler compiler, boolean debug) {
         this.debug = debug;
@@ -31,6 +34,26 @@ public class StringProcessor {
     public boolean testStringCat (String s) {
         catMatcher = stringCat.matcher(s);
         return catMatcher.find();
+    }
+
+    public boolean testEmpty (String s) {
+        emptyMatcher = empty.matcher(s);
+        return emptyMatcher.find();
+    }
+
+    public String convertEmpty (String name) {
+        int size = Integer.parseInt(emptyMatcher.group(2));
+
+        String line = "nstring *" + name + " = (nstring *) malloc (sizeof(nstring));\n";
+        line += name + "->data = (char *) malloc ("+size+");\n";
+        line += name + "->size = " + size + ";\n";
+        compiler.addFreeString("free("+name+"->data);\n");
+        compiler.addFreeString("free("+name+");\n");
+
+        if (compiler.getScopeLevel() == 0) {
+            compiler.insertStatement(line);
+        }
+        return line;
     }
 
     public String convertString(String name) {

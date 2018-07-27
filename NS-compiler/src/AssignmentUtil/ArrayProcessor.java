@@ -24,7 +24,7 @@ public class ArrayProcessor {
         range = Pattern.compile("^\\s*(\\d+|\\w+)\\.\\.(\\d+|\\w+)\\s*(const)?");
         slice = Pattern.compile("^\\s*(\\w+)\\[\\s*(\\d+)\\s*:\\s*(\\d+)\\s*\\]");
         normal = Pattern.compile("^\\s*\\[(.*)\\]\\s*(const)?");
-        empty = Pattern.compile("^\\s*(int|string)\\s*\\(\\s*(\\d+)\\s*\\)");
+        empty = Pattern.compile("^\\s*(int)\\s*\\(\\s*(\\d+)\\s*\\)");
     }
 
     public boolean testNormal (String s) {

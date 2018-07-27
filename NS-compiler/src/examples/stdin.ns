@@ -1,5 +1,5 @@
 int x = 0;
-string y = "hello hallo halo";
+string y = string (50);
 int z = 0;
 
 stdin: x y z;

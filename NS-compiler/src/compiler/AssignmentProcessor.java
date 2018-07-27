@@ -107,6 +107,12 @@ public class AssignmentProcessor implements Processor {
             compiler.insertType(name, Type.STRING);
             return spString;
         }
+        if (sp.testEmpty(assignee)) {
+            if (debug) System.out.println("---- string");
+            String spString = sp.convertEmpty(name);
+            compiler.insertType(name,Type.STRING);
+            return spString;
+        }
 
         if (cp.test(assignee)) {
             if (debug) System.out.println("---- function call");
@@ -150,6 +156,12 @@ public class AssignmentProcessor implements Processor {
                     if (debug) System.out.println("---- string");
                     String spString = sp.convertStringCat(name,assignee);
                     compiler.insertType(name, Type.STRING);
+                    return spString;
+                }
+                if (sp.testEmpty(assignee)) {
+                    if (debug) System.out.println("---- string");
+                    String spString = sp.convertEmpty(name);
+                    compiler.insertType(name,Type.STRING);
                     return spString;
                 }
             } else if (type.equals("arr")) {
