@@ -95,22 +95,8 @@ public class AssignmentProcessor implements Processor {
             return ppString;
         }
 
-        if (sp.testString(assignee)) {
-            if (debug) System.out.println("---- string");
-            String spString = sp.convertString(name);
-            compiler.insertType(name, Type.STRING);
-            return spString;
-        }
-        if (sp.testStringCat(assignee)) {
-            if (debug) System.out.println("---- string");
-            String spString = sp.convertStringCat(name,assignee);
-            compiler.insertType(name, Type.STRING);
-            return spString;
-        }
-        if (sp.testEmpty(assignee)) {
-            if (debug) System.out.println("---- string");
-            String spString = sp.convertEmpty(name);
-            compiler.insertType(name,Type.STRING);
+        String spString = checkString(name,assignee);
+        if (spString != null){
             return spString;
         }
 
@@ -146,22 +132,8 @@ public class AssignmentProcessor implements Processor {
 
         if (type != null) {
             if (type.equals("string")) {
-                if (sp.testString(assignee)) {
-                    if (debug) System.out.println("---- string");
-                    String spString = sp.convertString(name);
-                    compiler.insertType(name, Type.STRING);
-                    return spString;
-                }
-                if (sp.testStringCat(assignee)) {
-                    if (debug) System.out.println("---- string");
-                    String spString = sp.convertStringCat(name,assignee);
-                    compiler.insertType(name, Type.STRING);
-                    return spString;
-                }
-                if (sp.testEmpty(assignee)) {
-                    if (debug) System.out.println("---- string");
-                    String spString = sp.convertEmpty(name);
-                    compiler.insertType(name,Type.STRING);
+                String spString = checkString(name,assignee);
+                if (spString != null){
                     return spString;
                 }
             } else if (type.equals("arr")) {
@@ -182,4 +154,27 @@ public class AssignmentProcessor implements Processor {
 
     }
 
+    private String checkString (String name, String assignee) {
+        if (sp.testString(assignee)) {
+            if (debug) System.out.println("---- string");
+            String spString = sp.convertString(name);
+            compiler.insertType(name, Type.STRING);
+            return spString;
+        } else if (sp.testStringCat(assignee)) {
+            if (debug) System.out.println("---- string");
+            String spString = sp.convertStringCat(name,assignee);
+            compiler.insertType(name, Type.STRING);
+            return spString;
+        } else if (sp.testEmpty(assignee)) {
+            if (debug) System.out.println("---- string");
+            String spString = sp.convertEmpty(name);
+            compiler.insertType(name,Type.STRING);
+            return spString;
+        } else {
+            return null;
+        }
+    }
+
 }
+
+
