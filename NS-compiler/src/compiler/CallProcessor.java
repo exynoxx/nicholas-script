@@ -35,6 +35,8 @@ public class CallProcessor implements Processor {
         String args = m.group(2).trim();
         String line = recursiveConvert(name, args) + ";\n";
         line = before + line + after;
+        before = "";
+        after = "";
 
         if (compiler.getScopeLevel() == 0) {
             compiler.insertStatement(line);
@@ -79,6 +81,9 @@ public class CallProcessor implements Processor {
                     //string processor will insert statement.
                     //string XXXXX = "hello wolrd";
                     stringExtract = compiler.tokenize(nsString);
+                    if (compiler.getScopeLevel() > 0) {
+                        before += stringExtract;
+                    }
                     newArgs += newName;
                     lastPos = i+1;
                     continue;
