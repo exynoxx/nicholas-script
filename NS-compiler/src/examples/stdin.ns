@@ -3,4 +3,4 @@ string y = string (50);
 int z = 0;
 
 stdin: x y z;
-prints: x ~ y ~ z;
+printls: x ~ y ~ z;

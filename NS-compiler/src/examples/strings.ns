@@ -1,10 +1,10 @@
 var world = "world";
 var a = "hello" ~ " " ~ world ~ "!";
-prints: a;
+printls: a;
 
 var twothree = "2 3";
 var string = 1 ~ " " ~ twothree ~ " " ~ 4;
-prints: string;
+printls: string;
 
 #var final = a ~ " " ~ string;
-prints: a ~ " " ~ string;
+printls: a ~ " " ~ string;

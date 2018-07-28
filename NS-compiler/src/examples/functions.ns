@@ -11,12 +11,12 @@ var f3 = func [int x, int y] : int {
     #arr a = x..y;
     arr a = 1..5;
     var st = "hello world";
-    print: st;
+    printls: st;
     return x+y;
 };
 
 var f4 = func [string x, int y] : int {
-    print: x;
+    printli: x;
     return y;
 };
 
@@ -28,4 +28,4 @@ f4: "hej" 4;
 #haskell
 #f5 x y = x+y;
 
-printi: f4: "hello world" 4;
+printli: f4: "hello world" 4;

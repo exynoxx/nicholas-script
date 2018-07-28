@@ -32,6 +32,6 @@ var a = fifo.pop:;
 var b = fifo.pop:;
 var c = fifo.pop:;
 
-prints: a;
-prints: b;
-prints: c;
+printls: a;
+printls: b;
+printls: c;

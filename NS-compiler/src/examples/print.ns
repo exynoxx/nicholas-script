@@ -1,10 +1,10 @@
-var prints = func [string x] {
+var printString = func [string x] {
     (c) {
         printf("%s\n", x->data);
     };
 };
 
-var printi = func [int x] {
+var printInt = func [int x] {
     (c) {
         printf("%d\n", x);
     };
@@ -13,7 +13,7 @@ var printi = func [int x] {
 var s1 = "hello world";
 var s2 = 56;
 
-println: s1;
+printString: s1;
 printInt: s2;
 
-println: "inline hello world";
+printString: "inline hello world";
