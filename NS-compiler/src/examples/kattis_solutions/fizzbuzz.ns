@@ -3,9 +3,9 @@ int y = 0;
 int n = 0;
 stdin: x y n;
 
-int t = 1;
-1..n.map: i -> func [int i, int t] {
-    t = 1;
+
+1..n.map: i -> func [int i] {
+    var t = 1;
     if (i % x == 0) {
         prints: "Fizz";
         t = 0;

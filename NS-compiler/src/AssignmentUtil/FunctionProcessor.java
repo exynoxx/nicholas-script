@@ -62,4 +62,13 @@ public class FunctionProcessor {
         line += "}\n\n";
         return line;
     }
+
+    public String getCallFromFunction (String name) {
+        String args = m.group(1);
+        args = args.replaceAll("int", "");
+        args = args.replaceAll("string", "");
+        args = args.replaceAll("nstring \\*", "");
+        args = args.replaceAll("\\s+", "");
+        return name + "(" + args + ");\n";
+    }
 }

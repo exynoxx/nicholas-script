@@ -147,7 +147,7 @@ public class Compiler {
 
     public static void main(String[] args) throws IOException {
 
-        String name = "src/examples/kattis_solutions/fizzbuzz.ns";
+        String name = "src/examples/kattis_solutions/stuckinatimeloop.ns";
         if (args.length > 0) {
             name = args[0];
         }

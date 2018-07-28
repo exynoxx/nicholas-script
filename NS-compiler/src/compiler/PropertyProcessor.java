@@ -77,7 +77,7 @@ public class PropertyProcessor implements Processor {
             String name = callProcessor.generateRandomName();
             String ret = functionProcessor.convert(name);
             compiler.insertFunction(ret);
-            content = name + " ("+variable+");\n";
+            content = functionProcessor.getCallFromFunction(name);
         } else {
             compiler.increaseScopeLevel();
             content = compiler.tokenize(body + ";");
