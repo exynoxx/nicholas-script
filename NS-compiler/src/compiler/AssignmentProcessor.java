@@ -33,7 +33,7 @@ public class AssignmentProcessor implements Processor {
         pp = new PropertyProcessor(compiler, debug);
         cp = new CallProcessor(compiler, debug, false);
 
-        assignment = Pattern.compile("^\\s*(var|int|string|arr)?\\s*([\\w\\.]+)\\s*=(.*)");
+        assignment = Pattern.compile("^\\s*(var|int|string|arr)?\\s*([\\w\\.]+)\\s*(?:=(.*))?$");
 
         hashMapReturnType = new HashMap<>();
     }
@@ -116,10 +116,6 @@ public class AssignmentProcessor implements Processor {
         String ret = pre + name + " = " + assignee + ";\n";
         compiler.insertVariableValue(name,Integer.parseInt(assignee));
 
-        if (compiler.getScopeLevel() == 0) {
-            compiler.insertStatement(ret);
-        }
-
         return ret;
     }
 
@@ -128,28 +124,38 @@ public class AssignmentProcessor implements Processor {
 
         String type = m.group(1);
         String name = m.group(2);
-        String assignee = m.group(3).trim();
+        String assignee = m.group(3);
+        String ret;
 
-        if (type != null) {
-            if (type.equals("string")) {
-                String spString = checkString(name,assignee);
-                if (spString != null){
-                    return spString;
-                }
-            } else if (type.equals("arr")) {
-                if (ap.testNormal(assignee)) {
-                    return ap.convert(name,assignee,0,false);
-                }
-                if (ap.testRange(assignee)){
-                    return ap.convert(name,assignee,1,false);
-                }
-                if (ap.testEmpty(assignee)) {
-                    return ap.convert(name,assignee,2,false);
+        if (assignee == null) {
+            ret = s.trim() + ";\n";
+        } else {
+            assignee = assignee.trim();
+            if (type != null) {
+                if (type.equals("string")) {
+                    String spString = checkString(name,assignee);
+                    if (spString != null){
+                        return spString;
+                    }
+                } else if (type.equals("arr")) {
+                    if (ap.testNormal(assignee)) {
+                        return ap.convert(name,assignee,0,false);
+                    }
+                    if (ap.testRange(assignee)){
+                        return ap.convert(name,assignee,1,false);
+                    }
+                    if (ap.testEmpty(assignee)) {
+                        return ap.convert(name,assignee,2,false);
+                    }
                 }
             }
+            ret = detectValue(s);
         }
 
-        String ret = detectValue(s);
+        if (compiler.getScopeLevel() == 0) {
+            compiler.insertStatement(ret);
+        }
+
         return ret;
 
     }

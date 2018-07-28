@@ -1,6 +1,6 @@
 %beginglobal
 int x = 0;
-int y = 0;
+int y;
 int n = 0;
 %endglobal
 
