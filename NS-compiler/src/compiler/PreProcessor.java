@@ -30,4 +30,23 @@ public class PreProcessor {
 
         return tokens;
     }
+
+    public String extractGlobalCodeAndReturnRest (String s) {
+        int end = s.indexOf("%endglobal");
+        if (end < 0) {
+            return null;
+        } else {
+            return s.substring(end+10,s.length());
+        }
+    }
+
+    public String extractGlobalCode (String s) {
+        int start = s.indexOf("%beginglobal");
+        int end = s.indexOf("%endglobal");
+        if (start < 0 || end < 0) {
+            return null;
+        } else {
+            return s.substring(start+12,end);
+        }
+    }
 }

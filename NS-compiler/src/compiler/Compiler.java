@@ -22,6 +22,7 @@ public class Compiler {
     HashMap<String, Integer> arraySizeHashMap = new HashMap<>();
     HashMap<String, Integer> variableValue = new HashMap<>();
 
+    String globalVariables = "";
     String functionDeclerations = "";
     String statements = "";
 
@@ -44,7 +45,8 @@ public class Compiler {
         frees = scopeHM.get(0);
         functionDeclerations += "typedef struct _nstring {\nchar *data;\nint size;\n} nstring;\n\n";
         //functionDeclerations += "var prints = func [string x] {(c) {printf(\"%s\\n\", x->data);};};var printi = func [int x] {(c) {printf(\"%d\\n\", x);};};";
-        functionDeclerations += "void prints(nstring * x) {\nprintf(\"%s\\n\", x->data);\n}\n void printi(int x) {\nprintf(\"%d\\n\", x);\n}\n";
+        functionDeclerations += "void prints(nstring * x) {\nprintf(\"%s\", x->data);\n}\n void printi(int x) {\nprintf(\"%d\", x);\n}\n";
+        functionDeclerations += "void printls(nstring * x) {\nprintf(\"%s\\n\", x->data);\n}\n void printli(int x) {\nprintf(\"%d\\n\", x);\n}\n";
     }
 
     String readFile(String path) throws IOException {
@@ -56,6 +58,13 @@ public class Compiler {
         String out = "";
 
         string = cleaningProcessor.clean(string);
+        String globalCode = cleaningProcessor.extractGlobalCode(string);
+        if (globalCode != null) {
+            increaseScopeLevel();
+            globalVariables += tokenize(globalCode);
+            decreaseScopeLevel();
+            string = cleaningProcessor.extractGlobalCodeAndReturnRest(string);
+        }
         LinkedList<String> tokens = cleaningProcessor.partition(string);
 
         for (String s : tokens) {
@@ -147,7 +156,7 @@ public class Compiler {
 
     public static void main(String[] args) throws IOException {
 
-        String name = "src/examples/kattis_solutions/stuckinatimeloop.ns";
+        String name = "src/examples/kattis_solutions/fizzbuzz.ns";
         if (args.length > 0) {
             name = args[0];
         }
@@ -155,6 +164,7 @@ public class Compiler {
         Compiler c = new Compiler();
         c.tokenize(c.readFile(name));
         System.out.println("#include <stdlib.h>\n#include <stdio.h>\n#include <string.h>\n\n");
+        System.out.println(c.globalVariables);
         System.out.println(c.functionDeclerations);
         System.out.println("void main () {");
         System.out.println(c.statements);

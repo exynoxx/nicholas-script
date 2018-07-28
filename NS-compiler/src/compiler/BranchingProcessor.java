@@ -64,14 +64,14 @@ public class BranchingProcessor implements Processor {
         compiler.increaseScopeLevel();
         line += compiler.tokenize(body.trim());
         line += compiler.getFreeStrings();
-        line += "\n}";
+        line += "}\n";
 
         if (elseBody != null) {
             compiler.increaseScopeLevel();
             line += "else {\n";
             line += compiler.tokenize(elseBody.trim());
             line += compiler.getFreeStrings();
-            line += "\n}\n";
+            line += "}\n";
         }
 
         if (compiler.getScopeLevel() == 0) {

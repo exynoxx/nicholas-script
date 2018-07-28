@@ -1,8 +1,10 @@
+%beginglobal
 int x = 0;
 int y = 0;
 int n = 0;
-stdin: x y n;
+%endglobal
 
+stdin: x y n;
 
 1..n.map: i -> func [int i] {
     var t = 1;
@@ -18,4 +20,5 @@ stdin: x y n;
         printi: i;
         t = 0;
     };
+    printls: "";
 };
