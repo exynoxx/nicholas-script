@@ -1,0 +1,6 @@
+var hej = 1..5;
+#hej = 1..2;
+
+var aff = [1,4,6,2];
+var arstring = ["s1", "s2"];
+aff[1] = 4;

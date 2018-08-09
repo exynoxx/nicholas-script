@@ -1,5 +1,7 @@
 package compiler;
 
+import AssignmentUtil.ArrayProcessor;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -11,7 +13,7 @@ public class Compiler {
     boolean debug = false;
 
     PreProcessor cleaningProcessor = new PreProcessor();
-    Processor[] processors = new Processor[6];
+    Processor[] processors = new Processor[7];
 
     LinkedList<String> frees;
     HashMap<Integer, LinkedList<String>> scopeHM;
@@ -20,7 +22,9 @@ public class Compiler {
 
     HashMap<String, Type> typeHashMap = new HashMap<>();
     HashMap<String, Integer> arraySizeHashMap = new HashMap<>();
+    HashMap<String, Integer> arrayTypeHashMap = new HashMap<>();
     HashMap<String, Integer> variableValue = new HashMap<>();
+    //type = 0:int 1:double 2:string
 
     String globalVariables = "";
     String functionDeclerations = "";
@@ -32,9 +36,10 @@ public class Compiler {
         processors[0] = new AssignmentProcessor(this, debug);
         processors[1] = new BranchingProcessor(this, debug);
         processors[2] = new NoParseProcessor(this, debug);
-        processors[3] = new PropertyProcessor(this, debug);
-        processors[4] = new StdProcessor(this, debug);
+        processors[3] = new StdProcessor(this, debug);
+        processors[4] = new PropertyProcessor(this, debug);
         processors[5] = new CallProcessor(this, debug, true);
+        processors[6] = new ArrayProcessor(this,debug);
 
         scopeHM = new HashMap<>();
 
@@ -44,7 +49,6 @@ public class Compiler {
 
         frees = scopeHM.get(0);
         functionDeclerations += "typedef struct _nstring {\nchar *data;\nint size;\n} nstring;\n\n";
-        //functionDeclerations += "var prints = func [string x] {(c) {printf(\"%s\\n\", x->data);};};var printi = func [int x] {(c) {printf(\"%d\\n\", x);};};";
         functionDeclerations += "void prints(nstring * x) {\nprintf(\"%s\", x->data);\n}\n void printi(int x) {\nprintf(\"%d\", x);\n}\n";
         functionDeclerations += "void printls(nstring * x) {\nprintf(\"%s\\n\", x->data);\n}\n void printli(int x) {\nprintf(\"%d\\n\", x);\n}\n";
     }
@@ -154,9 +158,17 @@ public class Compiler {
         variableValue.put(name,value);
     }
 
+    public void insertArrayType (String name, int value) {
+        arrayTypeHashMap.put(name,value);
+    }
+
+    public int getArrayType (String name) {
+        return arrayTypeHashMap.get(name);
+    }
+
     public static void main(String[] args) throws IOException {
 
-        String name = "src/examples/kattis_solutions/fizzbuzz.ns";
+        String name = "src/examples/tmp.ns";
         if (args.length > 0) {
             name = args[0];
         }
