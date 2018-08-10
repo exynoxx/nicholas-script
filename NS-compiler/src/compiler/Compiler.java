@@ -22,9 +22,8 @@ public class Compiler {
 
     HashMap<String, Type> typeHashMap = new HashMap<>();
     HashMap<String, Integer> arraySizeHashMap = new HashMap<>();
-    HashMap<String, Integer> arrayTypeHashMap = new HashMap<>();
+    HashMap<String, Integer> arrayTypeHashMap = new HashMap<>();     //type = 0:int 1:double 2:string
     HashMap<String, Integer> variableValue = new HashMap<>();
-    //type = 0:int 1:double 2:string
 
     String globalVariables = "";
     String functionDeclerations = "";

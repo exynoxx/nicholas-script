@@ -55,6 +55,7 @@ public class CallProcessor implements Processor {
             }
         }
 
+        //contains expression
         if (!args.contains(":") && args.contains("~") || args.contains("+") || args.contains("*") || args.contains("/")) {
             String tmpName = generateRandomName();
             String nsString = "var " + tmpName + " = " + args.trim() + ";";
@@ -95,12 +96,40 @@ public class CallProcessor implements Processor {
                     lastPos = i;
                 }
             }
-            newArgs += args.substring(lastPos,args.length());
-        } else {
-            newArgs = args;
+            args += args.substring(lastPos,args.length());
         }
 
-        newArgs = newArgs.replaceAll("\\s+", ",");
+        if (args.contains("[")) {
+            Pattern array = Pattern.compile("([\\w\\.]+)\\s*(\\[\\d+\\])");
+
+            String[] elements = args.split(" ");
+            String tmpArgs = "";
+
+            for (String s : elements) {
+
+                Matcher tmpmatcher = array.matcher(s);
+                if (tmpmatcher.find()) {
+                    int type = compiler.getArrayType(tmpmatcher.group(1));
+                    String newElement = null;
+
+                    if (type == 0) {
+                        newElement = "*((int *)("+tmpmatcher.group(0)+"))";
+                    } else if (type == 1) {
+                        newElement = "*((double *)("+tmpmatcher.group(0)+"))";
+                    } else {
+                        newElement = "((nstring *)("+tmpmatcher.group(0)+"))";
+
+                    }
+                    tmpArgs += newElement + " ";
+                } else {
+                    tmpArgs += s + " ";
+                }
+            }
+            args = tmpArgs;
+        }
+
+        newArgs = args.trim();
+        //newArgs = newArgs.replaceAll("\\s+", ",");
         return name + "(" + newArgs + ")";
     }
 
