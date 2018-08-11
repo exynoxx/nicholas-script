@@ -98,38 +98,12 @@ public class AssignmentProcessor {
         String name = m.group(2);
         String arrayIndex = m.group(3);
         String assignee = m.group(4).trim();
-        String ret;
 
-        if (assignee == null) {
-            ret = s.trim() + ";\n";
-        } else {
-            assignee = assignee.trim();
-            if (type != null) {
-                if (type.equals("string")) {
-                    String spString = checkString(name,assignee);
-                    if (spString != null){
-                        return spString;
-                    }
-                } else if (type.equals("arr")) {
-                    if (ap.testNormal(assignee)) {
-                        return ap.arrayAssignment(name,assignee,0,false);
-                    }
-                    if (ap.testRange(assignee)){
-                        return ap.arrayAssignment(name,assignee,1,false);
-                    }
-                    if (ap.testEmpty(assignee)) {
-                        return ap.arrayAssignment(name,assignee,2,false);
-                    }
-                }
-            }
-            ret = detectValue(s);
+        if (arrayIndex != null) {
+
         }
 
-        if (compiler.getScopeLevel() == 0) {
-            compiler.insertStatement(ret);
-        }
-
-        return ret;
+        return null;
 
     }
 

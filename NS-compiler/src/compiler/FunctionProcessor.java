@@ -11,6 +11,7 @@ public class FunctionProcessor {
     Matcher m;
     Box box;
 
+    //TODO: PARSE ANONYMOUS FUNCTION "func []...." call it with defined variables
     public FunctionProcessor(Box box) {
         this.box = box;
         functionDecleration = Pattern.compile("^\\s*func\\s*\\[(.*)\\]\\s*:?\\s*(\\w+)?\\s*\\{\\s*(.*)\\s*\\}");

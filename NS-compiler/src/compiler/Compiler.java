@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Random;
 
 public class Compiler {
 
@@ -25,6 +26,7 @@ public class Compiler {
     String functionDeclerations = "";
     String statements = "";
 
+    Random random;
 
     public Compiler() {
         box = new Box();
@@ -36,6 +38,7 @@ public class Compiler {
         box.arrayProcessor = new ArrayProcessor(box);
         box.callProcessor = new CallProcessor(box);
         box.stdProcessor = new StdProcessor(box);
+        random = new Random();
 
         scopeHM = new HashMap<>();
 
@@ -44,12 +47,11 @@ public class Compiler {
         }
 
         frees = scopeHM.get(0);
-        functionDeclerations += "typedef struct _nstring {\nchar *data;\nint size;\n} nstring;\n\n";
-        functionDeclerations += "void prints(nstring * x) {\nprintf(\"%s\", x->data);\n}\n void printi(int x) {\nprintf(\"%d\", x);\n}\n";
-        functionDeclerations += "void printls(nstring * x) {\nprintf(\"%s\\n\", x->data);\n}\n void printli(int x) {\nprintf(\"%d\\n\", x);\n}\n";
+        functionDeclerations += "void prints(char * x) {\nprintf(\"%s\", x);\n}\n void printi(int x) {\nprintf(\"%d\", x);\n}\n";
+        functionDeclerations += "void printls(char * x) {\nprintf(\"%s\\n\", x);\n}\n void printli(int x) {\nprintf(\"%d\\n\", x);\n}\n";
     }
 
-    String readFile(Striout1ng path) throws IOException {
+    String readFile(String path) throws IOException {
         byte[] encoded = Files.readAllBytes(Paths.get(path));
         return new String(encoded);
     }
@@ -110,6 +112,22 @@ public class Compiler {
         if (scopeLevel < 0) scopeLevel = 0;
         frees = scopeHM.get(scopeLevel);
         return ret;
+    }
+
+    public String generateRandomName() {
+
+        int leftLimit = 97; // letter 'a'
+        int rightLimit = 122; // letter 'z'
+        int targetStringLength = 5;
+
+        StringBuilder buffer = new StringBuilder(targetStringLength);
+        for (int i = 0; i < targetStringLength; i++) {
+            int randomLimitedInt = leftLimit + (int) (random.nextFloat() * (rightLimit - leftLimit + 1));
+            buffer.append((char) randomLimitedInt);
+        }
+
+        //String generatedString = buffer.toString();
+        return buffer.toString();
     }
 
     public void addFreeString(String s) {

@@ -3,7 +3,7 @@ package compiler;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class StdProcessor{
+public class StdProcessor {
 
     Pattern stdin;
     Matcher m;
@@ -27,19 +27,19 @@ public class StdProcessor{
         String argString = "";
 
         for (String t : tokens) {
-            if (compiler.getType(t) == Type.STRING) {
+            if (box.compiler.getType(t) == Type.STRING) {
                 scanfString += "%s";
-                argString += t + "->data,";
+                argString += t + ",";
             } else {
-                scanfString += "%d";
                 argString += "&" + t + ",";
+                if (box.compiler.getType(t) == Type.INTEGER)
+                    scanfString += "%d";
+                else
+                    scanfString += "%lf";
             }
         }
 
-        String line = "scanf (\""+scanfString+"\", "+argString.substring(0,argString.length()-1)+");\n";
-        if (compiler.getScopeLevel() == 0) {
-            compiler.insertStatement(line);
-        }
+        String line = "scanf (\"" + scanfString + "\", " + argString.substring(0, argString.length() - 1) + ");\n";
         return line;
     }
 }

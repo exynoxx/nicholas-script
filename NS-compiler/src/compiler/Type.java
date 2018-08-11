@@ -1,5 +1,5 @@
 package compiler;
 
 public enum Type {
-    FUNCTION,NUMBER,ARRAY,OBJECT,STRING
+    FUNCTION,ARRAY,OBJECT,STRING,INTEGER,DOUBLE
 }

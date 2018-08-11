@@ -34,34 +34,25 @@ public class StringProcessor {
         return emptyMatcher.find();
     }
 
-    public String convertEmpty (String name) {
+    public String convertEmpty(String name) {
+
+        if (name == null) name = box.compiler.generateRandomName();
         int size = Integer.parseInt(emptyMatcher.group(2));
+        String line = name + " = (char *) malloc (" + size + ");\n";
+        box.compiler.addFreeString("free(" + name + ");\n");
 
-        String line = "nstring *" + name + " = (nstring *) malloc (sizeof(nstring));\n";
-        line += name + "->data = (char *) malloc ("+size+");\n";
-        line += name + "->size = " + size + ";\n";
-        compiler.addFreeString("free("+name+"->data);\n");
-        compiler.addFreeString("free("+name+");\n");
-
-        if (compiler.getScopeLevel() == 0) {
-            compiler.insertStatement(line);
-        }
         return line;
     }
 
-    public String convertString(String name) {
+    public String convertString(String name,String content) {
+
+        if (name == null) name = box.compiler.generateRandomName();
+        if (content == null) content = stringMatcher.group(1);
         int size = stringMatcher.group(1).length();
+        String line = "char *" + name + " = (char *) malloc (" + size + ");\n";
+        line += "strcpy(" + name + ", \"" + content + "\");\n";
+        box.compiler.addFreeString("free(" + name + ");\n");
 
-        String line = "nstring *" + name + " = (nstring *) malloc (sizeof(nstring));\n";
-        line += name + "->data = (char *) malloc ("+size+");\n";
-        line += name + "->size = " + size + ";\n";
-        line += "strcpy("+name+"->data, \"" + stringMatcher.group(1) + "\");\n";
-        compiler.addFreeString("free("+name+"->data);\n");
-        compiler.addFreeString("free("+name+");\n");
-
-        if (compiler.getScopeLevel() == 0) {
-            compiler.insertStatement(line);
-        }
         return line;
     }
 
@@ -74,15 +65,18 @@ public class StringProcessor {
         for (int i = 0; i < tokens.length; i++) {
             String tok = tokens[i].trim();
 
+            //find length of each item
             Matcher matcher = stringPattern.matcher(tok);
             if (matcher.find()) {
+                //inline string
                 size += matcher.group(1).length() + "+";
             } else {
-                if (compiler.getType(tok) == Type.STRING) {
-                    size += tok + "->size+";
-                    tokens[i] = tok + "->data";
+                if (box.compiler.getType(tok) == Type.STRING) {
+                    //string variable
+                    size += "strlen("+tok+")+";
                 } else {
-                    String rname = callProcessor.generateRandomName();
+                    //integer
+                    String rname = box.compiler.generateRandomName();
                     before += "char "+rname+"[12];\n";
                     before += "snprintf("+rname+", 12, \"%d\", "+tok+");\n";
                     size += "strlen("+rname+")+";
@@ -90,22 +84,16 @@ public class StringProcessor {
                 }
             }
         }
+        //remove trailing +
         size = size.substring(0,size.length()-1);
 
-        String line = before + "nstring *" + name + " = (nstring *) malloc (sizeof(nstring));\n";
-        line += name + "->size = "+size+";\n";
-        line += name + "->data = (char *) malloc ("+name+"->size);\n";
-        //line += "strcpy("+name+"->data, \"\");\n";
+        //create umbrella string and add each token
+        String line = before + "char *" + name + "= (char *) malloc ("+size+");\n";
         for (String tk : tokens) {
-            line += "strcat("+name+"->data, " + tk + ");\n";
+            line += "strcat("+name+", "+tk+");\n";
         }
 
-        compiler.addFreeString("free("+name+"->data);\n");
-        compiler.addFreeString("free("+name+");\n");
-
-        if (compiler.getScopeLevel() == 0) {
-            compiler.insertStatement(line);
-        }
+        box.compiler.addFreeString("free("+name+");\n");
         return line;
     }
 }
