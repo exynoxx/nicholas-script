@@ -1,28 +1,24 @@
-package AssignmentUtil;
-
-import compiler.Compiler;
-import compiler.Processor;
+package compiler;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class ArrayProcessor implements Processor {
+public class ArrayProcessor{
 
     Pattern arrayAssignment;
     Pattern empty;
     Pattern range;
     Pattern slice;
     Pattern normal;
-    boolean debug;
-    Compiler compiler;
     Matcher normalMatcher;
     Matcher rangeMatcher;
     Matcher emptyMatcher;
     Matcher arrayAssignmentMatcher;
+    Box box;
 
-    public ArrayProcessor(Compiler compiler, boolean debug) {
-        this.debug = debug;
-        this.compiler = compiler;
+    public ArrayProcessor(Box box) {
+        this.box = box;
+
         range = Pattern.compile("^\\s*(\\d+|\\w+)\\.\\.(\\d+|\\w+)\\s*(const)?");
         slice = Pattern.compile("^\\s*(\\w+)\\[\\s*(\\d+)\\s*:\\s*(\\d+)\\s*\\]");
         normal = Pattern.compile("^\\s*\\[(.*)\\]\\s*(const)?");

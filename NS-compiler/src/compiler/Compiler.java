@@ -1,7 +1,5 @@
 package compiler;
 
-import AssignmentUtil.ArrayProcessor;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -10,11 +8,9 @@ import java.util.LinkedList;
 
 public class Compiler {
 
-    boolean debug = false;
+    Box box;
 
     PreProcessor cleaningProcessor = new PreProcessor();
-    Processor[] processors = new Processor[7];
-
     LinkedList<String> frees;
     HashMap<Integer, LinkedList<String>> scopeHM;
 
@@ -31,14 +27,15 @@ public class Compiler {
 
 
     public Compiler() {
-
-        processors[0] = new AssignmentProcessor(this, debug);
-        processors[1] = new BranchingProcessor(this, debug);
-        processors[2] = new NoParseProcessor(this, debug);
-        processors[3] = new StdProcessor(this, debug);
-        processors[4] = new PropertyProcessor(this, debug);
-        processors[5] = new CallProcessor(this, debug, true);
-        processors[6] = new ArrayProcessor(this,debug);
+        box = new Box();
+        box.assignmentProcessor = new AssignmentProcessor(box);
+        box.branchingProcessor = new BranchingProcessor(box);
+        box.propertyProcessor = new PropertyProcessor(box);
+        box.noParseProcessor = new NoParseProcessor(box);
+        box.stringProcessor = new StringProcessor(box);
+        box.arrayProcessor = new ArrayProcessor(box);
+        box.callProcessor = new CallProcessor(box);
+        box.stdProcessor = new StdProcessor(box);
 
         scopeHM = new HashMap<>();
 
@@ -52,12 +49,12 @@ public class Compiler {
         functionDeclerations += "void printls(nstring * x) {\nprintf(\"%s\\n\", x->data);\n}\n void printli(int x) {\nprintf(\"%d\\n\", x);\n}\n";
     }
 
-    String readFile(String path) throws IOException {
+    String readFile(Striout1ng path) throws IOException {
         byte[] encoded = Files.readAllBytes(Paths.get(path));
         return new String(encoded);
     }
 
-    public String tokenize(String string) {
+    public LinkedList<String> tokenize(String string) {
         String out = "";
 
         string = cleaningProcessor.clean(string);
@@ -68,22 +65,20 @@ public class Compiler {
             decreaseScopeLevel();
             string = cleaningProcessor.extractGlobalCodeAndReturnRest(string);
         }
+
         LinkedList<String> tokens = cleaningProcessor.partition(string);
-
+        LinkedList<String> output = new LinkedList<>();
         for (String s : tokens) {
-            if (debug) System.out.println("input: " + s);
-            //all "after"-statements come before return-statement
-
-            if (s.contains("return")) {
-                out += getFreeStrings();
-            }
-
-            out += processString(s);
+            String processed = processString(s);
+            output.add(processed);
+            out += processed;
         }
-        //out += getFreeStrings();
 
+        if (scopeLevel == 0) {
+            insertStatement(out);
+        }
 
-        return out;
+        return tokens;
     }
 
     public String processString(String string) {
@@ -167,12 +162,18 @@ public class Compiler {
 
     public static void main(String[] args) throws IOException {
 
+        Compiler c = new Compiler();
+
+
+
+
+
+
         String name = "src/examples/tmp.ns";
         if (args.length > 0) {
             name = args[0];
         }
 
-        Compiler c = new Compiler();
         c.tokenize(c.readFile(name));
         System.out.println("#include <stdlib.h>\n#include <stdio.h>\n#include <string.h>\n\n");
         System.out.println(c.globalVariables);

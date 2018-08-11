@@ -3,17 +3,15 @@ package compiler;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class BranchingProcessor implements Processor {
+public class BranchingProcessor {
 
     Pattern branching;
 
     Matcher m;
-    boolean debug;
-    Compiler compiler;
+    Box box;
 
-    public BranchingProcessor(Compiler compiler, boolean debug) {
-        this.debug = debug;
-        this.compiler = compiler;
+    public BranchingProcessor(Box box) {
+        this.box = box;
         branching = Pattern.compile("^\\s*(if|while)\\s*(.*)");
     }
 

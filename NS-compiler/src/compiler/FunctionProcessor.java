@@ -1,4 +1,4 @@
-package AssignmentUtil;
+package compiler;
 
 import compiler.Compiler;
 
@@ -8,13 +8,11 @@ import java.util.regex.Pattern;
 public class FunctionProcessor {
 
     Pattern functionDecleration;
-    boolean debug;
-    Compiler compiler;
     Matcher m;
+    Box box;
 
-    public FunctionProcessor(Compiler compiler, boolean debug) {
-        this.debug = debug;
-        this.compiler = compiler;
+    public FunctionProcessor(Box box) {
+        this.box = box;
         functionDecleration = Pattern.compile("^\\s*func\\s*\\[(.*)\\]\\s*:?\\s*(\\w+)?\\s*\\{\\s*(.*)\\s*\\}");
     }
 

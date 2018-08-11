@@ -1,29 +1,22 @@
-package AssignmentUtil;
-
-import compiler.CallProcessor;
-import compiler.Compiler;
-import compiler.Type;
+package compiler;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class StringProcessor {
 
-    CallProcessor callProcessor;
     Pattern stringPattern = Pattern.compile("^\\s*\"([^\"]*)\"\\s*$");
     Pattern stringCat = Pattern.compile("^\\s*(?:\\w+|\".*\")(?:\\s*~\\s*(?:\\w+|\".*\"))+");
     Pattern empty = Pattern.compile("^\\s*(string)\\s*\\(\\s*(\\d+)\\s*\\)");
 
-    boolean debug;
-    Compiler compiler;
     Matcher stringMatcher;
     Matcher catMatcher;
     Matcher emptyMatcher;
 
-    public StringProcessor(Compiler compiler, boolean debug) {
-        this.debug = debug;
-        this.compiler = compiler;
-        callProcessor = new CallProcessor(compiler,debug,false);
+    Box box;
+
+    public StringProcessor(Box box) {
+        this.box = box;
     }
 
     public boolean testString (String s) {

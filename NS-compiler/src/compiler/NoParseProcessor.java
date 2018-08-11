@@ -7,12 +7,10 @@ public class NoParseProcessor implements Processor {
 
     Pattern noParseCode = Pattern.compile("^\\s*\\(c\\)\\s*\\{(.*)\\}");
     Matcher m;
-    boolean debug;
-    Compiler compiler;
+    Box box;
 
-    public NoParseProcessor(Compiler compiler,boolean debug) {
-        this.debug = debug;
-        this.compiler = compiler;
+    public NoParseProcessor(Box box) {
+        this.box = box;
     }
 
     @Override

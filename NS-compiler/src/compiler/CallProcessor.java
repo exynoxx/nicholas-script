@@ -4,22 +4,18 @@ import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class CallProcessor implements Processor {
+public class CallProcessor  {
 
     boolean debug;
     Pattern functionCall;
     Matcher m;
-    Compiler compiler;
-    boolean standalone;
     Random random;
     String before = "";
     String after = "";
+    Box box;
 
-    public CallProcessor(Compiler compiler, boolean debug, boolean standalone) {
-        this.debug = debug;
-        this.compiler = compiler;
-        this.standalone = standalone;
-        random = new Random();
+    public CallProcessor(Box box) {
+        this.box = box;
         functionCall = Pattern.compile("^\\s*([\\w\\.]+):(.*)");
     }
 

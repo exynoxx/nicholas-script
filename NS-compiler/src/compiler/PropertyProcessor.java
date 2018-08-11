@@ -1,26 +1,17 @@
 package compiler;
 
-import AssignmentUtil.FunctionProcessor;
-import compiler.Compiler;
-
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class PropertyProcessor implements Processor {
+public class PropertyProcessor {
 
     Pattern map;
     Pattern propertyCall;
-    boolean debug;
-    Compiler compiler;
-    FunctionProcessor functionProcessor;
-    CallProcessor callProcessor;
     Matcher m;
+    Box box;
 
-    public PropertyProcessor(Compiler compiler, boolean debug) {
-        this.debug = debug;
-        this.compiler = compiler;
-        callProcessor = new CallProcessor(compiler, debug, true);
-        functionProcessor = new FunctionProcessor(compiler,debug);
+    public PropertyProcessor(Box box) {
+        this.box = box;
         propertyCall = Pattern.compile("^\\s*((\\d+|\\w+)\\.\\.(\\d+|\\w+)|\\w+)\\.(\\w+):(.*)");
         map = Pattern.compile("^\\s*(\\w+)\\s*(?:->|=>)\\s*(.*)");
     }
