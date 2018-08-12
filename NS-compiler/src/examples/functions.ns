@@ -16,7 +16,7 @@ var f3 = func [int x, int y] : int {
 };
 
 var f4 = func [string x, int y] : int {
-    printli: x;
+    printls: x;
     return y;
 };
 

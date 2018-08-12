@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 
 public class AssignmentProcessor {
 
-    Pattern assignment = Pattern.compile("^\\s*(var|int|double|string)?\\s*([\\w\\.]+)\\s*(\\[\\s*\\d+\\s*\\])?\\s*=\\s*(.*)");
+    Pattern assignment = Pattern.compile("^\\s*(var|int|double|string|arr)?\\s*([\\w\\.]+)\\s*(\\[\\s*\\d+\\s*\\])?\\s*=\\s*(.*)");
     Matcher m;
     boolean debug;
     Box box;
@@ -73,6 +73,10 @@ public class AssignmentProcessor {
     }
 
     String matchSimpleTypes (String name, String s) {
+        if (s.matches("\\(?(?:\\d+|\\w+)(?:(?:\\s*[\\*\\/\\+\\-\\%])\\s*\\)?\\(?\\s*(?:\\d+|\\w+)\\)?\\(?)+\\)?")){
+            return "int " + name + " = " + s + ";\n";
+        }
+
         box.compiler.insertVariableValue(name,Integer.parseInt(s));
         if (s.matches("\\d+\\.\\d+")) {
             return "double " + name + " = " + s + ";\n";

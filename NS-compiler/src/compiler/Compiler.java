@@ -192,7 +192,7 @@ public class Compiler {
 
         Compiler c = new Compiler();
 
-        String name = "src/examples/tmp.ns";
+        String name = "src/examples/functions.ns";
         if (args.length > 0) {
             name = args[0];
         }
