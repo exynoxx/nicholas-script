@@ -23,13 +23,17 @@ public class CallProcessor {
     public String convert(boolean recursive) {
         String name = m.group(1);
         String args = m.group(2).trim();
-        String before = "";
-        String after = "";
+        String before = " ";
+        String after = " ";
 
         //recursive function call in args.
         if (args.contains(":")) {
             if (test(args.trim())) {
-                args = convert(true);
+                String sado = convert(true);
+                String[] elements = sado.split("#345#");
+                before += elements[0];
+                args = elements[1];
+                after += elements[2];
             }
         } //string cat as arg
         else if (args.contains("~") || args.contains("+") || args.contains("*") || args.contains("/")) {
@@ -103,7 +107,12 @@ public class CallProcessor {
         }
         args = args.trim();
         args = args.replaceAll("\\s+", ",");
-        return name + "(" + args + ")" + ((recursive)?"":";") +"\n";
+        if (recursive) {
+            String rtgv = before + "#345#" + name + "(" + args + ")" + "#345#" + after;
+            return rtgv;
+        } else {
+            return before + name + "(" + args + ");\n" + after;
+        }
     }
 
     /*
