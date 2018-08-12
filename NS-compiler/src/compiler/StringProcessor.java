@@ -56,16 +56,16 @@ public class StringProcessor {
         return line;
     }
 
-    public String convertStringCat (String name, String assignee) {
+    public String convertStringCat (String name, String content) {
 
-        String[] tokens = assignee.split("~");
+        String[] tokens = content.split("~");
         String size = "";
         String before = "";
 
+        //find length of each item
         for (int i = 0; i < tokens.length; i++) {
             String tok = tokens[i].trim();
 
-            //find length of each item
             Matcher matcher = stringPattern.matcher(tok);
             if (matcher.find()) {
                 //inline string

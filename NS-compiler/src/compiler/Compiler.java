@@ -68,9 +68,9 @@ public class Compiler {
             string = cleaningProcessor.extractGlobalCodeAndReturnRest(string);
         }
 
-        LinkedList<String> tokens = cleaningProcessor.partition(string);
+        LinkedList<String> input = cleaningProcessor.partition(string);
         LinkedList<String> output = new LinkedList<>();
-        for (String s : tokens) {
+        for (String s : input) {
             String processed = processString(s);
             output.add(processed);
             out += processed;
@@ -80,7 +80,7 @@ public class Compiler {
             insertStatement(out);
         }
 
-        return tokens;
+        return output;
     }
 
     public String processString(String string) {
@@ -181,11 +181,6 @@ public class Compiler {
     public static void main(String[] args) throws IOException {
 
         Compiler c = new Compiler();
-
-
-
-
-
 
         String name = "src/examples/tmp.ns";
         if (args.length > 0) {

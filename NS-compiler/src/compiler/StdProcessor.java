@@ -5,13 +5,12 @@ import java.util.regex.Pattern;
 
 public class StdProcessor {
 
-    Pattern stdin;
+    Pattern stdin = Pattern.compile("^\\s*stdin:\\s*((?:\\w\\s*)*)");
     Matcher m;
     Box box;
 
     public StdProcessor(Box box) {
         this.box = box;
-        stdin = Pattern.compile("^\\s*stdin:\\s*((?:\\w\\s*)*)");
     }
 
     public boolean test(String s) {

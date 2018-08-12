@@ -5,15 +5,13 @@ import java.util.regex.Pattern;
 
 public class PropertyProcessor {
 
-    Pattern map;
-    Pattern propertyCall;
+    Pattern map = Pattern.compile("^\\s*(\\w+)\\s*(?:->|=>)\\s*(.*)");;
+    Pattern propertyCall= Pattern.compile("^\\s*((\\d+|\\w+)\\.\\.(\\d+|\\w+)|\\w+)\\.(\\w+):(.*)");;
     Matcher m;
     Box box;
 
     public PropertyProcessor(Box box) {
         this.box = box;
-        propertyCall = Pattern.compile("^\\s*((\\d+|\\w+)\\.\\.(\\d+|\\w+)|\\w+)\\.(\\w+):(.*)");
-        map = Pattern.compile("^\\s*(\\w+)\\s*(?:->|=>)\\s*(.*)");
     }
 
     public boolean test(String s) {
