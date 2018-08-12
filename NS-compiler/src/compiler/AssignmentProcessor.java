@@ -57,6 +57,10 @@ public class AssignmentProcessor {
                 box.compiler.insertType(name, Type.ARRAY);
                 return box.arrayProcessor.convertArrayRange(name,dynamic);
             }
+            if (box.arrayProcessor.testArrayRead(assignee)) {
+                //will register type inside
+                return box.arrayProcessor.convertArrayRead(name, assignee);
+            }
 
             //***OTHER
             if (box.callProcessor.test(assignee)) {

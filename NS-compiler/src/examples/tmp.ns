@@ -1,2 +1,9 @@
-var a = 1..5;
-var b = 5..1;
+var a = func [int x, int y] {
+    var gg = 1..5;
+    printli: 5;
+};
+
+var b = func [int x, int y] : int {
+    var gg = 1..5;
+    return x+y*3;
+};

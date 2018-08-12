@@ -33,9 +33,8 @@ public class FunctionProcessor {
         String body = m.group(3);
         String returnValue = "";
 
-        //register voids return type for use in assignmentProcessor
+        //register return type for use in assignmentProcessor
         registerType (name, returnType);
-        //TODO: handle return and frees
 
         //convert argument types to c. strings and arrays will always have type char* and void**
         args = args.replaceAll("string\\s+(\\w+)", "char *$1");
@@ -49,7 +48,7 @@ public class FunctionProcessor {
         for (String s : input) {
 
             //if body contains free statement. add free-statements before
-            if (s.matches("^\\s+return")) {
+            if (s.matches("^\\s+return.*\\n")) {
                 translatedBody += box.compiler.getFreeStrings();
                 translatedBody += s;
                 hasFreed = true;

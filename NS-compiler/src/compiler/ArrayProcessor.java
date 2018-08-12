@@ -9,9 +9,11 @@ public class ArrayProcessor {
     Pattern range = Pattern.compile("^\\s*(\\d+|\\w+)\\.\\.(\\d+|\\w+)\\s*(const)?");
     Pattern slice = Pattern.compile("^\\s*(\\w+)\\[\\s*(\\d+)\\s*:\\s*(\\d+)\\s*\\]");
     Pattern normal = Pattern.compile("^\\s*\\[(.*)\\]\\s*(const)?");
+    Pattern arrayRead = Pattern.compile("^\\s*(\\w+)\\s*\\[(\\d+|\\w+)\\]");
     Matcher normalMatcher;
     Matcher rangeMatcher;
     Matcher emptyMatcher;
+    Matcher readMatcher;
     Matcher arrayAssignmentMatcher;
     Box box;
 
@@ -34,7 +36,26 @@ public class ArrayProcessor {
         return emptyMatcher.find();
     }
 
-    //TODO: handle expression of type array[i]
+    public boolean testArrayRead (String s) {
+        readMatcher = arrayRead.matcher(s);
+        return readMatcher.find();
+    }
+
+    public String convertArrayRead (String assigneeName, String s) {
+        String name = readMatcher.group(1);
+        Type t = box.compiler.getArrayType(name);
+        //this is one array element
+        box.compiler.insertType(assigneeName,t);
+        if (t == Type.INTEGER) {
+            return "*((int *)"+s+")";
+        } else if (t == Type.DOUBLE) {
+            return "*((double *)"+s+")";
+        } else {
+            return "((int *)"+s+")";
+        }
+    }
+
+    /*
     public String convert(String s) {
         String name = arrayAssignmentMatcher.group(1);
         String index = arrayAssignmentMatcher.group(2);
@@ -50,6 +71,7 @@ public class ArrayProcessor {
         String line = "(" + type + name + ")" + index + "=" + value + ";\n";
         return line;
     }
+    */
 
     public String convertArrayEmpty(String name, boolean dynamic) {
         String size = emptyMatcher.group(1);
@@ -159,12 +181,18 @@ public class ArrayProcessor {
         box.compiler.insertArraySize(name, size);
 
         if (constant) {
-            //TODO: FIX DECREASING CONSTANT RANGE
             String line = "int " + name + "[] = {";
-            for (int i = from; i < to; i++) {
-                line += i + ",";
+            if (to > from) {
+                for (int i = from; i < to; i++) {
+                    line += i + ",";
+                }
+                line += to + "};\n";
+            } else {
+                for (int i = to; i > from; i++) {
+                    line += i + ",";
+                }
+                line += from + "};\n";
             }
-            line += to + "};\n";
             return line;
         } else {
             String malLine = "";
