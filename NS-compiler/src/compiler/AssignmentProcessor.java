@@ -28,7 +28,7 @@ public class AssignmentProcessor {
         boolean dynamic = (type == null);
 
         if (arrayIndex != null) {
-
+            //TODO: handle array assignment with correct type
         } else {
             //***STRINGS
             if (box.stringProcessor.testString(assignee)) {
@@ -73,6 +73,7 @@ public class AssignmentProcessor {
     }
 
     String matchSimpleTypes (String name, String s) {
+        box.compiler.insertVariableValue(name,Integer.parseInt(s));
         if (s.matches("\\d+\\.\\d+")) {
             return "double " + name + " = " + s + ";\n";
         } else {

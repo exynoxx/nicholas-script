@@ -83,14 +83,15 @@ public class CallProcessor {
 
                 Matcher tmpmatcher = array.matcher(s);
                 if (tmpmatcher.find()) {
-                    int type = box.compiler.getArrayType(tmpmatcher.group(1));
+                    Type t = box.compiler.getArrayType(tmpmatcher.group(1));
                     String newElement = null;
 
-                    if (type == 0) {
+                    if (t == Type.INTEGER) {
                         newElement = "*((int *)(" + tmpmatcher.group(0) + "))";
-                    } else if (type == 1) {
+                    } else if (t == Type.DOUBLE) {
                         newElement = "*((double *)(" + tmpmatcher.group(0) + "))";
                     } else {
+                        //Type.STRING
                         newElement = "((char *)(" + tmpmatcher.group(0) + "))";
                     }
                     tmpArgs += newElement + " ";

@@ -12,7 +12,6 @@ public class FunctionProcessor {
     Matcher m;
     Box box;
 
-    //TODO: PARSE ANONYMOUS FUNCTION "func []...." call it with defined variables
     public FunctionProcessor(Box box) {
         this.box = box;
     }

@@ -53,6 +53,7 @@ public class PropertyProcessor {
             }
 
             //TODO: parse content
+            //TODO: USE COMPILER TO PARSE EXPRESSION
 
             String line = null;
             if (a == null || b == null) {

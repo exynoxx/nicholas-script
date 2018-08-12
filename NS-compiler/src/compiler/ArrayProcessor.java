@@ -34,44 +34,21 @@ public class ArrayProcessor {
         return emptyMatcher.find();
     }
 
+    //TODO: handle expression of type array[i]
     public String convert(String s) {
         String name = arrayAssignmentMatcher.group(1);
         String index = arrayAssignmentMatcher.group(2);
         String value = arrayAssignmentMatcher.group(3);
         String type = null;
 
-        int t = box.compiler.getArrayType(name);
-        if (t == 0) {
-            type = "(int*)";
-        }
-        if (t == 1) {
-            type = "(double*)";
-        }
-        if (t == 2) {
-            type = "(char*)";
-        }
+        Type t = box.compiler.getArrayType(name);
+        if (t == Type.INTEGER) type = "(int *)";
+        if (t == Type.DOUBLE) type = "(double *)";
+        if (t == Type.STRING) type = "(char *)";
 
         //((int *) array)[0] = 456;
         String line = "(" + type + name + ")" + index + "=" + value + ";\n";
         return line;
-    }
-
-    public String arrayAssignment(String name, String s, int type, boolean dynamic) {
-        String ret = null;
-
-        if (type == 0) {
-            ret = convertArrayNormal(name, dynamic);
-        } else if (type == 1) {
-            ret = convertArrayRange(name, dynamic);
-        } else {
-            ret = convertArrayEmpty(name, dynamic);
-        }
-
-        if (!dynamic) {
-            ret = "void **" + ret;
-        }
-
-        return ret;
     }
 
     public String convertArrayEmpty(String name, boolean dynamic) {
@@ -82,18 +59,21 @@ public class ArrayProcessor {
         String sizeString = null;
         if (type.equals("int") || type.equals("integer")) {
             sizeString = size + "*sizeof(int)";
+            box.compiler.insertArrayType(name, Type.INTEGER);
         }
 
         if (type.equals("string")) {
             sizeString = size + "*sizeof(char)";
+            box.compiler.insertArrayType(name, Type.STRING);
         }
 
         if (type.equals("double")) {
             sizeString = size + "*sizeof(double)";
+            box.compiler.insertArrayType(name, Type.DOUBLE);
         }
 
         String ret = (dynamic) ? "free(" + name + ");\n" : "";
-        ret += name + " = (void **) malloc (" + sizeString + ");\n";
+        ret += "void **" + name + " = (void **) malloc (" + sizeString + ");\n";
         box.compiler.addFreeString("free(" + name + ");\n");
         return ret;
     }
@@ -102,30 +82,26 @@ public class ArrayProcessor {
         boolean constant = (normalMatcher.group(2) == null) ? false : true;
 
         String arrayContent = normalMatcher.group(1).trim();
-        String firstElement = arrayContent.split(",")[0];
-        int type = 0;
+        String[] elements = arrayContent.split(",");
+        String firstElement = elements[0];
+        int size = elements.length;
+        String typeString = null;
 
         if (firstElement.contains("\"")) {
-            type = 2;//"const char *";
+            box.compiler.insertArrayType(name, Type.STRING);
+            typeString = "char *";
         } else if (firstElement.matches("\\d+\\.\\d+")) {
-            type = 1;
+            box.compiler.insertArrayType(name, Type.DOUBLE);
+            typeString = "double ";
+        } else {
+            box.compiler.insertArrayType(name, Type.INTEGER);
+            typeString = "int ";
         }
-        box.compiler.insertArrayType(name, type);
-
-
-        String typeString = null;
-        if (type == 0) typeString = "int ";
-        if (type == 1) typeString = "double ";
-        if (type == 2) typeString = "const char *";
 
         if (constant) {
-            int size = arrayContent.split(",").length;
             box.compiler.insertArraySize(name, size);
-            return type + name + "[] = {" + arrayContent + "};\n";
+            return typeString + name + "[] = {" + arrayContent + "};\n";
         } else {
-            String[] elements = arrayContent.split(",");
-            int size = elements.length;
-
             String malLine = "";
             if (dynamic) {
                 malLine += "for (int i = 0; i < " + box.compiler.getArraySize(name) + ";i++) free (" + name + "[i]);\n";
@@ -141,7 +117,7 @@ public class ArrayProcessor {
             String nextline = "";
 
             //strings are special
-            if (type == 2) {
+            if (typeString.equals("char *")) {
                 for (int i = 0; i < elements.length; i++) {
                     nextline += name + "[" + i + "] = (char *) malloc (" + size + ");\n";
                     nextline += "strcpy(((char *)(" + name + "[" + i + "])), " + elements[i] + ");\n";
@@ -165,20 +141,25 @@ public class ArrayProcessor {
         String a = rangeMatcher.group(1);
         String b = rangeMatcher.group(2);
 
-        box.compiler.insertArrayType(name, 0);
+        box.compiler.insertArrayType(name, Type.INTEGER);
         //type = 0:int 1:double 2:string
 
         int from = (a.matches("\\d+")) ? Integer.parseInt(a) : box.compiler.getVariableValue(a);
         int to = (b.matches("\\d+")) ? Integer.parseInt(b) : box.compiler.getVariableValue(b);
-        int size = Math.abs(to - from + 1);
+        int size = Math.abs(to - from) + 1;
+        String comparator = "<=";
+        String incrementer = "++";
         if (from > to) {
-            int tmp = to;
-            to = from;
-            from = tmp;
+            //int tmp = to;
+            //to = from;
+            //from = tmp;
+            comparator = ">=";
+            incrementer = "--";
         }
         box.compiler.insertArraySize(name, size);
 
         if (constant) {
+            //TODO: FIX DECREASING CONSTANT RANGE
             String line = "int " + name + "[] = {";
             for (int i = from; i < to; i++) {
                 line += i + ",";
@@ -195,9 +176,9 @@ public class ArrayProcessor {
             }
             box.compiler.insertArraySize(name, size);
 
-            malLine += name + " = (void **) malloc ((" + b + "-" + a + "+1)*sizeof(void *));\n";
+            malLine += "void **" + name + " = (void **) malloc (" + size + "*sizeof(void *));\n";
             //*((int *)(arr[1])) = 5;
-            String nextline = "for (int i = " + a + ", j = 0; i <= " + b + "; i++, j++) {\n";
+            String nextline = "for (int i = " + from + ", j = 0; i" + comparator + to + "; i" + incrementer + ", j++) {\n";
             nextline += name + "[j] = malloc(sizeof(int));\n";
             nextline += "*((int *)(" + name + "[j])) = i;\n";
             nextline += "}\n";

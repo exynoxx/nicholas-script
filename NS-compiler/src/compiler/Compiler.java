@@ -18,8 +18,8 @@ public class Compiler {
     int scopeLevel = 0;
 
     HashMap<String, Type> typeHashMap = new HashMap<>();
+    HashMap<String, Type> arrayTypeHashMap = new HashMap<>();
     HashMap<String, Integer> arraySizeHashMap = new HashMap<>();
-    HashMap<String, Integer> arrayTypeHashMap = new HashMap<>();     //type = 0:int 1:double 2:string
     HashMap<String, Integer> variableValue = new HashMap<>();
 
     String globalVariables = "";
@@ -180,11 +180,11 @@ public class Compiler {
         variableValue.put(name, value);
     }
 
-    public void insertArrayType(String name, int value) {
+    public void insertArrayType(String name, Type value) {
         arrayTypeHashMap.put(name, value);
     }
 
-    public int getArrayType(String name) {
+    public Type getArrayType(String name) {
         return arrayTypeHashMap.get(name);
     }
 
