@@ -60,11 +60,11 @@ public class ArrayProcessor {
         String ret = null;
 
         if (type == 0) {
-            ret = arrayNormal(name, dynamic);
+            ret = convertArrayNormal(name, dynamic);
         } else if (type == 1) {
-            ret = arrayRange(name, dynamic);
+            ret = convertArrayRange(name, dynamic);
         } else {
-            ret = arrayEmpty(name, dynamic);
+            ret = convertArrayEmpty(name, dynamic);
         }
 
         if (!dynamic) {
@@ -74,7 +74,7 @@ public class ArrayProcessor {
         return ret;
     }
 
-    private String arrayEmpty(String name, boolean dynamic) {
+    public String convertArrayEmpty(String name, boolean dynamic) {
         String size = emptyMatcher.group(1);
         String type = emptyMatcher.group(2);
         box.compiler.insertArraySize(name, Integer.parseInt(size));
@@ -98,7 +98,7 @@ public class ArrayProcessor {
         return ret;
     }
 
-    private String arrayNormal(String name, boolean dynamic) {
+    public String convertArrayNormal(String name, boolean dynamic) {
         boolean constant = (normalMatcher.group(2) == null) ? false : true;
 
         String arrayContent = normalMatcher.group(1).trim();
@@ -129,7 +129,6 @@ public class ArrayProcessor {
             String malLine = "";
             if (dynamic) {
                 malLine += "for (int i = 0; i < " + box.compiler.getArraySize(name) + ";i++) free (" + name + "[i]);\n";
-                ;
                 malLine += "free(" + name + ");\n";
             }
             box.compiler.insertArraySize(name, size);
@@ -160,7 +159,7 @@ public class ArrayProcessor {
     }
 
 
-    private String arrayRange(String name, boolean dynamic) {
+    public String convertArrayRange(String name, boolean dynamic) {
         boolean constant = (rangeMatcher.group(3) == null) ? false : true;
 
         String a = rangeMatcher.group(1);

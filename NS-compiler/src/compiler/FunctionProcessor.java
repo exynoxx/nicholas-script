@@ -34,6 +34,8 @@ public class FunctionProcessor {
         String body = m.group(3);
         String returnValue = "";
 
+        //register voids return type for use in assignmentProcessor
+        registerType (name, returnType);
         //TODO: handle return and frees
 
         //convert argument types to c. strings and arrays will always have type char* and void**
@@ -73,5 +75,23 @@ public class FunctionProcessor {
         box.compiler.insertFunction(declerarion);
 
         return returnValue;
+    }
+
+    void registerType (String name, String type) {
+        if (type.equals("int")) {
+            box.compiler.insertType(name,Type.INTEGER);
+        }
+        if (type.equals("double")) {
+            box.compiler.insertType(name,Type.DOUBLE);
+        }
+        if (type.equals("void")) {
+            box.compiler.insertType(name,Type.VOID);
+        }
+        if (type.equals("string")) {
+            box.compiler.insertType(name,Type.STRING);
+        }
+        if (type.equals("arr")) {
+            box.compiler.insertType(name,Type.ARRAY);
+        }
     }
 }

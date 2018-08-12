@@ -51,6 +51,12 @@ public class StringProcessor {
         int size = stringMatcher.group(1).length();
         String line = "char *" + name + " = (char *) malloc (" + size + ");\n";
         line += "strcpy(" + name + ", \"" + content + "\");\n";
+
+        /*
+        if (name == null && content == null) {
+            //anonymous string
+            line += name;
+        }*/
         box.compiler.addFreeString("free(" + name + ");\n");
 
         return line;
@@ -58,6 +64,7 @@ public class StringProcessor {
 
     public String convertStringCat (String name, String content) {
 
+        if (content == null) content = catMatcher.group(0).trim();
         String[] tokens = content.split("~");
         String size = "";
         String before = "";

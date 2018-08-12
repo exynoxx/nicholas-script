@@ -1,2 +1,8 @@
-var t = ["s1", "s2"];
-printls: t[1];
+var a = 1..5;
+var b = 5;
+var c = [1,5,8,2];
+var d = func [int x, int y]: int {
+    return 3*x+y;
+}
+var e = "hello world!";
+var f = "hello" ~ "   " ~ "world" ~ "! with " ~ 3 ~ " spaces";

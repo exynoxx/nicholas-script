@@ -1,14 +1,14 @@
 package compiler;
 
 public class Box {
-
     AssignmentProcessor assignmentProcessor;
     BranchingProcessor branchingProcessor;
-    CallProcessor callProcessor;
+    FunctionProcessor functionProcessor;
     PropertyProcessor propertyProcessor;
+    NoParseProcessor noParseProcessor;
     StringProcessor stringProcessor;
     ArrayProcessor arrayProcessor;
-    NoParseProcessor noParseProcessor;
+    CallProcessor callProcessor;
     StdProcessor stdProcessor;
     Compiler compiler;
 }

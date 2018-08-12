@@ -32,12 +32,14 @@ public class Compiler {
         box = new Box();
         box.assignmentProcessor = new AssignmentProcessor(box);
         box.branchingProcessor = new BranchingProcessor(box);
+        box.functionProcessor = new FunctionProcessor(box);
         box.propertyProcessor = new PropertyProcessor(box);
         box.noParseProcessor = new NoParseProcessor(box);
         box.stringProcessor = new StringProcessor(box);
         box.arrayProcessor = new ArrayProcessor(box);
         box.callProcessor = new CallProcessor(box);
         box.stdProcessor = new StdProcessor(box);
+        box.compiler = this;
         random = new Random();
 
         scopeHM = new HashMap<>();
@@ -86,10 +88,18 @@ public class Compiler {
     public String processString(String string) {
         String ret = string + ";\n";
 
-        for (Processor p : processors) {
-            if (p.test(string))
-                return p.convert(string);
-        }
+        if (box.assignmentProcessor.test(string)) ret = box.assignmentProcessor.convert();
+
+        else if (box.stringProcessor.testString(string)) ret = box.stringProcessor.convertString(null, null);
+        else if (box.stringProcessor.testEmpty(string)) ret = box.stringProcessor.convertEmpty(string);
+        else if (box.stringProcessor.testStringCat(string)) ret = box.stringProcessor.convertStringCat(string, null);
+
+        else if (box.branchingProcessor.test(string)) ret = box.branchingProcessor.convert(string);
+        else if (box.callProcessor.test(string)) ret = box.callProcessor.convert();
+        else if (box.stdProcessor.test(string)) ret = box.stdProcessor.convert(string);
+        else if (box.noParseProcessor.test(string)) ret = box.noParseProcessor.convert(string);
+        else if (box.functionProcessor.test(string)) ret = box.functionProcessor.convert(string);
+
         return ret;
     }
 
@@ -154,11 +164,11 @@ public class Compiler {
         return typeHashMap.get(name);
     }
 
-    public void insertArraySize (String name, int size) {
-        arraySizeHashMap.put(name,size);
+    public void insertArraySize(String name, int size) {
+        arraySizeHashMap.put(name, size);
     }
 
-    public int getArraySize (String name) {
+    public int getArraySize(String name) {
         return arraySizeHashMap.get(name);
     }
 
@@ -167,14 +177,14 @@ public class Compiler {
     }
 
     public void insertVariableValue(String name, int value) {
-        variableValue.put(name,value);
+        variableValue.put(name, value);
     }
 
-    public void insertArrayType (String name, int value) {
-        arrayTypeHashMap.put(name,value);
+    public void insertArrayType(String name, int value) {
+        arrayTypeHashMap.put(name, value);
     }
 
-    public int getArrayType (String name) {
+    public int getArrayType(String name) {
         return arrayTypeHashMap.get(name);
     }
 
