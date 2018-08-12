@@ -95,7 +95,7 @@ public class Compiler {
         else if (box.stringProcessor.testStringCat(string)) ret = box.stringProcessor.convertStringCat(string, null);
 
         else if (box.branchingProcessor.test(string)) ret = box.branchingProcessor.convert(string);
-        else if (box.callProcessor.test(string)) ret = box.callProcessor.convert();
+        else if (box.callProcessor.test(string)) ret = box.callProcessor.convert(false);
         else if (box.stdProcessor.test(string)) ret = box.stdProcessor.convert(string);
         else if (box.noParseProcessor.test(string)) ret = box.noParseProcessor.convert(string);
         else if (box.functionProcessor.test(string)) ret = box.functionProcessor.convert(string);

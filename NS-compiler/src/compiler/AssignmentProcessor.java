@@ -61,7 +61,7 @@ public class AssignmentProcessor {
             //***OTHER
             if (box.callProcessor.test(assignee)) {
                 box.compiler.insertType(name, box.compiler.getType(name));
-                return box.callProcessor.convert();
+                return box.callProcessor.convert(false);
             }
             if (box.functionProcessor.test(assignee)) {
                 //will register type inside
@@ -69,9 +69,18 @@ public class AssignmentProcessor {
             }
         }
 
-        return null;
-
+        return matchSimpleTypes(name, assignee);
     }
+
+    String matchSimpleTypes (String name, String s) {
+        if (s.matches("\\d+\\.\\d+")) {
+            return "double " + name + " = " + s + ";\n";
+        } else {
+            return "int " + name + " = " + s + ";\n";
+        }
+    }
+
+
 
 }
 

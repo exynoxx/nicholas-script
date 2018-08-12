@@ -20,7 +20,7 @@ public class CallProcessor {
         return m.find();
     }
 
-    public String convert() {
+    public String convert(boolean recursive) {
         String name = m.group(1);
         String args = m.group(2).trim();
         String before = "";
@@ -29,7 +29,7 @@ public class CallProcessor {
         //recursive function call in args.
         if (args.contains(":")) {
             if (test(args.trim())) {
-                args = convert();
+                args = convert(true);
             }
         } //string cat as arg
         else if (args.contains("~") || args.contains("+") || args.contains("*") || args.contains("/")) {
@@ -69,7 +69,7 @@ public class CallProcessor {
                 }
             }
             tmpArg += args.substring(lastPos, args.length());
-            args = tmpArg.trim();
+            args = tmpArg;
         }
 
         //process arrays in args
@@ -100,7 +100,9 @@ public class CallProcessor {
             }
             args = tmpArgs;
         }
-        return name + "(" + args + ")";
+        args = args.trim();
+        args = args.replaceAll("\\s+", ",");
+        return name + "(" + args + ")" + ((recursive)?"":";") +"\n";
     }
 
     /*

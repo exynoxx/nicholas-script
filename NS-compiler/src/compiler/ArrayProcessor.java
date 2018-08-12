@@ -133,7 +133,7 @@ public class ArrayProcessor {
             }
             box.compiler.insertArraySize(name, size);
 
-            malLine += name + " = (void **) malloc (" + size + "*sizeof(void *));\n";
+            malLine += "void **" + name + " = (void **) malloc (" + size + "*sizeof(void *));\n";
 
             String free = "for (int i = 0; i < " + size + ";i++) free (" + name + "[i]);\n";
             box.compiler.addFreeString(free);
@@ -168,18 +168,17 @@ public class ArrayProcessor {
         box.compiler.insertArrayType(name, 0);
         //type = 0:int 1:double 2:string
 
+        int from = (a.matches("\\d+")) ? Integer.parseInt(a) : box.compiler.getVariableValue(a);
+        int to = (b.matches("\\d+")) ? Integer.parseInt(b) : box.compiler.getVariableValue(b);
+        int size = Math.abs(to - from + 1);
+        if (from > to) {
+            int tmp = to;
+            to = from;
+            from = tmp;
+        }
+        box.compiler.insertArraySize(name, size);
 
         if (constant) {
-            int to = 1;
-            int from = 3;
-
-            if (a.matches("\\d+") && b.matches("\\d+")) {
-                from = Integer.parseInt(a);
-                to = Integer.parseInt(b);
-            }
-            int size = to - from + 1;
-            box.compiler.insertArraySize(name, size);
-
             String line = "int " + name + "[] = {";
             for (int i = from; i < to; i++) {
                 line += i + ",";
@@ -187,17 +186,12 @@ public class ArrayProcessor {
             line += to + "};\n";
             return line;
         } else {
-
-            int from, to;
-            from = (a.matches("\\d+")) ? Integer.parseInt(a) : box.compiler.getVariableValue(a);
-            to = (b.matches("\\d+")) ? Integer.parseInt(b) : box.compiler.getVariableValue(b);
-            int size = to - from + 1;
             String malLine = "";
 
             if (dynamic) {
                 malLine += "for (int i = 0; i < " + box.compiler.getArraySize(name) + ";i++) free (" + name + "[i]);\n";
-                ;
                 malLine += "free(" + name + ");\n";
+                malLine += "void **";
             }
             box.compiler.insertArraySize(name, size);
 

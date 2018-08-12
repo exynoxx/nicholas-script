@@ -3,6 +3,7 @@ var b = 5;
 var c = [1,5,8,2];
 var d = func [int x, int y]: int {
     return 3*x+y;
-}
+};
+printli: d: 5 4;
 var e = "hello world!";
 var f = "hello" ~ "   " ~ "world" ~ "! with " ~ 3 ~ " spaces";

@@ -95,7 +95,7 @@ public class StringProcessor {
         size = size.substring(0,size.length()-1);
 
         //create umbrella string and add each token
-        String line = before + "char *" + name + "= (char *) malloc ("+size+");\n";
+        String line = before + "char *" + name + " = (char *) malloc ("+size+");\n";
         for (String tk : tokens) {
             line += "strcat("+name+", "+tk+");\n";
         }
