@@ -36,22 +36,22 @@ public class ArrayProcessor {
         return emptyMatcher.find();
     }
 
-    public boolean testArrayRead (String s) {
+    public boolean testArrayRead(String s) {
         readMatcher = arrayRead.matcher(s);
         return readMatcher.find();
     }
 
-    public String convertArrayRead (String assigneeName, String s) {
+    public String convertArrayRead(String assigneeName, String s) {
         String name = readMatcher.group(1);
         Type t = box.compiler.getArrayType(name);
-        //this is one array element
-        box.compiler.insertType(assigneeName,t);
+        if (assigneeName != null) box.compiler.insertType(assigneeName, t);        //this is one array element
+
         if (t == Type.INTEGER) {
-            return "*((int *)"+s+")";
+            return "*((int *)" + s + ")";
         } else if (t == Type.DOUBLE) {
-            return "*((double *)"+s+")";
+            return "*((double *)" + s + ")";
         } else {
-            return "((int *)"+s+")";
+            return "((char *)" + s + ")";
         }
     }
 
@@ -122,6 +122,7 @@ public class ArrayProcessor {
 
         if (constant) {
             box.compiler.insertArraySize(name, size);
+            box.compiler.insertType(name, Type.CONSTARRAY); //override assignment write
             return typeString + name + "[] = {" + arrayContent + "};\n";
         } else {
             String malLine = "";
@@ -181,6 +182,7 @@ public class ArrayProcessor {
         box.compiler.insertArraySize(name, size);
 
         if (constant) {
+            box.compiler.insertType(name, Type.CONSTARRAY); //override assignment write
             String line = "int " + name + "[] = {";
             if (to > from) {
                 for (int i = from; i < to; i++) {
@@ -202,7 +204,6 @@ public class ArrayProcessor {
                 malLine += "free(" + name + ");\n";
                 malLine += "void **";
             }
-            box.compiler.insertArraySize(name, size);
 
             malLine += "void **" + name + " = (void **) malloc (" + size + "*sizeof(void *));\n";
             //*((int *)(arr[1])) = 5;

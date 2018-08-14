@@ -5,9 +5,12 @@ import java.util.regex.Pattern;
 
 public class PropertyProcessor {
 
-    Pattern map = Pattern.compile("^\\s*(\\w+)\\s*(?:->|=>)\\s*(.*)");;
-    Pattern propertyCall= Pattern.compile("^\\s*((\\d+|\\w+)\\.\\.(\\d+|\\w+)|\\w+)\\.(\\w+):(.*)");;
+    //array map
+    //
+    Pattern map = Pattern.compile("^\\s*(\\w+)\\s*(?:->|=>)\\s*(.*)");
+    Pattern propertyCall = Pattern.compile("^\\s*((\\d+|\\w+)\\.\\.(\\d+|\\w+)|\\w+|\\[.*\\])\\.(\\w+):(.*)");
     Matcher m;
+    Matcher mapMatcher;
     Box box;
 
     public PropertyProcessor(Box box) {
@@ -43,43 +46,10 @@ public class PropertyProcessor {
 
     private String checkBuildInProps(String obj, String a, String b, String prop, String args) {
         if (prop.equals("map")) {
-
-            Matcher matcher = map.matcher(args);
-            String variable = m.group(1);
-            String content = m.group(2);
-            String processedContent = null;
-            for (String s : box.compiler.tokenize(content)) {
-                processedContent += s;
+            mapMatcher = map.matcher(args);
+            if (mapMatcher.find()) {
+                return mapFunction(obj, a, b);
             }
-
-            //TODO: parse content
-            //TODO: USE COMPILER TO PARSE EXPRESSION
-
-            String line = null;
-            if (a == null || b == null) {
-                //variable.map: i -> ....;
-
-                Integer arraySize = box.compiler.getArraySize(obj);
-                String size = (arraySize != null) ? String.valueOf(arraySize) : "-1";
-
-                String newVar = box.compiler.generateRandomName();
-                line = "for (int " + newVar + " = 0; " + newVar + " < " + size + ";" + newVar + "++) {\n";
-                line += "int " + variable + " = " + obj + "[" + newVar + "];\n";
-
-            } else {
-                //increasing og decreasing range?
-                int aValue = (a.matches("\\d+")) ? Integer.valueOf(a) : box.compiler.getVariableValue(a);
-                int bValue = (b.matches("\\d+")) ? Integer.valueOf(b) : box.compiler.getVariableValue(b);
-
-                if (aValue < bValue) {
-                    line = "for (int " + variable + " = " + a + "; " + variable + " <= " + b + "; " + variable + "++) {\n";
-                } else {
-                    line = "for (int " + variable + " = " + a + "; " + variable + " >= " + b + "; " + variable + "--) {\n";
-                }
-            }
-            line += processedContent;
-            line += "}\n";
-            return line;
         }
 
         if (prop.equals("length")) {
@@ -87,6 +57,74 @@ public class PropertyProcessor {
         }
 
         return null;
+    }
+
+    private String mapFunction(String obj, String a, String b) {
+        String variable = mapMatcher.group(1);
+        String content = mapMatcher.group(2);
+
+        //parse body
+        box.compiler.increaseScopeLevel();
+        String processedContent = box.compiler.processString(content);
+        processedContent += box.compiler.getFreeStrings();
+
+        //prepare for-loop
+        String line = "";
+        if (a == null || b == null) {
+
+            String name = obj;
+
+            //array inserted directly? extract first.
+            if (obj.contains("[")) {
+                name = box.compiler.generateRandomName();
+                box.arrayProcessor.testNormal(obj);
+                line += box.arrayProcessor.convertArrayNormal(name, false);
+            }
+
+            Integer arraySize = box.compiler.getArraySize(name);
+            String size = (arraySize != null) ? String.valueOf(arraySize) : "-1";
+            Type t = box.compiler.getArrayType(name);
+
+            String i = box.compiler.generateRandomName();
+            line += "for (int " + i + " = 0; " + i + " < " + size + ";" + i + "++) {\n";
+
+            String s = null;
+            if (box.compiler.getType(name) == Type.ARRAY) {
+                s = name + "[" + i + "]";
+                box.arrayProcessor.testArrayRead(s);
+                s = box.arrayProcessor.convertArrayRead(null, s);
+
+                if (t == Type.INTEGER) {
+                    line += "int " + variable + " = " + s + ";\n";
+                } else if (t == Type.DOUBLE) {
+                    line += "double " + variable + " = " + s + ";\n";
+                } else {
+                    line += "char *" + variable + " = " + s + ";\n";
+                }
+            } else {
+                if (t == Type.INTEGER) {
+                    line += "int " + variable + " = " + i + ";\n";
+                } else {
+                    line += "double " + variable + " = " + i + ";\n";
+                }
+            }
+
+
+        } else {
+            //range
+            //increasing og decreasing range?
+            int aValue = (a.matches("\\d+")) ? Integer.valueOf(a) : box.compiler.getVariableValue(a);
+            int bValue = (b.matches("\\d+")) ? Integer.valueOf(b) : box.compiler.getVariableValue(b);
+
+            if (aValue < bValue) {
+                line = "for (int " + variable + " = " + a + "; " + variable + " <= " + b + "; " + variable + "++) {\n";
+            } else {
+                line = "for (int " + variable + " = " + a + "; " + variable + " >= " + b + "; " + variable + "--) {\n";
+            }
+        }
+        line += processedContent;
+        line += "}\n";
+        return line;
     }
 
 

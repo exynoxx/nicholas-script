@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 
 public class StringProcessor {
 
-    Pattern stringPattern = Pattern.compile("^\\s*\"([^\"]*)\"\\s*$");
+    Pattern stringPattern = Pattern.compile("^\\s*\"([^\"]*)\"\\s*(const)\\s*$");
     Pattern stringCat = Pattern.compile("^\\s*(?:\\w+|\".*\")(?:\\s*~\\s*(?:\\w+|\".*\"))+");
     Pattern empty = Pattern.compile("^\\s*(string)\\s*\\(\\s*(\\d+)\\s*\\)");
 
@@ -48,7 +48,14 @@ public class StringProcessor {
 
         if (name == null) name = box.compiler.generateRandomName();
         if (content == null) content = stringMatcher.group(1);
-        int size = stringMatcher.group(1).length();
+        int size = content.length();
+
+        //constant string
+        if (stringMatcher.group(2) != null) {
+            String line = "char *" + name + " = \"" + content + "\";\n";
+            return line;
+        }
+
         String line = "char *" + name + " = (char *) malloc (" + size + ");\n";
         line += "strcpy(" + name + ", \"" + content + "\");\n";
 
