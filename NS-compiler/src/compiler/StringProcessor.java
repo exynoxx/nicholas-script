@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 
 public class StringProcessor {
 
-    Pattern stringPattern = Pattern.compile("^\\s*\"([^\"]*)\"\\s*(const)\\s*$");
+    Pattern stringPattern = Pattern.compile("^\\s*\"([^\"]*)\"\\s*(const)?\\s*$");
     Pattern stringCat = Pattern.compile("^\\s*(?:\\w+|\".*\")(?:\\s*~\\s*(?:\\w+|\".*\"))+");
     Pattern empty = Pattern.compile("^\\s*(string)\\s*\\(\\s*(\\d+)\\s*\\)");
 

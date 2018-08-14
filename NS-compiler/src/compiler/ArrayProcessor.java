@@ -184,16 +184,13 @@ public class ArrayProcessor {
             box.compiler.insertType(name, Type.CONSTARRAY); //override assignment write
             String line = "int " + name + "[] = {";
             if (to > from) {
-                for (int i = from; i < to; i++) {
-                    line += i + ",";
-                }
-                line += to + "};\n";
+                //increasing range
+                for (int i = from; i < to; i++) line += i + ",";
             } else {
-                for (int i = to; i > from; i++) {
-                    line += i + ",";
-                }
-                line += from + "};\n";
+                //decreasing range
+                for (int i = from; i > to; i--) line += i + ",";
             }
+            line += to + "};\n";
             return line;
         } else {
             String malLine = "";

@@ -5,6 +5,6 @@ printls: newline;
 [1,4,5].map: i -> printi: i;
 printls: newline;
 
-var fc = [7,11,8] const;
-fc.map: i -> printi: i;
+var fc = 7..4 const;
+fc.map: i -> prints: i ~ " --- ";
 printls: newline;
