@@ -114,24 +114,23 @@ public class ArrayProcessor {
             typeString = "char *";
         } else if (firstElement.matches("\\d+\\.\\d+")) {
             box.compiler.insertArrayType(name, Type.DOUBLE);
-            typeString = "double ";
+            typeString = "double";
         } else {
             box.compiler.insertArrayType(name, Type.INTEGER);
-            typeString = "int ";
+            typeString = "int";
         }
 
+        box.compiler.insertArraySize(name, size);
         if (constant) {
-            box.compiler.insertArraySize(name, size);
             box.compiler.insertType(name, Type.CONSTARRAY); //override assignment write
-            return typeString + name + "[] = {" + arrayContent + "};\n";
+            return typeString + " " + name + "[] = {" + arrayContent + "};\n";
         } else {
+            box.compiler.insertType(name, Type.ARRAY); //override assignment write
             String malLine = "";
             if (dynamic) {
                 malLine += "for (int i = 0; i < " + box.compiler.getArraySize(name) + ";i++) free (" + name + "[i]);\n";
                 malLine += "free(" + name + ");\n";
             }
-            box.compiler.insertArraySize(name, size);
-
             malLine += "void **" + name + " = (void **) malloc (" + size + "*sizeof(void *));\n";
 
             String free = "for (int i = 0; i < " + size + ";i++) free (" + name + "[i]);\n";

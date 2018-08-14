@@ -81,32 +81,28 @@ public class PropertyProcessor {
                 line += box.arrayProcessor.convertArrayNormal(name, false);
             }
 
+            //size and type
             Integer arraySize = box.compiler.getArraySize(name);
             String size = (arraySize != null) ? String.valueOf(arraySize) : "-1";
             Type t = box.compiler.getArrayType(name);
 
+            //for loop
             String i = box.compiler.generateRandomName();
             line += "for (int " + i + " = 0; " + i + " < " + size + ";" + i + "++) {\n";
 
-            String s = null;
+            //variable access in array
+            String s = name + "[" + i + "]";
             if (box.compiler.getType(name) == Type.ARRAY) {
-                s = name + "[" + i + "]";
                 box.arrayProcessor.testArrayRead(s);
                 s = box.arrayProcessor.convertArrayRead(null, s);
+            }
 
-                if (t == Type.INTEGER) {
-                    line += "int " + variable + " = " + s + ";\n";
-                } else if (t == Type.DOUBLE) {
-                    line += "double " + variable + " = " + s + ";\n";
-                } else {
-                    line += "char *" + variable + " = " + s + ";\n";
-                }
+            if (t == Type.INTEGER) {
+                line += "int " + variable + " = " + s + ";\n";
+            } else if (t == Type.DOUBLE) {
+                line += "double " + variable + " = " + s + ";\n";
             } else {
-                if (t == Type.INTEGER) {
-                    line += "int " + variable + " = " + i + ";\n";
-                } else {
-                    line += "double " + variable + " = " + i + ";\n";
-                }
+                line += "char *" + variable + " = " + s + ";\n";
             }
 
 
