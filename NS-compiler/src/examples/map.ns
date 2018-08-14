@@ -1,12 +1,20 @@
-prints: "##############";
-1..10.map: i -> printli: i;
+string newline = "\n";
 
-prints: "##############";
-var ar = 1..7;
-ar.map: i -> func[int i] {
-    printls: i;
+var array1 = [1,7,11,6,8] const;
+var array2 = 6..1 const;
+
+array1.map: i -> printi: i;
+printls: newline;
+
+array2.map: i -> func [int i] {
+    printli: i*2;
 };
+printls: newline;
 
-printls: "##############";
-var ar2 = [1,7,2,9,3];
-ar2.map: i -> printli: i;
+[4,7,9].map: i -> prints: i ~ " -> ";
+printls: newline;
+
+10..20.map: x => func[int x] {
+    prints: x ~ " ";
+};
+printls: newline;

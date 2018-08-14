@@ -99,7 +99,7 @@ public class Compiler {
         else if (box.callProcessor.test(string)) ret = box.callProcessor.convert(false);
         else if (box.stdProcessor.test(string)) ret = box.stdProcessor.convert(string);
         else if (box.noParseProcessor.test(string)) ret = box.noParseProcessor.convert(string);
-        else if (box.functionProcessor.test(string)) ret = box.functionProcessor.convert(string);
+        else if (box.functionProcessor.test(string)) ret = box.functionProcessor.convert(null);
 
         return ret;
     }
@@ -193,7 +193,7 @@ public class Compiler {
 
         Compiler c = new Compiler();
 
-        String name = "src/examples/tmp.ns";
+        String name = "src/examples/map.ns";
         if (args.length > 0) {
             name = args[0];
         }
