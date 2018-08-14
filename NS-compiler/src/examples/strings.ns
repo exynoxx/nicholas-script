@@ -6,5 +6,8 @@ var twothree = "2 3";
 var string = 1 ~ " " ~ twothree ~ " " ~ 4;
 printls: string;
 
-#var final = a ~ " " ~ string;
 printls: a ~ " " ~ string;
+
+var string1 = "hello";
+var string2 = "world" const;
+printls: string1 ~ " " ~ string2;

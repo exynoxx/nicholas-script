@@ -193,7 +193,7 @@ public class Compiler {
 
         Compiler c = new Compiler();
 
-        String name = "src/examples/map.ns";
+        String name = "src/examples/types.ns";
         if (args.length > 0) {
             name = args[0];
         }

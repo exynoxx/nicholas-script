@@ -94,8 +94,14 @@ public class ArrayProcessor {
             box.compiler.insertArrayType(name, Type.DOUBLE);
         }
 
-        String ret = (dynamic) ? "free(" + name + ");\n" : "";
-        ret += "void **" + name + " = (void **) malloc (" + sizeString + ");\n";
+        String ret = null;
+        if (dynamic) {
+            ret = "free(" + name + ");\n";
+        } else {
+            ret = "void **";
+        }
+
+        ret += name + " = (void **) malloc (" + sizeString + ");\n";
         box.compiler.addFreeString("free(" + name + ");\n");
         return ret;
     }
@@ -130,8 +136,10 @@ public class ArrayProcessor {
             if (dynamic) {
                 malLine += "for (int i = 0; i < " + box.compiler.getArraySize(name) + ";i++) free (" + name + "[i]);\n";
                 malLine += "free(" + name + ");\n";
+            } else {
+                malLine += "void **";
             }
-            malLine += "void **" + name + " = (void **) malloc (" + size + "*sizeof(void *));\n";
+            malLine += name + " = (void **) malloc (" + size + "*sizeof(void *));\n";
 
             String free = "for (int i = 0; i < " + size + ";i++) free (" + name + "[i]);\n";
             box.compiler.addFreeString(free);
@@ -198,10 +206,11 @@ public class ArrayProcessor {
             if (dynamic) {
                 malLine += "for (int i = 0; i < " + box.compiler.getArraySize(name) + ";i++) free (" + name + "[i]);\n";
                 malLine += "free(" + name + ");\n";
+            } else {
                 malLine += "void **";
             }
 
-            malLine += "void **" + name + " = (void **) malloc (" + size + "*sizeof(void *));\n";
+            malLine += name + " = (void **) malloc (" + size + "*sizeof(void *));\n";
             //*((int *)(arr[1])) = 5;
             String nextline = "for (int i = " + from + ", j = 0; i" + comparator + to + "; i" + incrementer + ", j++) {\n";
             nextline += name + "[j] = malloc(sizeof(int));\n";

@@ -3,6 +3,9 @@ var a = 5;
 var b = "hello";
 var c = 1..5;
 
+//TODO: smedkerne
+//TODO: duplicate free
+
 #number,string,array with types
 int aa = 5;
 string bb = "hello";
@@ -10,10 +13,10 @@ arr cc = 1..5;
 
 #constant array and empty int array
 var aaa = 1..5 const;
-var bbb = int(5);
+var bbb = array(5, int);
 
 #reassignment frees old arrays.
 #new values of bbb and cc must have same type (array).
-bbb = int(10);
+bbb = array(10,int);
 cc = 1..10;
-cc = int (2);
+cc = array (2, int);
