@@ -96,13 +96,13 @@ public class ArrayProcessor {
 
         String ret = null;
         if (dynamic) {
-            ret = "free(" + name + ");\n";
+            ret = box.compiler.getOneFreeString(name);
         } else {
             ret = "void **";
         }
 
         ret += name + " = (void **) malloc (" + sizeString + ");\n";
-        box.compiler.addFreeString("free(" + name + ");\n");
+        box.compiler.addFreeString(name, "free(" + name + ");\n");
         return ret;
     }
 
@@ -134,16 +134,14 @@ public class ArrayProcessor {
             box.compiler.insertType(name, Type.ARRAY); //override assignment write
             String malLine = "";
             if (dynamic) {
-                malLine += "for (int i = 0; i < " + box.compiler.getArraySize(name) + ";i++) free (" + name + "[i]);\n";
-                malLine += "free(" + name + ");\n";
+                malLine += box.compiler.getOneFreeString(name);
             } else {
                 malLine += "void **";
             }
             malLine += name + " = (void **) malloc (" + size + "*sizeof(void *));\n";
 
-            String free = "for (int i = 0; i < " + size + ";i++) free (" + name + "[i]);\n";
-            box.compiler.addFreeString(free);
-            if (!dynamic) box.compiler.addFreeString("free(" + name + ");\n");
+            String free = "for (int i = 0; i < " + size + ";i++) free (" + name + "[i]);\nfree(" + name + ");\n";
+            box.compiler.addFreeString(name, free);
             String nextline = "";
 
             //strings are special
@@ -204,8 +202,7 @@ public class ArrayProcessor {
             String malLine = "";
 
             if (dynamic) {
-                malLine += "for (int i = 0; i < " + box.compiler.getArraySize(name) + ";i++) free (" + name + "[i]);\n";
-                malLine += "free(" + name + ");\n";
+                malLine += box.compiler.getOneFreeString(name);
             } else {
                 malLine += "void **";
             }
@@ -217,9 +214,8 @@ public class ArrayProcessor {
             nextline += "*((int *)(" + name + "[j])) = i;\n";
             nextline += "}\n";
 
-            String free = "for (int i = 0; i < " + size + ";i++) free (" + name + "[i]);\n";
-            box.compiler.addFreeString(free);
-            if (!dynamic) box.compiler.addFreeString("free(" + name + ");\n");
+            String free = "for (int i = 0; i < " + size + ";i++) free (" + name + "[i]);\nfree(" + name + ");\n";
+            box.compiler.addFreeString(name, free);
 
             return malLine + nextline;
         }

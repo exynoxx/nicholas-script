@@ -1,0 +1,4 @@
+var a = 1..5;
+string s = "hello world!";
+a = [2,4,9];
+printls: s;

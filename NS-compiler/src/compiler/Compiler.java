@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Random;
 
 public class Compiler {
@@ -12,19 +13,20 @@ public class Compiler {
     Box box;
 
     PreProcessor cleaningProcessor = new PreProcessor();
-    LinkedList<String> frees;
-    HashMap<Integer, LinkedList<String>> scopeHM;
+    HashMap<Integer, HashMap<String,String>> scopeHM;
 
     int scopeLevel = 0;
 
     HashMap<String, Type> typeHashMap = new HashMap<>();
     HashMap<String, Type> arrayTypeHashMap = new HashMap<>();
     HashMap<String, Integer> arraySizeHashMap = new HashMap<>();
-    HashMap<String, Integer> variableValue = new HashMap<>();
+    HashMap<String, Integer> variableValueHashMap = new HashMap<>();
+    HashMap<String, String> frees = new HashMap<>();
 
     String globalVariables = "";
     String functionDeclerations = "";
     String statements = "";
+    int freeStringIDCounter = 0;
 
     Random random;
 
@@ -45,7 +47,7 @@ public class Compiler {
         scopeHM = new HashMap<>();
 
         for (int i = 0; i < 5; i++) {
-            scopeHM.put(i, new LinkedList<>());
+            scopeHM.put(i, new HashMap<>());
         }
 
         frees = scopeHM.get(0);
@@ -116,13 +118,20 @@ public class Compiler {
 
     public String getFreeStrings() {
         String ret = "";
-        while (frees.size() > 0) {
-            ret += frees.removeFirst();
+
+        for (Map.Entry<String, String> entry : frees.entrySet()) {
+            ret += entry.getValue();
         }
+        frees.clear();
+
         scopeLevel--;
         if (scopeLevel < 0) scopeLevel = 0;
         frees = scopeHM.get(scopeLevel);
         return ret;
+    }
+
+    public String getOneFreeString (String name) {
+        return frees.remove(name);
     }
 
     public String generateRandomName() {
@@ -141,8 +150,13 @@ public class Compiler {
         return buffer.toString();
     }
 
-    public void addFreeString(String s) {
-        frees.add(s);
+    public void addFreeString(String name, String s) {
+
+        if (name == null) {
+            name = "default";
+            frees.put(name,frees.get(name) + s);
+        }
+        frees.put(name, s);
     }
 
     public void insertFunction(String s) {
@@ -174,11 +188,11 @@ public class Compiler {
     }
 
     public int getVariableValue(String name) {
-        return variableValue.get(name);
+        return variableValueHashMap.get(name);
     }
 
     public void insertVariableValue(String name, int value) {
-        variableValue.put(name, value);
+        variableValueHashMap.put(name, value);
     }
 
     public void insertArrayType(String name, Type value) {

@@ -39,7 +39,7 @@ public class StringProcessor {
         if (name == null) name = box.compiler.generateRandomName();
         int size = Integer.parseInt(emptyMatcher.group(2));
         String line = name + " = (char *) malloc (" + size + ");\n";
-        box.compiler.addFreeString("free(" + name + ");\n");
+        box.compiler.addFreeString(name,"free(" + name + ");\n");
 
         return line;
     }
@@ -64,7 +64,7 @@ public class StringProcessor {
             //anonymous string
             line += name;
         }*/
-        box.compiler.addFreeString("free(" + name + ");\n");
+        box.compiler.addFreeString(name,"free(" + name + ");\n");
 
         return line;
     }
@@ -107,7 +107,7 @@ public class StringProcessor {
             line += "strcat("+name+", "+tk+");\n";
         }
 
-        box.compiler.addFreeString("free("+name+");\n");
+        box.compiler.addFreeString(name,"free("+name+");\n");
         return line;
     }
 }
