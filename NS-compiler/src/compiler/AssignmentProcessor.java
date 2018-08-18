@@ -1,5 +1,8 @@
 package compiler;
 
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -10,8 +13,12 @@ public class AssignmentProcessor {
     boolean debug;
     Box box;
 
+    ScriptEngine engine;
+
     public AssignmentProcessor(Box box) {
         this.box = box;
+        ScriptEngineManager mgr = new ScriptEngineManager();
+        engine = mgr.getEngineByName("JavaScript");
     }
 
     public boolean test(String s) {
@@ -45,17 +52,17 @@ public class AssignmentProcessor {
             }
 
             //***ARRAYS
-            if (box.arrayProcessor.testNormal(assignee)){
+            if (box.arrayProcessor.testNormal(assignee)) {
                 box.compiler.insertType(name, Type.ARRAY);
-                return box.arrayProcessor.convertArrayNormal(name,dynamic);
+                return box.arrayProcessor.convertArrayNormal(name, dynamic);
             }
-            if (box.arrayProcessor.testEmpty(assignee)){
+            if (box.arrayProcessor.testEmpty(assignee)) {
                 box.compiler.insertType(name, Type.ARRAY);
-                return box.arrayProcessor.convertArrayEmpty(name,dynamic);
+                return box.arrayProcessor.convertArrayEmpty(name, dynamic);
             }
-            if (box.arrayProcessor.testRange(assignee)){
+            if (box.arrayProcessor.testRange(assignee)) {
                 box.compiler.insertType(name, Type.ARRAY);
-                return box.arrayProcessor.convertArrayRange(name,dynamic);
+                return box.arrayProcessor.convertArrayRange(name, dynamic);
             }
             if (box.arrayProcessor.testArrayRead(assignee)) {
                 //will register type inside
@@ -73,22 +80,41 @@ public class AssignmentProcessor {
             }
         }
 
-        return matchSimpleTypes(name, assignee);
+        return matchSimpleTypes(name, assignee, dynamic);
     }
 
-    String matchSimpleTypes (String name, String s) {
-        if (s.matches("\\(?(?:\\d+|\\w+)(?:(?:\\s*[\\*\\/\\+\\-\\%])\\s*\\)?\\(?\\s*(?:\\d+|\\w+)\\)?\\(?)+\\)?")){
-            return "int " + name + " = " + s + ";\n";
+    String matchSimpleTypes(String name, String s, boolean dynamic) {
+
+        Pattern word = Pattern.compile("[a-zA-Z]+");
+        Matcher tmpMatcher = word.matcher(s);
+        String pre = "";
+
+        while (tmpMatcher.find()) {
+            String variable = tmpMatcher.group(0);
+            Integer value = box.compiler.getVariableValue(variable);
+            pre += variable + " = " + value + ";";
         }
 
-        box.compiler.insertVariableValue(name,Integer.parseInt(s));
-        if (s.matches("\\d+\\.\\d+")) {
-            return "double " + name + " = " + s + ";\n";
+        String jsOut = null;
+        try {
+            jsOut = engine.eval(pre + s).toString();
+        } catch (ScriptException e) {
+            e.printStackTrace();
+        }
+
+        Double val = Double.valueOf(jsOut);
+        box.compiler.insertVariableValue(name, (int) Math.floor(val));
+
+        if (val % 1 == 0) {
+            String ret = name + " = " + s + ";\n";
+            if (!dynamic) ret = "int " + ret;
+            return ret;
         } else {
-            return "int " + name + " = " + s + ";\n";
+            String ret = name + " = " + s + ";\n";
+            if (!dynamic) ret = "double " + ret;
+            return ret;
         }
     }
-
 
 
 }

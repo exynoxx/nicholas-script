@@ -1,0 +1,7 @@
+var newline = "" const;
+var a = 1..5;
+a.map: i -> prints: i ~ " ";
+printls: newline;
+a = [7,9,2];
+a.map: i -> prints: i ~ " ";
+printls: newline;

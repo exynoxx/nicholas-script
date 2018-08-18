@@ -207,11 +207,13 @@ public class ArrayProcessor {
                 malLine += "void **";
             }
 
+            String i = box.compiler.generateRandomName();
+            String j = box.compiler.generateRandomName();
+
             malLine += name + " = (void **) malloc (" + size + "*sizeof(void *));\n";
-            //*((int *)(arr[1])) = 5;
-            String nextline = "for (int i = " + from + ", j = 0; i" + comparator + to + "; i" + incrementer + ", j++) {\n";
-            nextline += name + "[j] = malloc(sizeof(int));\n";
-            nextline += "*((int *)(" + name + "[j])) = i;\n";
+            String nextline = "for (int "+i+" = " + from + ", "+j+" = 0;"+ i + comparator + to + ";" + i + incrementer + ","+j+"++) {\n";
+            nextline += name + "["+j+"] = malloc(sizeof(int));\n";
+            nextline += "*((int *)(" + name + "["+j+"])) = "+i+";\n";
             nextline += "}\n";
 
             String free = "for (int i = 0; i < " + size + ";i++) free (" + name + "[i]);\nfree(" + name + ");\n";
