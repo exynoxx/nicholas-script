@@ -35,7 +35,7 @@ public class AssignmentProcessor {
         boolean dynamic = (type == null);
 
         if (arrayIndex != null) {
-            //TODO: handle array assignment with correct type
+            return box.arrayProcessor.convertArrayWrite(name,arrayIndex,assignee);
         } else {
             //***STRINGS
             if (box.stringProcessor.testString(assignee)) {

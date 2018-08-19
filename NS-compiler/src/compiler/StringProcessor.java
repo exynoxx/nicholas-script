@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 public class StringProcessor {
 
     Pattern stringPattern = Pattern.compile("^\\s*\"([^\"]*)\"\\s*(const)?\\s*$");
-    Pattern stringCat = Pattern.compile("^\\s*(?:\\w+|\".*\")(?:\\s*~\\s*(?:\\w+|\".*\"))+");
+    Pattern stringCat = Pattern.compile("^\\s*(?:[\\w\\[\\]]+|\".*\")(?:\\s*~\\s*(?:[\\w\\[\\]]+|\".*\"))+");
     Pattern empty = Pattern.compile("^\\s*(string)\\s*\\(\\s*(\\d+)\\s*\\)");
 
     Matcher stringMatcher;
@@ -68,7 +68,7 @@ public class StringProcessor {
 
         return line;
     }
-
+    
     public String convertStringCat (String name, String content) {
 
         if (content == null) content = catMatcher.group(0).trim();
@@ -84,6 +84,18 @@ public class StringProcessor {
             if (matcher.find()) {
                 //inline string
                 size += matcher.group(1).length() + "+";
+            } else if (box.arrayProcessor.testArrayRead(tok)) {
+                //array read
+                String rname1 = box.compiler.generateRandomName();
+                before += box.arrayProcessor.convertArrayRead(rname1,tok);
+
+                //duplicate code of else-else-case
+                String rname2 = box.compiler.generateRandomName();
+                before += "char "+rname2+"[12];\n";
+                before += "snprintf("+rname2+", 12, \"%d\", "+rname1+");\n";
+                size += "strlen("+rname2+")+";
+                tokens[i] = rname2;
+
             } else {
                 if (box.compiler.getType(tok) == Type.STRING) {
                     //string variable

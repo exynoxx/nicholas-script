@@ -44,14 +44,38 @@ public class ArrayProcessor {
     public String convertArrayRead(String assigneeName, String s) {
         String name = readMatcher.group(1);
         Type t = box.compiler.getArrayType(name);
-        if (assigneeName != null) box.compiler.insertType(assigneeName, t);        //this is one array element
+
+        String pre = null;
+        String ret = null;
 
         if (t == Type.INTEGER) {
-            return "*((int *)" + s + ")";
+            pre = "int ";
+            ret = "*((int *)" + s + ")";
         } else if (t == Type.DOUBLE) {
-            return "*((double *)" + s + ")";
+            pre = "double ";
+            ret = "*((double *)" + s + ")";
         } else {
-            return "((char *)" + s + ")";
+            pre = "char *";
+            ret = "((char *)" + s + ")";
+        }
+
+        if (assigneeName != null) {
+            box.compiler.insertType(assigneeName, t);        //this is one array element
+            return pre+assigneeName+" = "+ret+";\n";
+        }
+
+        return ret;
+    }
+
+    public String convertArrayWrite (String name, String arrayIndex, String assignee) {
+        Type t = box.compiler.getArrayType(name);
+
+        if (t == Type.INTEGER) {
+            return "*((int *)" + name + arrayIndex + ") = " + assignee + ";\n";
+        } else if (t == Type.DOUBLE) {
+            return "*((double *)" + name + arrayIndex + ") = " + assignee + ";\n";
+        } else {
+            return "((char *)" + name + arrayIndex + ") = " + assignee + ";\n";
         }
     }
 

@@ -12,6 +12,7 @@ public class FunctionProcessor {
     Matcher m;
     Box box;
 
+    //TODO: all functioncs can access eachother:global def.
     public FunctionProcessor(Box box) {
         this.box = box;
     }

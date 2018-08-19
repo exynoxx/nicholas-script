@@ -94,17 +94,8 @@ public class PropertyProcessor {
             String s = name + "[" + i + "]";
             if (box.compiler.getType(name) == Type.ARRAY) {
                 box.arrayProcessor.testArrayRead(s);
-                s = box.arrayProcessor.convertArrayRead(null, s);
+                s = box.arrayProcessor.convertArrayRead(variable, s);
             }
-
-            if (t == Type.INTEGER) {
-                line += "int " + variable + " = " + s + ";\n";
-            } else if (t == Type.DOUBLE) {
-                line += "double " + variable + " = " + s + ";\n";
-            } else {
-                line += "char *" + variable + " = " + s + ";\n";
-            }
-
 
         } else {
             //range
