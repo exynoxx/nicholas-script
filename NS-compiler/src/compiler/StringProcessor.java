@@ -68,7 +68,7 @@ public class StringProcessor {
 
         return line;
     }
-    
+
     public String convertStringCat (String name, String content) {
 
         if (content == null) content = catMatcher.group(0).trim();

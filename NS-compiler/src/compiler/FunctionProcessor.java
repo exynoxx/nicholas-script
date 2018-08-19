@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 
 public class FunctionProcessor {
 
-    Pattern functionDecleration = Pattern.compile("^\\s*func\\s*\\[(.*)\\]\\s*:?\\s*(\\w+)?\\s*\\{\\s*(.*)\\s*\\}");
+    Pattern functionDecleration = Pattern.compile("^\\s*func\\s*\\[(.*?)\\]\\s*:?\\s*(\\w+)?\\s*\\{\\s*(.*)\\s*\\}");
     Matcher m;
     Box box;
 
@@ -26,6 +26,7 @@ public class FunctionProcessor {
         return functionDecleration(name); //variableValueType called inside function
     }
 
+    //TODO: add arg variables to compiler hashmaps
     private String functionDecleration(String name) {
 
         String args = m.group(1);

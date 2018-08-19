@@ -5,3 +5,20 @@ var d = 1..a;
 d[3] = 111;
 string four = d[3] ~ 1;
 printls: four;
+
+var printArray = func[arr x] {
+    string newline = "" const;
+
+    int len = x.length:;
+    1..len.map: i -> func [arr x, int i] {
+        string cat = x[i] ~ " ";
+        prints: cat;
+    };
+
+    printls: newline;
+};
+
+printArray: d;
+#d.map: i -> prints: i ~ " ";
+#printls: "";
+
