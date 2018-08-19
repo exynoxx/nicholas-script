@@ -69,6 +69,9 @@ public class FunctionProcessor {
             returnValue = name + "(" + newArg + ");\n";
         }
 
+        String forwardDecleration = returnType + " " + name + "(" + args + ");\n";
+        box.compiler.insertForwardDecleration(forwardDecleration);
+
         String declerarion = returnType + " " + name + "(" + args + ") {\n";
         declerarion += translatedBody;
         declerarion += "}\n\n";

@@ -72,7 +72,7 @@ public class AssignmentProcessor {
             //***OTHER
             if (box.callProcessor.test(assignee)) {
                 box.compiler.insertType(name, box.compiler.getType(name));
-                return box.callProcessor.convert(false);
+                return box.callProcessor.convert(name,false);
             }
             if (box.functionProcessor.test(assignee)) {
                 //will register type inside
@@ -90,16 +90,24 @@ public class AssignmentProcessor {
         String pre = "";
 
         while (tmpMatcher.find()) {
-            String variable = tmpMatcher.group(0);
-            Integer value = box.compiler.getVariableValue(variable);
-            pre += variable + " = " + value + ";";
+
+            //value dosent exist
+            String variable = null;
+            try {
+                variable = tmpMatcher.group(0);
+                Integer value = box.compiler.getVariableValue(variable);
+            } catch (Exception e) {
+                pre += variable + " = 0;";
+                box.compiler.insertVariableValue(variable,0);
+                continue;
+            }
+
         }
 
         String jsOut = null;
         try {
             jsOut = engine.eval(pre + s).toString();
         } catch (ScriptException e) {
-            e.printStackTrace();
         }
 
         Double val = Double.valueOf(jsOut);

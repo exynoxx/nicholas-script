@@ -20,16 +20,17 @@ public class CallProcessor {
         return m.find();
     }
 
-    public String convert(boolean recursive) {
+    public String convert(String assigneeName, boolean recursive) {
         String name = m.group(1);
         String args = m.group(2).trim();
         String before = " ";
         String after = " ";
+        Type type = box.compiler.getType(name);
 
         //recursive function call in args.
         if (args.contains(":")) {
             if (test(args.trim())) {
-                String sado = convert(true);
+                String sado = convert(null,true);
                 String[] elements = sado.split("#345#");
                 before += elements[0];
                 args = elements[1];
@@ -87,12 +88,12 @@ public class CallProcessor {
 
                 Matcher tmpmatcher = array.matcher(s);
                 if (tmpmatcher.find()) {
-                    Type t = box.compiler.getArrayType(tmpmatcher.group(1));
+                    type = box.compiler.getArrayType(tmpmatcher.group(1));
                     String newElement = null;
 
-                    if (t == Type.INTEGER) {
+                    if (type == Type.INTEGER) {
                         newElement = "*((int *)(" + tmpmatcher.group(0) + "))";
-                    } else if (t == Type.DOUBLE) {
+                    } else if (type == Type.DOUBLE) {
                         newElement = "*((double *)(" + tmpmatcher.group(0) + "))";
                     } else {
                         //Type.STRING
@@ -111,6 +112,19 @@ public class CallProcessor {
             String rtgv = before + "#345#" + name + "(" + args + ")" + "#345#" + after;
             return rtgv;
         } else {
+
+            if (assigneeName != null) {
+                if (type == Type.INTEGER) {
+                    before += "int ";
+                } else if (type == Type.DOUBLE) {
+                    before += "double ";
+                } else {
+                    before += "char *";
+                }
+                before += assigneeName + " = ";
+            }
+
+
             return before + name + "(" + args + ");\n" + after;
         }
     }

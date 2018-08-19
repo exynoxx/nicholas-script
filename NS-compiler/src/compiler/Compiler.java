@@ -25,8 +25,8 @@ public class Compiler {
 
     String globalVariables = "";
     String functionDeclerations = "";
+    String forwardDeclerations = "";
     String statements = "";
-    int freeStringIDCounter = 0;
 
     Random random;
 
@@ -98,7 +98,7 @@ public class Compiler {
 
         else if (box.propertyProcessor.test(string)) ret = box.propertyProcessor.convert();
         else if (box.branchingProcessor.test(string)) ret = box.branchingProcessor.convert(string);
-        else if (box.callProcessor.test(string)) ret = box.callProcessor.convert(false);
+        else if (box.callProcessor.test(string)) ret = box.callProcessor.convert(null,false);
         else if (box.stdProcessor.test(string)) ret = box.stdProcessor.convert(string);
         else if (box.noParseProcessor.test(string)) ret = box.noParseProcessor.convert(string);
         else if (box.functionProcessor.test(string)) ret = box.functionProcessor.convert(null);
@@ -128,6 +128,10 @@ public class Compiler {
         if (scopeLevel < 0) scopeLevel = 0;
         frees = scopeHM.get(scopeLevel);
         return ret;
+    }
+
+    public void insertForwardDecleration (String s) {
+        forwardDeclerations += s;
     }
 
     public String getOneFreeString (String name) {
@@ -215,6 +219,7 @@ public class Compiler {
         c.tokenize(c.readFile(name));
         System.out.println("#include <stdlib.h>\n#include <stdio.h>\n#include <string.h>\n\n");
         System.out.println(c.globalVariables);
+        System.out.println(c.forwardDeclerations);
         System.out.println(c.functionDeclerations);
         System.out.println("void main () {");
         System.out.println(c.statements);
