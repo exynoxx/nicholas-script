@@ -63,11 +63,6 @@ public class PropertyProcessor {
         String variable = mapMatcher.group(1);
         String content = mapMatcher.group(2);
 
-        //parse body
-        box.compiler.increaseScopeLevel();
-        String processedContent = box.compiler.processString(content);
-        processedContent += box.compiler.getFreeStrings();
-
         //prepare for-loop
         String line = "";
         if (a == null || b == null) {
@@ -116,6 +111,12 @@ public class PropertyProcessor {
                 line = "for (int " + variable + " = " + a + "; " + variable + " >= " + b + "; " + variable + "--) {\n";
             }
         }
+
+        //parse body
+        box.compiler.increaseScopeLevel();
+        String processedContent = box.compiler.processString(content);
+        processedContent += box.compiler.getFreeStrings();
+
         line += processedContent;
         line += "}\n";
         return line;

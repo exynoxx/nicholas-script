@@ -25,8 +25,6 @@ public class FunctionProcessor {
         return functionDecleration(name); //variableValueType called inside function
     }
 
-    //TODO: add arg variables to compiler hashmaps
-    //TODO: map function accept variable that is not in hashmap
     private String functionDecleration(String name) {
 
         String args = m.group(1);
@@ -38,9 +36,14 @@ public class FunctionProcessor {
         //register return type for use in assignmentProcessor
         registerType (name, returnType);
 
+        //register arg variables in compiler hashmaps
+        registerArgs(args);
+
         //convert argument types to c. strings and arrays will always have type char* and void**
         args = args.replaceAll("string\\s+(\\w+)", "char *$1");
         args = args.replaceAll("arr\\s+(\\w+)", "void **$1");
+
+
 
         //translate body
         String translatedBody = "";
@@ -95,6 +98,25 @@ public class FunctionProcessor {
         }
         if (type.equals("arr")) {
             box.compiler.insertType(name,Type.ARRAY);
+        }
+    }
+
+    void registerArgs (String args) {
+        String[] tokens = args.split(",");
+        for (String tok : tokens){
+            String[] asm = tok.split("\\s+");
+            String type = asm[0];
+            String name = asm[1];
+
+            if (type.equals("int")){
+                box.compiler.insertType(name,Type.INTEGER);
+            } else if (type.equals("double")){
+                box.compiler.insertType(name,Type.DOUBLE);
+            } else if (type.equals("arr")){
+                box.compiler.insertType(name,Type.ARRAY);
+            } else if (type.equals("string")) {
+                box.compiler.insertType(name,Type.STRING);
+            }
         }
     }
 }
