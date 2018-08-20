@@ -84,7 +84,6 @@ public class PropertyProcessor {
             //size and type
             Integer arraySize = box.compiler.getArraySize(name);
             String size = (arraySize != null) ? String.valueOf(arraySize) : "-1";
-            Type t = box.compiler.getArrayType(name);
 
             //for loop
             String i = box.compiler.generateRandomName();
@@ -96,12 +95,20 @@ public class PropertyProcessor {
                 box.arrayProcessor.testArrayRead(s);
                 s = box.arrayProcessor.convertArrayRead(variable, s);
             }
+            line += s;
 
         } else {
             //range
             //increasing og decreasing range?
-            int aValue = (a.matches("\\d+")) ? Integer.valueOf(a) : box.compiler.getVariableValue(a);
-            int bValue = (b.matches("\\d+")) ? Integer.valueOf(b) : box.compiler.getVariableValue(b);
+            int aValue;
+            int bValue;
+            try {
+                aValue = (a.matches("\\d+")) ? Integer.valueOf(a) : box.compiler.getVariableValue(a);
+                bValue = (b.matches("\\d+")) ? Integer.valueOf(b) : box.compiler.getVariableValue(b);
+            } catch (NullPointerException e) {
+                aValue = 0;
+                bValue = 1;
+            }
 
             if (aValue < bValue) {
                 line = "for (int " + variable + " = " + a + "; " + variable + " <= " + b + "; " + variable + "++) {\n";

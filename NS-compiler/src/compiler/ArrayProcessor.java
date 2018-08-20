@@ -7,14 +7,13 @@ public class ArrayProcessor {
 
     Pattern empty = Pattern.compile("^\\s*array\\s*\\(\\s*(\\d+)\\s*,\\s*(\\w+)\\s*\\)");
     Pattern range = Pattern.compile("^\\s*(\\d+|\\w+)\\.\\.(\\d+|\\w+)\\s*(const)?");
-    Pattern slice = Pattern.compile("^\\s*(\\w+)\\[\\s*(\\d+)\\s*:\\s*(\\d+)\\s*\\]");
+    //Pattern slice = Pattern.compile("^\\s*(\\w+)\\[\\s*(\\d+)\\s*:\\s*(\\d+)\\s*\\]");
     Pattern normal = Pattern.compile("^\\s*\\[(.*)\\]\\s*(const)?");
     Pattern arrayRead = Pattern.compile("^\\s*(\\w+)\\s*\\[(\\d+|\\w+)\\]");
     Matcher normalMatcher;
     Matcher rangeMatcher;
     Matcher emptyMatcher;
     Matcher readMatcher;
-    Matcher arrayAssignmentMatcher;
     Box box;
 
     public ArrayProcessor(Box box) {

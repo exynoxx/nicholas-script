@@ -7,5 +7,6 @@ var add = func[int x] : int {
     var val = recursiveadd: x x;
     return val;
 };
-
 printli: add: 7;
+var array = ["s5", "ubård","helworld", "haj"];
+array.map: i -> prints: i ~ " ";

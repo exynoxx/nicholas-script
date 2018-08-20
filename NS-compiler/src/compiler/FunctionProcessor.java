@@ -12,7 +12,6 @@ public class FunctionProcessor {
     Matcher m;
     Box box;
 
-    //TODO: all functioncs can access eachother:global def.
     public FunctionProcessor(Box box) {
         this.box = box;
     }
@@ -27,6 +26,7 @@ public class FunctionProcessor {
     }
 
     //TODO: add arg variables to compiler hashmaps
+    //TODO: map function accept variable that is not in hashmap
     private String functionDecleration(String name) {
 
         String args = m.group(1);
