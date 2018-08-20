@@ -88,13 +88,13 @@ public class Compiler {
     }
 
     public String processString(String string) {
-        String ret = string + ";\n";
+        String ret = string.trim() + ";\n";
 
         if (box.assignmentProcessor.test(string)) ret = box.assignmentProcessor.convert();
 
         else if (box.stringProcessor.testString(string)) ret = box.stringProcessor.convertString(null, null);
         else if (box.stringProcessor.testEmpty(string)) ret = box.stringProcessor.convertEmpty(string);
-        else if (box.stringProcessor.testStringCat(string)) ret = box.stringProcessor.convertStringCat(string, null);
+        else if (box.stringProcessor.testStringCat(string)) ret = box.stringProcessor.convertStringCat(string, false);
 
         else if (box.propertyProcessor.test(string)) ret = box.propertyProcessor.convert();
         else if (box.branchingProcessor.test(string)) ret = box.branchingProcessor.convert(string);
@@ -134,7 +134,7 @@ public class Compiler {
         forwardDeclerations += s;
     }
 
-    public String getOneFreeString (String name) {
+    public String removeOneFreeString(String name) {
         return frees.remove(name);
     }
 
@@ -178,6 +178,7 @@ public class Compiler {
     public void insertType(String name, Type type) {
         typeHashMap.put(name, type);
     }
+
 
     public Type getType(String name) {
         return typeHashMap.get(name);

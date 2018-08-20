@@ -69,9 +69,9 @@ public class StringProcessor {
         return line;
     }
 
-    public String convertStringCat (String name, String content) {
+    public String convertStringCat (String name, boolean dynamic) {
 
-        if (content == null) content = catMatcher.group(0).trim();
+        String content = catMatcher.group(0).trim();
         String[] tokens = content.split("~");
         String size = "";
         String before = "";
@@ -113,8 +113,16 @@ public class StringProcessor {
         //remove trailing +
         size = size.substring(0,size.length()-1);
 
+        String line = before;
+        if (dynamic) {
+            String free = box.compiler.removeOneFreeString(name);
+            if (free != null) line += free;
+        } else {
+            line += "char *";
+        }
+
         //create umbrella string and add each token
-        String line = before + "char *" + name + " = (char *) malloc ("+size+");\n";
+        line += name + " = (char *) malloc ("+size+");\n";
         for (String tk : tokens) {
             line += "strcat("+name+", "+tk+");\n";
         }

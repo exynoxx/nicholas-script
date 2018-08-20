@@ -92,12 +92,12 @@ public class CallProcessor {
                     String newElement = null;
 
                     if (type == Type.INTEGER) {
-                        newElement = "*((int *)(" + tmpmatcher.group(0) + "))";
+                        newElement = "*((int*)(" + tmpmatcher.group(0) + "))";
                     } else if (type == Type.DOUBLE) {
-                        newElement = "*((double *)(" + tmpmatcher.group(0) + "))";
+                        newElement = "*((double*)(" + tmpmatcher.group(0) + "))";
                     } else {
                         //Type.STRING
-                        newElement = "((char *)(" + tmpmatcher.group(0) + "))";
+                        newElement = "((char*)(" + tmpmatcher.group(0) + "))";
                     }
                     tmpArgs += newElement + " ";
                 } else {

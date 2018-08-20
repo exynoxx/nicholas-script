@@ -104,7 +104,7 @@ public class FunctionProcessor {
     void registerArgs (String args) {
         String[] tokens = args.split(",");
         for (String tok : tokens){
-            String[] asm = tok.split("\\s+");
+            String[] asm = tok.trim().split("\\s+");
             String type = asm[0];
             String name = asm[1];
 

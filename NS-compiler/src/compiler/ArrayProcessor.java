@@ -119,7 +119,7 @@ public class ArrayProcessor {
 
         String ret = null;
         if (dynamic) {
-            ret = box.compiler.getOneFreeString(name);
+            ret = box.compiler.removeOneFreeString(name);
         } else {
             ret = "void **";
         }
@@ -157,7 +157,7 @@ public class ArrayProcessor {
             box.compiler.insertType(name, Type.ARRAY); //override assignment write
             String malLine = "";
             if (dynamic) {
-                malLine += box.compiler.getOneFreeString(name);
+                malLine += box.compiler.removeOneFreeString(name);
             } else {
                 malLine += "void **";
             }
@@ -225,7 +225,7 @@ public class ArrayProcessor {
             String malLine = "";
 
             if (dynamic) {
-                malLine += box.compiler.getOneFreeString(name);
+                malLine += box.compiler.removeOneFreeString(name);
             } else {
                 malLine += "void **";
             }

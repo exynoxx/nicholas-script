@@ -13,6 +13,9 @@ public class PropertyProcessor {
     Matcher mapMatcher;
     Box box;
 
+
+    //TODO: fix a,b unknown at runtime
+    //TODO: add length property
     public PropertyProcessor(Box box) {
         this.box = box;
     }

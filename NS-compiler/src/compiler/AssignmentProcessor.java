@@ -48,7 +48,7 @@ public class AssignmentProcessor {
             }
             if (box.stringProcessor.testStringCat(assignee)) {
                 box.compiler.insertType(name, Type.STRING);
-                return box.stringProcessor.convertStringCat(name, null);
+                return box.stringProcessor.convertStringCat(name, dynamic);
             }
 
             //***ARRAYS
