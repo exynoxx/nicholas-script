@@ -170,7 +170,7 @@ public class ArrayProcessor {
             //strings are special
             if (typeString.equals("char *")) {
                 for (int i = 0; i < elements.length; i++) {
-                    nextline += name + "[" + i + "] = (char *) malloc (" + size + ");\n";
+                    nextline += name + "[" + i + "] = (char *) malloc (" + (elements[i].trim().length()-2) + ");\n";
                     nextline += "strcpy(((char *)(" + name + "[" + i + "])), " + elements[i] + ");\n";
                 }
 
