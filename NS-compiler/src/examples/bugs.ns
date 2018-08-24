@@ -7,31 +7,15 @@ a.map: i -> prints: i ~ " ";
 printls: newline;
 
 
+var arr = ["string1", "string2"];
 
-#tmp
+var repeat = func [string s, string delim, int amount] {
+    string nl = "" const;
 
-
-var a = 5;
-var b = 13;
-a = ((2*b)+(3*a)+8)/7; #49 / 7 = 7
-var d = 1..a;
-d[3] = 111;
-string four = d[3] ~ 1;
-printls: four;
-####
-var printArray = func[arr x] {
-    string newline = "" const;
-
-    int len = x.length:;
-    1..len.map: i -> func [arr x, int i] {
-        string cat = x[i] ~ " ";
-        prints: cat;
+    string ret;
+    while (amount >= 0) {
+        ret = ret ~ s ~ delim;
+        amount--;
     };
-
-    printls: newline;
 };
-
-printArray: d;
-#d.map: i -> prints: i ~ " ";
-#printls: "";
-
+print: arr[1];

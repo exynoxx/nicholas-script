@@ -85,10 +85,17 @@ public class AssignmentProcessor {
 
     String matchSimpleTypes(String name, String s, boolean dynamic) {
 
+
+        if (s.matches("^\\d+$")) {
+            String ret = name + " = " + s + ";\n";
+            box.compiler.insertVariableValue(name,Integer.parseInt(s));
+            if (!dynamic) ret = "int " + ret;
+            return ret;
+        }
+
         Pattern word = Pattern.compile("[a-zA-Z]+");
         Matcher tmpMatcher = word.matcher(s);
         String pre = "";
-
         while (tmpMatcher.find()) {
 
             //value dosent exist
