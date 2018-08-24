@@ -15,6 +15,8 @@ public class AssignmentProcessor {
 
     ScriptEngine engine;
 
+    //TODO: working: declare empty string and array.
+    //TODO: fix types.ns: new alloc system
     public AssignmentProcessor(Box box) {
         this.box = box;
         ScriptEngineManager mgr = new ScriptEngineManager();
@@ -34,8 +36,18 @@ public class AssignmentProcessor {
         String assignee = m.group(4).trim();
         boolean dynamic = (type == null);
 
+        if (assignee.equals("null")) {
+            if (type.equals("string")) {
+                return "char *" + name + ";\n";
+            } else if (type.equals("arr")) {
+                return "void **" + name + ";\n";
+            } else {
+                return type + " " + name + ";\n";
+            }
+        }
+
         if (arrayIndex != null) {
-            return box.arrayProcessor.convertArrayWrite(name,arrayIndex,assignee);
+            return box.arrayProcessor.convertArrayWrite(name, arrayIndex, assignee);
         } else {
             //***STRINGS
             if (box.stringProcessor.testString(assignee)) {
@@ -72,7 +84,7 @@ public class AssignmentProcessor {
             //***OTHER
             if (box.callProcessor.test(assignee)) {
                 box.compiler.insertType(name, box.compiler.getType(name));
-                return box.callProcessor.convert(name,false);
+                return box.callProcessor.convert(name, false);
             }
             if (box.functionProcessor.test(assignee)) {
                 //will register type inside
@@ -88,7 +100,7 @@ public class AssignmentProcessor {
 
         if (s.matches("^\\d+$")) {
             String ret = name + " = " + s + ";\n";
-            box.compiler.insertVariableValue(name,Integer.parseInt(s));
+            box.compiler.insertVariableValue(name, Integer.parseInt(s));
             if (!dynamic) ret = "int " + ret;
             return ret;
         }
@@ -105,7 +117,7 @@ public class AssignmentProcessor {
                 Integer value = box.compiler.getVariableValue(variable);
             } catch (Exception e) {
                 pre += variable + " = 0;";
-                box.compiler.insertVariableValue(variable,0);
+                box.compiler.insertVariableValue(variable, 0);
                 continue;
             }
 

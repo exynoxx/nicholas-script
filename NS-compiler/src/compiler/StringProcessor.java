@@ -69,6 +69,7 @@ public class StringProcessor {
         return line;
     }
 
+    //callprocessor may call with (rname,false)
     public String convertStringCat (String name, boolean dynamic) {
 
         String content = catMatcher.group(0).trim();

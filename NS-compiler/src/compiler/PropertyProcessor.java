@@ -37,13 +37,32 @@ public class PropertyProcessor {
         return x;
 
         /*
-        //fuction call?
-        String line = m.group(0);
-        if (box.callProcessor.test(line)) {
+        if (prop.equals("length")) {
+
+            //range
+            if (a != null && b != null) {
+                return "strlen ("+b+"-"+a+"+1);\n";
+            }
+
+            //direct array
+            if (obj.matches("^\\[.*\\]")) {
+                return String.valueOf(obj.split(",").length);
+            }
+
+            //array variable
+            if (obj.matches("\\w+")) {
+
+                boolean isArray = box.compiler.getType(obj) == Type.ARRAY;
+                boolean isConstArray = box.compiler.getType(obj) == Type.CONSTARRAY;
+                if (isArray || isConstArray) {
+                    return String.valueOf(box.compiler.getArraySize(obj));
+                }
+            }
+
+            //direct string and variable case
+            return "strlen (" + obj + ");\n";
 
         }
-
-        return ret;
         */
     }
 

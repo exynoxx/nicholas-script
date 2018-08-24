@@ -1,11 +1,13 @@
-var a = 4;
-var array = [1,6,7];
-var array2 = ["s1", "s2"];
-var array3 = 1..5;
+var arr = ["string1", "string2"];
 
-printli: 1..10.length;
-printli: [1,9,5,8,2].length;
-printli: 1..a.length:;
-printli: array.length:;
-printli: array2.length:;
-printli: array3.length:;
+var repeat = func [string s, string delim, int amount] {
+    string nl = "" const;
+
+    string ret = null;
+    while (amount >= 0) {
+        ret = ret ~ s ~ delim;
+        amount--;
+    };
+};
+printls: repeat: "hej" "::" 5;
+print: arr[1];
