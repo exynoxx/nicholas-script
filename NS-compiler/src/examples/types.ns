@@ -1,13 +1,7 @@
 var arr = ["string1", "string2"];
+var a = 5;
+var b = (a*a)/2;
 
-var repeat = func [string s, string delim, int amount] {
-    string nl = "" const;
-
-    string ret = null;
-    while (amount >= 0) {
-        ret = ret ~ s ~ delim;
-        amount--;
-    };
-};
-printls: repeat: "hej" "::" 5;
-print: arr[1];
+var range = a..b;
+range.map: i -> prints: range[i] ~ " ";
+printls: "";

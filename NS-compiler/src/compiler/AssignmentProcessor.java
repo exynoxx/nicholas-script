@@ -115,6 +115,7 @@ public class AssignmentProcessor {
             try {
                 variable = tmpMatcher.group(0);
                 Integer value = box.compiler.getVariableValue(variable);
+                pre += variable + " = " + value + ";";
             } catch (Exception e) {
                 pre += variable + " = 0;";
                 box.compiler.insertVariableValue(variable, 0);

@@ -212,7 +212,7 @@ public class Compiler {
 
         Compiler c = new Compiler();
 
-        String name = "src/examples/types.ns";
+        String name = "src/examples/stdin.ns";
         if (args.length > 0) {
             name = args[0];
         }
