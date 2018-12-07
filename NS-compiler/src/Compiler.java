@@ -4,16 +4,46 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
-public class Compiler extends GrammarBaseListener{
+public class Compiler extends GrammarBaseVisitor<Node> {
+
 
     @Override
-    public void enterProgram(GrammarParser.ProgramContext ctx) {
-        System.out.println("enter program");
-        super.enterProgram(ctx);
+    public Node visitStart(GrammarParser.StartContext ctx) {
+        return super.visitStart(ctx);
+    }
+
+    @Override
+    public Node visitProgram(GrammarParser.ProgramContext ctx) {
+        return super.visitProgram(ctx);
+    }
+
+    @Override
+    public Node visitStatement(GrammarParser.StatementContext ctx) {
+        return super.visitStatement(ctx);
+    }
+
+    @Override
+    public Node visitBinop(GrammarParser.BinopContext ctx) {
+        return super.visitBinop(ctx);
+    }
+
+    @Override
+    public Node visitAssign(GrammarParser.AssignContext ctx) {
+        return super.visitAssign(ctx);
+    }
+
+    @Override
+    public Node visitIfstatement(GrammarParser.IfstatementContext ctx) {
+        return super.visitIfstatement(ctx);
+    }
+
+    @Override
+    public Node visitBlock(GrammarParser.BlockContext ctx) {
+        return super.visitBlock(ctx);
     }
 
     public static void main(String[] args)  {
-        String input = "5+5-3;";
+        String input = "var a = 5; if (5 > 2) {var b = 2+4-3;};";
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);

@@ -1,0 +1,3 @@
+public enum Type {
+    PROGRAM,STATEMENT,IF,BLOCK,ASSIGN,BINOP
+}
