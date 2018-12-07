@@ -2,8 +2,11 @@
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.*;
+import org.antlr.v4.runtime.misc.*;
 import org.antlr.v4.runtime.tree.*;
 import java.util.List;
+import java.util.Iterator;
+import java.util.ArrayList;
 
 @SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast"})
 public class GrammarParser extends Parser {
@@ -332,9 +335,11 @@ public class GrammarParser extends Parser {
 	}
 
 	public static class AssignContext extends ParserRuleContext {
+		public Token id;
+		public BinopContext assignee;
 		public TerminalNode VAR() { return getToken(GrammarParser.VAR, 0); }
-		public TerminalNode ID() { return getToken(GrammarParser.ID, 0); }
 		public TerminalNode EQ() { return getToken(GrammarParser.EQ, 0); }
+		public TerminalNode ID() { return getToken(GrammarParser.ID, 0); }
 		public BinopContext binop() {
 			return getRuleContext(BinopContext.class,0);
 		}
@@ -366,11 +371,11 @@ public class GrammarParser extends Parser {
 			setState(34);
 			match(VAR);
 			setState(35);
-			match(ID);
+			((AssignContext)_localctx).id = match(ID);
 			setState(36);
 			match(EQ);
 			setState(37);
-			binop();
+			((AssignContext)_localctx).assignee = binop();
 			}
 		}
 		catch (RecognitionException re) {
@@ -385,12 +390,14 @@ public class GrammarParser extends Parser {
 	}
 
 	public static class IfstatementContext extends ParserRuleContext {
+		public BinopContext cond;
+		public BlockContext body;
 		public TerminalNode IF() { return getToken(GrammarParser.IF, 0); }
 		public TerminalNode LPAREN() { return getToken(GrammarParser.LPAREN, 0); }
+		public TerminalNode RPAREN() { return getToken(GrammarParser.RPAREN, 0); }
 		public BinopContext binop() {
 			return getRuleContext(BinopContext.class,0);
 		}
-		public TerminalNode RPAREN() { return getToken(GrammarParser.RPAREN, 0); }
 		public BlockContext block() {
 			return getRuleContext(BlockContext.class,0);
 		}
@@ -424,11 +431,11 @@ public class GrammarParser extends Parser {
 			setState(40);
 			match(LPAREN);
 			setState(41);
-			binop();
+			((IfstatementContext)_localctx).cond = binop();
 			setState(42);
 			match(RPAREN);
 			setState(43);
-			block();
+			((IfstatementContext)_localctx).body = block();
 			}
 		}
 		catch (RecognitionException re) {

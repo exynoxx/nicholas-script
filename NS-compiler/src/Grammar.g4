@@ -8,8 +8,8 @@ program: (statement SEMICOLON)+;
 
 statement: assign | ifstatement;
 binop: NUM | NUM (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT) binop;
-assign: VAR ID EQ binop;
-ifstatement: IF LPAREN binop RPAREN block;
+assign: VAR id=ID EQ assignee=binop;
+ifstatement: IF LPAREN cond=binop RPAREN body=block;
 block: LBRACKET program RBRACKET;
 
 LPAREN: '(';

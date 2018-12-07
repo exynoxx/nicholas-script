@@ -24,12 +24,16 @@ public class Compiler extends GrammarBaseVisitor<Node> {
 
     @Override
     public Node visitBinop(GrammarParser.BinopContext ctx) {
-        return super.visitBinop(ctx);
+        Node n = new Node(Type.BINOP);
+        n.text=ctx.getText();
+        return n;
     }
 
     @Override
     public Node visitAssign(GrammarParser.AssignContext ctx) {
-        return super.visitAssign(ctx);
+        Node n = new Node(Type.ASSIGN);
+        n.ID = ctx.id.toString();
+        return n;
     }
 
     @Override
@@ -51,9 +55,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         GrammarParser parser = new GrammarParser(tokens);
 
         ParseTree tree = parser.start();
-        ParseTreeWalker walker = new ParseTreeWalker();
-        Compiler cp = new Compiler();
-        walker.walk(cp,tree);
+        Node root = new Compiler().visit(tree);
     }
 
 }
