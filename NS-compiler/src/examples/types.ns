@@ -1,7 +1,0 @@
-var arr = ["string1", "string2"];
-var a = 5;
-var b = (a*a)/2;
-
-var range = a..b;
-range.map: i -> prints: range[i] ~ " ";
-printls: "";

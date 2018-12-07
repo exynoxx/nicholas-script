@@ -1,5 +1,0 @@
-package compiler;
-
-public enum Type {
-    FUNCTION,ARRAY,CONSTARRAY,OBJECT,STRING,INTEGER,DOUBLE,VOID
-}

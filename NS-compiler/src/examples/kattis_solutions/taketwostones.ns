@@ -1,8 +1,0 @@
-int x = 0;
-stdin: x;
-
-if (x % 2 == 0) {
-    printls: "bob";
-} else {
-    printls: "alice";
-};
