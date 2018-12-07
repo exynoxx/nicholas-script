@@ -22,17 +22,31 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitProgram(GrammarParser.ProgramContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link GrammarParser#statement}.
+	 * Visit a parse tree produced by the {@code assignstatement}
+	 * labeled alternative in {@link GrammarParser#statement}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitStatement(GrammarParser.StatementContext ctx);
+	T visitAssignstatement(GrammarParser.AssignstatementContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code ififstatement}
+	 * labeled alternative in {@link GrammarParser#statement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitIfifstatement(GrammarParser.IfifstatementContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link GrammarParser#binop}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
 	T visitBinop(GrammarParser.BinopContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#sign}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitSign(GrammarParser.SignContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link GrammarParser#assign}.
 	 * @param ctx the parse tree

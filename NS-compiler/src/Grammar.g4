@@ -6,11 +6,14 @@ start
 
 program: (statement SEMICOLON)+;
 
-statement: assign | ifstatement;
-binop: NUM | NUM (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT) binop;
-assign: VAR id=ID EQ assignee=binop;
-ifstatement: IF LPAREN cond=binop RPAREN body=block;
-block: LBRACKET program RBRACKET;
+statement:assign #assignstatement
+| ifstatement#ififstatement;
+
+binop: NUM | ID | NUM sign binop | ID sign binop;
+sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT);
+assign: VAR ID EQ binop;
+ifstatement: IF LPAREN binop RPAREN block;
+block: LBRACKET (statement SEMICOLON)+ RBRACKET;
 
 LPAREN: '(';
 RPAREN: ')';

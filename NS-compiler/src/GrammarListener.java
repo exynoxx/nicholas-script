@@ -27,15 +27,29 @@ public interface GrammarListener extends ParseTreeListener {
 	 */
 	void exitProgram(GrammarParser.ProgramContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link GrammarParser#statement}.
+	 * Enter a parse tree produced by the {@code assignstatement}
+	 * labeled alternative in {@link GrammarParser#statement}.
 	 * @param ctx the parse tree
 	 */
-	void enterStatement(GrammarParser.StatementContext ctx);
+	void enterAssignstatement(GrammarParser.AssignstatementContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link GrammarParser#statement}.
+	 * Exit a parse tree produced by the {@code assignstatement}
+	 * labeled alternative in {@link GrammarParser#statement}.
 	 * @param ctx the parse tree
 	 */
-	void exitStatement(GrammarParser.StatementContext ctx);
+	void exitAssignstatement(GrammarParser.AssignstatementContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code ififstatement}
+	 * labeled alternative in {@link GrammarParser#statement}.
+	 * @param ctx the parse tree
+	 */
+	void enterIfifstatement(GrammarParser.IfifstatementContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code ififstatement}
+	 * labeled alternative in {@link GrammarParser#statement}.
+	 * @param ctx the parse tree
+	 */
+	void exitIfifstatement(GrammarParser.IfifstatementContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link GrammarParser#binop}.
 	 * @param ctx the parse tree
@@ -46,6 +60,16 @@ public interface GrammarListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitBinop(GrammarParser.BinopContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link GrammarParser#sign}.
+	 * @param ctx the parse tree
+	 */
+	void enterSign(GrammarParser.SignContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link GrammarParser#sign}.
+	 * @param ctx the parse tree
+	 */
+	void exitSign(GrammarParser.SignContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link GrammarParser#assign}.
 	 * @param ctx the parse tree

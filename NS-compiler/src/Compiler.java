@@ -2,51 +2,124 @@ import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.antlr.v4.runtime.tree.ParseTreeWalker;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class Compiler extends GrammarBaseVisitor<Node> {
 
-
     @Override
     public Node visitStart(GrammarParser.StartContext ctx) {
-        return super.visitStart(ctx);
+        return this.visit(ctx.program());
     }
 
     @Override
     public Node visitProgram(GrammarParser.ProgramContext ctx) {
-        return super.visitProgram(ctx);
-    }
+        Node n = new Node(Type.PROGRAM);
 
-    @Override
-    public Node visitStatement(GrammarParser.StatementContext ctx) {
-        return super.visitStatement(ctx);
-    }
-
-    @Override
-    public Node visitBinop(GrammarParser.BinopContext ctx) {
-        Node n = new Node(Type.BINOP);
-        n.text=ctx.getText();
+        List<GrammarParser.StatementContext> l = ctx.statement();
+        for (GrammarParser.StatementContext c : l) {
+            n.children.add(this.visit(c));
+        }
         return n;
+    }
+
+    @Override
+    public Node visitIfifstatement(GrammarParser.IfifstatementContext ctx) {
+        return this.visit(ctx.ifstatement());
+    }
+
+    @Override
+    public Node visitIfstatement(GrammarParser.IfstatementContext ctx) {
+        Node n = new Node(Type.IF);
+        n.cond = this.visit(ctx.binop());
+        n.body = this.visit(ctx.block());
+        return n;
+    }
+
+    @Override
+    public Node visitSign(GrammarParser.SignContext ctx) {
+        Node n = new Node(Type.SIGN);
+        n.text = ctx.getText();
+        return n;
+    }
+
+    @Override
+    public Node visitAssignstatement(GrammarParser.AssignstatementContext ctx) {
+        return this.visit(ctx.assign());
     }
 
     @Override
     public Node visitAssign(GrammarParser.AssignContext ctx) {
         Node n = new Node(Type.ASSIGN);
-        n.ID = ctx.id.toString();
+        n.body = this.visit(ctx.binop());
+        n.ID = ctx.ID().toString();
         return n;
     }
 
     @Override
-    public Node visitIfstatement(GrammarParser.IfstatementContext ctx) {
-        return super.visitIfstatement(ctx);
+    public Node visitBinop(GrammarParser.BinopContext ctx) {
+        Node n = new Node(Type.BINOP);
+        n.text = ctx.getText();
+        return n;
     }
 
     @Override
     public Node visitBlock(GrammarParser.BlockContext ctx) {
-        return super.visitBlock(ctx);
+        Node n = new Node(Type.BLOCK);
+
+        List<GrammarParser.StatementContext> l = ctx.statement();
+        for (GrammarParser.StatementContext c : l) {
+            n.children.add(this.visit(c));
+        }
+        return n;
     }
 
-    public static void main(String[] args)  {
+    public void printSpace(int depth) {
+        for (int i = 0; i < depth; i++) {
+            System.out.print("-");
+        }
+    }
+
+    public void prettyPrint(Node root, int depth) {
+        switch (root.type) {
+            case PROGRAM:
+                for (Node n : root.children) {
+                    prettyPrint(n, depth + 2);
+                }
+            case BLOCK:
+                printSpace(depth);
+                System.out.println("BLOCK");
+                for (Node n : root.children) {
+                    prettyPrint(n, depth + 2);
+                }
+            case IF:
+                printSpace(depth);
+                System.out.println("IF");
+                printSpace(depth);
+                prettyPrint(root.cond, depth + 2);
+                printSpace(depth);
+                prettyPrint(root.body, depth + 2);
+
+            case ASSIGN:
+                printSpace(depth);
+                System.out.println("ASSIGN");
+                printSpace(depth);
+                System.out.println("ID: " + root.ID);
+                printSpace(depth);
+                prettyPrint(root.body, depth + 2);
+
+            case BINOP:
+                printSpace(depth);
+                System.out.println("BINOP");
+                printSpace(depth);
+                System.out.println("value: " + root.text);
+
+
+        }
+    }
+
+    public static void main(String[] args) {
         String input = "var a = 5; if (5 > 2) {var b = 2+4-3;};";
 
         CharStream stream = new ANTLRInputStream(input);
@@ -55,7 +128,10 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         GrammarParser parser = new GrammarParser(tokens);
 
         ParseTree tree = parser.start();
-        Node root = new Compiler().visit(tree);
+        Compiler cp = new Compiler();
+        Node root = cp.visit(tree);
+        cp.prettyPrint(root, 0);
+
     }
 
 }
