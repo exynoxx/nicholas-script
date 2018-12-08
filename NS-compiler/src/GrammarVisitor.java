@@ -93,11 +93,38 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitBlock(GrammarParser.BlockContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link GrammarParser#value}.
+	 * Visit a parse tree produced by the {@code simplevalue}
+	 * labeled alternative in {@link GrammarParser#value}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitValue(GrammarParser.ValueContext ctx);
+	T visitSimplevalue(GrammarParser.SimplevalueContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code rangevalue}
+	 * labeled alternative in {@link GrammarParser#value}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitRangevalue(GrammarParser.RangevalueContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code arrayvalue}
+	 * labeled alternative in {@link GrammarParser#value}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitArrayvalue(GrammarParser.ArrayvalueContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#range}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitRange(GrammarParser.RangeContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#array}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitArray(GrammarParser.ArrayContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link GrammarParser#returnn}.
 	 * @param ctx the parse tree
