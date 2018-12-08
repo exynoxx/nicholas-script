@@ -81,39 +81,41 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         }
     }
 
-    public void prettyPrint(Node root, int depth) {
+    public void prettyPrint(Node root, int depth, int inc) {
         switch (root.type) {
             case PROGRAM:
                 for (Node n : root.children) {
-                    prettyPrint(n, depth + 2);
+                    prettyPrint(n, depth + inc,inc);
                 }
+                break;
             case BLOCK:
                 printSpace(depth);
                 System.out.println("BLOCK");
                 for (Node n : root.children) {
-                    prettyPrint(n, depth + 2);
+                    prettyPrint(n, depth + inc,inc);
                 }
+                break;
             case IF:
                 printSpace(depth);
                 System.out.println("IF");
-                printSpace(depth);
-                prettyPrint(root.cond, depth + 2);
-                printSpace(depth);
-                prettyPrint(root.body, depth + 2);
+                prettyPrint(root.cond, depth + inc,inc);
+                prettyPrint(root.body, depth + inc,inc);
+                break;
 
             case ASSIGN:
                 printSpace(depth);
                 System.out.println("ASSIGN");
                 printSpace(depth);
                 System.out.println("ID: " + root.ID);
-                printSpace(depth);
-                prettyPrint(root.body, depth + 2);
+                prettyPrint(root.body, depth + inc,inc);
+                break;
 
             case BINOP:
                 printSpace(depth);
                 System.out.println("BINOP");
-                printSpace(depth);
+                printSpace(depth+inc);
                 System.out.println("value: " + root.text);
+                break;
 
 
         }
@@ -130,7 +132,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         ParseTree tree = parser.start();
         Compiler cp = new Compiler();
         Node root = cp.visit(tree);
-        cp.prettyPrint(root, 0);
+        cp.prettyPrint(root, 0,4);
 
     }
 
