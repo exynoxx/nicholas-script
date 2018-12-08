@@ -36,8 +36,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     public Node visitIfstatement(GrammarParser.IfstatementContext ctx) {
         Node n = new Node(Type.IF);
         n.cond = this.visit(ctx.binop());
-        n.body = this.visit(ctx.block(0));
-        n.elsebody = (ctx.block().size() > 1) ? this.visit(ctx.block(1)) : null;
+        n.body = this.visit(ctx.block());
         return n;
     }
 
@@ -90,41 +89,9 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     }
 
     @Override
-    public Node visitSimplevalue(GrammarParser.SimplevalueContext ctx) {
+    public Node visitValue(GrammarParser.ValueContext ctx) {
         Node n = new Node(Type.VALUE);
         n.text = ctx.getText();
-        return n;
-    }
-
-    @Override
-    public Node visitRangevalue(GrammarParser.RangevalueContext ctx) {
-        return super.visit(ctx.range());
-    }
-
-    @Override
-    public Node visitArrayvalue(GrammarParser.ArrayvalueContext ctx) {
-        return super.visit(ctx.array());
-    }
-
-    @Override
-    public Node visitRange(GrammarParser.RangeContext ctx) {
-        Node n = new Node(Type.RANGE);
-        n.from = ctx.SIMPLEVAL(0).getSymbol().getText();
-        n.to = ctx.SIMPLEVAL(1).getSymbol().getText();
-        return n;
-    }
-
-    @Override
-    public Node visitArray(GrammarParser.ArrayContext ctx) {
-        Node n = new Node(Type.ARRAY);
-
-        ArrayList<Node> elements = new ArrayList<>();
-        List<GrammarParser.BinopContext> l = ctx.binop();
-        for (GrammarParser.BinopContext b : l) {
-            elements.add(this.visit(b));
-        }
-
-        n.children = elements;
         return n;
     }
 
@@ -162,9 +129,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         return n;
     }
 
-
-
-    //###################################
+//###################################
 
     public void printSpace(int depth) {
         for (int i = 0; i < depth; i++) {
@@ -189,17 +154,8 @@ public class Compiler extends GrammarBaseVisitor<Node> {
             case IF:
                 printSpace(depth);
                 System.out.println("IF");
-                printSpace(depth);
-                System.out.println("COND:");
                 prettyPrint(root.cond, depth + inc,inc);
-                printSpace(depth);
-                System.out.println("BODY:");
                 prettyPrint(root.body, depth + inc,inc);
-                if (root.elsebody != null) {
-                    printSpace(depth);
-                    System.out.println("ELSE:");
-                    prettyPrint(root.elsebody, depth + inc,inc);
-                }
                 break;
 
             case ASSIGN:
@@ -243,7 +199,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     //var g:int = (a:int,b:int) => {};
 
     public static void main(String[] args) {
-        String input = "var f1 = (a:int,b:string) => {var v = a+a;return v;}; if (6 > a) {var b = 2+a-3;} else {return 1+1;};";
+        String input = "var f1 = (a:int,b:string) => {var v = a+a;return v;}; if (6 > a) {var b = 2+a-3;var c = \"string  hello world\";};";
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);

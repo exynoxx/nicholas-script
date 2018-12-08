@@ -6,10 +6,7 @@ public class Node {
     public String ID;
     public String nstype;
     public Node body;
-    public Node elsebody;
     public Node cond;
-    public String from;
-    public String to;
     public ArrayList<Node> children;
     public ArrayList<Node> args;
 

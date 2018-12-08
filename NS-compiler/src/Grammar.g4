@@ -16,18 +16,14 @@ VAR ID EQ binop #assignbinop
 | VAR ID EQ function #assignfunction
 ;
 binop: value | value sign binop;
-sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT|TILDE);
+sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT);
 function: LPAREN (arg (COMMA arg)*)? RPAREN ARROW block;
 arg:ID COLON TYPE;
-ifstatement: IF LPAREN binop RPAREN block (ELSE block)?;
+ifstatement: IF LPAREN binop RPAREN block;
 block: LBRACKET (statement SEMICOLON)+ RBRACKET;
-value:SIMPLEVAL #simplevalue
-| range #rangevalue
-| array #arrayvalue;
-range: SIMPLEVAL DOT DOT SIMPLEVAL;
-array: LSQUARE (binop (COMMA binop)*)? RSQUARE;
+value: ID | NUM | STRING;
 returnn: RETURN binop;
-SIMPLEVAL: ID | NUM | STRING;
+
 TYPE: 'int' | 'string';
 STRING: '"' ~('"')* '"';
 LPAREN: '(';
@@ -35,8 +31,6 @@ RPAREN: ')';
 QUOTE: '"';
 LBRACKET:'{';
 RBRACKET:'}';
-LSQUARE: '[';
-RSQUARE: ']';
 PLUS:'+';
 MINUS:'-';
 DIV:'/';
@@ -45,11 +39,8 @@ LE:'<=';
 GE:'>=';
 LT:'<';
 GT:'>';
-DOT: '.';
-TILDE:'~';
 ARROW:'=>';
 IF: 'if';
-ELSE: 'else';
 VAR: 'var' ;
 RETURN: 'return';
 EQ: '=';
