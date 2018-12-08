@@ -6,8 +6,10 @@ start
 
 program: (statement SEMICOLON)+;
 
-statement:assign #assignstatement
-| ifstatement#ififstatement;
+statement:
+assign #assignstatement
+| ifstatement#ififstatement
+| returnn#returnstatement;
 
 assign:
 VAR ID EQ binop #assignbinop
@@ -20,6 +22,8 @@ arg:ID COLON TYPE;
 ifstatement: IF LPAREN binop RPAREN block;
 block: LBRACKET (statement SEMICOLON)+ RBRACKET;
 value: ID | NUM | STRING;
+returnn: RETURN binop;
+
 TYPE: 'int' | 'string';
 STRING: '"' ~('"')* '"';
 LPAREN: '(';
@@ -38,6 +42,7 @@ GT:'>';
 ARROW:'=>';
 IF: 'if';
 VAR: 'var' ;
+RETURN: 'return';
 EQ: '=';
 COMMA: ',';
 NUM: [0-9]+ ;

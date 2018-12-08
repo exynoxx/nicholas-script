@@ -117,6 +117,20 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         return n;
     }
 
+    @Override
+    public Node visitReturnstatement(GrammarParser.ReturnstatementContext ctx) {
+        return this.visit(ctx.returnn());
+    }
+
+    @Override
+    public Node visitReturnn(GrammarParser.ReturnnContext ctx) {
+        Node n = new Node(Type.RETURN);
+        n.body = this.visit(ctx.binop());
+        return n;
+    }
+
+//###################################
+
     public void printSpace(int depth) {
         for (int i = 0; i < depth; i++) {
             System.out.print("-");
@@ -171,6 +185,13 @@ public class Compiler extends GrammarBaseVisitor<Node> {
                 printSpace(depth);
                 System.out.println("body:");
                 prettyPrint(root.body,depth+inc,inc);
+                break;
+
+            case RETURN:
+                printSpace(depth);
+                System.out.println("RETURN");
+                prettyPrint(root.body,depth+inc,inc);
+                break;
 
         }
     }
@@ -178,7 +199,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     //var g:int = (a:int,b:int) => {};
 
     public static void main(String[] args) {
-        String input = "var f1 = (a:int,b:string) => {var c = a+a;}; if (6 > a) {var b = 2+a-3;var c = \"string  hello world\";};";
+        String input = "var f1 = (a:int,b:string) => {var v = a+a;return v;}; if (6 > a) {var b = 2+a-3;var c = \"string  hello world\";};";
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);

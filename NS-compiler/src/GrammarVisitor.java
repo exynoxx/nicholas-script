@@ -36,6 +36,13 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitIfifstatement(GrammarParser.IfifstatementContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code returnstatement}
+	 * labeled alternative in {@link GrammarParser#statement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitReturnstatement(GrammarParser.ReturnstatementContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code assignbinop}
 	 * labeled alternative in {@link GrammarParser#assign}.
 	 * @param ctx the parse tree
@@ -91,4 +98,10 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitValue(GrammarParser.ValueContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#returnn}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitReturnn(GrammarParser.ReturnnContext ctx);
 }
