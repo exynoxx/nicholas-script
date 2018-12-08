@@ -51,6 +51,30 @@ public interface GrammarListener extends ParseTreeListener {
 	 */
 	void exitIfifstatement(GrammarParser.IfifstatementContext ctx);
 	/**
+	 * Enter a parse tree produced by the {@code assignbinop}
+	 * labeled alternative in {@link GrammarParser#assign}.
+	 * @param ctx the parse tree
+	 */
+	void enterAssignbinop(GrammarParser.AssignbinopContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code assignbinop}
+	 * labeled alternative in {@link GrammarParser#assign}.
+	 * @param ctx the parse tree
+	 */
+	void exitAssignbinop(GrammarParser.AssignbinopContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code assignfunction}
+	 * labeled alternative in {@link GrammarParser#assign}.
+	 * @param ctx the parse tree
+	 */
+	void enterAssignfunction(GrammarParser.AssignfunctionContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code assignfunction}
+	 * labeled alternative in {@link GrammarParser#assign}.
+	 * @param ctx the parse tree
+	 */
+	void exitAssignfunction(GrammarParser.AssignfunctionContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link GrammarParser#binop}.
 	 * @param ctx the parse tree
 	 */
@@ -71,15 +95,25 @@ public interface GrammarListener extends ParseTreeListener {
 	 */
 	void exitSign(GrammarParser.SignContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link GrammarParser#assign}.
+	 * Enter a parse tree produced by {@link GrammarParser#function}.
 	 * @param ctx the parse tree
 	 */
-	void enterAssign(GrammarParser.AssignContext ctx);
+	void enterFunction(GrammarParser.FunctionContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link GrammarParser#assign}.
+	 * Exit a parse tree produced by {@link GrammarParser#function}.
 	 * @param ctx the parse tree
 	 */
-	void exitAssign(GrammarParser.AssignContext ctx);
+	void exitFunction(GrammarParser.FunctionContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link GrammarParser#arg}.
+	 * @param ctx the parse tree
+	 */
+	void enterArg(GrammarParser.ArgContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link GrammarParser#arg}.
+	 * @param ctx the parse tree
+	 */
+	void exitArg(GrammarParser.ArgContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link GrammarParser#ifstatement}.
 	 * @param ctx the parse tree

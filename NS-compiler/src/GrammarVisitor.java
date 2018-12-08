@@ -36,6 +36,20 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitIfifstatement(GrammarParser.IfifstatementContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code assignbinop}
+	 * labeled alternative in {@link GrammarParser#assign}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitAssignbinop(GrammarParser.AssignbinopContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code assignfunction}
+	 * labeled alternative in {@link GrammarParser#assign}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitAssignfunction(GrammarParser.AssignfunctionContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link GrammarParser#binop}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -48,11 +62,17 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitSign(GrammarParser.SignContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link GrammarParser#assign}.
+	 * Visit a parse tree produced by {@link GrammarParser#function}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitAssign(GrammarParser.AssignContext ctx);
+	T visitFunction(GrammarParser.FunctionContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#arg}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitArg(GrammarParser.ArgContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link GrammarParser#ifstatement}.
 	 * @param ctx the parse tree
