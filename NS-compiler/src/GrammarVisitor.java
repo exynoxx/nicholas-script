@@ -65,4 +65,10 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitBlock(GrammarParser.BlockContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#value}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitValue(GrammarParser.ValueContext ctx);
 }

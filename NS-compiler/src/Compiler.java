@@ -75,6 +75,13 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         return n;
     }
 
+    @Override
+    public Node visitValue(GrammarParser.ValueContext ctx) {
+        Node n = new Node(Type.VALUE);
+        n.text = ctx.getText();
+        return n;
+    }
+
     public void printSpace(int depth) {
         for (int i = 0; i < depth; i++) {
             System.out.print("-");
@@ -122,7 +129,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     }
 
     public static void main(String[] args) {
-        String input = "var a = 5; if (5 > 2) {var b = 2+4-3;};";
+        String input = "var a = 5; if (6 > a) {var b = 2+a-3;var c = \"string  hello world\";};";
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);

@@ -9,14 +9,16 @@ program: (statement SEMICOLON)+;
 statement:assign #assignstatement
 | ifstatement#ififstatement;
 
-binop: NUM | ID | NUM sign binop | ID sign binop;
+binop: value | value sign binop;
 sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT);
 assign: VAR ID EQ binop;
 ifstatement: IF LPAREN binop RPAREN block;
 block: LBRACKET (statement SEMICOLON)+ RBRACKET;
-
+value: ID | NUM | STRING;
+STRING: '"' ~('"')* '"';
 LPAREN: '(';
 RPAREN: ')';
+QUOTE: '"';
 LBRACKET:'{';
 RBRACKET:'}';
 PLUS:'+';
