@@ -1,2 +1,0 @@
-var t = ["s1", "s2"];
-printls: t[1];
