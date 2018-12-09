@@ -242,6 +242,9 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         Node root = cp.visit(tree);
         cp.prettyPrint(root, 0,4);
 
+        //BackendC out = new BackendC();
+        //System.out.println(out.gen(root));
+
     }
 
 }
