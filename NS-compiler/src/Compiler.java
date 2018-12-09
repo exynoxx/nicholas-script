@@ -118,6 +118,28 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitCallstatement(GrammarParser.CallstatementContext ctx) {
+        return this.visit(ctx.call());
+    }
+
+    @Override
+    public Node visitCall(GrammarParser.CallContext ctx) {
+        Node n = new Node(Type.CALL);
+
+        ArrayList<Node> args = new ArrayList<>();
+        List<GrammarParser.BinopContext> l = ctx.binop();
+        for (GrammarParser.BinopContext arg : l) {
+            args.add(this.visit(arg));
+        }
+        List<GrammarParser.ValueContext> k = ctx.value();
+        for (GrammarParser.ValueContext arg : k) {
+            args.add(this.visit(arg));
+        }
+        n.args = args;
+        return n;
+    }
+
+    @Override
     public Node visitReturnstatement(GrammarParser.ReturnstatementContext ctx) {
         return this.visit(ctx.returnn());
     }
@@ -193,13 +215,22 @@ public class Compiler extends GrammarBaseVisitor<Node> {
                 prettyPrint(root.body,depth+inc,inc);
                 break;
 
+            case CALL:
+                printSpace(depth);
+                System.out.println("CALL");
+                printSpace(depth);
+                System.out.println("ARGS:");
+                for (Node i : root.args) {
+                    printSpace(depth+inc);
+                    System.out.println(i.text);
+                }
         }
     }
 
     //var g:int = (a:int,b:int) => {};
 
     public static void main(String[] args) {
-        String input = "var f1 = (a:int,b:string) => {var v = a+a;return v;}; if (6 > a) {var b = 2+a-3;var c = \"string  hello world\";};";
+        String input = "var f1 = (a:int,b:string) => {var v = a+a;return v;}; f1: a b (3  *a); if (6 > a) {var b = 2+a-3;var c = \"string  hello world\";};";
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);

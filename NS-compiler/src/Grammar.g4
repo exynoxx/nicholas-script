@@ -9,7 +9,8 @@ program: (statement SEMICOLON)+;
 statement:
 assign #assignstatement
 | ifstatement#ififstatement
-| returnn#returnstatement;
+| returnn#returnstatement
+| call #callstatement;
 
 assign:
 VAR ID EQ binop #assignbinop
@@ -23,6 +24,7 @@ ifstatement: IF LPAREN binop RPAREN block;
 block: LBRACKET (statement SEMICOLON)+ RBRACKET;
 value: ID | NUM | STRING;
 returnn: RETURN binop;
+call: ID COLON (value|LPAREN binop RPAREN)*;
 
 TYPE: 'int' | 'string';
 STRING: '"' ~('"')* '"';

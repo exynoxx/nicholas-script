@@ -43,6 +43,13 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitReturnstatement(GrammarParser.ReturnstatementContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code callstatement}
+	 * labeled alternative in {@link GrammarParser#statement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCallstatement(GrammarParser.CallstatementContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code assignbinop}
 	 * labeled alternative in {@link GrammarParser#assign}.
 	 * @param ctx the parse tree
@@ -104,4 +111,10 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitReturnn(GrammarParser.ReturnnContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#call}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCall(GrammarParser.CallContext ctx);
 }
