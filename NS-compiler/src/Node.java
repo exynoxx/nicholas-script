@@ -9,6 +9,7 @@ public class Node {
     public Node cond;
     public ArrayList<Node> children;
     public ArrayList<Node> args;
+    public boolean fundecl;
 
     public Node(Type type) {
         this.type = type;

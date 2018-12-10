@@ -109,9 +109,10 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         }
         n.body = this.visit(ctx.block());
         try {
-            n.nstype = ctx.ID().toString();
+            n.nstype = ctx.TYPE().toString();
         } catch (Exception e) {}
         n.args = args;
+        n.nstype = (ctx.TYPE() != null) ? ctx.TYPE().toString() : null;
         return n;
     }
 
@@ -142,6 +143,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
             args.add(this.visit(arg));
         }
         n.args = args;
+        n.ID = ctx.ID().toString();
         return n;
     }
 
@@ -236,8 +238,8 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     //var g:int = (a:int,b:int) => {};
 
     public static void main(String[] args) {
-        //String input = "var f1 = (a:int,b:string) => {var v = a+a;return v;}; f1: a b (3  *a); if (6 > a) {var b = 2+a-3;var c = \"string  hello world\";};";
-        String input = "var b:int = 2+a-3;";
+        String input = "var f1 = (a:int,b:int):int => {var v = a+b;return v;};var b:int = 2; f1: 1 b (3  *a); if (6 > b) {var t = 2-3;};";
+        //String input = "var b:int = 2+a-3;";
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);
@@ -247,7 +249,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         ParseTree tree = parser.start();
         Compiler cp = new Compiler();
         Node root = cp.visit(tree);
-        cp.prettyPrint(root, 0,4);
+        //cp.prettyPrint(root, 0,4);
 
         BackendC out = new BackendC();
         System.out.println(out.gen(root));

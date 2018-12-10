@@ -45,4 +45,12 @@ public class CodeBuilder {
         this.signature = "";
         this.functionImpl = "";
     }
+
+    public CodeBuilder() {
+        this.code = "";
+        this.pre = "";
+        this.post = "";
+        this.signature = "";
+        this.functionImpl = "";
+    }
 }

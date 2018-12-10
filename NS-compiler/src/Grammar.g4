@@ -18,7 +18,7 @@ VAR ID (COLON TYPE)? EQ binop #assignbinop
 ;
 binop: value | value sign binop;
 sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT);
-function: LPAREN (arg (COMMA arg)*)? RPAREN (COLON ID)? ARROW block;
+function: LPAREN (arg (COMMA arg)*)? RPAREN (COLON TYPE)? ARROW block;
 arg:ID COLON TYPE;
 ifstatement: IF LPAREN binop RPAREN block;
 block: LBRACKET (statement SEMICOLON)+ RBRACKET;

@@ -1,8 +1,13 @@
+import java.util.ArrayList;
+
 public class BackendC {
 
     public String gen(Node root) {
+        root = semanticAdjustment(root);
         CodeBuilder cb = recursive(root, 0);
-        String ret = cb.getSignature() + cb.getFunctionImpl() + cb.getCode();
+        String ret = "//signatures \n" + cb.getSignature() + "\n" +
+                     "//functions \n" + cb.getFunctionImpl() + "\n\n" +
+                    cb.getCode();
         return ret;
     }
 
@@ -26,11 +31,73 @@ public class BackendC {
                 String type = root.nstype;
                 CodeBuilder body = recursive(root.body, level + 1);
                 String line = type + " " + name + " = " + body.getCode() + ";\n";
-                return new CodeBuilder(body.getPre(),line,body.getPost(),body.getSignature(),body.getFunctionImpl());
+                if (root.fundecl) {
+                    line = "";
+                }
+                return new CodeBuilder(body.getPre(), line, body.getPost(), body.getSignature(), body.getFunctionImpl());
 
 
             case BINOP:
                 return new CodeBuilder(root.text);
+
+            case BLOCK:
+                CodeBuilder block = new CodeBuilder("", "", "", "", "");
+                for (Node c : root.children) {
+                    CodeBuilder cb = recursive(c, level + 1);
+                    block = merge(block, cb);
+                }
+
+                String codeblock = "{\n";
+                codeblock += block.getPreCodePost();
+                codeblock += "}\n";
+                return new CodeBuilder("", codeblock, "", block.getSignature(), block.getFunctionImpl());
+
+            case FUNCTION:
+
+                String args = "(";
+                for (Node c : root.args) {
+                    CodeBuilder cb = recursive(c, level + 1);
+                    args += cb.getCode() + ",";
+                }
+                if (root.args.size() > 0) args = args.substring(0, args.length() - 1);
+                args += ")";
+
+                CodeBuilder funcbody = recursive(root.body, level + 1);
+                String cbody = funcbody.getCode();
+                String signature = root.nstype + " " + root.ID + args + ";\n";
+                String functionCode = root.nstype + " " + root.ID + args + cbody;
+                return new CodeBuilder("","","",signature,functionCode);
+
+            case ARG:
+                return new CodeBuilder(root.nstype + " " + root.ID);
+
+            case RETURN:
+                CodeBuilder cb = recursive(root.body,level+1);
+                String returnstatement = "return " + cb.getCode() + ";\n";
+                return new CodeBuilder(returnstatement);
+
+            case CALL:
+                String callname = root.ID;
+                String callargs = "(";
+                for (int i = root.args.size()-1; i >= 0; i--) {
+                    Node c = root.args.get(i);
+                    CodeBuilder callargcb = recursive(c, level + 1);
+                    callargs += callargcb.getCode() + ",";
+                }
+                if (root.args.size() > 0) callargs = callargs.substring(0, callargs.length() - 1);
+                callargs += ")";
+                String callcode = callname + callargs + ";\n";
+                return new CodeBuilder(callcode);
+            case VALUE:
+                return new CodeBuilder(root.text);
+
+            case IF:
+                CodeBuilder condbuilder = recursive(root.cond,level+1);
+                CodeBuilder bodybuilder = recursive(root.body, level+1);
+                String cond = "(" + condbuilder.getCode() + ")";
+                String ifbody = bodybuilder.getCode();
+                String ifcode = "if" + cond + ifbody;
+                return new CodeBuilder(ifcode);
         }
         return null;
     }
@@ -42,5 +109,36 @@ public class BackendC {
                 a.getPost() + b.getPost(),
                 a.getSignature() + b.getSignature(),
                 a.getFunctionImpl() + b.getFunctionImpl());
+    }
+
+    public Node semanticAdjustment(Node root) {
+        switch (root.type) {
+            case BINOP:
+                root.nstype = "int";
+                break;
+            case ASSIGN:
+                if (root.body.type == Type.FUNCTION) {
+                    root.body.ID = root.ID;
+
+                    //if (root.nstype == null) root.nstype = root.body.nstype;
+                    //if (root.body.nstype == null) root.body.nstype = root.nstype;
+                    root.fundecl = true;
+                }
+                break;
+        }
+        if (root.body != null) {
+            root.body = semanticAdjustment(root.body);
+            if (root.nstype == null) {
+                root.nstype = root.body.nstype;
+            }
+        }
+        if (root.children != null) {
+            ArrayList<Node> newChildren = new ArrayList<>();
+            for (Node c : root.children) {
+                newChildren.add(semanticAdjustment(c));
+            }
+        }
+
+        return root;
     }
 }

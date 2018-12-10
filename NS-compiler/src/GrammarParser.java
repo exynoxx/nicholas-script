@@ -609,7 +609,7 @@ public class GrammarParser extends Parser {
 			return getRuleContext(ArgContext.class,i);
 		}
 		public TerminalNode COLON() { return getToken(GrammarParser.COLON, 0); }
-		public TerminalNode ID() { return getToken(GrammarParser.ID, 0); }
+		public TerminalNode TYPE() { return getToken(GrammarParser.TYPE, 0); }
 		public List<TerminalNode> COMMA() { return getTokens(GrammarParser.COMMA); }
 		public TerminalNode COMMA(int i) {
 			return getToken(GrammarParser.COMMA, i);
@@ -676,7 +676,7 @@ public class GrammarParser extends Parser {
 				setState(81);
 				match(COLON);
 				setState(82);
-				match(ID);
+				match(TYPE);
 				}
 			}
 
@@ -1094,7 +1094,7 @@ public class GrammarParser extends Parser {
 		">D\5\26\f\2?@\5\26\f\2@A\5\f\7\2AB\5\n\6\2BD\3\2\2\2C>\3\2\2\2C?\3\2\2"+
 		"\2D\13\3\2\2\2EF\t\2\2\2F\r\3\2\2\2GP\7\5\2\2HM\5\20\t\2IJ\7\27\2\2JL"+
 		"\5\20\t\2KI\3\2\2\2LO\3\2\2\2MK\3\2\2\2MN\3\2\2\2NQ\3\2\2\2OM\3\2\2\2"+
-		"PH\3\2\2\2PQ\3\2\2\2QR\3\2\2\2RU\7\6\2\2ST\7\33\2\2TV\7\31\2\2US\3\2\2"+
+		"PH\3\2\2\2PQ\3\2\2\2QR\3\2\2\2RU\7\6\2\2ST\7\33\2\2TV\7\3\2\2US\3\2\2"+
 		"\2UV\3\2\2\2VW\3\2\2\2WX\7\22\2\2XY\5\24\13\2Y\17\3\2\2\2Z[\7\31\2\2["+
 		"\\\7\33\2\2\\]\7\3\2\2]\21\3\2\2\2^_\7\23\2\2_`\7\5\2\2`a\5\n\6\2ab\7"+
 		"\6\2\2bc\5\24\13\2c\23\3\2\2\2dh\7\b\2\2ef\5\6\4\2fg\7\32\2\2gi\3\2\2"+
