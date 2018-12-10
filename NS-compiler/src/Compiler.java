@@ -57,14 +57,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         Node n = new Node(Type.ASSIGN);
         n.body = this.visit(ctx.binop());
         n.ID = ctx.ID().toString();
-        return n;
-    }
-
-    @Override
-    public Node visitAssignfunction(GrammarParser.AssignfunctionContext ctx) {
-        Node n = new Node(Type.ASSIGN);
-        n.body = this.visit(ctx.function());
-        n.ID = ctx.ID().toString();
+        n.nstype = (ctx.TYPE() != null) ? ctx.TYPE().toString() : null;
         return n;
     }
 
@@ -93,6 +86,16 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         Node n = new Node(Type.VALUE);
         n.text = ctx.getText();
         return n;
+    };
+
+    @Override
+    public Node visitAssignfunction(GrammarParser.AssignfunctionContext ctx) {
+        Node n = new Node(Type.ASSIGN);
+        n.body = this.visit(ctx.function());
+        n.ID = ctx.ID().toString();
+        n.nstype = (ctx.TYPE() != null) ? ctx.TYPE().toString() : null;
+
+        return n;
     }
 
     @Override
@@ -105,6 +108,9 @@ public class Compiler extends GrammarBaseVisitor<Node> {
             args.add(this.visit(arg));
         }
         n.body = this.visit(ctx.block());
+        try {
+            n.nstype = ctx.ID().toString();
+        } catch (Exception e) {}
         n.args = args;
         return n;
     }
@@ -230,7 +236,8 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     //var g:int = (a:int,b:int) => {};
 
     public static void main(String[] args) {
-        String input = "var f1 = (a:int,b:string) => {var v = a+a;return v;}; f1: a b (3  *a); if (6 > a) {var b = 2+a-3;var c = \"string  hello world\";};";
+        //String input = "var f1 = (a:int,b:string) => {var v = a+a;return v;}; f1: a b (3  *a); if (6 > a) {var b = 2+a-3;var c = \"string  hello world\";};";
+        String input = "var b:int = 2+a-3;";
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);
@@ -242,8 +249,8 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         Node root = cp.visit(tree);
         cp.prettyPrint(root, 0,4);
 
-        //BackendC out = new BackendC();
-        //System.out.println(out.gen(root));
+        BackendC out = new BackendC();
+        System.out.println(out.gen(root));
 
     }
 

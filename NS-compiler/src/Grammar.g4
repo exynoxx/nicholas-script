@@ -13,12 +13,12 @@ assign #assignstatement
 | call #callstatement;
 
 assign:
-VAR ID EQ binop #assignbinop
-| VAR ID EQ function #assignfunction
+VAR ID (COLON TYPE)? EQ binop #assignbinop
+| VAR ID (COLON TYPE)? EQ function #assignfunction
 ;
 binop: value | value sign binop;
 sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT);
-function: LPAREN (arg (COMMA arg)*)? RPAREN ARROW block;
+function: LPAREN (arg (COMMA arg)*)? RPAREN (COLON ID)? ARROW block;
 arg:ID COLON TYPE;
 ifstatement: IF LPAREN binop RPAREN block;
 block: LBRACKET (statement SEMICOLON)+ RBRACKET;
