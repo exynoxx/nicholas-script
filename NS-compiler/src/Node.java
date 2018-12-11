@@ -7,6 +7,8 @@ public class Node {
     public String nstype;
     public Node body;
     public Node cond;
+    public Node sign;
+    public Node value;
     public ArrayList<Node> children;
     public ArrayList<Node> args;
     public boolean fundecl;

@@ -1,0 +1,165 @@
+// Generated from Grammar.g4 by ANTLR 4.5.3
+// jshint ignore: start
+var antlr4 = require('antlr4/index');
+
+
+var serializedATN = ["\u0003\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd",
+    "\u0002\u001c\u0091\b\u0001\u0004\u0002\t\u0002\u0004\u0003\t\u0003\u0004",
+    "\u0004\t\u0004\u0004\u0005\t\u0005\u0004\u0006\t\u0006\u0004\u0007\t",
+    "\u0007\u0004\b\t\b\u0004\t\t\t\u0004\n\t\n\u0004\u000b\t\u000b\u0004",
+    "\f\t\f\u0004\r\t\r\u0004\u000e\t\u000e\u0004\u000f\t\u000f\u0004\u0010",
+    "\t\u0010\u0004\u0011\t\u0011\u0004\u0012\t\u0012\u0004\u0013\t\u0013",
+    "\u0004\u0014\t\u0014\u0004\u0015\t\u0015\u0004\u0016\t\u0016\u0004\u0017",
+    "\t\u0017\u0004\u0018\t\u0018\u0004\u0019\t\u0019\u0004\u001a\t\u001a",
+    "\u0004\u001b\t\u001b\u0003\u0002\u0003\u0002\u0003\u0002\u0003\u0002",
+    "\u0003\u0002\u0003\u0002\u0003\u0002\u0003\u0002\u0003\u0002\u0005\u0002",
+    "A\n\u0002\u0003\u0003\u0003\u0003\u0007\u0003E\n\u0003\f\u0003\u000e",
+    "\u0003H\u000b\u0003\u0003\u0003\u0003\u0003\u0003\u0004\u0003\u0004",
+    "\u0003\u0005\u0003\u0005\u0003\u0006\u0003\u0006\u0003\u0007\u0003\u0007",
+    "\u0003\b\u0003\b\u0003\t\u0003\t\u0003\n\u0003\n\u0003\u000b\u0003\u000b",
+    "\u0003\f\u0003\f\u0003\r\u0003\r\u0003\r\u0003\u000e\u0003\u000e\u0003",
+    "\u000e\u0003\u000f\u0003\u000f\u0003\u0010\u0003\u0010\u0003\u0011\u0003",
+    "\u0011\u0003\u0011\u0003\u0012\u0003\u0012\u0003\u0012\u0003\u0013\u0003",
+    "\u0013\u0003\u0013\u0003\u0013\u0003\u0014\u0003\u0014\u0003\u0014\u0003",
+    "\u0014\u0003\u0014\u0003\u0014\u0003\u0014\u0003\u0015\u0003\u0015\u0003",
+    "\u0016\u0003\u0016\u0003\u0017\u0006\u0017~\n\u0017\r\u0017\u000e\u0017",
+    "\u007f\u0003\u0018\u0006\u0018\u0083\n\u0018\r\u0018\u000e\u0018\u0084",
+    "\u0003\u0019\u0003\u0019\u0003\u001a\u0003\u001a\u0003\u001b\u0006\u001b",
+    "\u008c\n\u001b\r\u001b\u000e\u001b\u008d\u0003\u001b\u0003\u001b\u0002",
+    "\u0002\u001c\u0003\u0003\u0005\u0004\u0007\u0005\t\u0006\u000b\u0007",
+    "\r\b\u000f\t\u0011\n\u0013\u000b\u0015\f\u0017\r\u0019\u000e\u001b\u000f",
+    "\u001d\u0010\u001f\u0011!\u0012#\u0013%\u0014\'\u0015)\u0016+\u0017",
+    "-\u0018/\u00191\u001a3\u001b5\u001c\u0003\u0002\u0006\u0003\u0002$$",
+    "\u0003\u00022;\u0005\u00022;C\\c|\u0005\u0002\u000b\f\u000f\u000f\"",
+    "\"\u0095\u0002\u0003\u0003\u0002\u0002\u0002\u0002\u0005\u0003\u0002",
+    "\u0002\u0002\u0002\u0007\u0003\u0002\u0002\u0002\u0002\t\u0003\u0002",
+    "\u0002\u0002\u0002\u000b\u0003\u0002\u0002\u0002\u0002\r\u0003\u0002",
+    "\u0002\u0002\u0002\u000f\u0003\u0002\u0002\u0002\u0002\u0011\u0003\u0002",
+    "\u0002\u0002\u0002\u0013\u0003\u0002\u0002\u0002\u0002\u0015\u0003\u0002",
+    "\u0002\u0002\u0002\u0017\u0003\u0002\u0002\u0002\u0002\u0019\u0003\u0002",
+    "\u0002\u0002\u0002\u001b\u0003\u0002\u0002\u0002\u0002\u001d\u0003\u0002",
+    "\u0002\u0002\u0002\u001f\u0003\u0002\u0002\u0002\u0002!\u0003\u0002",
+    "\u0002\u0002\u0002#\u0003\u0002\u0002\u0002\u0002%\u0003\u0002\u0002",
+    "\u0002\u0002\'\u0003\u0002\u0002\u0002\u0002)\u0003\u0002\u0002\u0002",
+    "\u0002+\u0003\u0002\u0002\u0002\u0002-\u0003\u0002\u0002\u0002\u0002",
+    "/\u0003\u0002\u0002\u0002\u00021\u0003\u0002\u0002\u0002\u00023\u0003",
+    "\u0002\u0002\u0002\u00025\u0003\u0002\u0002\u0002\u0003@\u0003\u0002",
+    "\u0002\u0002\u0005B\u0003\u0002\u0002\u0002\u0007K\u0003\u0002\u0002",
+    "\u0002\tM\u0003\u0002\u0002\u0002\u000bO\u0003\u0002\u0002\u0002\rQ",
+    "\u0003\u0002\u0002\u0002\u000fS\u0003\u0002\u0002\u0002\u0011U\u0003",
+    "\u0002\u0002\u0002\u0013W\u0003\u0002\u0002\u0002\u0015Y\u0003\u0002",
+    "\u0002\u0002\u0017[\u0003\u0002\u0002\u0002\u0019]\u0003\u0002\u0002",
+    "\u0002\u001b`\u0003\u0002\u0002\u0002\u001dc\u0003\u0002\u0002\u0002",
+    "\u001fe\u0003\u0002\u0002\u0002!g\u0003\u0002\u0002\u0002#j\u0003\u0002",
+    "\u0002\u0002%m\u0003\u0002\u0002\u0002\'q\u0003\u0002\u0002\u0002)x",
+    "\u0003\u0002\u0002\u0002+z\u0003\u0002\u0002\u0002-}\u0003\u0002\u0002",
+    "\u0002/\u0082\u0003\u0002\u0002\u00021\u0086\u0003\u0002\u0002\u0002",
+    "3\u0088\u0003\u0002\u0002\u00025\u008b\u0003\u0002\u0002\u000278\u0007",
+    "k\u0002\u000289\u0007p\u0002\u00029A\u0007v\u0002\u0002:;\u0007u\u0002",
+    "\u0002;<\u0007v\u0002\u0002<=\u0007t\u0002\u0002=>\u0007k\u0002\u0002",
+    ">?\u0007p\u0002\u0002?A\u0007i\u0002\u0002@7\u0003\u0002\u0002\u0002",
+    "@:\u0003\u0002\u0002\u0002A\u0004\u0003\u0002\u0002\u0002BF\u0007$\u0002",
+    "\u0002CE\n\u0002\u0002\u0002DC\u0003\u0002\u0002\u0002EH\u0003\u0002",
+    "\u0002\u0002FD\u0003\u0002\u0002\u0002FG\u0003\u0002\u0002\u0002GI\u0003",
+    "\u0002\u0002\u0002HF\u0003\u0002\u0002\u0002IJ\u0007$\u0002\u0002J\u0006",
+    "\u0003\u0002\u0002\u0002KL\u0007*\u0002\u0002L\b\u0003\u0002\u0002\u0002",
+    "MN\u0007+\u0002\u0002N\n\u0003\u0002\u0002\u0002OP\u0007$\u0002\u0002",
+    "P\f\u0003\u0002\u0002\u0002QR\u0007}\u0002\u0002R\u000e\u0003\u0002",
+    "\u0002\u0002ST\u0007\u007f\u0002\u0002T\u0010\u0003\u0002\u0002\u0002",
+    "UV\u0007-\u0002\u0002V\u0012\u0003\u0002\u0002\u0002WX\u0007/\u0002",
+    "\u0002X\u0014\u0003\u0002\u0002\u0002YZ\u00071\u0002\u0002Z\u0016\u0003",
+    "\u0002\u0002\u0002[\\\u0007,\u0002\u0002\\\u0018\u0003\u0002\u0002\u0002",
+    "]^\u0007>\u0002\u0002^_\u0007?\u0002\u0002_\u001a\u0003\u0002\u0002",
+    "\u0002`a\u0007@\u0002\u0002ab\u0007?\u0002\u0002b\u001c\u0003\u0002",
+    "\u0002\u0002cd\u0007>\u0002\u0002d\u001e\u0003\u0002\u0002\u0002ef\u0007",
+    "@\u0002\u0002f \u0003\u0002\u0002\u0002gh\u0007?\u0002\u0002hi\u0007",
+    "@\u0002\u0002i\"\u0003\u0002\u0002\u0002jk\u0007k\u0002\u0002kl\u0007",
+    "h\u0002\u0002l$\u0003\u0002\u0002\u0002mn\u0007x\u0002\u0002no\u0007",
+    "c\u0002\u0002op\u0007t\u0002\u0002p&\u0003\u0002\u0002\u0002qr\u0007",
+    "t\u0002\u0002rs\u0007g\u0002\u0002st\u0007v\u0002\u0002tu\u0007w\u0002",
+    "\u0002uv\u0007t\u0002\u0002vw\u0007p\u0002\u0002w(\u0003\u0002\u0002",
+    "\u0002xy\u0007?\u0002\u0002y*\u0003\u0002\u0002\u0002z{\u0007.\u0002",
+    "\u0002{,\u0003\u0002\u0002\u0002|~\t\u0003\u0002\u0002}|\u0003\u0002",
+    "\u0002\u0002~\u007f\u0003\u0002\u0002\u0002\u007f}\u0003\u0002\u0002",
+    "\u0002\u007f\u0080\u0003\u0002\u0002\u0002\u0080.\u0003\u0002\u0002",
+    "\u0002\u0081\u0083\t\u0004\u0002\u0002\u0082\u0081\u0003\u0002\u0002",
+    "\u0002\u0083\u0084\u0003\u0002\u0002\u0002\u0084\u0082\u0003\u0002\u0002",
+    "\u0002\u0084\u0085\u0003\u0002\u0002\u0002\u00850\u0003\u0002\u0002",
+    "\u0002\u0086\u0087\u0007=\u0002\u0002\u00872\u0003\u0002\u0002\u0002",
+    "\u0088\u0089\u0007<\u0002\u0002\u00894\u0003\u0002\u0002\u0002\u008a",
+    "\u008c\t\u0005\u0002\u0002\u008b\u008a\u0003\u0002\u0002\u0002\u008c",
+    "\u008d\u0003\u0002\u0002\u0002\u008d\u008b\u0003\u0002\u0002\u0002\u008d",
+    "\u008e\u0003\u0002\u0002\u0002\u008e\u008f\u0003\u0002\u0002\u0002\u008f",
+    "\u0090\b\u001b\u0002\u0002\u00906\u0003\u0002\u0002\u0002\b\u0002@F",
+    "\u007f\u0084\u008d\u0003\b\u0002\u0002"].join("");
+
+
+var atn = new antlr4.atn.ATNDeserializer().deserialize(serializedATN);
+
+var decisionsToDFA = atn.decisionToState.map( function(ds, index) { return new antlr4.dfa.DFA(ds, index); });
+
+function GrammarLexer(input) {
+	antlr4.Lexer.call(this, input);
+    this._interp = new antlr4.atn.LexerATNSimulator(this, atn, decisionsToDFA, new antlr4.PredictionContextCache());
+    return this;
+}
+
+GrammarLexer.prototype = Object.create(antlr4.Lexer.prototype);
+GrammarLexer.prototype.constructor = GrammarLexer;
+
+GrammarLexer.EOF = antlr4.Token.EOF;
+GrammarLexer.TYPE = 1;
+GrammarLexer.STRING = 2;
+GrammarLexer.LPAREN = 3;
+GrammarLexer.RPAREN = 4;
+GrammarLexer.QUOTE = 5;
+GrammarLexer.LBRACKET = 6;
+GrammarLexer.RBRACKET = 7;
+GrammarLexer.PLUS = 8;
+GrammarLexer.MINUS = 9;
+GrammarLexer.DIV = 10;
+GrammarLexer.MULT = 11;
+GrammarLexer.LE = 12;
+GrammarLexer.GE = 13;
+GrammarLexer.LT = 14;
+GrammarLexer.GT = 15;
+GrammarLexer.ARROW = 16;
+GrammarLexer.IF = 17;
+GrammarLexer.VAR = 18;
+GrammarLexer.RETURN = 19;
+GrammarLexer.EQ = 20;
+GrammarLexer.COMMA = 21;
+GrammarLexer.NUM = 22;
+GrammarLexer.ID = 23;
+GrammarLexer.SEMICOLON = 24;
+GrammarLexer.COLON = 25;
+GrammarLexer.WS = 26;
+
+
+GrammarLexer.modeNames = [ "DEFAULT_MODE" ];
+
+GrammarLexer.literalNames = [ null, null, null, "'('", "')'", "'\"'", "'{'", 
+                              "'}'", "'+'", "'-'", "'/'", "'*'", "'<='", 
+                              "'>='", "'<'", "'>'", "'=>'", "'if'", "'var'", 
+                              "'return'", "'='", "','", null, null, "';'", 
+                              "':'" ];
+
+GrammarLexer.symbolicNames = [ null, "TYPE", "STRING", "LPAREN", "RPAREN", 
+                               "QUOTE", "LBRACKET", "RBRACKET", "PLUS", 
+                               "MINUS", "DIV", "MULT", "LE", "GE", "LT", 
+                               "GT", "ARROW", "IF", "VAR", "RETURN", "EQ", 
+                               "COMMA", "NUM", "ID", "SEMICOLON", "COLON", 
+                               "WS" ];
+
+GrammarLexer.ruleNames = [ "TYPE", "STRING", "LPAREN", "RPAREN", "QUOTE", 
+                           "LBRACKET", "RBRACKET", "PLUS", "MINUS", "DIV", 
+                           "MULT", "LE", "GE", "LT", "GT", "ARROW", "IF", 
+                           "VAR", "RETURN", "EQ", "COMMA", "NUM", "ID", 
+                           "SEMICOLON", "COLON", "WS" ];
+
+GrammarLexer.grammarFileName = "Grammar.g4";
+
+
+
+exports.GrammarLexer = GrammarLexer;
+

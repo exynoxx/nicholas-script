@@ -29,12 +29,12 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitAssignstatement(GrammarParser.AssignstatementContext ctx);
 	/**
-	 * Visit a parse tree produced by the {@code ififstatement}
+	 * Visit a parse tree produced by the {@code ifstatement}
 	 * labeled alternative in {@link GrammarParser#statement}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitIfifstatement(GrammarParser.IfifstatementContext ctx);
+	T visitIfstatement(GrammarParser.IfstatementContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code returnstatement}
 	 * labeled alternative in {@link GrammarParser#statement}.
@@ -50,12 +50,12 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitCallstatement(GrammarParser.CallstatementContext ctx);
 	/**
-	 * Visit a parse tree produced by the {@code assignbinop}
+	 * Visit a parse tree produced by the {@code assigneval}
 	 * labeled alternative in {@link GrammarParser#assign}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitAssignbinop(GrammarParser.AssignbinopContext ctx);
+	T visitAssigneval(GrammarParser.AssignevalContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code assignfunction}
 	 * labeled alternative in {@link GrammarParser#assign}.
@@ -64,11 +64,51 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitAssignfunction(GrammarParser.AssignfunctionContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link GrammarParser#binop}.
+	 * Visit a parse tree produced by {@link GrammarParser#iff}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitBinop(GrammarParser.BinopContext ctx);
+	T visitIff(GrammarParser.IffContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#returnn}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitReturnn(GrammarParser.ReturnnContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#call}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCall(GrammarParser.CallContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code evalbinop}
+	 * labeled alternative in {@link GrammarParser#eval}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitEvalbinop(GrammarParser.EvalbinopContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code evalcall}
+	 * labeled alternative in {@link GrammarParser#eval}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitEvalcall(GrammarParser.EvalcallContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code binopvalue}
+	 * labeled alternative in {@link GrammarParser#binop}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitBinopvalue(GrammarParser.BinopvalueContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code binopbinop}
+	 * labeled alternative in {@link GrammarParser#binop}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitBinopbinop(GrammarParser.BinopbinopContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link GrammarParser#sign}.
 	 * @param ctx the parse tree
@@ -88,12 +128,6 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitArg(GrammarParser.ArgContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link GrammarParser#ifstatement}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitIfstatement(GrammarParser.IfstatementContext ctx);
-	/**
 	 * Visit a parse tree produced by {@link GrammarParser#block}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -105,16 +139,4 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitValue(GrammarParser.ValueContext ctx);
-	/**
-	 * Visit a parse tree produced by {@link GrammarParser#returnn}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitReturnn(GrammarParser.ReturnnContext ctx);
-	/**
-	 * Visit a parse tree produced by {@link GrammarParser#call}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitCall(GrammarParser.CallContext ctx);
 }

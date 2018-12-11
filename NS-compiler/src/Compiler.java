@@ -27,67 +27,34 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         return n;
     }
 
-    @Override
-    public Node visitIfifstatement(GrammarParser.IfifstatementContext ctx) {
-        return this.visit(ctx.ifstatement());
-    }
-
-    @Override
-    public Node visitIfstatement(GrammarParser.IfstatementContext ctx) {
-        Node n = new Node(Type.IF);
-        n.cond = this.visit(ctx.binop());
-        n.body = this.visit(ctx.block());
-        return n;
-    }
-
-    @Override
-    public Node visitSign(GrammarParser.SignContext ctx) {
-        Node n = new Node(Type.SIGN);
-        n.text = ctx.getText();
-        return n;
-    }
-
+    //statement ##############################
     @Override
     public Node visitAssignstatement(GrammarParser.AssignstatementContext ctx) {
         return this.visit(ctx.assign());
     }
-
     @Override
-    public Node visitAssignbinop(GrammarParser.AssignbinopContext ctx) {
+    public Node visitIfstatement(GrammarParser.IfstatementContext ctx) {
+        return this.visit(ctx.iff());
+    }
+    @Override
+    public Node visitReturnstatement(GrammarParser.ReturnstatementContext ctx) {
+        return this.visit(ctx.returnn());
+    }
+    @Override
+    public Node visitCallstatement(GrammarParser.CallstatementContext ctx) {
+        return this.visit(ctx.call());
+    }
+
+
+    //assign ##########################
+    @Override
+    public Node visitAssigneval(GrammarParser.AssignevalContext ctx) {
         Node n = new Node(Type.ASSIGN);
-        n.body = this.visit(ctx.binop());
+        n.body = this.visit(ctx.eval());
         n.ID = ctx.ID().toString();
         n.nstype = (ctx.TYPE() != null) ? ctx.TYPE().toString() : null;
         return n;
     }
-
-    @Override
-    public Node visitBinop(GrammarParser.BinopContext ctx) {
-        Node n = new Node(Type.BINOP);
-        n.text = ctx.getText();
-        return n;
-    }
-
-    @Override
-    public Node visitBlock(GrammarParser.BlockContext ctx) {
-        Node n = new Node(Type.BLOCK);
-
-        ArrayList<Node> children = new ArrayList<>();
-        List<GrammarParser.StatementContext> l = ctx.statement();
-        for (GrammarParser.StatementContext c : l) {
-            children.add(this.visit(c));
-        }
-        n.children = children;
-        return n;
-    }
-
-    @Override
-    public Node visitValue(GrammarParser.ValueContext ctx) {
-        Node n = new Node(Type.VALUE);
-        n.text = ctx.getText();
-        return n;
-    };
-
     @Override
     public Node visitAssignfunction(GrammarParser.AssignfunctionContext ctx) {
         Node n = new Node(Type.ASSIGN);
@@ -98,6 +65,79 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         return n;
     }
 
+    //iff ##########################################
+    @Override
+    public Node visitIff(GrammarParser.IffContext ctx) {
+        Node n = new Node(Type.IF);
+        n.cond = this.visit(ctx.binop());
+        n.body = this.visit(ctx.block());
+        return n;
+    }
+
+
+    //return ####################################3
+    @Override
+    public Node visitReturnn(GrammarParser.ReturnnContext ctx) {
+        Node n = new Node(Type.RETURN);
+        n.body = this.visit(ctx.binop());
+        return n;
+    }
+
+
+    //call ##############################################
+    @Override
+    public Node visitCall(GrammarParser.CallContext ctx) {
+        Node n = new Node(Type.CALL);
+
+        ArrayList<Node> args = new ArrayList<>();
+        List<GrammarParser.BinopContext> l = ctx.binop();
+        for (GrammarParser.BinopContext arg : l) {
+            args.add(this.visit(arg));
+        }
+        List<GrammarParser.ValueContext> k = ctx.value();
+        for (GrammarParser.ValueContext arg : k) {
+            args.add(this.visit(arg));
+        }
+        n.args = args;
+        n.ID = ctx.ID().toString();
+        return n;
+    }
+
+
+    //eval #############################################
+    @Override
+    public Node visitEvalbinop(GrammarParser.EvalbinopContext ctx) {
+        return this.visit(ctx.binop());
+    }
+    @Override
+    public Node visitEvalcall(GrammarParser.EvalcallContext ctx) {
+        return this.visit(ctx.call());
+    }
+
+
+    //binop #########################################
+    @Override
+    public Node visitBinopvalue(GrammarParser.BinopvalueContext ctx) {
+        Node n = new Node(Type.BINOP);
+        n.value = this.visit(ctx.value());
+        return n;
+    }
+    @Override
+    public Node visitBinopbinop(GrammarParser.BinopbinopContext ctx) {
+        Node n = new Node(Type.BINOP);
+        n.body = this.visit(ctx.binop());
+        n.sign = this.visit(ctx.sign());
+        n.value = this.visit(ctx.value());
+        return n;
+    }
+    @Override
+    public Node visitSign(GrammarParser.SignContext ctx) {
+        Node n = new Node(Type.SIGN);
+        n.text = ctx.getText();
+        return n;
+    }
+
+    //function ####################################################
     @Override
     public Node visitFunction(GrammarParser.FunctionContext ctx) {
         Node n = new Node(Type.FUNCTION);
@@ -124,40 +164,38 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         return n;
     }
 
-    @Override
-    public Node visitCallstatement(GrammarParser.CallstatementContext ctx) {
-        return this.visit(ctx.call());
-    }
 
+    //block ######################################################
     @Override
-    public Node visitCall(GrammarParser.CallContext ctx) {
-        Node n = new Node(Type.CALL);
+    public Node visitBlock(GrammarParser.BlockContext ctx) {
+        Node n = new Node(Type.BLOCK);
 
-        ArrayList<Node> args = new ArrayList<>();
-        List<GrammarParser.BinopContext> l = ctx.binop();
-        for (GrammarParser.BinopContext arg : l) {
-            args.add(this.visit(arg));
+        ArrayList<Node> children = new ArrayList<>();
+        List<GrammarParser.StatementContext> l = ctx.statement();
+        for (GrammarParser.StatementContext c : l) {
+            children.add(this.visit(c));
         }
-        List<GrammarParser.ValueContext> k = ctx.value();
-        for (GrammarParser.ValueContext arg : k) {
-            args.add(this.visit(arg));
-        }
-        n.args = args;
-        n.ID = ctx.ID().toString();
+        n.children = children;
         return n;
     }
 
     @Override
-    public Node visitReturnstatement(GrammarParser.ReturnstatementContext ctx) {
-        return this.visit(ctx.returnn());
-    }
-
-    @Override
-    public Node visitReturnn(GrammarParser.ReturnnContext ctx) {
-        Node n = new Node(Type.RETURN);
-        n.body = this.visit(ctx.binop());
+    public Node visitValue(GrammarParser.ValueContext ctx) {
+        Node n = new Node(Type.VALUE);
+        n.text = ctx.getText();
         return n;
-    }
+    };
+
+
+
+
+
+
+
+
+
+
+
 
 //###################################
 
@@ -238,8 +276,8 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     //var g:int = (a:int,b:int) => {};
 
     public static void main(String[] args) {
-        String input = "var f1 = (a:int,b:int):int => {var v = a+b;return v;};var b:int = 2; f1: 1 b (3  *a); if (6 > b) {var t = 2-3;};";
-        //String input = "var b:int = 2+a-3;";
+        //String input = "var f1 = (a:int,b:int):int => {var f2 = (a:int):int => {return a;}; return f2: 2;};";
+        String input = "var b:int = 2+a-3;";
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);
@@ -249,7 +287,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         ParseTree tree = parser.start();
         Compiler cp = new Compiler();
         Node root = cp.visit(tree);
-        //cp.prettyPrint(root, 0,4);
+        cp.prettyPrint(root, 0,4);
 
         BackendC out = new BackendC();
         System.out.println(out.gen(root));

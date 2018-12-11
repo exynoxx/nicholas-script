@@ -15,7 +15,7 @@ statement:
 
 assign:
 VAR ID (COLON TYPE)? EQ eval        #assigneval
-| VAR ID (COLON TYPE)? EQ function  #assignfunction
+| VAR ID (COLON TYPE)? EQ functionn  #assignfunction
 ;
 
 iff:
@@ -41,7 +41,7 @@ value                  #binopvalue
 ;
 sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT);
 
-function:
+functionn:
 LPAREN (arg (COMMA arg)*)? RPAREN (COLON TYPE)? ARROW block
 ;
 arg:ID COLON TYPE;

@@ -51,13 +51,13 @@ public class GrammarBaseListener implements GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterIfifstatement(GrammarParser.IfifstatementContext ctx) { }
+	@Override public void enterIfstatement(GrammarParser.IfstatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitIfifstatement(GrammarParser.IfifstatementContext ctx) { }
+	@Override public void exitIfstatement(GrammarParser.IfstatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -87,13 +87,13 @@ public class GrammarBaseListener implements GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterAssignbinop(GrammarParser.AssignbinopContext ctx) { }
+	@Override public void enterAssigneval(GrammarParser.AssignevalContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitAssignbinop(GrammarParser.AssignbinopContext ctx) { }
+	@Override public void exitAssigneval(GrammarParser.AssignevalContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -111,13 +111,85 @@ public class GrammarBaseListener implements GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterBinop(GrammarParser.BinopContext ctx) { }
+	@Override public void enterIff(GrammarParser.IffContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitBinop(GrammarParser.BinopContext ctx) { }
+	@Override public void exitIff(GrammarParser.IffContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterReturnn(GrammarParser.ReturnnContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitReturnn(GrammarParser.ReturnnContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterCall(GrammarParser.CallContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitCall(GrammarParser.CallContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterEvalbinop(GrammarParser.EvalbinopContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitEvalbinop(GrammarParser.EvalbinopContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterEvalcall(GrammarParser.EvalcallContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitEvalcall(GrammarParser.EvalcallContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterBinopvalue(GrammarParser.BinopvalueContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitBinopvalue(GrammarParser.BinopvalueContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterBinopbinop(GrammarParser.BinopbinopContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitBinopbinop(GrammarParser.BinopbinopContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -159,18 +231,6 @@ public class GrammarBaseListener implements GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterIfstatement(GrammarParser.IfstatementContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitIfstatement(GrammarParser.IfstatementContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
 	@Override public void enterBlock(GrammarParser.BlockContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -190,30 +250,6 @@ public class GrammarBaseListener implements GrammarListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitValue(GrammarParser.ValueContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterReturnn(GrammarParser.ReturnnContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitReturnn(GrammarParser.ReturnnContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterCall(GrammarParser.CallContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitCall(GrammarParser.CallContext ctx) { }
 
 	/**
 	 * {@inheritDoc}
