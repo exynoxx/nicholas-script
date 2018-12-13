@@ -39,7 +39,11 @@ LPAREN (arg (COMMA arg)*)? RPAREN (COLON TYPE)? ARROW block
 arg:ID COLON TYPE;
 
 block: LBRACKET (statement SEMICOLON)+ RBRACKET;
-value: ID | NUM | STRING;
+value:
+ID #valueID
+| NUM #valueNUM
+| STRING #valueSTRING
+;
 
 
 TYPE: 'int' | 'string';

@@ -1,6 +1,9 @@
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class BackendC {
+
+    HashMap<String, String> typesHM = new HashMap<>();
 
     public String gen(Node root) {
         root = semanticAdjustment(root);
@@ -133,31 +136,59 @@ public class BackendC {
     public Node semanticAdjustment(Node root) {
         switch (root.type) {
             case BINOP:
-                root.nstype = "int";
+                root.value = semanticAdjustment(root.value);
+                root.nstype = root.value.nstype;
+                break;
+            case VALUE:
+                if (root.nstype == null) {
+                    root.nstype = typesHM.get(root.text);
+                }
                 break;
             case ASSIGN:
                 if (root.body.type == Type.FUNCTION) {
                     root.body.ID = root.ID;
-
-                    //if (root.nstype == null) root.nstype = root.body.nstype;
-                    //if (root.body.nstype == null) root.body.nstype = root.nstype;
                     root.fundecl = true;
                 }
+
+                root.body = semanticAdjustment(root.body);
+                if (root.nstype == null) root.nstype = root.body.nstype;
+                typesHM.put(root.ID, root.nstype);
+
                 break;
-        }
+            case BLOCK:
+                ArrayList<Node> l = new ArrayList<>();
+                for (Node n : root.children) {
+                    Node k = semanticAdjustment(n);
+                    l.add(k);
+                    if (k.type == Type.RETURN) {
+                        root.nstype = k.nstype;
+                    }
+                }
+                root.children = l;
+                break;
+            case CALL:
+                root.nstype = typesHM.get(root.ID);
+                break;
+            case FUNCTION:
+                root.body = semanticAdjustment(root.body);
+                if (root.nstype == null) root.nstype = root.body.nstype;
+                typesHM.put(root.ID,root.nstype);
+                break;
 
-
-        if (root.body != null) {
-            root.body = semanticAdjustment(root.body);
-            if (root.nstype == null) {
-                root.nstype = root.body.nstype;
-            }
-        }
-        if (root.children != null) {
-            ArrayList<Node> newChildren = new ArrayList<>();
-            for (Node c : root.children) {
-                newChildren.add(semanticAdjustment(c));
-            }
+            default:
+                if (root.body != null) {
+                    root.body = semanticAdjustment(root.body);
+                    if (root.nstype == null) {
+                        root.nstype = root.body.nstype;
+                    }
+                }
+                if (root.children != null) {
+                    ArrayList<Node> newChildren = new ArrayList<>();
+                    for (Node c : root.children) {
+                        newChildren.add(semanticAdjustment(c));
+                    }
+                }
+                break;
         }
 
         return root;

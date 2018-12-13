@@ -1051,24 +1051,64 @@ public class GrammarParser extends Parser {
 	}
 
 	public static class ValueContext extends ParserRuleContext {
-		public TerminalNode ID() { return getToken(GrammarParser.ID, 0); }
-		public TerminalNode NUM() { return getToken(GrammarParser.NUM, 0); }
-		public TerminalNode STRING() { return getToken(GrammarParser.STRING, 0); }
 		public ValueContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_value; }
+	 
+		public ValueContext() { }
+		public void copyFrom(ValueContext ctx) {
+			super.copyFrom(ctx);
+		}
+	}
+	public static class ValueIDContext extends ValueContext {
+		public TerminalNode ID() { return getToken(GrammarParser.ID, 0); }
+		public ValueIDContext(ValueContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterValue(this);
+			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterValueID(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitValue(this);
+			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitValueID(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitValue(this);
+			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitValueID(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class ValueSTRINGContext extends ValueContext {
+		public TerminalNode STRING() { return getToken(GrammarParser.STRING, 0); }
+		public ValueSTRINGContext(ValueContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterValueSTRING(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitValueSTRING(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitValueSTRING(this);
+			else return visitor.visitChildren(this);
+		}
+	}
+	public static class ValueNUMContext extends ValueContext {
+		public TerminalNode NUM() { return getToken(GrammarParser.NUM, 0); }
+		public ValueNUMContext(ValueContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterValueNUM(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitValueNUM(this);
+		}
+		@Override
+		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitValueNUM(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1076,17 +1116,35 @@ public class GrammarParser extends Parser {
 	public final ValueContext value() throws RecognitionException {
 		ValueContext _localctx = new ValueContext(_ctx, getState());
 		enterRule(_localctx, 26, RULE_value);
-		int _la;
 		try {
-			enterOuterAlt(_localctx, 1);
-			{
-			setState(129);
-			_la = _input.LA(1);
-			if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << STRING) | (1L << NUM) | (1L << ID))) != 0)) ) {
-			_errHandler.recoverInline(this);
-			} else {
-				consume();
-			}
+			setState(132);
+			switch (_input.LA(1)) {
+			case ID:
+				_localctx = new ValueIDContext(_localctx);
+				enterOuterAlt(_localctx, 1);
+				{
+				setState(129);
+				match(ID);
+				}
+				break;
+			case NUM:
+				_localctx = new ValueNUMContext(_localctx);
+				enterOuterAlt(_localctx, 2);
+				{
+				setState(130);
+				match(NUM);
+				}
+				break;
+			case STRING:
+				_localctx = new ValueSTRINGContext(_localctx);
+				enterOuterAlt(_localctx, 3);
+				{
+				setState(131);
+				match(STRING);
+				}
+				break;
+			default:
+				throw new NoViableAltException(this);
 			}
 		}
 		catch (RecognitionException re) {
@@ -1101,7 +1159,7 @@ public class GrammarParser extends Parser {
 	}
 
 	public static final String _serializedATN =
-		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3\34\u0086\4\2\t\2"+
+		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3\34\u0089\4\2\t\2"+
 		"\4\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7\4\b\t\b\4\t\t\t\4\n\t\n\4\13"+
 		"\t\13\4\f\t\f\4\r\t\r\4\16\t\16\4\17\t\17\3\2\3\2\3\2\3\3\3\3\3\3\6\3"+
 		"%\n\3\r\3\16\3&\3\4\3\4\3\4\3\4\5\4-\n\4\3\5\3\5\3\5\3\5\5\5\63\n\5\3"+
@@ -1110,12 +1168,12 @@ public class GrammarParser extends Parser {
 		"\3\t\5\tX\n\t\3\n\3\n\3\n\3\n\3\n\5\n_\n\n\3\13\3\13\3\f\3\f\3\f\3\f\7"+
 		"\fg\n\f\f\f\16\fj\13\f\5\fl\n\f\3\f\3\f\3\f\5\fq\n\f\3\f\3\f\3\f\3\r\3"+
 		"\r\3\r\3\r\3\16\3\16\3\16\3\16\6\16~\n\16\r\16\16\16\177\3\16\3\16\3\17"+
-		"\3\17\3\17\2\2\20\2\4\6\b\n\f\16\20\22\24\26\30\32\34\2\4\3\2\n\21\4\2"+
-		"\4\4\30\31\u0086\2\36\3\2\2\2\4$\3\2\2\2\6,\3\2\2\2\b>\3\2\2\2\n@\3\2"+
-		"\2\2\fF\3\2\2\2\16I\3\2\2\2\20W\3\2\2\2\22^\3\2\2\2\24`\3\2\2\2\26b\3"+
-		"\2\2\2\30u\3\2\2\2\32y\3\2\2\2\34\u0083\3\2\2\2\36\37\5\4\3\2\37 \7\2"+
-		"\2\3 \3\3\2\2\2!\"\5\6\4\2\"#\7\32\2\2#%\3\2\2\2$!\3\2\2\2%&\3\2\2\2&"+
-		"$\3\2\2\2&\'\3\2\2\2\'\5\3\2\2\2(-\5\b\5\2)-\5\n\6\2*-\5\f\7\2+-\5\16"+
+		"\3\17\3\17\5\17\u0087\n\17\3\17\2\2\20\2\4\6\b\n\f\16\20\22\24\26\30\32"+
+		"\34\2\3\3\2\n\21\u008b\2\36\3\2\2\2\4$\3\2\2\2\6,\3\2\2\2\b>\3\2\2\2\n"+
+		"@\3\2\2\2\fF\3\2\2\2\16I\3\2\2\2\20W\3\2\2\2\22^\3\2\2\2\24`\3\2\2\2\26"+
+		"b\3\2\2\2\30u\3\2\2\2\32y\3\2\2\2\34\u0086\3\2\2\2\36\37\5\4\3\2\37 \7"+
+		"\2\2\3 \3\3\2\2\2!\"\5\6\4\2\"#\7\32\2\2#%\3\2\2\2$!\3\2\2\2%&\3\2\2\2"+
+		"&$\3\2\2\2&\'\3\2\2\2\'\5\3\2\2\2(-\5\b\5\2)-\5\n\6\2*-\5\f\7\2+-\5\16"+
 		"\b\2,(\3\2\2\2,)\3\2\2\2,*\3\2\2\2,+\3\2\2\2-\7\3\2\2\2./\7\24\2\2/\62"+
 		"\7\31\2\2\60\61\7\33\2\2\61\63\7\3\2\2\62\60\3\2\2\2\62\63\3\2\2\2\63"+
 		"\64\3\2\2\2\64\65\7\26\2\2\65?\5\20\t\2\66\67\7\24\2\2\67:\7\31\2\289"+
@@ -1132,8 +1190,9 @@ public class GrammarParser extends Parser {
 		"\2\2\2qr\3\2\2\2rs\7\22\2\2st\5\32\16\2t\27\3\2\2\2uv\7\31\2\2vw\7\33"+
 		"\2\2wx\7\3\2\2x\31\3\2\2\2y}\7\b\2\2z{\5\6\4\2{|\7\32\2\2|~\3\2\2\2}z"+
 		"\3\2\2\2~\177\3\2\2\2\177}\3\2\2\2\177\u0080\3\2\2\2\u0080\u0081\3\2\2"+
-		"\2\u0081\u0082\7\t\2\2\u0082\33\3\2\2\2\u0083\u0084\t\3\2\2\u0084\35\3"+
-		"\2\2\2\17&,\62:>PRW^hkp\177";
+		"\2\u0081\u0082\7\t\2\2\u0082\33\3\2\2\2\u0083\u0087\7\31\2\2\u0084\u0087"+
+		"\7\30\2\2\u0085\u0087\7\4\2\2\u0086\u0083\3\2\2\2\u0086\u0084\3\2\2\2"+
+		"\u0086\u0085\3\2\2\2\u0087\35\3\2\2\2\20&,\62:>PRW^hkp\177\u0086";
 	public static final ATN _ATN =
 		new ATNDeserializer().deserialize(_serializedATN.toCharArray());
 	static {

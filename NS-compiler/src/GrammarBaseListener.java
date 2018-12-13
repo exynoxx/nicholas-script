@@ -195,13 +195,37 @@ public class GrammarBaseListener implements GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterValue(GrammarParser.ValueContext ctx) { }
+	@Override public void enterValueID(GrammarParser.ValueIDContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitValue(GrammarParser.ValueContext ctx) { }
+	@Override public void exitValueID(GrammarParser.ValueIDContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterValueNUM(GrammarParser.ValueNUMContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitValueNUM(GrammarParser.ValueNUMContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterValueSTRING(GrammarParser.ValueSTRINGContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitValueSTRING(GrammarParser.ValueSTRINGContext ctx) { }
 
 	/**
 	 * {@inheritDoc}

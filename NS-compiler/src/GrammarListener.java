@@ -165,13 +165,39 @@ public interface GrammarListener extends ParseTreeListener {
 	 */
 	void exitBlock(GrammarParser.BlockContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link GrammarParser#value}.
+	 * Enter a parse tree produced by the {@code valueID}
+	 * labeled alternative in {@link GrammarParser#value}.
 	 * @param ctx the parse tree
 	 */
-	void enterValue(GrammarParser.ValueContext ctx);
+	void enterValueID(GrammarParser.ValueIDContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link GrammarParser#value}.
+	 * Exit a parse tree produced by the {@code valueID}
+	 * labeled alternative in {@link GrammarParser#value}.
 	 * @param ctx the parse tree
 	 */
-	void exitValue(GrammarParser.ValueContext ctx);
+	void exitValueID(GrammarParser.ValueIDContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code valueNUM}
+	 * labeled alternative in {@link GrammarParser#value}.
+	 * @param ctx the parse tree
+	 */
+	void enterValueNUM(GrammarParser.ValueNUMContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code valueNUM}
+	 * labeled alternative in {@link GrammarParser#value}.
+	 * @param ctx the parse tree
+	 */
+	void exitValueNUM(GrammarParser.ValueNUMContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code valueSTRING}
+	 * labeled alternative in {@link GrammarParser#value}.
+	 * @param ctx the parse tree
+	 */
+	void enterValueSTRING(GrammarParser.ValueSTRINGContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code valueSTRING}
+	 * labeled alternative in {@link GrammarParser#value}.
+	 * @param ctx the parse tree
+	 */
+	void exitValueSTRING(GrammarParser.ValueSTRINGContext ctx);
 }

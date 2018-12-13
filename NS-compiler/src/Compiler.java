@@ -152,15 +152,28 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         return n;
     }
 
+
     @Override
-    public Node visitValue(GrammarParser.ValueContext ctx) {
+    public Node visitValueID(GrammarParser.ValueIDContext ctx) {
         Node n = new Node(Type.VALUE);
         n.text = ctx.getText();
         return n;
     }
-
-
-//###################################
+    @Override
+    public Node visitValueNUM(GrammarParser.ValueNUMContext ctx) {
+        Node n = new Node(Type.VALUE);
+        n.text = ctx.getText();
+        n.nstype = "int";
+        return n;
+    }
+    @Override
+    public Node visitValueSTRING(GrammarParser.ValueSTRINGContext ctx) {
+        Node n = new Node(Type.VALUE);
+        n.text = ctx.getText();
+        n.nstype = "string";
+        return n;
+    }
+    //###################################
 
     public void printSpace(int depth) {
         for (int i = 0; i < depth; i++) {
@@ -239,7 +252,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     //var g:int = (a:int,b:int) => {};
 
     public static void main(String[] args) {
-        String input = "var f1 = (a:int,b:int):int => {var f2 = (a:int):int => {var a=1+4-2;return a;}; return f2: 2;};f1:500 0;";
+        String input = "var f1 = (a:int,b:int) => {var f2 = (a:int) => {var a=1+4-2;return a;}; f2: 1;return f2: 2;};f1:500 0;";
         //String input = "var b:int = 2+a-3;";
 
         CharStream stream = new ANTLRInputStream(input);
