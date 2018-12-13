@@ -75,12 +75,9 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         Node n = new Node(Type.CALL);
 
         ArrayList<Node> args = new ArrayList<>();
-        List<GrammarParser.BinopContext> l = ctx.binop();
-        for (GrammarParser.BinopContext arg : l) {
-            args.add(this.visit(arg));
-        }
-        List<GrammarParser.ValueContext> k = ctx.value();
-        for (GrammarParser.ValueContext arg : k) {
+        List<GrammarParser.CallargContext> l = ctx.callarg();
+        for (int i = l.size()-1;i >= 0; i--) {
+            GrammarParser.CallargContext arg = l.get(i);
             args.add(this.visit(arg));
         }
         n.args = args;
@@ -88,6 +85,15 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         return n;
     }
 
+    @Override
+    public Node visitCallargvalue(GrammarParser.CallargvalueContext ctx) {
+        return this.visit(ctx.value());
+    }
+
+    @Override
+    public Node visitCallargeval(GrammarParser.CallargevalContext ctx) {
+        return this.visit(ctx.eval());
+    }
 
     //eval #############################################
 
@@ -252,7 +258,6 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         }
     }
 
-    //var g:int = (a:int,b:int) => {};
 
     public static String readFile(String path) throws IOException {
         byte[] encoded = Files.readAllBytes(Paths.get(path));

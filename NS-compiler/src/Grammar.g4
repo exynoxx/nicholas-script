@@ -22,8 +22,13 @@ RETURN eval
 ;
 
 call:
-ID COLON (value|LPAREN binop RPAREN)*
+ID COLON callarg*;
+
+callarg:
+value               #callargvalue
+|LPAREN eval RPAREN #callargeval
 ;
+
 
 eval:binop|call;
 
