@@ -9,8 +9,8 @@ public class BackendC {
         root = semanticAdjustment(root,false);
         CodeBuilder cb = recursive(root, 0);
         String ret = "//signatures \n" + cb.getSignature() + "\n" +
-                "//functions \n" + cb.getFunctionImpl() + "\n\n" +
-                cb.getCode();
+                "//functions \n" + cb.getFunctionImpl() + "\n" +
+                "//main \n" +cb.getCode();
         return ret;
     }
 

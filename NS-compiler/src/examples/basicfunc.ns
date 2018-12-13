@@ -1,7 +1,7 @@
 var f1 = (a:int,b:int) => {
 
     var f2 = (a:int) => {
-        var c = 1+4-2;
+        var c = a+4-2;
         var f3 = (x:int):int => {return x;};
         return f3: c;
     };
@@ -9,4 +9,4 @@ var f1 = (a:int,b:int) => {
     return f2: 2;
 };
 
-f1: 500 0 1 (2*a+4) (f1: 2 3);
+f1: 500 (f1: 2 3);
