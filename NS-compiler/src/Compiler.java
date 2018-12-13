@@ -13,7 +13,6 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         return this.visit(ctx.program());
     }
 
-    @Override
     public Node visitProgram(GrammarParser.ProgramContext ctx) {
         Node n = new Node(Type.PROGRAM);
 
@@ -79,7 +78,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     @Override
     public Node visitReturnn(GrammarParser.ReturnnContext ctx) {
         Node n = new Node(Type.RETURN);
-        n.body = this.visit(ctx.binop());
+        n.body = this.visit(ctx.eval());
         return n;
     }
 
@@ -276,8 +275,8 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     //var g:int = (a:int,b:int) => {};
 
     public static void main(String[] args) {
-        //String input = "var f1 = (a:int,b:int):int => {var f2 = (a:int):int => {return a;}; return f2: 2;};";
-        String input = "var b:int = 2+a-3;";
+        String input = "var f1 = (a:int,b:int):int => {var f2 = (a:int):int => {return a;}; return f2: 2;};f1:500 0;";
+        //String input = "var b:int = 2+a-3;";
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);
@@ -287,7 +286,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         ParseTree tree = parser.start();
         Compiler cp = new Compiler();
         Node root = cp.visit(tree);
-        cp.prettyPrint(root, 0,4);
+        //cp.prettyPrint(root, 0,4);
 
         BackendC out = new BackendC();
         System.out.println(out.gen(root));

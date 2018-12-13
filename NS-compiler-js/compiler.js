@@ -4,7 +4,7 @@ var Parser = require('./GrammarParser')
 //var grammarvisitor = require('./GrammarVisitor')
 var visitor = require('./visitor')
 
-var input = 'var a = 4;'
+var input = 'a: 4 5;'
 var chars = new antlr.InputStream(input)
 var lexer = new Lexer.GrammarLexer(chars)
 var tokens = new antlr.CommonTokenStream(lexer)

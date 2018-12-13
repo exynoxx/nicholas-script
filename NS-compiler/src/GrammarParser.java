@@ -533,8 +533,8 @@ public class GrammarParser extends Parser {
 
 	public static class ReturnnContext extends ParserRuleContext {
 		public TerminalNode RETURN() { return getToken(GrammarParser.RETURN, 0); }
-		public BinopContext binop() {
-			return getRuleContext(BinopContext.class,0);
+		public EvalContext eval() {
+			return getRuleContext(EvalContext.class,0);
 		}
 		public ReturnnContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -564,7 +564,7 @@ public class GrammarParser extends Parser {
 			setState(68);
 			match(RETURN);
 			setState(69);
-			binop();
+			eval();
 			}
 		}
 		catch (RecognitionException re) {
@@ -1207,7 +1207,7 @@ public class GrammarParser extends Parser {
 		"\64\3\2\2\2\64\65\7\26\2\2\65?\5\20\t\2\66\67\7\24\2\2\67:\7\31\2\289"+
 		"\7\33\2\29;\7\3\2\2:8\3\2\2\2:;\3\2\2\2;<\3\2\2\2<=\7\26\2\2=?\5\26\f"+
 		"\2>.\3\2\2\2>\66\3\2\2\2?\t\3\2\2\2@A\7\23\2\2AB\7\5\2\2BC\5\22\n\2CD"+
-		"\7\6\2\2DE\5\32\16\2E\13\3\2\2\2FG\7\25\2\2GH\5\22\n\2H\r\3\2\2\2IJ\7"+
+		"\7\6\2\2DE\5\32\16\2E\13\3\2\2\2FG\7\25\2\2GH\5\20\t\2H\r\3\2\2\2IJ\7"+
 		"\31\2\2JR\7\33\2\2KQ\5\34\17\2LM\7\5\2\2MN\5\22\n\2NO\7\6\2\2OQ\3\2\2"+
 		"\2PK\3\2\2\2PL\3\2\2\2QT\3\2\2\2RP\3\2\2\2RS\3\2\2\2S\17\3\2\2\2TR\3\2"+
 		"\2\2UX\5\22\n\2VX\5\16\b\2WU\3\2\2\2WV\3\2\2\2X\21\3\2\2\2Y_\5\34\17\2"+

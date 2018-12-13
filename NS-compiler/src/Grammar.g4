@@ -23,7 +23,7 @@ IF LPAREN binop RPAREN block
 ;
 
 returnn:
-RETURN binop
+RETURN eval
 ;
 
 call:

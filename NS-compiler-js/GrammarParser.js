@@ -52,9 +52,9 @@ var serializedATN = ["\u0003\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd",
     "\u0002\u0002?\t\u0003\u0002\u0002\u0002@A\u0007\u0013\u0002\u0002AB",
     "\u0007\u0005\u0002\u0002BC\u0005\u0012\n\u0002CD\u0007\u0006\u0002\u0002",
     "DE\u0005\u001a\u000e\u0002E\u000b\u0003\u0002\u0002\u0002FG\u0007\u0015",
-    "\u0002\u0002GH\u0005\u0012\n\u0002H\r\u0003\u0002\u0002\u0002IJ\u0007",
+    "\u0002\u0002GH\u0005\u0010\t\u0002H\r\u0003\u0002\u0002\u0002IJ\u0007",
     "\u0019\u0002\u0002JR\u0007\u001b\u0002\u0002KQ\u0005\u001c\u000f\u0002",
-    "LM\u0007\u0005\u0002\u0002MN\u0005\u0012\n\u0002NO\u0007\u0006\u0002",
+    "LM\u0007\u0005\u0002\u0002MN\u0005\u0010\t\u0002NO\u0007\u0006\u0002",
     "\u0002OQ\u0003\u0002\u0002\u0002PK\u0003\u0002\u0002\u0002PL\u0003\u0002",
     "\u0002\u0002QT\u0003\u0002\u0002\u0002RP\u0003\u0002\u0002\u0002RS\u0003",
     "\u0002\u0002\u0002S\u000f\u0003\u0002\u0002\u0002TR\u0003\u0002\u0002",
@@ -864,8 +864,8 @@ ReturnnContext.prototype.RETURN = function() {
     return this.getToken(GrammarParser.RETURN, 0);
 };
 
-ReturnnContext.prototype.binop = function() {
-    return this.getTypedRuleContext(BinopContext,0);
+ReturnnContext.prototype.eval = function() {
+    return this.getTypedRuleContext(EvalContext,0);
 };
 
 ReturnnContext.prototype.enterRule = function(listener) {
@@ -902,7 +902,7 @@ GrammarParser.prototype.returnn = function() {
         this.state = 68;
         this.match(GrammarParser.RETURN);
         this.state = 69;
-        this.binop();
+        this.eval();
     } catch (re) {
     	if(re instanceof antlr4.error.RecognitionException) {
 	        localctx.exception = re;
@@ -964,14 +964,14 @@ CallContext.prototype.LPAREN = function(i) {
 };
 
 
-CallContext.prototype.binop = function(i) {
+CallContext.prototype.eval = function(i) {
     if(i===undefined) {
         i = null;
     }
     if(i===null) {
-        return this.getTypedRuleContexts(BinopContext);
+        return this.getTypedRuleContexts(EvalContext);
     } else {
-        return this.getTypedRuleContext(BinopContext,i);
+        return this.getTypedRuleContext(EvalContext,i);
     }
 };
 
@@ -1039,7 +1039,7 @@ GrammarParser.prototype.call = function() {
                 this.state = 74;
                 this.match(GrammarParser.LPAREN);
                 this.state = 75;
-                this.binop();
+                this.eval();
                 this.state = 76;
                 this.match(GrammarParser.RPAREN);
                 break;

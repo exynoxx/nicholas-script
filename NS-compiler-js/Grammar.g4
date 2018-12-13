@@ -23,11 +23,11 @@ IF LPAREN binop RPAREN block
 ;
 
 returnn:
-RETURN binop
+RETURN eval
 ;
 
 call:
-ID COLON (value|LPAREN binop RPAREN)*
+ID COLON (value|LPAREN eval RPAREN)*
 ;
 
 eval:
