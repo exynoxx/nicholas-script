@@ -27,23 +27,6 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     }
 
     //statement ##############################
-    @Override
-    public Node visitAssignstatement(GrammarParser.AssignstatementContext ctx) {
-        return this.visit(ctx.assign());
-    }
-    @Override
-    public Node visitIfstatement(GrammarParser.IfstatementContext ctx) {
-        return this.visit(ctx.iff());
-    }
-    @Override
-    public Node visitReturnstatement(GrammarParser.ReturnstatementContext ctx) {
-        return this.visit(ctx.returnn());
-    }
-    @Override
-    public Node visitCallstatement(GrammarParser.CallstatementContext ctx) {
-        return this.visit(ctx.call());
-    }
-
 
     //assign ##########################
     @Override
@@ -104,15 +87,6 @@ public class Compiler extends GrammarBaseVisitor<Node> {
 
 
     //eval #############################################
-    @Override
-    public Node visitEvalbinop(GrammarParser.EvalbinopContext ctx) {
-        return this.visit(ctx.binop());
-    }
-    @Override
-    public Node visitEvalcall(GrammarParser.EvalcallContext ctx) {
-        return this.visit(ctx.call());
-    }
-
 
     //binop #########################################
     @Override
@@ -183,17 +157,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         Node n = new Node(Type.VALUE);
         n.text = ctx.getText();
         return n;
-    };
-
-
-
-
-
-
-
-
-
-
+    }
 
 
 //###################################
@@ -275,7 +239,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
     //var g:int = (a:int,b:int) => {};
 
     public static void main(String[] args) {
-        String input = "var f1 = (a:int,b:int):int => {var f2 = (a:int):int => {return a;}; return f2: 2;};f1:500 0;";
+        String input = "var f1 = (a:int,b:int):int => {var f2 = (a:int):int => {var a=1+4-2;return a;}; return f2: 2;};f1:500 0;";
         //String input = "var b:int = 2+a-3;";
 
         CharStream stream = new ANTLRInputStream(input);

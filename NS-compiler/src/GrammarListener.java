@@ -27,53 +27,15 @@ public interface GrammarListener extends ParseTreeListener {
 	 */
 	void exitProgram(GrammarParser.ProgramContext ctx);
 	/**
-	 * Enter a parse tree produced by the {@code assignstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
+	 * Enter a parse tree produced by {@link GrammarParser#statement}.
 	 * @param ctx the parse tree
 	 */
-	void enterAssignstatement(GrammarParser.AssignstatementContext ctx);
+	void enterStatement(GrammarParser.StatementContext ctx);
 	/**
-	 * Exit a parse tree produced by the {@code assignstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
+	 * Exit a parse tree produced by {@link GrammarParser#statement}.
 	 * @param ctx the parse tree
 	 */
-	void exitAssignstatement(GrammarParser.AssignstatementContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code ifstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
-	 * @param ctx the parse tree
-	 */
-	void enterIfstatement(GrammarParser.IfstatementContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code ifstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
-	 * @param ctx the parse tree
-	 */
-	void exitIfstatement(GrammarParser.IfstatementContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code returnstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
-	 * @param ctx the parse tree
-	 */
-	void enterReturnstatement(GrammarParser.ReturnstatementContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code returnstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
-	 * @param ctx the parse tree
-	 */
-	void exitReturnstatement(GrammarParser.ReturnstatementContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code callstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
-	 * @param ctx the parse tree
-	 */
-	void enterCallstatement(GrammarParser.CallstatementContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code callstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
-	 * @param ctx the parse tree
-	 */
-	void exitCallstatement(GrammarParser.CallstatementContext ctx);
+	void exitStatement(GrammarParser.StatementContext ctx);
 	/**
 	 * Enter a parse tree produced by the {@code assigneval}
 	 * labeled alternative in {@link GrammarParser#assign}.
@@ -129,29 +91,15 @@ public interface GrammarListener extends ParseTreeListener {
 	 */
 	void exitCall(GrammarParser.CallContext ctx);
 	/**
-	 * Enter a parse tree produced by the {@code evalbinop}
-	 * labeled alternative in {@link GrammarParser#eval}.
+	 * Enter a parse tree produced by {@link GrammarParser#eval}.
 	 * @param ctx the parse tree
 	 */
-	void enterEvalbinop(GrammarParser.EvalbinopContext ctx);
+	void enterEval(GrammarParser.EvalContext ctx);
 	/**
-	 * Exit a parse tree produced by the {@code evalbinop}
-	 * labeled alternative in {@link GrammarParser#eval}.
+	 * Exit a parse tree produced by {@link GrammarParser#eval}.
 	 * @param ctx the parse tree
 	 */
-	void exitEvalbinop(GrammarParser.EvalbinopContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code evalcall}
-	 * labeled alternative in {@link GrammarParser#eval}.
-	 * @param ctx the parse tree
-	 */
-	void enterEvalcall(GrammarParser.EvalcallContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code evalcall}
-	 * labeled alternative in {@link GrammarParser#eval}.
-	 * @param ctx the parse tree
-	 */
-	void exitEvalcall(GrammarParser.EvalcallContext ctx);
+	void exitEval(GrammarParser.EvalContext ctx);
 	/**
 	 * Enter a parse tree produced by the {@code binopvalue}
 	 * labeled alternative in {@link GrammarParser#binop}.

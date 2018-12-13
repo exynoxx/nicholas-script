@@ -22,33 +22,11 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitProgram(GrammarParser.ProgramContext ctx);
 	/**
-	 * Visit a parse tree produced by the {@code assignstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
+	 * Visit a parse tree produced by {@link GrammarParser#statement}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitAssignstatement(GrammarParser.AssignstatementContext ctx);
-	/**
-	 * Visit a parse tree produced by the {@code ifstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitIfstatement(GrammarParser.IfstatementContext ctx);
-	/**
-	 * Visit a parse tree produced by the {@code returnstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitReturnstatement(GrammarParser.ReturnstatementContext ctx);
-	/**
-	 * Visit a parse tree produced by the {@code callstatement}
-	 * labeled alternative in {@link GrammarParser#statement}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitCallstatement(GrammarParser.CallstatementContext ctx);
+	T visitStatement(GrammarParser.StatementContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code assigneval}
 	 * labeled alternative in {@link GrammarParser#assign}.
@@ -82,19 +60,11 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitCall(GrammarParser.CallContext ctx);
 	/**
-	 * Visit a parse tree produced by the {@code evalbinop}
-	 * labeled alternative in {@link GrammarParser#eval}.
+	 * Visit a parse tree produced by {@link GrammarParser#eval}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitEvalbinop(GrammarParser.EvalbinopContext ctx);
-	/**
-	 * Visit a parse tree produced by the {@code evalcall}
-	 * labeled alternative in {@link GrammarParser#eval}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitEvalcall(GrammarParser.EvalcallContext ctx);
+	T visitEval(GrammarParser.EvalContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code binopvalue}
 	 * labeled alternative in {@link GrammarParser#binop}.

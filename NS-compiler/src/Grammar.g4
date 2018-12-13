@@ -6,12 +6,7 @@ start
 
 program: (statement SEMICOLON)+;
 
-statement:
-  assign        #assignstatement
-| iff           #ifstatement
-| returnn       #returnstatement
-| call          #callstatement
-;
+statement: assign|iff|returnn|call;
 
 assign:
 VAR ID (COLON TYPE)? EQ eval        #assigneval
@@ -30,10 +25,7 @@ call:
 ID COLON (value|LPAREN binop RPAREN)*
 ;
 
-eval:
-binop   #evalbinop
-|call   #evalcall
-;
+eval:binop|call;
 
 binop:
 value                  #binopvalue

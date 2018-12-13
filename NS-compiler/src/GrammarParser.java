@@ -202,89 +202,33 @@ public class GrammarParser extends Parser {
 	}
 
 	public static class StatementContext extends ParserRuleContext {
+		public AssignContext assign() {
+			return getRuleContext(AssignContext.class,0);
+		}
+		public IffContext iff() {
+			return getRuleContext(IffContext.class,0);
+		}
+		public ReturnnContext returnn() {
+			return getRuleContext(ReturnnContext.class,0);
+		}
+		public CallContext call() {
+			return getRuleContext(CallContext.class,0);
+		}
 		public StatementContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_statement; }
-	 
-		public StatementContext() { }
-		public void copyFrom(StatementContext ctx) {
-			super.copyFrom(ctx);
-		}
-	}
-	public static class IfstatementContext extends StatementContext {
-		public IffContext iff() {
-			return getRuleContext(IffContext.class,0);
-		}
-		public IfstatementContext(StatementContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterIfstatement(this);
+			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterStatement(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitIfstatement(this);
+			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitStatement(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitIfstatement(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class AssignstatementContext extends StatementContext {
-		public AssignContext assign() {
-			return getRuleContext(AssignContext.class,0);
-		}
-		public AssignstatementContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterAssignstatement(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitAssignstatement(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitAssignstatement(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class CallstatementContext extends StatementContext {
-		public CallContext call() {
-			return getRuleContext(CallContext.class,0);
-		}
-		public CallstatementContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterCallstatement(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitCallstatement(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitCallstatement(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class ReturnstatementContext extends StatementContext {
-		public ReturnnContext returnn() {
-			return getRuleContext(ReturnnContext.class,0);
-		}
-		public ReturnstatementContext(StatementContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterReturnstatement(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitReturnstatement(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitReturnstatement(this);
+			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitStatement(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -296,7 +240,6 @@ public class GrammarParser extends Parser {
 			setState(42);
 			switch (_input.LA(1)) {
 			case VAR:
-				_localctx = new AssignstatementContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(38);
@@ -304,7 +247,6 @@ public class GrammarParser extends Parser {
 				}
 				break;
 			case IF:
-				_localctx = new IfstatementContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(39);
@@ -312,7 +254,6 @@ public class GrammarParser extends Parser {
 				}
 				break;
 			case RETURN:
-				_localctx = new ReturnstatementContext(_localctx);
 				enterOuterAlt(_localctx, 3);
 				{
 				setState(40);
@@ -320,7 +261,6 @@ public class GrammarParser extends Parser {
 				}
 				break;
 			case ID:
-				_localctx = new CallstatementContext(_localctx);
 				enterOuterAlt(_localctx, 4);
 				{
 				setState(41);
@@ -678,51 +618,27 @@ public class GrammarParser extends Parser {
 	}
 
 	public static class EvalContext extends ParserRuleContext {
+		public BinopContext binop() {
+			return getRuleContext(BinopContext.class,0);
+		}
+		public CallContext call() {
+			return getRuleContext(CallContext.class,0);
+		}
 		public EvalContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_eval; }
-	 
-		public EvalContext() { }
-		public void copyFrom(EvalContext ctx) {
-			super.copyFrom(ctx);
-		}
-	}
-	public static class EvalbinopContext extends EvalContext {
-		public BinopContext binop() {
-			return getRuleContext(BinopContext.class,0);
-		}
-		public EvalbinopContext(EvalContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterEvalbinop(this);
+			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterEval(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitEvalbinop(this);
+			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitEval(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitEvalbinop(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class EvalcallContext extends EvalContext {
-		public CallContext call() {
-			return getRuleContext(CallContext.class,0);
-		}
-		public EvalcallContext(EvalContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).enterEvalcall(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof GrammarListener ) ((GrammarListener)listener).exitEvalcall(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitEvalcall(this);
+			if ( visitor instanceof GrammarVisitor ) return ((GrammarVisitor<? extends T>)visitor).visitEval(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -735,7 +651,6 @@ public class GrammarParser extends Parser {
 			_errHandler.sync(this);
 			switch ( getInterpreter().adaptivePredict(_input,7,_ctx) ) {
 			case 1:
-				_localctx = new EvalbinopContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(83);
@@ -743,7 +658,6 @@ public class GrammarParser extends Parser {
 				}
 				break;
 			case 2:
-				_localctx = new EvalcallContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(84);

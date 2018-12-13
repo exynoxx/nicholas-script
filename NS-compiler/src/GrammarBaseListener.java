@@ -39,49 +39,13 @@ public class GrammarBaseListener implements GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterAssignstatement(GrammarParser.AssignstatementContext ctx) { }
+	@Override public void enterStatement(GrammarParser.StatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitAssignstatement(GrammarParser.AssignstatementContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterIfstatement(GrammarParser.IfstatementContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitIfstatement(GrammarParser.IfstatementContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterReturnstatement(GrammarParser.ReturnstatementContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitReturnstatement(GrammarParser.ReturnstatementContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterCallstatement(GrammarParser.CallstatementContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitCallstatement(GrammarParser.CallstatementContext ctx) { }
+	@Override public void exitStatement(GrammarParser.StatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -147,25 +111,13 @@ public class GrammarBaseListener implements GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterEvalbinop(GrammarParser.EvalbinopContext ctx) { }
+	@Override public void enterEval(GrammarParser.EvalContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitEvalbinop(GrammarParser.EvalbinopContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterEvalcall(GrammarParser.EvalcallContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitEvalcall(GrammarParser.EvalcallContext ctx) { }
+	@Override public void exitEval(GrammarParser.EvalContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
