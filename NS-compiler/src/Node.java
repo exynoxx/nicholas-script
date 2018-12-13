@@ -12,6 +12,7 @@ public class Node {
     public ArrayList<Node> children;
     public ArrayList<Node> args;
     public boolean fundecl;
+    public boolean shouldComma;
 
     public Node(Type type) {
         this.type = type;
