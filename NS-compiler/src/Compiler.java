@@ -3,6 +3,9 @@ import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -251,9 +254,17 @@ public class Compiler extends GrammarBaseVisitor<Node> {
 
     //var g:int = (a:int,b:int) => {};
 
-    public static void main(String[] args) {
-        String input = "var f1 = (a:int,b:int) => {var f2 = (a:int) => {var a=1+4-2;return a;}; f2: 1;return f2: 2;};f1:500 0;";
+    public static String readFile(String path) throws IOException {
+        byte[] encoded = Files.readAllBytes(Paths.get(path));
+        return new String(encoded);
+    }
+
+    public static void main(String[] args) throws IOException {
+        //String input = "var f1 = (a:int,b:int) => {var f2 = (a:int) => {var a=1+4-2;return a;}; f2: 1;return f2: 2;};f1:500 0;";
         //String input = "var b:int = 2+a-3;";
+
+        String input = readFile("src/examples/basicfunc.ns");
+
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);
