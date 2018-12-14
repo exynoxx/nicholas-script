@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 public class BackendC {
 
@@ -185,7 +186,18 @@ public class BackendC {
                 for (Node n : root.args) {
                     typesHM.put(n.ID,n.nstype);
                 }
+
+                if (root.body.type != Type.BLOCK) {
+
+                    Node block = new Node(Type.BLOCK);
+                    ArrayList<Node> children = new ArrayList<>();
+                    children.add(semanticAdjustment(root.body,comma));
+                    block.children = children;
+
+                    root.body = block;
+                }
                 root.body = semanticAdjustment(root.body,comma);
+
                 if (root.nstype == null) root.nstype = root.body.nstype;
                 typesHM.put(root.ID, root.nstype);
                 break;

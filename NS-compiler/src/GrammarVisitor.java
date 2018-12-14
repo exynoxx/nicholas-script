@@ -106,6 +106,12 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitFunction(GrammarParser.FunctionContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link GrammarParser#fbody}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitFbody(GrammarParser.FbodyContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link GrammarParser#arg}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

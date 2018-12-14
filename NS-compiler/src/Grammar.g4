@@ -39,9 +39,11 @@ value                  #binopvalue
 sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT);
 
 function:
-LPAREN (arg (COMMA arg)*)? RPAREN (COLON TYPE)? ARROW block
-;
+LPAREN (arg (COMMA arg)*)? RPAREN (COLON TYPE)? ARROW fbody;
+fbody: block|statement;
+
 arg:ID COLON TYPE;
+
 
 block: LBRACKET (statement SEMICOLON)+ RBRACKET;
 value:

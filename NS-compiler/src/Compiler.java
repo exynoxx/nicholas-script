@@ -129,7 +129,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         for (GrammarParser.ArgContext arg : l) {
             args.add(this.visit(arg));
         }
-        n.body = this.visit(ctx.block());
+        n.body = this.visit(ctx.fbody());
         try {
             n.nstype = ctx.TYPE().toString();
         } catch (Exception e) {}
@@ -145,7 +145,6 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         n.nstype = ctx.TYPE().toString();
         return n;
     }
-
 
     //block ######################################################
     @Override
