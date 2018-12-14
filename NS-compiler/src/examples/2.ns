@@ -1,0 +1,6 @@
+var f = (a:int,b:int,c:int) => {
+    return a + b + c;
+};
+
+var a = f: 1 2 3;
+
