@@ -182,6 +182,9 @@ public class BackendC {
 
                 break;
             case FUNCTION:
+                for (Node n : root.args) {
+                    typesHM.put(n.ID,n.nstype);
+                }
                 root.body = semanticAdjustment(root.body,comma);
                 if (root.nstype == null) root.nstype = root.body.nstype;
                 typesHM.put(root.ID, root.nstype);
