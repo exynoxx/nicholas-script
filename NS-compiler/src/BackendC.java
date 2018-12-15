@@ -52,9 +52,13 @@ public class BackendC {
             case ASSIGN:
                 String name = root.ID;
                 String type = root.nstype;
+
                 CodeBuilder body = recursive(root.body, level + 1);
                 if (root.body.nstype.equals("string")) type = "char *";
                 String line = type + " " + name + " = " + body.getCode() + ending;
+
+
+
                 if (root.fundecl) {
                     line = "";
                 }
@@ -66,7 +70,7 @@ public class BackendC {
                     //leaf
                     return recursive(root.value, level + 1);
                 } else {
-                    if (root.nstype.equals("string")) {
+                    if (root.nstype != null && root.nstype.equals("string")) {
                         String sizeline = "";
                         Node nodeBody = root;
                         ArrayList<String> list = new ArrayList<>();
@@ -112,7 +116,7 @@ public class BackendC {
 
             case VALUE:
 
-                if (root.nstype.equals("string")) {
+                if (root.nstype != null && root.nstype.equals("string")) {
                     String rname = generateRandomName();
                     int ssize = root.text.length() - 2;
                     String salloc = "char *" + rname + " = (char *) malloc (" + ssize + ");\n";
@@ -253,6 +257,12 @@ public class BackendC {
                 root.nstype = typesHM.get(root.ID);
                 root.shouldComma = true;
                 if (comma) root.shouldComma = false;
+
+                if (comma) {
+                    root.shouldComma = false;
+                } else {
+                    comma = true;
+                }
 
                 ArrayList<Node> arglist = new ArrayList<>();
                 for (Node arg : root.args) {

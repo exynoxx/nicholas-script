@@ -9,7 +9,7 @@ program: (statement SEMICOLON)+;
 statement: assign|iff|returnn|call;
 
 assign:
-VAR ID (COLON TYPE)? EQ eval        #assigneval
+VAR? ID (COLON TYPE)? EQ eval        #assigneval
 | VAR ID (COLON TYPE)? EQ function  #assignfunction
 ;
 
