@@ -1,3 +1,4 @@
-var f = (a:int,b:int,c:int) => return a + b + c;
-var a = f: 1 2 3;
-
+var concat = (a:string, b:string):string => return a~b;
+var world = "world";
+var res = concat: "hello " (world ~ "!");
+print: (res ~ "\n\n");

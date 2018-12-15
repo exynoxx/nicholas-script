@@ -36,7 +36,7 @@ binop:
 value                  #binopvalue
 | value sign binop     #binopbinop
 ;
-sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT);
+sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT|TILDE);
 
 function:
 LPAREN (arg (COMMA arg)*)? RPAREN (COLON TYPE)? ARROW fbody;
@@ -68,6 +68,7 @@ LE:'<=';
 GE:'>=';
 LT:'<';
 GT:'>';
+TILDE:'~';
 ARROW:'=>';
 IF: 'if';
 VAR: 'var' ;

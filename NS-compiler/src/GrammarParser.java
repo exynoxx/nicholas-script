@@ -17,9 +17,9 @@ public class GrammarParser extends Parser {
 		new PredictionContextCache();
 	public static final int
 		TYPE=1, STRING=2, LPAREN=3, RPAREN=4, QUOTE=5, LBRACKET=6, RBRACKET=7, 
-		PLUS=8, MINUS=9, DIV=10, MULT=11, LE=12, GE=13, LT=14, GT=15, ARROW=16, 
-		IF=17, VAR=18, RETURN=19, EQ=20, COMMA=21, NUM=22, ID=23, SEMICOLON=24, 
-		COLON=25, WS=26;
+		PLUS=8, MINUS=9, DIV=10, MULT=11, LE=12, GE=13, LT=14, GT=15, TILDE=16, 
+		ARROW=17, IF=18, VAR=19, RETURN=20, EQ=21, COMMA=22, NUM=23, ID=24, SEMICOLON=25, 
+		COLON=26, WS=27;
 	public static final int
 		RULE_start = 0, RULE_program = 1, RULE_statement = 2, RULE_assign = 3, 
 		RULE_iff = 4, RULE_returnn = 5, RULE_call = 6, RULE_callarg = 7, RULE_eval = 8, 
@@ -32,13 +32,14 @@ public class GrammarParser extends Parser {
 
 	private static final String[] _LITERAL_NAMES = {
 		null, null, null, "'('", "')'", "'\"'", "'{'", "'}'", "'+'", "'-'", "'/'", 
-		"'*'", "'<='", "'>='", "'<'", "'>'", "'=>'", "'if'", "'var'", "'return'", 
+		"'*'", "'<='", "'>='", "'<'", "'>'", "'~'", "'=>'", "'if'", "'var'", "'return'", 
 		"'='", "','", null, null, "';'", "':'"
 	};
 	private static final String[] _SYMBOLIC_NAMES = {
 		null, "TYPE", "STRING", "LPAREN", "RPAREN", "QUOTE", "LBRACKET", "RBRACKET", 
-		"PLUS", "MINUS", "DIV", "MULT", "LE", "GE", "LT", "GT", "ARROW", "IF", 
-		"VAR", "RETURN", "EQ", "COMMA", "NUM", "ID", "SEMICOLON", "COLON", "WS"
+		"PLUS", "MINUS", "DIV", "MULT", "LE", "GE", "LT", "GT", "TILDE", "ARROW", 
+		"IF", "VAR", "RETURN", "EQ", "COMMA", "NUM", "ID", "SEMICOLON", "COLON", 
+		"WS"
 	};
 	public static final Vocabulary VOCABULARY = new VocabularyImpl(_LITERAL_NAMES, _SYMBOLIC_NAMES);
 
@@ -845,6 +846,7 @@ public class GrammarParser extends Parser {
 		public TerminalNode LE() { return getToken(GrammarParser.LE, 0); }
 		public TerminalNode GT() { return getToken(GrammarParser.GT, 0); }
 		public TerminalNode LT() { return getToken(GrammarParser.LT, 0); }
+		public TerminalNode TILDE() { return getToken(GrammarParser.TILDE, 0); }
 		public SignContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
@@ -873,7 +875,7 @@ public class GrammarParser extends Parser {
 			{
 			setState(101);
 			_la = _input.LA(1);
-			if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << PLUS) | (1L << MINUS) | (1L << DIV) | (1L << MULT) | (1L << LE) | (1L << GE) | (1L << LT) | (1L << GT))) != 0)) ) {
+			if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << PLUS) | (1L << MINUS) | (1L << DIV) | (1L << MULT) | (1L << LE) | (1L << GE) | (1L << LT) | (1L << GT) | (1L << TILDE))) != 0)) ) {
 			_errHandler.recoverInline(this);
 			} else {
 				consume();
@@ -1286,7 +1288,7 @@ public class GrammarParser extends Parser {
 	}
 
 	public static final String _serializedATN =
-		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3\34\u0094\4\2\t\2"+
+		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3\35\u0094\4\2\t\2"+
 		"\4\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7\4\b\t\b\4\t\t\t\4\n\t\n\4\13"+
 		"\t\13\4\f\t\f\4\r\t\r\4\16\t\16\4\17\t\17\4\20\t\20\4\21\t\21\3\2\3\2"+
 		"\3\2\3\3\3\3\3\3\6\3)\n\3\r\3\16\3*\3\4\3\4\3\4\3\4\5\4\61\n\4\3\5\3\5"+
@@ -1297,32 +1299,32 @@ public class GrammarParser extends Parser {
 		"\r\3\r\3\r\3\r\5\rx\n\r\3\r\3\r\3\r\3\16\3\16\5\16\177\n\16\3\17\3\17"+
 		"\3\17\3\17\3\20\3\20\3\20\3\20\6\20\u0089\n\20\r\20\16\20\u008a\3\20\3"+
 		"\20\3\21\3\21\3\21\5\21\u0092\n\21\3\21\2\2\22\2\4\6\b\n\f\16\20\22\24"+
-		"\26\30\32\34\36 \2\3\3\2\n\21\u0095\2\"\3\2\2\2\4(\3\2\2\2\6\60\3\2\2"+
+		"\26\30\32\34\36 \2\3\3\2\n\22\u0095\2\"\3\2\2\2\4(\3\2\2\2\6\60\3\2\2"+
 		"\2\bB\3\2\2\2\nD\3\2\2\2\fJ\3\2\2\2\16M\3\2\2\2\20Z\3\2\2\2\22^\3\2\2"+
 		"\2\24e\3\2\2\2\26g\3\2\2\2\30i\3\2\2\2\32~\3\2\2\2\34\u0080\3\2\2\2\36"+
 		"\u0084\3\2\2\2 \u0091\3\2\2\2\"#\5\4\3\2#$\7\2\2\3$\3\3\2\2\2%&\5\6\4"+
-		"\2&\'\7\32\2\2\')\3\2\2\2(%\3\2\2\2)*\3\2\2\2*(\3\2\2\2*+\3\2\2\2+\5\3"+
+		"\2&\'\7\33\2\2\')\3\2\2\2(%\3\2\2\2)*\3\2\2\2*(\3\2\2\2*+\3\2\2\2+\5\3"+
 		"\2\2\2,\61\5\b\5\2-\61\5\n\6\2.\61\5\f\7\2/\61\5\16\b\2\60,\3\2\2\2\60"+
-		"-\3\2\2\2\60.\3\2\2\2\60/\3\2\2\2\61\7\3\2\2\2\62\63\7\24\2\2\63\66\7"+
-		"\31\2\2\64\65\7\33\2\2\65\67\7\3\2\2\66\64\3\2\2\2\66\67\3\2\2\2\678\3"+
-		"\2\2\289\7\26\2\29C\5\22\n\2:;\7\24\2\2;>\7\31\2\2<=\7\33\2\2=?\7\3\2"+
-		"\2><\3\2\2\2>?\3\2\2\2?@\3\2\2\2@A\7\26\2\2AC\5\30\r\2B\62\3\2\2\2B:\3"+
-		"\2\2\2C\t\3\2\2\2DE\7\23\2\2EF\7\5\2\2FG\5\24\13\2GH\7\6\2\2HI\5\36\20"+
-		"\2I\13\3\2\2\2JK\7\25\2\2KL\5\22\n\2L\r\3\2\2\2MN\7\31\2\2NR\7\33\2\2"+
+		"-\3\2\2\2\60.\3\2\2\2\60/\3\2\2\2\61\7\3\2\2\2\62\63\7\25\2\2\63\66\7"+
+		"\32\2\2\64\65\7\34\2\2\65\67\7\3\2\2\66\64\3\2\2\2\66\67\3\2\2\2\678\3"+
+		"\2\2\289\7\27\2\29C\5\22\n\2:;\7\25\2\2;>\7\32\2\2<=\7\34\2\2=?\7\3\2"+
+		"\2><\3\2\2\2>?\3\2\2\2?@\3\2\2\2@A\7\27\2\2AC\5\30\r\2B\62\3\2\2\2B:\3"+
+		"\2\2\2C\t\3\2\2\2DE\7\24\2\2EF\7\5\2\2FG\5\24\13\2GH\7\6\2\2HI\5\36\20"+
+		"\2I\13\3\2\2\2JK\7\26\2\2KL\5\22\n\2L\r\3\2\2\2MN\7\32\2\2NR\7\34\2\2"+
 		"OQ\5\20\t\2PO\3\2\2\2QT\3\2\2\2RP\3\2\2\2RS\3\2\2\2S\17\3\2\2\2TR\3\2"+
 		"\2\2U[\5 \21\2VW\7\5\2\2WX\5\22\n\2XY\7\6\2\2Y[\3\2\2\2ZU\3\2\2\2ZV\3"+
 		"\2\2\2[\21\3\2\2\2\\_\5\24\13\2]_\5\16\b\2^\\\3\2\2\2^]\3\2\2\2_\23\3"+
 		"\2\2\2`f\5 \21\2ab\5 \21\2bc\5\26\f\2cd\5\24\13\2df\3\2\2\2e`\3\2\2\2"+
 		"ea\3\2\2\2f\25\3\2\2\2gh\t\2\2\2h\27\3\2\2\2ir\7\5\2\2jo\5\34\17\2kl\7"+
-		"\27\2\2ln\5\34\17\2mk\3\2\2\2nq\3\2\2\2om\3\2\2\2op\3\2\2\2ps\3\2\2\2"+
-		"qo\3\2\2\2rj\3\2\2\2rs\3\2\2\2st\3\2\2\2tw\7\6\2\2uv\7\33\2\2vx\7\3\2"+
-		"\2wu\3\2\2\2wx\3\2\2\2xy\3\2\2\2yz\7\22\2\2z{\5\32\16\2{\31\3\2\2\2|\177"+
+		"\30\2\2ln\5\34\17\2mk\3\2\2\2nq\3\2\2\2om\3\2\2\2op\3\2\2\2ps\3\2\2\2"+
+		"qo\3\2\2\2rj\3\2\2\2rs\3\2\2\2st\3\2\2\2tw\7\6\2\2uv\7\34\2\2vx\7\3\2"+
+		"\2wu\3\2\2\2wx\3\2\2\2xy\3\2\2\2yz\7\23\2\2z{\5\32\16\2{\31\3\2\2\2|\177"+
 		"\5\36\20\2}\177\5\6\4\2~|\3\2\2\2~}\3\2\2\2\177\33\3\2\2\2\u0080\u0081"+
-		"\7\31\2\2\u0081\u0082\7\33\2\2\u0082\u0083\7\3\2\2\u0083\35\3\2\2\2\u0084"+
-		"\u0088\7\b\2\2\u0085\u0086\5\6\4\2\u0086\u0087\7\32\2\2\u0087\u0089\3"+
+		"\7\32\2\2\u0081\u0082\7\34\2\2\u0082\u0083\7\3\2\2\u0083\35\3\2\2\2\u0084"+
+		"\u0088\7\b\2\2\u0085\u0086\5\6\4\2\u0086\u0087\7\33\2\2\u0087\u0089\3"+
 		"\2\2\2\u0088\u0085\3\2\2\2\u0089\u008a\3\2\2\2\u008a\u0088\3\2\2\2\u008a"+
 		"\u008b\3\2\2\2\u008b\u008c\3\2\2\2\u008c\u008d\7\t\2\2\u008d\37\3\2\2"+
-		"\2\u008e\u0092\7\31\2\2\u008f\u0092\7\30\2\2\u0090\u0092\7\4\2\2\u0091"+
+		"\2\u008e\u0092\7\32\2\2\u008f\u0092\7\31\2\2\u0090\u0092\7\4\2\2\u0091"+
 		"\u008e\3\2\2\2\u0091\u008f\3\2\2\2\u0091\u0090\3\2\2\2\u0092!\3\2\2\2"+
 		"\21*\60\66>BRZ^eorw~\u008a\u0091";
 	public static final ATN _ATN =

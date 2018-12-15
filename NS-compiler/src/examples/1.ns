@@ -10,3 +10,6 @@ var f1 = (a:int,b:int) => {
 };
 
 f1: 500 (f1: 2 3);
+
+var f4 = (a:int,b:int,c:int) => return a + b + c;
+var a = f4: 1 2 3;
