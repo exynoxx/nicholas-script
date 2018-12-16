@@ -1,7 +1,9 @@
+var concat = (a:string, b:string):string => return a~b;
+
 var doSomething = () => {
-    var concat = (a:string, b:string):string => return a~b;
     var world = "world";
     var res = concat: "hello " (world ~ "!");
     print: (res ~ "\n\n");
 };
-doSomething:;
+
+var ss = concat: "hello" (concat: " " ("world" ~ "!"));
