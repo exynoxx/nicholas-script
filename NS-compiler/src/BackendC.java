@@ -73,13 +73,17 @@ public class BackendC {
         switch (root.type) {
             case PROGRAM:
                 CodeBuilder ret = new CodeBuilder("", "", "", "", "");
+                String retCode = "";
+                String postCode = "";
                 for (Node c : root.children) {
                     CodeBuilder cb = recursive(c);
                     ret = merge(ret, cb);
+                    retCode += cb.getPre()+cb.getCode();
+                    postCode += cb.getPost();
                 }
 
                 String code = "void main () {\n";
-                code += ret.getPreCodePost();
+                code += retCode+postCode;
                 code += "}\n";
                 return new CodeBuilder("", code, "", ret.getSignature(), ret.getFunctionImpl());
 
@@ -169,13 +173,17 @@ public class BackendC {
 
             case BLOCK:
                 CodeBuilder block = new CodeBuilder("", "", "", "", "");
+                String blockCode = "";
+                String postBlockCode = "";
                 for (Node c : root.children) {
                     CodeBuilder cb = recursive(c);
                     block = merge(block, cb);
+                    blockCode += cb.getPre()+cb.getCode();
+                    postBlockCode += cb.getPost();
                 }
 
                 String codeblock = "{\n";
-                codeblock += block.getPreCodePost();
+                codeblock += blockCode+postBlockCode;
                 codeblock += "}\n";
                 return new CodeBuilder("", codeblock, "", block.getSignature(), block.getFunctionImpl());
 
@@ -286,13 +294,16 @@ public class BackendC {
                 break;
             case BLOCK:
                 ArrayList<Node> l = new ArrayList<>();
+                boolean foundReturn = false;
                 for (Node n : root.children) {
                     Node k = semanticAdjustment(n, false,level+1);
                     l.add(k);
                     if (k.type == Type.RETURN) {
+                        foundReturn = true;
                         root.nstype = k.nstype;
                     }
                 }
+                if (!foundReturn) root.nstype = "void";
                 root.children = l;
                 break;
             case CALL:

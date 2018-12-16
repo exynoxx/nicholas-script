@@ -2,8 +2,8 @@ var f1 = (a:int,b:int) => {
 
     var f2 = (a:int) => {
         var c = a+4-2;
-        var f3 = (x:int):int => {return x;};
-        return f3: f3: f3: c;
+        var identity = (x:int):int => {return x;};
+        return identity: identity: identity: c;
     };
     f2: 1;
     return f2: 2;
