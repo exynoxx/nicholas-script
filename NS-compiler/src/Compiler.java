@@ -85,6 +85,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         return n;
     }
 
+    //callarg #############################
     @Override
     public Node visitCallargvalue(GrammarParser.CallargvalueContext ctx) {
         return this.visit(ctx.value());
@@ -95,7 +96,11 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         return this.visit(ctx.eval());
     }
 
-    //eval #############################################
+    @Override
+    public Node visitCallargcall(GrammarParser.CallargcallContext ctx) {
+        return this.visit(ctx.call());
+    }
+//eval #############################################
 
     //binop #########################################
     @Override

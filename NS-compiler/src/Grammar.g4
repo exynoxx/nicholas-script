@@ -27,6 +27,7 @@ ID COLON callarg*;
 callarg:
 value               #callargvalue
 |LPAREN eval RPAREN #callargeval
+|call               #callargcall
 ;
 
 

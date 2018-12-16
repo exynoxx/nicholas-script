@@ -74,6 +74,13 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitCallargeval(GrammarParser.CallargevalContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code callargcall}
+	 * labeled alternative in {@link GrammarParser#callarg}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCallargcall(GrammarParser.CallargcallContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link GrammarParser#eval}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
