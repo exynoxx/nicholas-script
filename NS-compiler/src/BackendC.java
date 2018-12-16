@@ -1,11 +1,8 @@
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class BackendC {
 
-    HashMap<String, String> typesHM = new HashMap<>();
+    HashMap<Integer,HashMap<String,String>> typesHM = new HashMap<Integer, HashMap<String, String>>();
     Random random = new Random();
 
     public String generateRandomName() {
@@ -25,21 +22,59 @@ public class BackendC {
     }
 
     public String gen(Node root) {
-        root = semanticAdjustment(root, false);
-        CodeBuilder cb = recursive(root, 0);
+        root = semanticAdjustment(root, false,0);
+        CodeBuilder cb = recursive(root);
         String ret = "//signatures \n" + cb.getSignature() + "\n" +
                 "//functions \n" + cb.getFunctionImpl() + "\n" +
                 "//main \n" + cb.getCode();
         return ret;
     }
 
-    public CodeBuilder recursive(Node root, int level) {
+    /*
+    public void enter (String name, int level, String type) {
+        typesHM.put(name+level,type);
+    }
+
+    public String getType (String name, int level) {
+        return typesHM.get(name+level);
+    }*/
+
+    public void pushType (String name, String type, int level) {
+
+        if (typesHM.get(level) == null) {
+            typesHM.put(level,new HashMap<>());
+        }
+
+        HashMap<String,String> tmp = typesHM.get(level);
+        tmp.put(name,type);
+    }
+
+    public String getType (String name,int level) {
+        String ret = null;
+        while (level >= 0){
+            if (ret != null) {
+                break;
+            } else {
+                if (typesHM.get(level) == null) return null;
+                ret = typesHM.get(level).get(name);
+            }
+            level--;
+        }
+        return ret;
+    }
+
+    public void resetLevel (int level) {
+        typesHM.get(level).clear();
+    }
+
+
+    public CodeBuilder recursive(Node root) {
         String ending = (root.shouldComma) ? ";\n" : "";
         switch (root.type) {
             case PROGRAM:
                 CodeBuilder ret = new CodeBuilder("", "", "", "", "");
                 for (Node c : root.children) {
-                    CodeBuilder cb = recursive(c, level + 1);
+                    CodeBuilder cb = recursive(c);
                     ret = merge(ret, cb);
                 }
 
@@ -51,13 +86,16 @@ public class BackendC {
 
             case ASSIGN:
                 String name = root.ID;
-                String type = root.nstype;
+                String type = root.nstype + " ";
 
-                CodeBuilder body = recursive(root.body, level + 1);
+                CodeBuilder body = recursive(root.body);
                 if (root.body.nstype.equals("string")) type = "char *";
-                String line = type + " " + name + " = " + body.getCode() + ending;
 
+                if (root.reassignment) {
+                    type = "";
+                }
 
+                String line = type + name + " = " + body.getCode() + ending;
 
                 if (root.fundecl) {
                     line = "";
@@ -68,7 +106,7 @@ public class BackendC {
             case BINOP:
                 if (root.body == null) {
                     //leaf
-                    return recursive(root.value, level + 1);
+                    return recursive(root.value);
                 } else {
                     if (root.nstype != null && root.nstype.equals("string")) {
                         String sizeline = "";
@@ -100,9 +138,9 @@ public class BackendC {
                         return new CodeBuilder(finalsizeline+salloc+scopy,finalline,freeline,"","");
 
                     } else {
-                        CodeBuilder cbbody = recursive(root.body, level + 1);
-                        CodeBuilder cbsign = recursive(root.sign, level + 1);
-                        CodeBuilder cbvalue = recursive(root.value, level + 1);
+                        CodeBuilder cbbody = recursive(root.body);
+                        CodeBuilder cbsign = recursive(root.sign);
+                        CodeBuilder cbvalue = recursive(root.value);
 
                         CodeBuilder cbret1 = merge(cbvalue, cbsign);
                         CodeBuilder cbret2 = merge(cbret1, cbbody);
@@ -132,7 +170,7 @@ public class BackendC {
             case BLOCK:
                 CodeBuilder block = new CodeBuilder("", "", "", "", "");
                 for (Node c : root.children) {
-                    CodeBuilder cb = recursive(c, level + 1);
+                    CodeBuilder cb = recursive(c);
                     block = merge(block, cb);
                 }
 
@@ -145,13 +183,13 @@ public class BackendC {
 
                 String args = "(";
                 for (Node c : root.args) {
-                    CodeBuilder cb = recursive(c, level + 1);
+                    CodeBuilder cb = recursive(c);
                     args += cb.getCode() + ",";
                 }
                 if (root.args.size() > 0) args = args.substring(0, args.length() - 1);
                 args += ")";
 
-                CodeBuilder funcbody = recursive(root.body, level + 1);
+                CodeBuilder funcbody = recursive(root.body);
                 String cbody = funcbody.getPreCodePost();
                 String ftype = root.nstype;
                 if (ftype.equals("string")) ftype = "char *";
@@ -171,7 +209,7 @@ public class BackendC {
                 return new CodeBuilder(argtype + " " + root.ID);
 
             case RETURN:
-                CodeBuilder cb = recursive(root.body, level + 1);
+                CodeBuilder cb = recursive(root.body);
                 String returnstatement = "return " + cb.getCode() + ending;
                 return new CodeBuilder(cb.getPre(),returnstatement,"",cb.getSignature(),cb.getFunctionImpl());
 
@@ -182,7 +220,7 @@ public class BackendC {
                 String postcall = "";
                 for (int i = root.args.size() - 1; i >= 0; i--) {
                     Node c = root.args.get(i);
-                    CodeBuilder callargcb = recursive(c, level + 1);
+                    CodeBuilder callargcb = recursive(c);
                     callargs += callargcb.getCode() + ",";
                     precall += callargcb.getPre();
                     postcall += callargcb.getPost();
@@ -193,8 +231,8 @@ public class BackendC {
                 return new CodeBuilder(precall,callcode,postcall,"","");
 
             case IF:
-                CodeBuilder condbuilder = recursive(root.cond, level + 1);
-                CodeBuilder bodybuilder = recursive(root.body, level + 1);
+                CodeBuilder condbuilder = recursive(root.cond);
+                CodeBuilder bodybuilder = recursive(root.body);
                 String cond = "(" + condbuilder.getCode() + ")";
                 String ifbody = bodybuilder.getCode();
                 String ifcode = "if" + cond + ifbody;
@@ -212,15 +250,15 @@ public class BackendC {
                 a.getFunctionImpl() + b.getFunctionImpl());
     }
 
-    public Node semanticAdjustment(Node root, boolean comma) {
+    public Node semanticAdjustment(Node root, boolean comma,int level) {
         switch (root.type) {
             case BINOP:
-                root.value = semanticAdjustment(root.value, comma);
+                root.value = semanticAdjustment(root.value, comma,level);
                 root.nstype = root.value.nstype;
                 break;
             case VALUE:
                 if (root.nstype == null) {
-                    root.nstype = typesHM.get(root.text);
+                    root.nstype = getType(root.text,level);
                 }
                 break;
             case ASSIGN:
@@ -237,15 +275,19 @@ public class BackendC {
                     comma = true;
                 }
 
-                root.body = semanticAdjustment(root.body, comma);
+                if (getType(root.ID,level) != null) {
+                    root.reassignment = true;
+                }
+
+                root.body = semanticAdjustment(root.body, comma,level);
                 if (root.nstype == null) root.nstype = root.body.nstype;
-                typesHM.put(root.ID, root.nstype);
+                pushType(root.ID,root.nstype,level);
 
                 break;
             case BLOCK:
                 ArrayList<Node> l = new ArrayList<>();
                 for (Node n : root.children) {
-                    Node k = semanticAdjustment(n, false);
+                    Node k = semanticAdjustment(n, false,level+1);
                     l.add(k);
                     if (k.type == Type.RETURN) {
                         root.nstype = k.nstype;
@@ -254,7 +296,7 @@ public class BackendC {
                 root.children = l;
                 break;
             case CALL:
-                root.nstype = typesHM.get(root.ID);
+                root.nstype = getType(root.ID,level);
                 root.shouldComma = true;
                 if (comma) root.shouldComma = false;
 
@@ -266,7 +308,7 @@ public class BackendC {
 
                 ArrayList<Node> arglist = new ArrayList<>();
                 for (Node arg : root.args) {
-                    Node newarg = semanticAdjustment(arg, comma);
+                    Node newarg = semanticAdjustment(arg, comma,level);
                     arglist.add(newarg);
                 }
                 root.args = arglist;
@@ -274,22 +316,23 @@ public class BackendC {
                 break;
             case FUNCTION:
                 for (Node n : root.args) {
-                    typesHM.put(n.ID, n.nstype);
+                    pushType(n.ID,n.nstype,level+1);
                 }
 
                 if (root.body.type != Type.BLOCK) {
 
                     Node block = new Node(Type.BLOCK);
                     ArrayList<Node> children = new ArrayList<>();
-                    children.add(semanticAdjustment(root.body, comma));
+                    children.add(semanticAdjustment(root.body, comma,level+1));
                     block.children = children;
 
                     root.body = block;
                 }
-                root.body = semanticAdjustment(root.body, comma);
+
+                root.body = semanticAdjustment(root.body, comma,level);//body=block, block will inc level
 
                 if (root.nstype == null) root.nstype = root.body.nstype;
-                typesHM.put(root.ID, root.nstype);
+                //pushType(root.ID,root.nstype,level);
                 break;
             case RETURN:
                 root.shouldComma = true;
@@ -300,13 +343,13 @@ public class BackendC {
                     comma = true;
                 }
 
-                root.body = semanticAdjustment(root.body, comma);
+                root.body = semanticAdjustment(root.body, comma,level);
                 root.nstype = root.body.nstype;
                 break;
 
             default:
                 if (root.body != null) {
-                    root.body = semanticAdjustment(root.body, comma);
+                    root.body = semanticAdjustment(root.body, comma,level);
                     if (root.nstype == null) {
                         root.nstype = root.body.nstype;
                     }
@@ -314,7 +357,7 @@ public class BackendC {
                 if (root.children != null) {
                     ArrayList<Node> newChildren = new ArrayList<>();
                     for (Node c : root.children) {
-                        newChildren.add(semanticAdjustment(c, false));
+                        newChildren.add(semanticAdjustment(c, false,level));
                     }
                 }
                 break;
