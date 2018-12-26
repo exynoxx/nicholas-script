@@ -81,5 +81,11 @@ NUM: [0-9]+ ;
 ID: [a-zA-Z0-9]+ ;
 SEMICOLON: ';' ;
 COLON:':';
+COMMENT
+: '/*' .*? '*/' -> skip
+;
+LINE_COMMENT
+: '#' ~[\r\n]* -> skip
+;
 WS : [ \t\n\r] + -> skip
    ;
