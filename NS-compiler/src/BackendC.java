@@ -23,7 +23,7 @@ public class BackendC {
 
     public String gen(Node root) {
         root = semanticAdjustment(root, false,0);
-        CodeBuilder cb = recursive(root);
+        CStringBuilder cb = recursive(root);
         String ret = "//signatures \n" + cb.getSignature() + "\n" +
                 "//functions \n" + cb.getFunctionImpl() + "\n" +
                 "//main \n" + cb.getCode();
@@ -68,15 +68,15 @@ public class BackendC {
     }
 
 
-    public CodeBuilder recursive(Node root) {
+    public CStringBuilder recursive(Node root) {
         String ending = (root.shouldComma) ? ";\n" : "";
         switch (root.type) {
             case PROGRAM:
-                CodeBuilder ret = new CodeBuilder("", "", "", "", "");
+                CStringBuilder ret = new CStringBuilder("", "", "", "", "");
                 String retCode = "";
                 String postCode = "";
                 for (Node c : root.children) {
-                    CodeBuilder cb = recursive(c);
+                    CStringBuilder cb = recursive(c);
                     ret = merge(ret, cb);
                     retCode += cb.getPre()+cb.getCode();
                     postCode += cb.getPost();
@@ -85,14 +85,14 @@ public class BackendC {
                 String code = "void main () {\n";
                 code += retCode+postCode;
                 code += "}\n";
-                return new CodeBuilder("", code, "", ret.getSignature(), ret.getFunctionImpl());
+                return new CStringBuilder("", code, "", ret.getSignature(), ret.getFunctionImpl());
 
 
             case ASSIGN:
                 String name = root.ID;
                 String type = root.nstype + " ";
 
-                CodeBuilder body = recursive(root.body);
+                CStringBuilder body = recursive(root.body);
                 if (root.body.nstype.equals("string")) type = "char *";
 
                 if (root.reassignment) {
@@ -104,7 +104,7 @@ public class BackendC {
                 if (root.fundecl) {
                     line = "";
                 }
-                return new CodeBuilder(body.getPre(), line, body.getPost(), body.getSignature(), body.getFunctionImpl());
+                return new CStringBuilder(body.getPre(), line, body.getPost(), body.getSignature(), body.getFunctionImpl());
 
 
             case BINOP:
@@ -139,22 +139,22 @@ public class BackendC {
                         }
                         String finalline = rname2;
                         String freeline = "free (" + rname2 + ");\n";
-                        return new CodeBuilder(finalsizeline+salloc+scopy,finalline,freeline,"","");
+                        return new CStringBuilder(finalsizeline+salloc+scopy,finalline,freeline,"","");
 
                     } else {
-                        CodeBuilder cbbody = recursive(root.body);
-                        CodeBuilder cbsign = recursive(root.sign);
-                        CodeBuilder cbvalue = recursive(root.value);
+                        CStringBuilder cbbody = recursive(root.body);
+                        CStringBuilder cbsign = recursive(root.sign);
+                        CStringBuilder cbvalue = recursive(root.value);
 
-                        CodeBuilder cbret1 = merge(cbvalue, cbsign);
-                        CodeBuilder cbret2 = merge(cbret1, cbbody);
+                        CStringBuilder cbret1 = merge(cbvalue, cbsign);
+                        CStringBuilder cbret2 = merge(cbret1, cbbody);
                         return cbret2;
                     }
 
 
                 }
             case SIGN:
-                return new CodeBuilder(root.text);
+                return new CStringBuilder(root.text);
 
             case VALUE:
 
@@ -166,17 +166,17 @@ public class BackendC {
                     String pre = salloc + scopy;
                     String scode = rname;
                     String post = "free (" + rname + ");\n";
-                    return new CodeBuilder(pre, scode, post, "", "");
+                    return new CStringBuilder(pre, scode, post, "", "");
                 }
 
-                return new CodeBuilder(root.text);
+                return new CStringBuilder(root.text);
 
             case BLOCK:
-                CodeBuilder block = new CodeBuilder("", "", "", "", "");
+                CStringBuilder block = new CStringBuilder("", "", "", "", "");
                 String blockCode = "";
                 String postBlockCode = "";
                 for (Node c : root.children) {
-                    CodeBuilder cb = recursive(c);
+                    CStringBuilder cb = recursive(c);
                     block = merge(block, cb);
                     blockCode += cb.getPre()+cb.getCode();
                     postBlockCode += cb.getPost();
@@ -185,25 +185,25 @@ public class BackendC {
                 String codeblock = "{\n";
                 codeblock += blockCode+postBlockCode;
                 codeblock += "}\n";
-                return new CodeBuilder("", codeblock, "", block.getSignature(), block.getFunctionImpl());
+                return new CStringBuilder("", codeblock, "", block.getSignature(), block.getFunctionImpl());
 
             case FUNCTION:
 
                 String args = "(";
                 for (Node c : root.args) {
-                    CodeBuilder cb = recursive(c);
+                    CStringBuilder cb = recursive(c);
                     args += cb.getCode() + ",";
                 }
                 if (root.args.size() > 0) args = args.substring(0, args.length() - 1);
                 args += ")";
 
-                CodeBuilder funcbody = recursive(root.body);
+                CStringBuilder funcbody = recursive(root.body);
                 String cbody = funcbody.getPreCodePost();
                 String ftype = root.nstype;
                 if (ftype.equals("string")) ftype = "char *";
                 String signature = ftype + " " + root.ID + args + ";\n";
                 String functionCode = ftype + " " + root.ID + args + cbody;
-                return new CodeBuilder(
+                return new CStringBuilder(
                         "",
                         "",
                         "",
@@ -214,12 +214,12 @@ public class BackendC {
             case ARG:
                 String argtype = root.nstype;
                 if (argtype.equals("string")) argtype = "char *";
-                return new CodeBuilder(argtype + " " + root.ID);
+                return new CStringBuilder(argtype + " " + root.ID);
 
             case RETURN:
-                CodeBuilder cb = recursive(root.body);
+                CStringBuilder cb = recursive(root.body);
                 String returnstatement = "return " + cb.getCode() + ending;
-                return new CodeBuilder(cb.getPre(),returnstatement,"",cb.getSignature(),cb.getFunctionImpl());
+                return new CStringBuilder(cb.getPre(),returnstatement,"",cb.getSignature(),cb.getFunctionImpl());
 
             case CALL:
                 String callname = root.ID;
@@ -228,7 +228,7 @@ public class BackendC {
                 String postcall = "";
                 for (int i = root.args.size() - 1; i >= 0; i--) {
                     Node c = root.args.get(i);
-                    CodeBuilder callargcb = recursive(c);
+                    CStringBuilder callargcb = recursive(c);
                     callargs += callargcb.getCode() + ",";
                     precall += callargcb.getPre();
                     postcall += callargcb.getPost();
@@ -236,21 +236,21 @@ public class BackendC {
                 if (root.args.size() > 0) callargs = callargs.substring(0, callargs.length() - 1);
                 callargs += ")";
                 String callcode = callname + callargs + ending;
-                return new CodeBuilder(precall,callcode,postcall,"","");
+                return new CStringBuilder(precall,callcode,postcall,"","");
 
             case IF:
-                CodeBuilder condbuilder = recursive(root.cond);
-                CodeBuilder bodybuilder = recursive(root.body);
+                CStringBuilder condbuilder = recursive(root.cond);
+                CStringBuilder bodybuilder = recursive(root.body);
                 String cond = "(" + condbuilder.getCode() + ")";
                 String ifbody = bodybuilder.getCode();
                 String ifcode = "if" + cond + ifbody;
-                return new CodeBuilder(ifcode);
+                return new CStringBuilder(ifcode);
         }
         return null;
     }
 
-    public CodeBuilder merge(CodeBuilder a, CodeBuilder b) {
-        return new CodeBuilder(
+    public CStringBuilder merge(CStringBuilder a, CStringBuilder b) {
+        return new CStringBuilder(
                 a.getPre() + b.getPre(),
                 a.getCode() + b.getCode(),
                 a.getPost() + b.getPost(),

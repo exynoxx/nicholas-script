@@ -1,4 +1,4 @@
-public class CodeBuilder {
+public class CStringBuilder {
     String pre;
     String code;
     String post;
@@ -29,7 +29,7 @@ public class CodeBuilder {
         return functionImpl;
     }
 
-    public CodeBuilder(String pre, String code, String post, String signature, String functionImpl) {
+    public CStringBuilder(String pre, String code, String post, String signature, String functionImpl) {
         this.pre = pre;
         this.code = code;
         this.post = post;
@@ -37,7 +37,7 @@ public class CodeBuilder {
         this.functionImpl = functionImpl;
     }
 
-    public CodeBuilder(String code) {
+    public CStringBuilder(String code) {
         this.code = code;
 
         this.pre = "";
@@ -46,7 +46,7 @@ public class CodeBuilder {
         this.functionImpl = "";
     }
 
-    public CodeBuilder() {
+    public CStringBuilder() {
         this.code = "";
         this.pre = "";
         this.post = "";
