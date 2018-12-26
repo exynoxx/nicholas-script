@@ -41,7 +41,7 @@ sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT|TILDE);
 
 function:
 LPAREN (arg (COMMA arg)*)? RPAREN (COLON TYPE)? ARROW fbody;
-fbody: block|statement;
+fbody: block|iff|eval|assign;
 
 arg:ID COLON TYPE;
 

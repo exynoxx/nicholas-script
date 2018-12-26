@@ -1,0 +1,7 @@
+var v = 5;
+var exp = (a:int) => a*a;
+var change = (x:int) => v = x;
+v2 = exp: v;
+change: v2;
+var concat = (s1:string,s2:string) => s1 ~ s2;
+var newstring = concat: "hello" "world";

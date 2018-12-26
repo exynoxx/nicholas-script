@@ -272,7 +272,7 @@ public class Compiler extends GrammarBaseVisitor<Node> {
         //String input = "var f1 = (a:int,b:int) => {var f2 = (a:int) => {var a=1+4-2;return a;}; f2: 1;return f2: 2;};f1:500 0;";
         //String input = "var b:int = 2+a-3;";
 
-        String input = readFile("src/examples/1.ns");
+        String input = readFile("src/examples/3.ns");
 
 
         CharStream stream = new ANTLRInputStream(input);

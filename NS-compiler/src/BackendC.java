@@ -258,6 +258,10 @@ public class BackendC {
                 a.getFunctionImpl() + b.getFunctionImpl());
     }
 
+
+
+
+
     public Node semanticAdjustment(Node root, boolean comma,int level) {
         switch (root.type) {
             case BINOP:
@@ -334,9 +338,18 @@ public class BackendC {
 
                     Node block = new Node(Type.BLOCK);
                     ArrayList<Node> children = new ArrayList<>();
-                    children.add(semanticAdjustment(root.body, comma,level+1));
-                    block.children = children;
 
+
+                    //does statement return something? yes no
+                    if (root.body.type == Type.CALL || root.body.type == Type.BINOP) {
+                        Node retnode = new Node(Type.RETURN);
+                        retnode.body = semanticAdjustment(root.body, comma,level+1);
+                        children.add(retnode);
+                    } else {
+                        children.add(semanticAdjustment(root.body, comma,level+1));
+                    }
+
+                    block.children = children;
                     root.body = block;
                 }
 
