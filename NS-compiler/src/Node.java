@@ -6,6 +6,7 @@ public class Node {
     public String ID;
     public String nstype;
     public Node body;
+    public Node elsebody;
     public Node cond;
     public Node sign;
     public Node value;

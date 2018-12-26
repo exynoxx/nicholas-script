@@ -14,7 +14,7 @@ VAR? ID (COLON TYPE)? EQ eval        #assigneval
 ;
 
 iff:
-IF LPAREN binop RPAREN block
+IF LPAREN binop RPAREN block (ELSE block)?
 ;
 
 returnn:
@@ -72,6 +72,7 @@ GT:'>';
 TILDE:'~';
 ARROW:'=>';
 IF: 'if';
+ELSE: 'else';
 VAR: 'var' ;
 RETURN: 'return';
 EQ: '=';

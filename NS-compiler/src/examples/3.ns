@@ -3,5 +3,5 @@ var square = (a:int) => a*a;
 var change = (x:int) => v = x;
 v2 = square: v;
 change: v2;
-var cap = () => if (v < 10) {return v;};
+var cap = () => if (v < 10) {return v;} else {return 0;};
 var res = cap:;

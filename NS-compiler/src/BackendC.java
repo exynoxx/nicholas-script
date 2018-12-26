@@ -243,7 +243,14 @@ public class BackendC {
                 CStringBuilder bodybuilder = recursive(root.body);
                 String cond = "(" + condbuilder.getCode() + ")";
                 String ifbody = bodybuilder.getCode();
-                String ifcode = "if" + cond + ifbody;
+
+                String elsebody = "";
+                if (root.elsebody != null) {
+                    CStringBuilder elsebuilder = recursive(root.elsebody);
+                    elsebody = "else" + elsebuilder.getCode();
+                }
+
+                String ifcode = "if" + cond + ifbody + elsebody;
                 return new CStringBuilder(ifcode);
         }
         return null;
@@ -295,6 +302,13 @@ public class BackendC {
                 if (root.nstype == null) root.nstype = root.body.nstype;
                 pushType(root.ID,root.nstype,level);
 
+                break;
+            case IF:
+                root.body = semanticAdjustment(root.body, comma,level);
+                root.nstype = root.body.nstype;
+                if (root.elsebody != null) {
+                    root.elsebody = semanticAdjustment(root.elsebody,comma,level);
+                }
                 break;
             case BLOCK:
                 ArrayList<Node> l = new ArrayList<>();

@@ -46,7 +46,10 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
     public Node visitIff(GrammarParser.IffContext ctx) {
         Node n = new Node(Type.IF);
         n.cond = this.visit(ctx.binop());
-        n.body = this.visit(ctx.block());
+        n.body = this.visit(ctx.block(0));
+        if (ctx.block().size() > 1) {
+            n.elsebody = this.visit(ctx.block(1));
+        }
         return n;
     }
 
