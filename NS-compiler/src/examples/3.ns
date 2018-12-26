@@ -1,7 +1,7 @@
 var v = 5;
-var exp = (a:int) => a*a;
+var square = (a:int) => a*a;
 var change = (x:int) => v = x;
-v2 = exp: v;
+v2 = square: v;
 change: v2;
-var concat = (s1:string,s2:string) => s1 ~ s2;
-var newstring = concat: "hello" "world";
+var cap = () => if (v < 10) {return v;};
+var res = cap:;
