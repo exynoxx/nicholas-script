@@ -6,9 +6,24 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Compiler {
 
+    public static String preprocess (String s) {
+        if (s.indexOf(":CBLOCKBEGIN:") == -1){
+            return s;
+        }
+
+        Pattern p = Pattern.compile(":CBLOCKBEGIN:(.*):CBLOCKEND:");
+        Matcher m = p.matcher(s);
+        while (m.find()) {
+            String ccode = m.group(1);
+        }
+        s = s.replaceAll(":CBLOCKBEGIN:.*:CBLOCKEND:","");
+        return s;
+    }
 
     public static String readFile(String path) throws IOException {
         byte[] encoded = Files.readAllBytes(Paths.get(path));
@@ -16,7 +31,9 @@ public class Compiler {
     }
 
     public static void main(String[] args) throws IOException {
-        String input = readFile("src/examples/3.ns");
+        String input = readFile("src/examples/4.ns");
+
+        input = preprocess(input);
 
 
         CharStream stream = new ANTLRInputStream(input);
