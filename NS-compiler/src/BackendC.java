@@ -5,6 +5,12 @@ public class BackendC {
     HashMap<Integer,HashMap<String,String>> typesHM = new HashMap<Integer, HashMap<String, String>>();
     Random random = new Random();
 
+    String cCode;
+
+    public BackendC(String cCode) {
+        this.cCode = cCode;
+    }
+
     public String generateRandomName() {
 
         int leftLimit = 97; // letter 'a'
@@ -24,7 +30,7 @@ public class BackendC {
     public String gen(Node root) {
         root = semanticAdjustment(root, false,0);
         CStringBuilder cb = recursive(root);
-        String ret = "//signatures \n" + cb.getSignature() + "\n" +
+        String ret = cCode + "\n" + "//signatures \n" + cb.getSignature() + "\n" +
                 "//functions \n" + cb.getFunctionImpl() + "\n" +
                 "//main \n" + cb.getCode();
         return ret;

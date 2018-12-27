@@ -1,9 +1,0 @@
-:CBLOCKBEGIN:
-#include <stdio.h>
-void print (char *s) {
-    printf("%s\n",s);
-}
-:CBLOCKEND:
-
-var concat = (a:string, b:string) => a~b;
-print: (concat: "hello" "world");

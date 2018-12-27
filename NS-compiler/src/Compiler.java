@@ -11,18 +11,18 @@ import java.util.regex.Pattern;
 
 public class Compiler {
 
-    public static String preprocess (String s) {
+    public static String extractCCode(String s) {
         if (s.indexOf(":CBLOCKBEGIN:") == -1){
             return s;
         }
 
-        Pattern p = Pattern.compile(":CBLOCKBEGIN:(.*):CBLOCKEND:");
+        Pattern p = Pattern.compile(":CBLOCKBEGIN:(([^\\n]*(\\n+))+):CBLOCKEND:");
         Matcher m = p.matcher(s);
+        String ccode = "";
         while (m.find()) {
-            String ccode = m.group(1);
+            ccode += m.group(1);
         }
-        s = s.replaceAll(":CBLOCKBEGIN:.*:CBLOCKEND:","");
-        return s;
+        return ccode;
     }
 
     public static String readFile(String path) throws IOException {
@@ -31,10 +31,10 @@ public class Compiler {
     }
 
     public static void main(String[] args) throws IOException {
-        String input = readFile("src/examples/4.ns");
+        String input = readFile("src/examples/stdlib.ns");
 
-        input = preprocess(input);
-
+        String cCode = extractCCode(input);
+        input = input.replaceAll(":CBLOCKBEGIN:(?:[^\\n]*(\\n+))+:CBLOCKEND:", "");
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);
@@ -46,7 +46,7 @@ public class Compiler {
         Node root = cp.visit(tree);
         //cp.prettyPrint(root, 0,4);
 
-        BackendC out = new BackendC();
+        BackendC out = new BackendC(cCode);
         System.out.println(out.gen(root));
 
     }
