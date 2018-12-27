@@ -25,16 +25,34 @@ public class Compiler {
         return ccode;
     }
 
+    public static String removeCCodeBlock (String s) {
+        return s.replaceAll(":CBLOCKBEGIN:(?:[^\\n]*(\\n+))+:CBLOCKEND:", "");
+    }
+
     public static String readFile(String path) throws IOException {
         byte[] encoded = Files.readAllBytes(Paths.get(path));
         return new String(encoded);
     }
 
-    public static void main(String[] args) throws IOException {
-        String input = readFile("src/examples/stdlib.ns");
+    public static String extractImports (String s) throws IOException {
 
+        Pattern pattern = Pattern.compile("import\\s+\"(.+)\";");
+        Matcher m = pattern.matcher(s);
+        String ret = "";
+        while (m.find()) {
+            String url = m.group(1);
+            String file = readFile(url);
+            ret = m.replaceAll(file);
+        }
+        return ret;
+    }
+
+    public static void main(String[] args) throws IOException {
+        String input = readFile("src/examples/4.ns");
+
+        input = extractImports(input);
         String cCode = extractCCode(input);
-        input = input.replaceAll(":CBLOCKBEGIN:(?:[^\\n]*(\\n+))+:CBLOCKEND:", "");
+        input = removeCCodeBlock(input);
 
         CharStream stream = new ANTLRInputStream(input);
         GrammarLexer lexer = new GrammarLexer(stream);

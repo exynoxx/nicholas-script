@@ -1,0 +1,3 @@
+import "src/examples/stdlib.ns";
+
+printi: (5 + 7);
