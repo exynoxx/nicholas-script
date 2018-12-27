@@ -14,7 +14,7 @@ public class Compiler {
 
     public static String extractCCode(String s) {
         if (s.indexOf(":CBLOCKBEGIN:") == -1){
-            return s;
+            return "";
         }
 
         Pattern p = Pattern.compile(":CBLOCKBEGIN:(([^\\n]*(\\n+))+):CBLOCKEND:");
@@ -43,6 +43,11 @@ public class Compiler {
 
         Pattern pattern = Pattern.compile("import\\s+\"(.+)\";");
         Matcher m = pattern.matcher(s);
+
+        if (!m.find()) {
+            return s;
+        }
+        m.reset();
         String ret = "";
         while (m.find()) {
             String url = m.group(1);
@@ -53,7 +58,7 @@ public class Compiler {
     }
 
     public static void main(String[] args) throws IOException {
-        String inputnum = "4";
+        String inputnum = "2";
         String input = readFile("src/examples/"+inputnum+".ns");
 
         input = extractImports(input);

@@ -1,9 +1,13 @@
-var concat = (a:string, b:string):string => return a~b;
+import "src/examples/stdlib.ns";
+
+var concat = (a:string, b:string):string => a~b;
 
 var doSomething = () => {
     var world = "world";
     var res = concat: "hello " (world ~ "!");
-    print: (res ~ "\n\n");
+    prints: (res ~ "\n\n");
 };
 
+doSomething:;
 var ss = concat: "hello" (concat: " " ("world" ~ "!"));
+prints: ss;

@@ -1,6 +1,7 @@
 :CBLOCKBEGIN:
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void prints (char *s) {
     printf("%s\\n",s);
