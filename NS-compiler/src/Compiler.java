@@ -5,6 +5,7 @@ import org.antlr.v4.runtime.tree.ParseTree;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,6 +34,10 @@ public class Compiler {
         byte[] encoded = Files.readAllBytes(Paths.get(path));
         return new String(encoded);
     }
+    public static void writeFile (String path, String source) throws IOException {
+        Path file = Paths.get(path);
+        Files.write(file,source.getBytes());
+    }
 
     public static String extractImports (String s) throws IOException {
 
@@ -48,7 +53,8 @@ public class Compiler {
     }
 
     public static void main(String[] args) throws IOException {
-        String input = readFile("src/examples/4.ns");
+        String inputnum = "4";
+        String input = readFile("src/examples/"+inputnum+".ns");
 
         input = extractImports(input);
         String cCode = extractCCode(input);
@@ -65,7 +71,10 @@ public class Compiler {
         //cp.prettyPrint(root, 0,4);
 
         BackendC out = new BackendC(cCode);
-        System.out.println(out.gen(root));
+        String output = out.gen(root);
+        System.out.println(output);
+        writeFile("src/out/"+inputnum+".c",output);
+
 
     }
 

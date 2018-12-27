@@ -3,10 +3,10 @@
 #include <stdlib.h>
 
 void prints (char *s) {
-    printf("%s\n",s);
+    printf("%s\\n",s);
 }
 void printi (int i) {
-    printf("%d\n",i);
+    printf("%d\\n",i);
 }
 
 int stdini () {
