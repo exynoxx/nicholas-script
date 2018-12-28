@@ -61,6 +61,18 @@ public interface GrammarListener extends ParseTreeListener {
 	 */
 	void exitAssignfunction(GrammarParser.AssignfunctionContext ctx);
 	/**
+	 * Enter a parse tree produced by the {@code assigninc}
+	 * labeled alternative in {@link GrammarParser#assign}.
+	 * @param ctx the parse tree
+	 */
+	void enterAssigninc(GrammarParser.AssignincContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code assigninc}
+	 * labeled alternative in {@link GrammarParser#assign}.
+	 * @param ctx the parse tree
+	 */
+	void exitAssigninc(GrammarParser.AssignincContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link GrammarParser#iff}.
 	 * @param ctx the parse tree
 	 */

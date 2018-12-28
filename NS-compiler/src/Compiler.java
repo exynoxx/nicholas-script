@@ -58,7 +58,7 @@ public class Compiler {
     }
 
     public static void main(String[] args) throws IOException {
-        String inputnum = "2";
+        String inputnum = "5";
         String input = readFile("src/examples/"+inputnum+".ns");
 
         input = extractImports(input);

@@ -10,7 +10,8 @@ statement: assign|iff|returnn|call;
 
 assign:
 VAR? ID (COLON TYPE)? EQ eval        #assigneval
-| VAR ID (COLON TYPE)? EQ function  #assignfunction
+| VAR ID (COLON TYPE)? EQ function   #assignfunction
+| ID sign EQ binop                   #assigninc
 ;
 
 iff:
@@ -37,7 +38,7 @@ binop:
 value                  #binopvalue
 | value sign binop     #binopbinop
 ;
-sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT|TILDE);
+sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT|TILDE|EQUAL);
 
 function:
 LPAREN (arg (COMMA arg)*)? RPAREN (COLON TYPE)? ARROW fbody;
@@ -76,6 +77,7 @@ ELSE: 'else';
 VAR: 'var' ;
 RETURN: 'return';
 EQ: '=';
+EQUAL: '==';
 COMMA: ',';
 NUM: [0-9]+ ;
 ID: [a-zA-Z0-9]+ ;

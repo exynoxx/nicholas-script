@@ -9,3 +9,4 @@ function that return pointer should free memory on each call.
 strsplit in stdlib.ns
 doubles
 objects
+binops using call statements

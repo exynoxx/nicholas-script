@@ -309,6 +309,25 @@ public class BackendC {
                 pushType(root.ID,root.nstype,level);
 
                 break;
+            case INCOP:
+
+                //a += b | a = a + b
+                root.type = Type.ASSIGN;
+                root.nstype = getType(root.ID,level);
+                root.shouldComma = true;
+                root.reassignment = true;
+
+                Node body = new Node(Type.BINOP);
+                Node selfvalue = new Node(Type.VALUE);
+                selfvalue.text = root.ID;
+                selfvalue.nstype = root.nstype;
+                body.value = selfvalue;
+                body.sign = root.sign;
+                body.body = root.body;
+                root.body = body;
+                root.body.nstype = root.nstype;
+                break;
+
             case IF:
                 root.body = semanticAdjustment(root.body, comma,level);
                 root.nstype = root.body.nstype;

@@ -42,6 +42,13 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitAssignfunction(GrammarParser.AssignfunctionContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code assigninc}
+	 * labeled alternative in {@link GrammarParser#assign}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitAssigninc(GrammarParser.AssignincContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link GrammarParser#iff}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

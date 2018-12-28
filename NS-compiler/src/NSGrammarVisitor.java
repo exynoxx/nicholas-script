@@ -41,6 +41,15 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
         return n;
     }
 
+    @Override
+    public Node visitAssigninc(GrammarParser.AssignincContext ctx) {
+        Node n = new Node(Type.INCOP);
+        n.ID = ctx.ID().toString();
+        n.body = this.visit(ctx.binop());
+        n.sign = this.visit(ctx.sign());
+        return n;
+    }
+
     //iff ##########################################
     @Override
     public Node visitIff(GrammarParser.IffContext ctx) {
