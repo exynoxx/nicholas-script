@@ -21,4 +21,11 @@ char *stdinline (int size) {
     fgets (buffer, size, stdin);
     return buffer;
 }
+
 :CBLOCKEND:
+/*
+
+char *_nsalloc (int size) {
+    // | p1 | -- | p3 | p4 | p5 |
+}
+*/

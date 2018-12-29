@@ -96,16 +96,25 @@ public class BackendC {
 
             case ASSIGN:
                 String name = root.ID;
-                String type = root.nstype + " ";
+                String type = root.nstype;
 
                 CStringBuilder body = recursive(root.body);
                 if (root.body.nstype.equals("string")) type = "char *";
 
+
+                String line = "";
                 if (root.reassignment) {
                     type = "";
+
+                    if (type.equals("string")) {
+                        line += "free(" + name + ");\n";
+                    }
+
+                } else {
+                    type += " ";
                 }
 
-                String line = type + name + " = " + body.getCode() + ending;
+                line += type + name + " = " + body.getCode() + ending;
 
                 if (root.fundecl) {
                     line = "";
@@ -185,7 +194,7 @@ public class BackendC {
                     CStringBuilder cb = recursive(c);
                     block = merge(block, cb);
                     blockCode += cb.getPre()+cb.getCode();
-                    postBlockCode += cb.getPost();
+                    //postBlockCode += cb.getPost();
                 }
 
                 String codeblock = "{\n";

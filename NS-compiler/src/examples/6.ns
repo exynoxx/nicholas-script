@@ -1,0 +1,29 @@
+var a = (x:string,y:string) => x~y;
+
+var b = (x:string,y:string) => {
+    var c = x~y;
+    return c ~ "!";
+};
+
+/*
+var s = "";
+while ( i<10) {
+    s ~= "!";
+    i++;
+}
+
+
+char *c = malloc(0);
+strcpy(c, "");
+
+while (i < 10) {
+    char *yut =....
+    ...............
+    int fo = strlen(c)+strlen(yut);
+    char *tt = malloc(fo);
+    strcpy(tt, c);
+    strcpy(tt,yut);
+    free(c);
+    c = tt;
+}
+*/

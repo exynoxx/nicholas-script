@@ -1,6 +1,7 @@
 features:
 
-inc op (+=, -=, *=, /=, ~=, %=)
+//inc op (+=, -=, *=, /=, ~=, %=)
+function memory free. free link chain.
 booleans
 while (loop + optional condition)
 map
