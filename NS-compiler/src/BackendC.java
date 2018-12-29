@@ -2,7 +2,7 @@ import java.util.*;
 
 public class BackendC {
 
-    HashMap<Integer,HashMap<String,String>> typesHM = new HashMap<Integer, HashMap<String, String>>();
+    HashMap<Integer, HashMap<String, String>> typesHM = new HashMap<Integer, HashMap<String, String>>();
     Random random = new Random();
 
     String cCode;
@@ -28,7 +28,7 @@ public class BackendC {
     }
 
     public String gen(Node root) {
-        root = semanticAdjustment(root, false,0);
+        root = semanticAdjustment(root, false, 0);
         CStringBuilder cb = recursive(root);
         String ret = cCode + "\n" + "//signatures \n" + cb.getSignature() + "\n" +
                 "//functions \n" + cb.getFunctionImpl() + "\n" +
@@ -45,31 +45,33 @@ public class BackendC {
         return typesHM.get(name+level);
     }*/
 
-    public void pushType (String name, String type, int level) {
+    public void pushType(String name, String type, int level) {
 
         if (typesHM.get(level) == null) {
-            typesHM.put(level,new HashMap<>());
+            typesHM.put(level, new HashMap<>());
         }
 
-        HashMap<String,String> tmp = typesHM.get(level);
-        tmp.put(name,type);
+        HashMap<String, String> tmp = typesHM.get(level);
+        tmp.put(name, type);
     }
 
-    public String getType (String name,int level) {
+    public String getType(String name, int level) {
         String ret = null;
-        while (level >= 0){
+        while (level >= 0) {
             if (ret != null) {
                 break;
             } else {
-                if (typesHM.get(level) == null) return null;
-                ret = typesHM.get(level).get(name);
+                if (typesHM.get(level) != null) {
+                    ret = typesHM.get(level).get(name);
+                    return ret;
+                }
             }
             level--;
         }
         return ret;
     }
 
-    public void resetLevel (int level) {
+    public void resetLevel(int level) {
         typesHM.get(level).clear();
     }
 
@@ -84,12 +86,12 @@ public class BackendC {
                 for (Node c : root.children) {
                     CStringBuilder cb = recursive(c);
                     ret = merge(ret, cb);
-                    retCode += cb.getPre()+cb.getCode();
+                    retCode += cb.getPre() + cb.getCode();
                     postCode += cb.getPost();
                 }
 
                 String code = "void main () {\n";
-                code += retCode+postCode;
+                code += retCode + postCode;
                 code += "}\n";
                 return new CStringBuilder("", code, "", ret.getSignature(), ret.getFunctionImpl());
 
@@ -106,7 +108,7 @@ public class BackendC {
                 if (root.reassignment) {
                     type = "";
 
-                    if (type.equals("string")) {
+                    if (root.nstype.equals("string")) {
                         line += "free(" + name + ");\n";
                     }
 
@@ -134,7 +136,7 @@ public class BackendC {
                         while (true) {
 
                             sizeline += "strlen (" + nodeBody.value.text + ")+";
-                            list.add( nodeBody.value.text);
+                            list.add(nodeBody.value.text);
 
                             if (nodeBody.body != null) {
                                 nodeBody = nodeBody.body;
@@ -150,11 +152,11 @@ public class BackendC {
                         String salloc = "char *" + rname2 + " = malloc (" + rname1 + ");\n";
                         String scopy = "";
                         for (String s : list) {
-                            scopy += "strcat("+rname2+", "+s+");\n";
+                            scopy += "strcat(" + rname2 + ", " + s + ");\n";
                         }
                         String finalline = rname2;
                         String freeline = "free (" + rname2 + ");\n";
-                        return new CStringBuilder(finalsizeline+salloc+scopy,finalline,freeline,"","");
+                        return new CStringBuilder(finalsizeline + salloc + scopy, finalline, freeline, "", "");
 
                     } else {
                         CStringBuilder cbbody = recursive(root.body);
@@ -193,12 +195,12 @@ public class BackendC {
                 for (Node c : root.children) {
                     CStringBuilder cb = recursive(c);
                     block = merge(block, cb);
-                    blockCode += cb.getPre()+cb.getCode();
+                    blockCode += cb.getPre() + cb.getCode();
                     //postBlockCode += cb.getPost();
                 }
 
                 String codeblock = "{\n";
-                codeblock += blockCode+postBlockCode;
+                codeblock += blockCode + postBlockCode;
                 codeblock += "}\n";
                 return new CStringBuilder("", codeblock, "", block.getSignature(), block.getFunctionImpl());
 
@@ -234,7 +236,7 @@ public class BackendC {
             case RETURN:
                 CStringBuilder cb = recursive(root.body);
                 String returnstatement = "return " + cb.getCode() + ending;
-                return new CStringBuilder(cb.getPre(),returnstatement,"",cb.getSignature(),cb.getFunctionImpl());
+                return new CStringBuilder(cb.getPre(), returnstatement, "", cb.getSignature(), cb.getFunctionImpl());
 
             case CALL:
                 String callname = root.ID;
@@ -251,7 +253,7 @@ public class BackendC {
                 if (root.args.size() > 0) callargs = callargs.substring(0, callargs.length() - 1);
                 callargs += ")";
                 String callcode = callname + callargs + ending;
-                return new CStringBuilder(precall,callcode,postcall,"","");
+                return new CStringBuilder(precall, callcode, postcall, "", "");
 
             case IF:
                 CStringBuilder condbuilder = recursive(root.cond);
@@ -267,6 +269,14 @@ public class BackendC {
 
                 String ifcode = "if" + cond + ifbody + elsebody;
                 return new CStringBuilder(ifcode);
+            case WHILE:
+                CStringBuilder whilebodyb = recursive(root.body);
+                CStringBuilder whilecondb = recursive(root.cond);
+                String whilecond = "(" + whilecondb.getCode() + ")";
+                String whilebody = whilebodyb.getCode();
+
+                String finalwhile = "while " + whilecond + whilebody;
+                return new CStringBuilder(finalwhile);
         }
         return null;
     }
@@ -281,18 +291,15 @@ public class BackendC {
     }
 
 
-
-
-
-    public Node semanticAdjustment(Node root, boolean comma,int level) {
+    public Node semanticAdjustment(Node root, boolean comma, int level) {
         switch (root.type) {
             case BINOP:
-                root.value = semanticAdjustment(root.value, comma,level);
+                root.value = semanticAdjustment(root.value, comma, level);
                 root.nstype = root.value.nstype;
                 break;
             case VALUE:
                 if (root.nstype == null) {
-                    root.nstype = getType(root.text,level);
+                    root.nstype = getType(root.text, level);
                 }
                 break;
             case ASSIGN:
@@ -309,20 +316,20 @@ public class BackendC {
                     comma = true;
                 }
 
-                if (getType(root.ID,level) != null) {
+                if (getType(root.ID, level) != null) {
                     root.reassignment = true;
                 }
 
-                root.body = semanticAdjustment(root.body, comma,level);
+                root.body = semanticAdjustment(root.body, comma, level);
                 if (root.nstype == null) root.nstype = root.body.nstype;
-                pushType(root.ID,root.nstype,level);
+                pushType(root.ID, root.nstype, level);
 
                 break;
             case INCOP:
 
                 //a += b | a = a + b
                 root.type = Type.ASSIGN;
-                root.nstype = getType(root.ID,level);
+                root.nstype = getType(root.ID, level);
                 root.shouldComma = true;
                 root.reassignment = true;
 
@@ -338,17 +345,32 @@ public class BackendC {
                 break;
 
             case IF:
-                root.body = semanticAdjustment(root.body, comma,level);
+                root.body = semanticAdjustment(root.body, comma, level);
                 root.nstype = root.body.nstype;
                 if (root.elsebody != null) {
-                    root.elsebody = semanticAdjustment(root.elsebody,comma,level);
+                    root.elsebody = semanticAdjustment(root.elsebody, comma, level);
+                }
+                break;
+
+            case WHILE:
+                root.body = semanticAdjustment(root.body, comma, level);
+                root.nstype = root.body.nstype;
+                if (root.cond != null) {
+                    root.cond = semanticAdjustment(root.cond, comma, level);
+                } else {
+                    Node one = new Node(Type.BINOP);
+                    Node oneValue = new Node(Type.VALUE);
+                    oneValue.text = "1";
+                    oneValue.nstype = "int";
+                    one.value = oneValue;
+                    root.cond = one;
                 }
                 break;
             case BLOCK:
                 ArrayList<Node> l = new ArrayList<>();
                 boolean foundReturn = false;
                 for (Node n : root.children) {
-                    Node k = semanticAdjustment(n, false,level+1);
+                    Node k = semanticAdjustment(n, false, level + 1);
                     l.add(k);
                     if (k.type == Type.RETURN) {
                         foundReturn = true;
@@ -359,7 +381,7 @@ public class BackendC {
                 root.children = l;
                 break;
             case CALL:
-                root.nstype = getType(root.ID,level);
+                root.nstype = getType(root.ID, level);
                 root.shouldComma = true;
                 if (comma) root.shouldComma = false;
 
@@ -371,7 +393,7 @@ public class BackendC {
 
                 ArrayList<Node> arglist = new ArrayList<>();
                 for (Node arg : root.args) {
-                    Node newarg = semanticAdjustment(arg, comma,level);
+                    Node newarg = semanticAdjustment(arg, comma, level);
                     arglist.add(newarg);
                 }
                 root.args = arglist;
@@ -379,7 +401,7 @@ public class BackendC {
                 break;
             case FUNCTION:
                 for (Node n : root.args) {
-                    pushType(n.ID,n.nstype,level+1);
+                    pushType(n.ID, n.nstype, level + 1);
                 }
 
                 if (root.body.type != Type.BLOCK) {
@@ -391,17 +413,17 @@ public class BackendC {
                     //does statement return something? yes no
                     if (root.body.type == Type.CALL || root.body.type == Type.BINOP) {
                         Node retnode = new Node(Type.RETURN);
-                        retnode.body = semanticAdjustment(root.body, comma,level+1);
+                        retnode.body = semanticAdjustment(root.body, comma, level + 1);
                         children.add(retnode);
                     } else {
-                        children.add(semanticAdjustment(root.body, comma,level+1));
+                        children.add(semanticAdjustment(root.body, comma, level + 1));
                     }
 
                     block.children = children;
                     root.body = block;
                 }
 
-                root.body = semanticAdjustment(root.body, comma,level);//body=block, block will inc level
+                root.body = semanticAdjustment(root.body, comma, level);//body=block, block will inc level
 
                 if (root.nstype == null) root.nstype = root.body.nstype;
                 //pushType(root.ID,root.nstype,level);
@@ -415,13 +437,13 @@ public class BackendC {
                     comma = true;
                 }
 
-                root.body = semanticAdjustment(root.body, comma,level);
+                root.body = semanticAdjustment(root.body, comma, level);
                 root.nstype = root.body.nstype;
                 break;
 
             default:
                 if (root.body != null) {
-                    root.body = semanticAdjustment(root.body, comma,level);
+                    root.body = semanticAdjustment(root.body, comma, level);
                     if (root.nstype == null) {
                         root.nstype = root.body.nstype;
                     }
@@ -429,7 +451,7 @@ public class BackendC {
                 if (root.children != null) {
                     ArrayList<Node> newChildren = new ArrayList<>();
                     for (Node c : root.children) {
-                        newChildren.add(semanticAdjustment(c, false,level));
+                        newChildren.add(semanticAdjustment(c, false, level));
                     }
                 }
                 break;

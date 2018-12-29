@@ -55,6 +55,12 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitIff(GrammarParser.IffContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link GrammarParser#whilee}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitWhilee(GrammarParser.WhileeContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link GrammarParser#returnn}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

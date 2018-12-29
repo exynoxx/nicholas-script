@@ -61,7 +61,18 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
         }
         return n;
     }
+    //whilee ########################################
 
+
+    @Override
+    public Node visitWhilee(GrammarParser.WhileeContext ctx) {
+        Node n = new Node(Type.WHILE);
+        n.body = this.visit(ctx.block());
+        if (ctx.binop() != null) {
+            n.cond = this.visit(ctx.binop());
+        }
+        return n;
+    }
 
     //return ####################################3
     @Override

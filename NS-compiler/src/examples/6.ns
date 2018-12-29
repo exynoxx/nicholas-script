@@ -1,8 +1,14 @@
-var a = (x:string,y:string) => x~y;
+var a = 0;
 
-var b = (x:string,y:string) => {
-    var c = x~y;
-    return c ~ "!";
+loop {
+    a += 1;
+};
+
+while (a < 10) {
+    var b = 0;
+    b += a;
+    string c = "hello";
+    c ~= "world";
 };
 
 /*

@@ -6,7 +6,7 @@ start
 
 program: (statement SEMICOLON)+;
 
-statement: assign|iff|returnn|call;
+statement: assign|iff|returnn|call|whilee;
 
 assign:
 VAR? ID (COLON TYPE)? EQ eval        #assigneval
@@ -17,6 +17,9 @@ VAR? ID (COLON TYPE)? EQ eval        #assigneval
 iff:
 IF LPAREN binop RPAREN block (ELSE block)?
 ;
+
+whilee: WHILE LPAREN binop RPAREN block
+| LOOP block;
 
 returnn:
 RETURN eval
@@ -42,7 +45,7 @@ sign: (PLUS|MINUS|MULT|DIV|GE|LE|GT|LT|TILDE|EQUAL);
 
 function:
 LPAREN (arg (COMMA arg)*)? RPAREN (COLON TYPE)? ARROW fbody;
-fbody: block|iff|eval|assign;
+fbody: block|iff|eval|assign|whilee;
 
 arg:ID COLON TYPE;
 
@@ -74,6 +77,8 @@ TILDE:'~';
 ARROW:'=>';
 IF: 'if';
 ELSE: 'else';
+WHILE: 'while';
+LOOP: 'loop';
 VAR: 'var' ;
 RETURN: 'return';
 EQ: '=';

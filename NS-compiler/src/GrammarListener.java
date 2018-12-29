@@ -83,6 +83,16 @@ public interface GrammarListener extends ParseTreeListener {
 	 */
 	void exitIff(GrammarParser.IffContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link GrammarParser#whilee}.
+	 * @param ctx the parse tree
+	 */
+	void enterWhilee(GrammarParser.WhileeContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link GrammarParser#whilee}.
+	 * @param ctx the parse tree
+	 */
+	void exitWhilee(GrammarParser.WhileeContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link GrammarParser#returnn}.
 	 * @param ctx the parse tree
 	 */
