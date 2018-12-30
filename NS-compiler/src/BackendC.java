@@ -28,7 +28,7 @@ public class BackendC {
     }
 
     public String gen(Node root) {
-        root = semanticAdjustment(root,null, false, 0);
+        root = semanticAdjustment(root, false, 0);
         CStringBuilder cb = recursive(root);
         String ret = cCode + "\n" + "//signatures \n" + cb.getSignature() + "\n" +
                 "//functions \n" + cb.getFunctionImpl() + "\n" +
@@ -175,7 +175,7 @@ public class BackendC {
 
             case VALUE:
 
-                if (root.nstype != null && root.nstype.equals("string") && root.needExtraction) {
+                if (root.nstype != null && root.nstype.equals("string")) {
                     String rname = generateRandomName();
                     int ssize = root.text.length() - 2;
                     String salloc = "char *" + rname + " = (char *) malloc (" + ssize + ");\n";
@@ -191,6 +191,7 @@ public class BackendC {
             case BLOCK:
                 CStringBuilder block = new CStringBuilder("", "", "", "", "");
                 String blockCode = "";
+                String postBlockCode = "";
                 for (Node c : root.children) {
                     CStringBuilder cb = recursive(c);
                     block = merge(block, cb);
@@ -199,7 +200,7 @@ public class BackendC {
                 }
 
                 String codeblock = "{\n";
-                codeblock += blockCode;
+                codeblock += blockCode + postBlockCode;
                 codeblock += "}\n";
                 return new CStringBuilder("", codeblock, "", block.getSignature(), block.getFunctionImpl());
 
@@ -290,16 +291,11 @@ public class BackendC {
     }
 
 
-    public Node semanticAdjustment(Node root,Node parent, boolean comma, int level) {
+    public Node semanticAdjustment(Node root, boolean comma, int level) {
         switch (root.type) {
             case BINOP:
-                root.value = semanticAdjustment(root.value,root, comma, level);
-                root.needExtraction = root.value.needExtraction;
+                root.value = semanticAdjustment(root.value, comma, level);
                 root.nstype = root.value.nstype;
-                if (root.body != null) {
-                    root.body = semanticAdjustment(root.body,root, comma, level);
-                    root.needExtraction = root.needExtraction || root.body.needExtraction;
-                }
                 break;
             case VALUE:
                 if (root.nstype == null) {
@@ -324,7 +320,7 @@ public class BackendC {
                     root.reassignment = true;
                 }
 
-                root.body = semanticAdjustment(root.body,root, comma, level);
+                root.body = semanticAdjustment(root.body, comma, level);
                 if (root.nstype == null) root.nstype = root.body.nstype;
                 pushType(root.ID, root.nstype, level);
 
@@ -349,18 +345,18 @@ public class BackendC {
                 break;
 
             case IF:
-                root.body = semanticAdjustment(root.body,root, comma, level);
+                root.body = semanticAdjustment(root.body, comma, level);
                 root.nstype = root.body.nstype;
                 if (root.elsebody != null) {
-                    root.elsebody = semanticAdjustment(root.elsebody,root, comma, level);
+                    root.elsebody = semanticAdjustment(root.elsebody, comma, level);
                 }
                 break;
 
             case WHILE:
-                root.body = semanticAdjustment(root.body,root, comma, level);
+                root.body = semanticAdjustment(root.body, comma, level);
                 root.nstype = root.body.nstype;
                 if (root.cond != null) {
-                    root.cond = semanticAdjustment(root.cond,root, comma, level);
+                    root.cond = semanticAdjustment(root.cond, comma, level);
                 } else {
                     Node one = new Node(Type.BINOP);
                     Node oneValue = new Node(Type.VALUE);
@@ -373,9 +369,8 @@ public class BackendC {
             case BLOCK:
                 ArrayList<Node> l = new ArrayList<>();
                 boolean foundReturn = false;
-                root.children = l;
                 for (Node n : root.children) {
-                    Node k = semanticAdjustment(n,root, false, level + 1);
+                    Node k = semanticAdjustment(n, false, level + 1);
                     l.add(k);
                     if (k.type == Type.RETURN) {
                         foundReturn = true;
@@ -383,6 +378,7 @@ public class BackendC {
                     }
                 }
                 if (!foundReturn) root.nstype = "void";
+                root.children = l;
                 break;
             case CALL:
                 root.nstype = getType(root.ID, level);
@@ -397,7 +393,7 @@ public class BackendC {
 
                 ArrayList<Node> arglist = new ArrayList<>();
                 for (Node arg : root.args) {
-                    Node newarg = semanticAdjustment(arg,root, comma, level);
+                    Node newarg = semanticAdjustment(arg, comma, level);
                     arglist.add(newarg);
                 }
                 root.args = arglist;
@@ -417,53 +413,37 @@ public class BackendC {
                     //does statement return something? yes no
                     if (root.body.type == Type.CALL || root.body.type == Type.BINOP) {
                         Node retnode = new Node(Type.RETURN);
-                        retnode.body = semanticAdjustment(root.body,root, comma, level + 1);
+                        retnode.body = semanticAdjustment(root.body, comma, level + 1);
                         children.add(retnode);
                     } else {
-                        children.add(semanticAdjustment(root.body,root, comma, level + 1));
+                        children.add(semanticAdjustment(root.body, comma, level + 1));
                     }
 
                     block.children = children;
                     root.body = block;
                 }
 
-                root.body = semanticAdjustment(root.body,root, comma, level);//body=block, block will inc level
+                root.body = semanticAdjustment(root.body, comma, level);//body=block, block will inc level
 
                 if (root.nstype == null) root.nstype = root.body.nstype;
                 //pushType(root.ID,root.nstype,level);
                 break;
             case RETURN:
+                root.shouldComma = true;
 
-                Node returnNode = new Node(Type.RETURN);
-                Node returnbody = semanticAdjustment(root.body,root, comma, level);
-
-                returnNode.body = returnbody;
-                returnNode.nstype = returnbody.nstype;
-
-                if (returnbody.type != Type.BINOP || returnbody.body != null) {
-                    Node extraction = new Node(Type.ASSIGN);
-                    extraction.ID = generateRandomName();
-                    extraction.body = returnbody;
-                    extraction.nstype = returnbody.nstype;
-                    parent.children.add(extraction);
-                    //add extraction
-                    //return return
-
-                    returnNode.nstype = extraction.nstype;
-
-                    //create new body
-                    Node newBody = new Node(Type.BINOP);
-                    Node newValue = new Node(Type.VALUE);
-                    newValue.text = extraction.ID;
-                    newBody.value = newValue;
-                    returnNode.body = newBody;
+                if (comma) {
+                    root.shouldComma = false;
+                } else {
+                    comma = true;
                 }
-                returnNode.shouldComma = true;
-                return returnNode;
+
+                root.body = semanticAdjustment(root.body, comma, level);
+                root.nstype = root.body.nstype;
+                break;
 
             default:
                 if (root.body != null) {
-                    root.body = semanticAdjustment(root.body,root, comma, level);
+                    root.body = semanticAdjustment(root.body, comma, level);
                     if (root.nstype == null) {
                         root.nstype = root.body.nstype;
                     }
@@ -471,7 +451,7 @@ public class BackendC {
                 if (root.children != null) {
                     ArrayList<Node> newChildren = new ArrayList<>();
                     for (Node c : root.children) {
-                        newChildren.add(semanticAdjustment(c,root, false, level));
+                        newChildren.add(semanticAdjustment(c, false, level));
                     }
                 }
                 break;

@@ -3,7 +3,7 @@ features:
 //inc op (+=, -=, *=, /=, ~=, %=)
 function memory free. free link chain.
 booleans
-//while (loop + optional condition)
+while (loop + optional condition)
 map
 arrays
 function that return pointer should free memory on each call.

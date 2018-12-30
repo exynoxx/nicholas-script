@@ -15,7 +15,6 @@ public class Node {
     public boolean fundecl;
     public boolean shouldComma;
     public boolean reassignment;
-    public boolean needExtraction;
 
     public Node(Type type) {
         this.type = type;
