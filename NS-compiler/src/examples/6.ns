@@ -7,7 +7,7 @@ loop {
 while (a < 10) {
     var b = 0;
     b += a;
-    string c = "hello";
+    var c = "hello";
     c ~= "world";
 };
 

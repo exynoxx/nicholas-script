@@ -198,6 +198,7 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
         Node n = new Node(Type.VALUE);
         n.text = ctx.getText();
         n.nstype = "string";
+        n.needExtraction = true;
         return n;
     }
 }
