@@ -16,3 +16,11 @@ var b = f: 10;
 
 prints: a;
 prints: b;
+
+/*
+var const = () => {
+    return "hello world";
+};
+var c = const:;
+prints: c;
+*/
