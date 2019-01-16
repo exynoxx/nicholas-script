@@ -5,11 +5,10 @@ public class Node {
     public Type type;
     public String text;
     public String ID;
-    public String nstype;
     public Node body;
     public Node elsebody;
     public Node cond;
-    public Node sign;
+    public String sign;
     public Node value;
     public ArrayList<Node> children;
     public ArrayList<Node> args;

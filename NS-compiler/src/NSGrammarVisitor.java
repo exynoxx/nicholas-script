@@ -28,7 +28,7 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
         Node n = new Node(Type.ASSIGN);
         n.body = this.visit(ctx.eval());
         n.ID = ctx.ID().toString();
-        n.nstype = (ctx.TYPE() != null) ? ctx.TYPE().toString() : null;
+        //n.nstype = (ctx.TYPE() != null) ? ctx.TYPE().toString() : null;
         return n;
     }
     @Override
@@ -36,7 +36,7 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
         Node n = new Node(Type.ASSIGN);
         n.body = this.visit(ctx.function());
         n.ID = ctx.ID().toString();
-        n.nstype = (ctx.TYPE() != null) ? ctx.TYPE().toString() : null;
+        //n.nstype = (ctx.TYPE() != null) ? ctx.TYPE().toString() : null;
 
         return n;
     }
@@ -46,7 +46,7 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
         Node n = new Node(Type.INCOP);
         n.ID = ctx.ID().toString();
         n.body = this.visit(ctx.binop());
-        n.sign = this.visit(ctx.sign());
+        n.sign = ctx.sign().getText();
         return n;
     }
 
@@ -127,14 +127,8 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
     public Node visitBinopbinop(GrammarParser.BinopbinopContext ctx) {
         Node n = new Node(Type.BINOP);
         n.body = this.visit(ctx.binop());
-        n.sign = this.visit(ctx.sign());
+        n.sign = ctx.sign().getText();
         n.value = this.visit(ctx.value());
-        return n;
-    }
-    @Override
-    public Node visitSign(GrammarParser.SignContext ctx) {
-        Node n = new Node(Type.SIGN);
-        n.text = ctx.getText();
         return n;
     }
 
@@ -149,11 +143,8 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
             args.add(this.visit(arg));
         }
         n.body = this.visit(ctx.fbody());
-        try {
-            n.nstype = ctx.TYPE().toString();
-        } catch (Exception e) {}
         n.args = args;
-        n.nstype = (ctx.TYPE() != null) ? ctx.TYPE().toString() : null;
+        //n.nstype = (ctx.TYPE() != null) ? ctx.TYPE().toString() : null;
         return n;
     }
 
@@ -161,7 +152,7 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
     public Node visitArg(GrammarParser.ArgContext ctx) {
         Node n = new Node(Type.ARG);
         n.ID = ctx.ID().toString();
-        n.nstype = ctx.TYPE().toString();
+        //n.nstype = ctx.TYPE().toString();
         return n;
     }
 
@@ -190,14 +181,12 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
     public Node visitValueNUM(GrammarParser.ValueNUMContext ctx) {
         Node n = new Node(Type.VALUE);
         n.text = ctx.getText();
-        n.nstype = "int";
         return n;
     }
     @Override
     public Node visitValueSTRING(GrammarParser.ValueSTRINGContext ctx) {
         Node n = new Node(Type.VALUE);
         n.text = ctx.getText();
-        n.nstype = "string";
         return n;
     }
 }
