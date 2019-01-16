@@ -10,7 +10,7 @@ import java.nio.file.Paths;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class Compiler {
+public class ANTLRHandler {
 
     public static String extractCCode(String s) {
         if (s.indexOf(":CBLOCKBEGIN:") == -1){
@@ -57,11 +57,13 @@ public class Compiler {
         return ret;
     }
 
-    public static void main(String[] args) throws IOException {
-        String inputnum = "6";
-        String input = readFile("src/examples/"+inputnum+".ns");
-
-        input = extractImports(input);
+    public Node getNodeStructure (String file) {
+        String input = null;
+        try {
+            input = extractImports(readFile("src/examples/"+file+".ns"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         String cCode = extractCCode(input);
         input = removeCCodeBlock(input);
 
@@ -74,12 +76,17 @@ public class Compiler {
         NSGrammarVisitor cp = new NSGrammarVisitor();
         Node root = cp.visit(tree);
         //cp.prettyPrint(root, 0,4);
-
-        BackendC out = new BackendC(cCode);
-        String output = out.gen(root);
-        System.out.println(output);
-        writeFile("src/out/"+inputnum+".c",output);
-
+        //BackendC out = new BackendC(cCode);
+        //String output = out.gen(root);
+        //System.out.println(output);
+        /*
+        try {
+            writeFile("src/out/"+inputnum+".c",output);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        */
+        return root;
 
     }
 
