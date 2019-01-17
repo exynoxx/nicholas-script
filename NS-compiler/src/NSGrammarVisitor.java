@@ -173,7 +173,7 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
 
     @Override
     public Node visitValueID(GrammarParser.ValueIDContext ctx) {
-        Node n = new Node(Type.VALUE);
+        Node n = new Node(Type.VALUEVARIABLE);
         n.text = ctx.getText();
         return n;
     }
@@ -185,7 +185,7 @@ public class NSGrammarVisitor extends GrammarBaseVisitor<Node> {
     }
     @Override
     public Node visitValueSTRING(GrammarParser.ValueSTRINGContext ctx) {
-        Node n = new Node(Type.VALUE);
+        Node n = new Node(Type.VALUESTRING);
         n.text = ctx.getText();
         return n;
     }

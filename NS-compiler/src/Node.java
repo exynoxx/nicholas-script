@@ -1,5 +1,4 @@
 import java.util.ArrayList;
-import java.util.LinkedList;
 
 public class Node {
     public Type type;
@@ -12,10 +11,6 @@ public class Node {
     public Node value;
     public ArrayList<Node> children;
     public ArrayList<Node> args;
-    public boolean fundecl;
-    public boolean shouldComma;
-    public boolean reassignment;
-    public LinkedList<String> frees;
 
     public Node(Type type) {
         this.type = type;
