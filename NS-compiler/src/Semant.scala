@@ -45,7 +45,6 @@ class Semant {
                 var blockType: String = null
                 newchildren.map((x) => x match {
                         case returnNode(_,ns) => blockType = ns
-                        case _ => Nil//error
                     })
 
                 /*val search = (x: Tree) => x match {

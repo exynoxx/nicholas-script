@@ -13,14 +13,14 @@ class JavaToScalaBind {
 
     def convert (rootnode:Node):Tree = {
         if (rootnode.`type` == Type.PROGRAM) {
-            return programNode(arrayListToArrayBuffer(rootnode.children))
+            return programNode(arrayListToArrayBuffer(rootnode.children),"")
         }
 
         if (rootnode.`type` == Type.IF) {
             return ifNode(convert(rootnode.cond),convert(rootnode.body),convert(rootnode.elsebody),"")
         }
         if (rootnode.`type` == Type.ASSIGN) {
-            return assignNode(rootnode.ID,convert(rootnode.body),"")
+            return assignNode(rootnode.ID,convert(rootnode.body),rootnode.nstype)
         }
         if (rootnode.`type` == Type.INCOP) {
             return incNode(rootnode.ID,convert(rootnode.body), rootnode.sign,"")
@@ -47,12 +47,12 @@ class JavaToScalaBind {
             return blockNode(arrayListToArrayBuffer(rootnode.children),"")
         }
         if (rootnode.`type` == Type.FUNCTION) {
-            return functionNode(arrayListToArrayBuffer(rootnode.args),convert(rootnode.body),"")
+            return functionNode(arrayListToArrayBuffer(rootnode.args),convert(rootnode.body),rootnode.nstype)
         }
         if (rootnode.`type` == Type.ARG) {
-            return argNode(rootnode.ID,"")
+            return argNode(rootnode.ID,rootnode.nstype)
         }
-        return nullLeaf()
+        return nullLeaf("")
     }
 
 

@@ -4,6 +4,7 @@ public class Node {
     public Type type;
     public String text;
     public String ID;
+    public String nstype;
     public Node body;
     public Node elsebody;
     public Node cond;
