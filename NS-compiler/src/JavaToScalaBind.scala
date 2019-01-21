@@ -1,3 +1,5 @@
+import java.{Node, Type}
+
 import scala.collection.mutable.ArrayBuffer
 
 class JavaToScalaBind {
