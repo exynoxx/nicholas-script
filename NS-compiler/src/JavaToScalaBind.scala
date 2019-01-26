@@ -1,4 +1,4 @@
-import java.{Node, Type}
+import ANTLR.{Node, Type}
 
 import scala.collection.mutable.ArrayBuffer
 

@@ -1,6 +1,8 @@
-import java.ANTLRHandler
 import java.nio.file.{Files, Paths}
 import java.util.regex.Pattern
+
+import ANTLR.ANTLRHandler
+import sext._
 
 object Main {
 
@@ -25,31 +27,27 @@ object Main {
         ccode
     }
 
-    def removeCCodeBlock(s: String): String = s.replaceAll(":CBLOCKBEGIN:(?:[^\\n]*(\\n+))+:CBLOCKEND:", "")
+    def removeCCodeBlock(s: String): String = ":CBLOCKBEGIN:(?:[^\\n]*(\\n+))+:CBLOCKEND:".r.replaceAllIn(s, "")
 
-    /*
     def extractImports(s: String): String = {
 
-        var ret = ""
         val regex = "import\\s+\"(.+)\";".r
 
-        for (m <- regex.findAllMatchIn(s)) {
-            val url = m.group(1)
-            val fileContent = readFile(url)
-            ret += m.matcher.y
-        }
-        return
+        regex.replaceAllIn(s, m => readFile(m.group(1)))
     }
-    */
 
     def main(args: Array[String]): Unit = {
         val glue = new ANTLRHandler
-        val rootnode = glue.buildNodeTree("6")
         val converter = new JavaToScalaBind
         val codegen = new Codegen
         val semanticChecker = new Semant
 
+        val filecontent = readFile("src/examples/6.ns")
+        val extracted = extractImports(filecontent)
+        val clean = removeCCodeBlock(extracted)
+        val rootnode = glue.buildNodeTree(clean)
         var tree = converter.convert(rootnode)
+        println(tree.treeString)
         tree = semanticChecker.typeAnnotate(tree, Map.empty[String, String])
 
         (1 to 10).map{ (i) => println(codegen.generateRandomName)}

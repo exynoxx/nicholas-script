@@ -1,21 +1,27 @@
 
 class Semant {
 
-    def typeAnnotate(tree: Tree, env:Map[String,String]): Tree = {
+    def typeAnnotate(tree: Tree, env:Map[String,String]): (Tree,Map[String,String]) = {
         tree match {
             case programNode(children, ns) => {
                 val c = children.map(typeAnnotate(_,env))
                 return programNode(c, ns)
             }
 
+            //TODO: get type from body|els with actual type
+            //body OR elsbody can have different type. fix
             case ifNode(cond, body, els, ns) => {
-                return ifNode(typeAnnotate(cond,env), typeAnnotate(body,env), typeAnnotate(els,env), "")
+                val (c,env1) = typeAnnotate(cond,env)
+                val (b,env2) = typeAnnotate(body,env)
+                val (els,env3) = typeAnnotate(els,env)
+                return (ifNode(c,b,els, b.nstype),env)
             }
 
             case assignNode(id, body, ns) => {
-                val newbody = typeAnnotate(body,env)
+                val (newbody,env1) = typeAnnotate(body,env)
                 val ty = newbody.nstype
-                return assignNode(id, newbody, ty)
+                val newenv = env + (id -> ty)
+                return (assignNode(id, newbody, ty),newenv)
             }
 
             //TODO:report error
@@ -25,36 +31,66 @@ class Semant {
                     case Some(t) => t
                     case None => "int"
                 }
-                val newbody = binopNode(value, sign, typeAnnotate(body,env), ty)
-                return assignNode(id, newbody, ty)
+                val newbody = binopNode(value, sign, typeAnnotate(body,env)._1, ty)
+                return (assignNode(id, newbody, ty),env)
             }
 
             case binopNode(left, sign, right, ns) => {
-                val newleft = typeAnnotate(left,env)
-                val newright = typeAnnotate(right,env)
-                return binopNode(newleft, sign, newright, newleft.nstype)
+                val (newleft,env1) = typeAnnotate(left,env)
+                val (newright,env2) = typeAnnotate(right,env)
+                return (binopNode(newleft, sign, newright, newleft.nstype),env)
+            }
+
+            case valueNode(value,string,variable,ns) => {
+                var ty = ns
+                if (variable) {
+                    ty = env.get(value).get
+                }
+                return (valueNode(value,string,variable,ty),env)
             }
 
             case whileNode(cond, body, ns) => {
-                return whileNode(typeAnnotate(cond,env), typeAnnotate(body,env), "")
+                val (b,env1) = typeAnnotate(body,env)
+                val (c,env2) = typeAnnotate(cond,env)
+                return (whileNode(c, b, b.nstype),env)
             }
 
             case callNode(id, args, ns) => {
                 val newargs = args.map(typeAnnotate(_,env))
-                return callNode(id,args,ns)
+                return (callNode(id,args,ns), env)
             }
 
             case blockNode(children, ns) => {
-                val newchildren = children.map(typeAnnotate(_,env))
-                var ty: String = null
-                newchildren.map((x) => x match {case returnNode(_,ns) => ty = ns})
-                return blockNode(newchildren, ty)
+                var mergeenv = env
+                val newchildren = children.map((x) => {
+                    val (y,e) = typeAnnotate(x,mergeenv)
+                    mergeenv = mergeenv ++ e
+                    y
+                })
+                var ty: String = ns
+                val findReturn = (x:Tree) => x match {
+                    case returnNode(_,ns) => ty = ns
+                    case ifNode(cond,body,els,ns) => {
+                        findReturn(body)
+                        findReturn(els)
+                    }
+                    case whileNode(cond,body,ns) => findReturn(body)
+                }
+                newchildren.map((x) => findReturn(x))
+                return (blockNode(newchildren, ty),env)
+            }
+
+            case returnNode(body,ns) => {
+                val (b,env1) = typeAnnotate(body,env)
+                return (returnNode(b,b.nstype),env)
             }
 
             case functionNode(args, body, ns) => {
-                val newbody = typeAnnotate(body,env)
-                return functionNode(args, newbody,newbody.nstype)
+                val (newbody,env1) = typeAnnotate(body,env)
+                return (functionNode(args, newbody,newbody.nstype),env)
             }
+
+            case x => return (x,env)
         }
     }
 
