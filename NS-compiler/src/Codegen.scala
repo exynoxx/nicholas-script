@@ -1,11 +1,9 @@
 class Codegen {
 
     var count = 0
-
     def generateRandomName() = {
-        val s = Integer.toString(count, 26)
         count += 1
-        s.map((x) => (x + 97).toChar)
+        "var"+count
     }
 
     def source(tree: Tree): String = {
