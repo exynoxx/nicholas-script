@@ -47,7 +47,9 @@ object Main {
         val clean = removeCCodeBlock(extracted)
         val rootnode = glue.buildNodeTree(clean)
         var tree = converter.convert(rootnode)
-        println(tree.treeString)
-        //val (semantTree,env) = semanticChecker.typeAnnotate(tree, Map.empty[String, String])
+        //println(tree.treeString)
+        val (semantTree,env) = semanticChecker.typeAnnotate(tree, Map.empty[String, String])
+        val output = codegen.source(semantTree)
+        println(output)
     }
 }
