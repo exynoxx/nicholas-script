@@ -3,12 +3,16 @@ class Semant {
 
     def typeAnnotate(tree: Tree, env: Map[String, String]): (Tree, Map[String, String]) = {
 
-        def findReturn (x: Tree):Option[String] = x match {
+        def findReturn(x: Tree): Option[String] = x match {
             case returnNode(_, ns) => Some(ns)
-            case ifNode(_,b,e, _) => findReturn(b).orElse(findReturn(e))
+            case ifNode(_, b, e, _) => findReturn(b).orElse(findReturn(e))
             case whileNode(cond, body, ns) => {
+
+                //is body a block?
                 body match {
                     case blockNode(children, _) => {
+
+                        //find return statement inside the block
                         var retTy: Option[String] = None
                         children.map((x) => findReturn(x) match {
                             case Some(somety) => retTy = Some(somety)
@@ -16,11 +20,13 @@ class Semant {
                         })
                         retTy
                     }
+                    //case _ => findReturn(_)
                 }
             }
             //a block node will have its own return
             case _ => None
         }
+
         tree match {
             case programNode(children, ns) => {
                 //val c = children.map(typeAnnotate(_,env))
@@ -45,10 +51,14 @@ class Semant {
             }
 
             case assignNode(id, body, ns) => {
-                val (newbody, env1) = typeAnnotate(body, env)
-                val ty = newbody.nstype
+                val (body1, env1) = typeAnnotate(body, env)
+                val body2 = body1 match {
+                    case callNode(i, a, ns, _) => callNode(i, a, ns, true)
+                    case _ => body1
+                }
+                val ty = body2.nstype
                 val newenv = env + (id -> ty)
-                return (assignNode(id, newbody, ty), newenv)
+                return (assignNode(id, body2, ty), newenv)
             }
 
             //TODO:report error
@@ -82,9 +92,9 @@ class Semant {
                 return (whileNode(c, b, b.nstype), env)
             }
 
-            case callNode(id, args, ns) => {
+            case callNode(id, args, ns, c) => {
                 val newargs = args.map(typeAnnotate(_, env))
-                return (callNode(id, args, ns), env)
+                return (callNode(id, args, ns, c), env)
             }
 
             case blockNode(children, ns) => {

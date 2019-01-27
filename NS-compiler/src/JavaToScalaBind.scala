@@ -34,7 +34,7 @@ class JavaToScalaBind {
             return returnNode(convert(rootnode.body),"")
         }
         if (rootnode.`type` == Type.CALL) {
-            return callNode(rootnode.ID, arrayListToArrayBuffer(rootnode.args),"")
+            return callNode(rootnode.ID, arrayListToArrayBuffer(rootnode.args),"",false)
         }
         if (rootnode.`type` == Type.VALUE) {
             return valueNode(rootnode.text,false,false,"int")

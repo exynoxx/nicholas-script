@@ -16,6 +16,7 @@ class Codegen {
         case ty => ty
     }
 
+    //(pre,code,function)
     def gen(tree: Tree): Tuple3[String,String,String] = {
         tree match {
             case programNode(children, ns) => {
@@ -34,16 +35,16 @@ class Codegen {
 
             case assignNode(id, body, ns) => {
                 val ty = nsTypeToC(ns)
-                val b = gen(body)
-                val ret = ty + " " + id + " = " + b + ";\n"
-                return ("", ret,"")
+                val (pre,code,f) = gen(body)
+                val ret = ty + " " + id + " = " + code + ";\n"
+                return (pre, ret,f)
             }
 
             case binopNode(left, sign, right, ns) => {
-                val newleft = gen(left)
-                val newright = gen(right)
-                val ret = newleft + sign + newright
-                return ("", ret,"")
+                val (preleft,codeleft,_) = gen(left)
+                val (preright,coderight,_) = gen(right)
+                val code = codeleft + sign + coderight
+                return (preleft+preright, code,"")
             }
 
             case valueNode(value, string, variable, ns) => {
@@ -68,11 +69,21 @@ class Codegen {
                 return ("",ret,"")
             }
 
-            case callNode(id, args, ns) => {
-                val newargs = args.map(gen(_))
-                ("","","")
+            case callNode(id, args, ns, child) => {
+                val pt1 = id
+                var pt2 = ""
+                var pt3 = "("
+                args.map((arg) => {
+                    val (pre,code,_) = gen(arg)
+                    pt2 += pre
+                    pt3 += code
+                })
+                val pt4 = if (child) ")" else ");\n"
+                val ret = pt1 + pt3 + pt4
+                (pt2,ret,"")
             }
 
+            //function only
             case argNode(id,ns) => ("", nsTypeToC(ns) + id, "")
 
                 /*
