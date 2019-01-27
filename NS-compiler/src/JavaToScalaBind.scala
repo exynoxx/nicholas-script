@@ -36,6 +36,9 @@ class JavaToScalaBind {
         if (rootnode.`type` == Type.CALL) {
             return callNode(rootnode.ID, arrayListToArrayBuffer(rootnode.args),"",false)
         }
+        if (rootnode.`type` == Type.BINOP) {
+            return binopNode(convert(rootnode.value),rootnode.sign,convert(rootnode.body),"")
+        }
         if (rootnode.`type` == Type.VALUE) {
             return valueNode(rootnode.text,false,false,"int")
         }
@@ -46,10 +49,10 @@ class JavaToScalaBind {
             return valueNode(rootnode.text,false,true,"")
         }
         if (rootnode.`type` == Type.BLOCK) {
-            return blockNode(arrayListToArrayBuffer(rootnode.children),"")
+            return blockNode(arrayListToArrayBuffer(rootnode.children),rootnode.nstype)
         }
         if (rootnode.`type` == Type.FUNCTION) {
-            return functionNode(arrayListToArrayBuffer(rootnode.args),convert(rootnode.body),rootnode.nstype)
+            return functionNode("",arrayListToArrayBuffer(rootnode.args),convert(rootnode.body),rootnode.nstype)
         }
         if (rootnode.`type` == Type.ARG) {
             return argNode(rootnode.ID,rootnode.nstype)

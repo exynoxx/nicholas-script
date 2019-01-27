@@ -33,17 +33,20 @@ class Codegen {
 
             case ifNode(cond, body, els, ns) => {
                 val c = gen(cond)._2
-                val b = gen(body)._2
-                val elsebody = gen(els)._2
+                val (prebody,codebody,functionbody) = gen(body)
+                val (preelse,codeelse,functionelse) = gen(els)
                 val condstring = "(" + c + ")\n"
-                val ret = "if" + condstring + b + "else" + elsebody
-                return ("", ret, "")
+                val ret = "if" + condstring + codebody + "else" + codeelse
+                return (prebody+preelse, ret, functionbody+functionelse)
             }
 
             case assignNode(id, body, ns) => {
                 val ty = nsTypeToC(ns)
                 val (pre, code, f) = gen(body)
-                val ret = ty + " " + id + " = " + code + ";\n"
+                val ret = body match {
+                    case functionNode(_,_,_,_) => ""
+                    case _ => ty + " " + id + " = " + code + ";\n"
+                }
                 return (pre, ret, f)
             }
 
@@ -71,9 +74,9 @@ class Codegen {
 
             case whileNode(cond, body, ns) => {
                 val (_, c, _) = gen(cond)
-                val (_, b, _) = gen(body)
+                val (_, b, f) = gen(body)
                 val ret = "while(" + c + ")" + b
-                return ("", ret, "")
+                return ("", ret, f)
             }
 
             case callNode(id, args, ns, child) => {
@@ -91,24 +94,32 @@ class Codegen {
             }
 
             //function only
-            case argNode(id, ns) => ("", nsTypeToC(ns) + id, "")
+            case argNode(id, ns) => ("", nsTypeToC(ns) + " " + id, "")
 
-                /*
-            case functionNode(args, body, ns) => {
-                val newbody = typeAnnotate(body, env)
-                return functionNode(args, newbody, newbody.nstype)
+            case functionNode(id, args, body, ns) => {
+                var ret = ns + " " + id + "("
+                args.map((arg) => {
+                    val (_, c, _) = gen(arg)
+                    ret += c + ","
+                })
+                ret = ret.substring(0, ret.length - 1) + ")"
+                val (_, b, f) = gen(body)
+                ret += b + f
+
+                return ("", "", ret)
             }
-            */
 
             case blockNode(children, ns) => {
-                var (code,f) = ("{\n", "")
+                var (code, f) = ("{\n", "")
                 val newchildren = children.map((x) => {
-                    val (a,b,c) = gen(x)
-                    code += a+b
+                    val (a, b, c) = gen(x)
+                    code += a + b
                     f += c
                 })
-                return ("",code,f)
+                code += "}\n"
+                return ("", code, f)
             }
+            case _ => ("", "", "")
         }
     }
 

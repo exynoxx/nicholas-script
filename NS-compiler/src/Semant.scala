@@ -54,6 +54,7 @@ class Semant {
                 val (body1, env1) = typeAnnotate(body, env)
                 val body2 = body1 match {
                     case callNode(i, a, ns, _) => callNode(i, a, ns, true)
+                    case functionNode(_,args,body,ns) => functionNode(id,args,body,ns)
                     case _ => body1
                 }
                 val ty = body2.nstype
@@ -83,6 +84,10 @@ class Semant {
                 if (variable) {
                     ty = env.get(value).get
                 }
+                /*
+                if (!string && !variable) {
+                    ty = "int"
+                }*/
                 return (valueNode(value, string, variable, ty), env)
             }
 
@@ -94,7 +99,8 @@ class Semant {
 
             case callNode(id, args, ns, c) => {
                 val newargs = args.map(typeAnnotate(_, env))
-                return (callNode(id, args, ns, c), env)
+                val ty = env.get(id).get
+                return (callNode(id, args, ty, c), env)
             }
 
             case blockNode(children, ns) => {
@@ -121,9 +127,9 @@ class Semant {
                 return (returnNode(b, b.nstype), env)
             }
 
-            case functionNode(args, body, ns) => {
+            case functionNode(id,args, body, ns) => {
                 val (newbody, env1) = typeAnnotate(body, env)
-                return (functionNode(args, newbody, newbody.nstype), env)
+                return (functionNode(id,args, newbody, newbody.nstype), env)
             }
 
             case x => return (x, env)

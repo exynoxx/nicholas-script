@@ -42,7 +42,7 @@ object Main {
         val codegen = new Codegen
         val semanticChecker = new Semant
 
-        val filecontent = readFile("src/examples/6.ns")
+        val filecontent = readFile("src/examples/1.ns")
         val extracted = extractImports(filecontent)
         val clean = removeCCodeBlock(extracted)
         val rootnode = glue.buildNodeTree(clean)

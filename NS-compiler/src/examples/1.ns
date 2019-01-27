@@ -1,18 +1,9 @@
-import "src/examples/stdlib.ns";
-
 var f1 = (a:int,b:int) => {
 
     var f2 = (a:int) => {
         var c = a+4;
-        var identity = (x:int):int => {return x;};
+        var identity:int = (x:int) => {return x;};
         return identity: identity: identity: c;
     };
     return f2: (2*a);
 };
-
-printi: f1: 500 (f1: 2 (f1: 4 5));
-
-var f4 = (a:int,b:int,c:int) => a + b + c;
-var a = f4: 1 2 3;
-a = a + 1;
-printi: a;
