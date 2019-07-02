@@ -1,6 +1,9 @@
 
-\.idea/
-
+.idea/
+*.xml
 *.iml
-
+*.jar
+*.class
 out/
+parser2/target
+parser2/project
