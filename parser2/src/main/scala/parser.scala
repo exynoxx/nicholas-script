@@ -65,33 +65,31 @@ class parser() {
 
 	def compareTokens(a: Array[String], b: Array[String]): Boolean = {
 		if (a.length == 0 || b.length == 0) return false
-		var i = a.length - 1
-		var j = b.length - 1
-		var res = true
-		while (i >= 0 && j >= 0) {
-			res = res && compareToken(a(i), b(j))
-			i -= 1
-			j -= 1
-		}
-		return res
+
+		val (x,y) = if (b.length > a.length) (b,a) else (a,b)
+		x.slice(x.length - y.length, x.length)
+			.zip(y)
+			.map { case (x: String, y: String) => compareToken(x, y) }
+			.forall(x => x)
 	}
 
 	def reduce(): Boolean = {
 		//for each rule
-		var canReduce = false
 		rules.foreach {
 			case (body, name) => {
 				if (compareTokens(stack.toArray, body)) {
 					stack.remove(stack.length - body.length, body.length)
 					stack += name
+
+
 					println("---------------")
 					val str = stack.foldLeft("") { (a: String, b: String) => a + b + " " }
 					println(str)
-					canReduce = true
+					return true
 				}
 			}
 		}
 
-		return canReduce
+		false
 	}
 }

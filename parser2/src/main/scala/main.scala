@@ -7,7 +7,7 @@ object mainObj extends App {
 
 	val l = new lexer;
 	val p = new parser;
-	p.addRule("statement::=if|while|assign")
+	p.addRule("statement::=if|while|assign SEMICOLON")
 	p.addRule("assign::=def|defshort")
 	p.addRule("def::=VAR STRING(*) EQ assignval")
 	p.addRule("defshort::=STRING(*) DEFEQ assignval")
@@ -15,7 +15,7 @@ object mainObj extends App {
 	p.addRule("binop::=value|value OP value")
 	p.addRule("value::=INT(*)")
 
-	val input = "var a = 5"
+	val input = "var   a =     5;"
 	//printt(input)
 	val tokens = l.tokenize(input)
 	p.parse(tokens)
