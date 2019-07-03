@@ -8,6 +8,8 @@ class parser() {
 	var transitionList = ArrayBuffer[String]()
 	var idx = 0
 	var lookaheadBuffer = ""
+	var objPool = Map[Int, Tree]()
+
 
 	def addRule(rule: String) = {
 		val (name: String, body: String) = rule.split("\\s*::=\\s*") match {
@@ -97,6 +99,34 @@ class parser() {
 		//for each rule
 		rules.foreach { case (body, name) => {
 			if (compareTokens(stack.toArray, body)) {
+
+				name match {
+					case "value" => {
+						val tmp = valueNode(stack(stack.length - 1), "int")
+						objPool += (stack.length - 1 -> tmp)
+					}
+					case "op" => {
+						val tmp = opNode(stack(stack.length - 1), "")
+						objPool += (stack.length - 1 -> tmp)
+					}
+					case "def" => {
+						val name = stack(stack.length - 3)
+						val tmp = assignNode(name.substring(7, name.length - 1), objPool(stack.length - 2), "")
+						objPool += (stack.length - 2 -> tmp)
+					}
+					case "binop" => {
+						if (body.length == 1) {
+							//TODO change
+							val tmp = valueNode(stack(stack.length - 1),"int")
+							objPool += (stack.length - 1 -> tmp)
+						} else {
+							val tmp = binopNode(objPool(stack.length - 3), objPool(stack.length - 1), objPool(stack.length - 2), "int")
+							objPool += (stack.length - 2 -> tmp)
+						}
+					}
+					case _ =>
+				}
+
 				stack.remove(stack.length - body.length, body.length)
 				stack += name
 				transitionList += name

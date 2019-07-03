@@ -13,7 +13,7 @@ object mainObj extends App {
 	p.addRule("value::=INT(*)")
 	p.rules.foreach{case (k,v) => println(k.foldLeft("") { (a: String, b: String) => a + b + " " } + " -> " + v)}
 
-	val input = "var   a =  5+3;"
+	val input = "var   a =  5+3*2+1;"
 	//printt(input)
 	val tokens = l.tokenize(input)
 	p.parse(tokens)
