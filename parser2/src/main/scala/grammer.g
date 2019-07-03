@@ -6,6 +6,6 @@ assignval ::= binop | func
 binop ::= value | value OP value
 value ::= INT(*)
 OP ::= PLUS | MINUS | MULT | DIV | AND | OR | GE | LE | GEQ | LEQ | NEQ
-func ::= LPAREN (args) RPAREN IMPL fbody
+func ::= LPAREN args RPAREN IMPL fbody
 args ::= (STRING(*))*...............TODO
 fbody ::= binop | if | while | block
