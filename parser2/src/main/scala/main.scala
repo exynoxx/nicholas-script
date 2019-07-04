@@ -16,10 +16,11 @@ object mainObj extends App {
 
 
 	val l = new lexer;
-	val p = new parser(false);
+	val p = new parser(true);
 
 	val rules = readFile("src/main/scala/grammer.g").split("[$\n]")
 	rules.foreach(s => p.addRule(s))
+	p.printRules()
 	/*
 	func ::= LPAREN args RPAREN IMPL fbody
 	args ::= (STRING(*))*...............TODO

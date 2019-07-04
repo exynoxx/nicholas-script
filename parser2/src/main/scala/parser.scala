@@ -1,11 +1,11 @@
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.Map
 
-class parser() {
+class parser(debug: Boolean) {
 	var stack = ArrayBuffer[String]()
 	var rules = Map[Array[String], String]()
 	var input = Array[String]()
-	var transitionList = ArrayBuffer[String]()
+	//var transitionList = ArrayBuffer[String]()
 	var idx = 0
 	var lookaheadBuffer = ""
 	var objPool = ArrayBuffer[Tree]()
@@ -22,12 +22,16 @@ class parser() {
 		}
 	}
 
+	def printRules(): Unit = {
+		this.rules.foreach { case (k, v) => println(k.foldLeft("") { (a: String, b: String) => a + b + " " } + " -> " + v) }
+	}
+
 	def parse(input: Array[String]): Tree = {
 		this.input = input
 		shift()
 		while (true) {
-			if (!reduce()) {
-				if (!shift()) {
+			if (!reduce(debug)) {
+				if (!shift(debug)) {
 					println("done!")
 					return this.objPool(objPool.length - 1)
 				}
@@ -37,15 +41,17 @@ class parser() {
 		nullLeaf()
 	}
 
-	def shift(): Boolean = {
+	def shift(debug: Boolean = false): Boolean = {
 		if (idx < input.length) {
 			stack += input(idx)
 			objPool += nullLeaf()
 			if (idx < input.length - 1) lookaheadBuffer = input(idx + 1)
 			idx += 1
-			println("---------------")
-			val str = stack.foldLeft("") { (a: String, b: String) => a + b + " " }
-			println(str)
+			if (debug) {
+				println("---------------")
+				val str = stack.foldLeft("") { (a: String, b: String) => a + b + " " }
+				println(str)
+			}
 			true
 		} else {
 			false
@@ -55,7 +61,7 @@ class parser() {
 	def compareToken(a: String, b: String): Boolean = {
 		val boola = a.matches("STRING\\([\\*\\w]+\\)")
 		val boolb = b.matches("STRING\\([\\*\\w]+\\)")
-		val boolc = a.matches("INT\\([\\d]+\\)")
+		val boolc = a.matches("INT\\([\\*\\d]+\\)")
 		val boold = b.matches("INT\\([\\*\\d]+\\)")
 
 		//println(a + " + " + b)
@@ -71,31 +77,68 @@ class parser() {
 		}
 	}
 
-	def compareTokens(a: Array[String], b: Array[String]): Boolean = {
-		if (a.length == 0 || b.length == 0) return false
+	def compareTokens(stack: Array[String], rule: Array[String]): Boolean = {
+		val sl = stack.length
+		val rl = rule.length
+		if (sl == 0 || rl == 0) return false
+		if(sl < rl) return false
 
-		val (x, y) = if (b.length > a.length) (b, a) else (a, b)
-		x.slice(x.length - y.length, x.length)
-			.zip(y)
+		var s = stack
+		if (sl > rl) s = stack.slice(sl - rl, sl)
+		s.zip(rule)
 			.map { case (x: String, y: String) => compareToken(x, y) }
 			.forall(x => x)
 	}
 
+	/*
+val (x, y) = if (b.length > a.length) (b, a) else (a, b)
+x.slice(x.length-y.length, x.length)
+.zip(y)
+.map { case (x: String, y: String) => compareToken(x, y) }
+.forall(x => x)
+*/
+
+
 	def reduceableLookahead(): Boolean = {
+		//IS STACK SUBSECTION OF LONGER RULE!?
 		rules.foreach {
 			case (body, name) => {
-				if (compareTokens(stack.toArray :+ lookaheadBuffer, body)) {
-					return true
+
+				val stack = this.stack.toArray :+ lookaheadBuffer
+				val rule = body
+				val sl = stack.length
+				val rl = rule.length
+				if (sl == 0 || rl == 0) return false
+
+				if (sl < rl){
+					val r = rule.slice(0, sl)
+					val b = stack.zip(r)
+					.map { case (x: String, y: String) => compareToken(x, y) }
+					.forall(x => x)
+					if (b) return true
 				}
+
+				/*var s = stack
+				var r = rule
+				if (sl < rl) r = rule.slice(0, sl)
+				else if (sl > rl) s = stack.slice(sl - rl, sl)
+
+				val b = s.zip(r)
+					.map { case (x: String, y: String) => compareToken(x, y) }
+					.forall(x => x)
+				if (b) {
+					return true
+				}*/
 			}
 		}
+
 		false
 	}
 
-	def reduce(): Boolean = {
+	def reduce(debug: Boolean = false): Boolean = {
 
 		if (reduceableLookahead()) {
-			shift()
+			return false
 		}
 		//for each rule
 		rules.foreach { case (body, name) => {
@@ -104,7 +147,7 @@ class parser() {
 
 				var flush = true
 				val tmp: Tree = name match {
-					case "value" => valueNode(stack(stack.length - 1), "int")
+					case "value" => valueNode(stack(stack.length - 1), "")
 					case "op" => opNode(stack(stack.length - 1), "")
 					case "binop" => {
 						if (body.length == 1) objPool(objPool.length - 1)
@@ -119,7 +162,7 @@ class parser() {
 						assignNode(name.substring(7, name.length - 1), objPool(stack.length - 1), "")
 					}
 					case "statement" => {
-						statementNode(objPool(stack.length - 2),"")
+						statementNode(objPool(stack.length - 2), "")
 					}
 					case _ => {
 						flush = false
@@ -130,16 +173,17 @@ class parser() {
 
 				stack.remove(stack.length - body.length, body.length)
 				stack += name
-				transitionList += name
+				//transitionList += name
 				if (flush) {
 					objPool.remove(objPool.length - body.length, body.length)
 					objPool += tmp
 				}
 
-
-				println("---------------")
-				val str = stack.foldLeft("") { (a: String, b: String) => a + b + " " } + "|" + this.lookaheadBuffer + "|"
-				println(str)
+				if (debug) {
+					println("---------------")
+					val str = stack.foldLeft("") { (a: String, b: String) => a + b + " " } + "|" + this.lookaheadBuffer + "|"
+					println(str)
+				}
 				return true
 			}
 		}
