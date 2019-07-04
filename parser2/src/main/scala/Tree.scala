@@ -8,6 +8,8 @@ case class blockNode(children: ArrayBuffer[Tree], nstype: String) extends Tree
 
 case class assignNode(id: String, body: Tree, nstype: String) extends Tree
 
+case class statementNode(body: Tree, nstype:String) extends Tree
+
 case class functionNode(id: String, args: ArrayBuffer[Tree], body: Tree, nstype: String) extends Tree
 
 case class ifNode(condition: Tree, body: Tree, elsebody: Option[Tree], nstype: String) extends Tree

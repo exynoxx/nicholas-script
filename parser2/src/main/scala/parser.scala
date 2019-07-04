@@ -8,7 +8,7 @@ class parser() {
 	var transitionList = ArrayBuffer[String]()
 	var idx = 0
 	var lookaheadBuffer = ""
-	var objPool = Map[Int, Tree]()
+	var objPool = ArrayBuffer[Tree]()
 
 
 	def addRule(rule: String) = {
@@ -29,7 +29,7 @@ class parser() {
 			if (!reduce()) {
 				if (!shift()) {
 					println("done!")
-					return nullLeaf()
+					return this.objPool(objPool.length - 1)
 				}
 			}
 
@@ -40,6 +40,7 @@ class parser() {
 	def shift(): Boolean = {
 		if (idx < input.length) {
 			stack += input(idx)
+			objPool += nullLeaf()
 			if (idx < input.length - 1) lookaheadBuffer = input(idx + 1)
 			idx += 1
 			println("---------------")
@@ -98,38 +99,42 @@ class parser() {
 		}
 		//for each rule
 		rules.foreach { case (body, name) => {
+
 			if (compareTokens(stack.toArray, body)) {
 
-				name match {
-					case "value" => {
-						val tmp = valueNode(stack(stack.length - 1), "int")
-						objPool += (stack.length - 1 -> tmp)
-					}
-					case "op" => {
-						val tmp = opNode(stack(stack.length - 1), "")
-						objPool += (stack.length - 1 -> tmp)
+				var flush = true
+				val tmp: Tree = name match {
+					case "value" => valueNode(stack(stack.length - 1), "int")
+					case "op" => opNode(stack(stack.length - 1), "")
+					case "binop" => {
+						if (body.length == 1) objPool(objPool.length - 1)
+						else binopNode(objPool(stack.length - 3), objPool(stack.length - 1), objPool(stack.length - 2), "int")
 					}
 					case "def" => {
 						val name = stack(stack.length - 3)
-						val tmp = assignNode(name.substring(7, name.length - 1), objPool(stack.length - 2), "")
-						objPool += (stack.length - 2 -> tmp)
+						assignNode(name.substring(7, name.length - 1), objPool(stack.length - 1), "")
 					}
-					case "binop" => {
-						if (body.length == 1) {
-							//TODO change
-							val tmp = valueNode(stack(stack.length - 1),"int")
-							objPool += (stack.length - 1 -> tmp)
-						} else {
-							val tmp = binopNode(objPool(stack.length - 3), objPool(stack.length - 1), objPool(stack.length - 2), "int")
-							objPool += (stack.length - 2 -> tmp)
-						}
+					case "defshort" => {
+						val name = stack(stack.length - 3)
+						assignNode(name.substring(7, name.length - 1), objPool(stack.length - 1), "")
 					}
-					case _ =>
+					case "statement" => {
+						statementNode(objPool(stack.length - 2),"")
+					}
+					case _ => {
+						flush = false
+						nullLeaf()
+					}
+
 				}
 
 				stack.remove(stack.length - body.length, body.length)
 				stack += name
 				transitionList += name
+				if (flush) {
+					objPool.remove(objPool.length - body.length, body.length)
+					objPool += tmp
+				}
 
 
 				println("---------------")
