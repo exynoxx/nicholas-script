@@ -81,7 +81,7 @@ class parser(debug: Boolean) {
 		val sl = stack.length
 		val rl = rule.length
 		if (sl == 0 || rl == 0) return false
-		if(sl < rl) return false
+		if (sl < rl) return false
 
 		var s = stack
 		if (sl > rl) s = stack.slice(sl - rl, sl)
@@ -101,37 +101,27 @@ x.slice(x.length-y.length, x.length)
 
 	def reduceableLookahead(): Boolean = {
 		//IS STACK SUBSECTION OF LONGER RULE!?
-		rules.foreach {
-			case (body, name) => {
+		var stackMatchRules = rules.filter(
+			{
+				case (rule, name) => {
+					val sl = stack.length
+					val rl = rule.length
+					if (sl == 0 || rl == 0) return false
 
-				val stack = this.stack.toArray :+ lookaheadBuffer
-				val rule = body
-				val sl = stack.length
-				val rl = rule.length
-				if (sl == 0 || rl == 0) return false
-
-				if (sl < rl){
-					val r = rule.slice(0, sl)
-					val b = stack.zip(r)
-					.map { case (x: String, y: String) => compareToken(x, y) }
-					.forall(x => x)
-					if (b) return true
+					if (sl <= rl) {
+						val r = rule.slice(0, sl)
+						stack.zip(r)
+							.map { case (x: String, y: String) => compareToken(x, y) }
+							.forall(x => x)
+					} else false
 				}
-
-				/*var s = stack
-				var r = rule
-				if (sl < rl) r = rule.slice(0, sl)
-				else if (sl > rl) s = stack.slice(sl - rl, sl)
-
-				val b = s.zip(r)
-					.map { case (x: String, y: String) => compareToken(x, y) }
-					.forall(x => x)
-				if (b) {
-					return true
-				}*/
-			}
+			})
+		stackMatchRules.foreach {
+			case (rule, name) =>
+				val l = rule.length > stack.length
+				val c = compareToken(rule(stack.length), lookaheadBuffer)
+				if (l && c) return true
 		}
-
 		false
 	}
 

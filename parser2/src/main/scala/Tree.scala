@@ -4,7 +4,7 @@ trait Tree {
 	val nstype: String
 }
 
-case class blockNode(children: ArrayBuffer[Tree], nstype: String) extends Tree
+case class blockNode(children:List[Tree], nstype: String) extends Tree
 
 case class assignNode(id: String, body: Tree, nstype: String) extends Tree
 
