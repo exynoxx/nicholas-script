@@ -34,6 +34,12 @@ class TreePrinter {
 				"whileNode\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment)
+			case functionNode(id,args,b,ns) => printMinus("-", depth) +
+				"functionNode("+id+")\n" +
+				args.map(e => recursion(e,depth + increment)).mkString+
+				recursion(b, depth + increment)
+			case argNode(name,ns) => printMinus("-", depth) +
+			"argNode("+name+":"+ns+")\n"
 		}
 	}
 

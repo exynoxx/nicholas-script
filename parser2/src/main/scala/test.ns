@@ -1,3 +1,5 @@
+f1 := (x:int, y:int) => x+y;
+
 while (a > 0) {
 	if (a < 5) {
 		b:= 3;
