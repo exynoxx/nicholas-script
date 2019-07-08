@@ -9,7 +9,7 @@ class CodeGenerator {
 
 	def recurse(AST: Tree): codeblock = {
 		AST match {
-			case valueNode(value, ns) => codeblock(ret = "value")
+			case valueNode(value, ns) => codeblock(ret = value)
 			case binopNode(l, r, o, ns) =>
 				val codeblock(_, ll, _, _, _) = recurse(l)
 				val codeblock(_, rr, _, _, _) = recurse(r)
@@ -26,8 +26,8 @@ class CodeGenerator {
 					.map { case codeblock(pre, l, post, fdef, fimpl) => l }.mkString
 				val fdef = ns + " " + id + "(" + fargs + ") \n"
 				val codeblock(pre, rett, post, adef, aimpl) = recurse(body)
-				val fimpl = pre + post + post
-				codeblock(funcdef = fdef + ";\n" + adef, funcImpl = fimpl + aimpl)
+				val fimpl = rett
+				codeblock(funcdef = fdef + ";\n" + adef, funcImpl = fdef + fimpl + aimpl)
 			case argNode(name, ns) => codeblock(ret = convertType(ns) + " " + name)
 			case blockNode(children, ns) =>
 				val b = children.map(e => recurse(e))

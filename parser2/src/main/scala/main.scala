@@ -11,8 +11,9 @@ object main {
 	}
 
 	def main(args: Array[String]): Unit = {
-		val p = new Parser
 		val printer = new TreePrinter
+		val p = new Parser
+		val t = new TypeChecker
 		val cg = new CodeGenerator
 
 		val in = readFile("src/main/scala/test.ns")
@@ -23,6 +24,7 @@ object main {
 			case p.Error(msg1,msg2) => println(s"Error: $msg1, $msg2")
 										nullLeaf()
 		}
+		val tyAST:Tree = t.typerecurse(AST,AST)
 		print(cg.gen(AST))
 
 	}
