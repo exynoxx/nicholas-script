@@ -19,6 +19,8 @@ class Parser extends RegexParsers {
 		{ case s1 ~ valueNode(s2,_) ~ s3 ~ t ~ s4 => assignNode(s2, t, "") } |
 		word ~ ":=" ~ (exp|func) ~ ";" ^^ { case valueNode(s1,_) ~ s2 ~ t ~ s3 => assignNode(s1, t, "") }
 
+	def retStatement: Parser[Tree] = "return" ~ exp ^^{case _ ~ e => returnNode(e,"")}
+
 	def func: Parser[Tree] = func0 |func1 | funcn
 	def func0: Parser[Tree] = "()"~"=>" ~ (exp|block) ^^
 		{case s1~s2 ~ b => functionNode("",List(),b,"")}
@@ -37,7 +39,7 @@ class Parser extends RegexParsers {
 		}
 	def whilestatement: Parser[Tree] = "while" ~ "(" ~ binop ~ ")" ~ (exp | block) ^^ {case s1 ~s2~b~s3~e => whileNode(b,e,"")}
 
-	def statement: Parser[Tree] = ifstatement | whilestatement | defstatement ^^ { case s => s }
+	def statement: Parser[Tree] = ifstatement | whilestatement | defstatement |retStatement  ^^ { case s => s }
 
 	def start: Parser[Tree] = rep(statement) ^^ { case s => blockNode(s, "") }
 }

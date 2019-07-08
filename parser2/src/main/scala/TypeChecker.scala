@@ -1,30 +1,87 @@
+import scala.collection.immutable.HashMap
+import scala.collection.mutable
+
 class TypeChecker {
 
-	def typerecurse (AST:Tree, parent:Tree):Tree = {
+	def typecheck(AST: Tree): Tree = {
+		val (t, _) = typerecurse(AST, AST, HashMap())
+		t
+	}
+
+	def typerecurse(AST: Tree, parent: Tree, symbol: HashMap[String, String]): (Tree, HashMap[String, String]) = {
 		AST match {
-			case valueNode(value, ns) => if (ns.matches("\\d+")) valueNode(value,"int") else valueNode(value,"string")
+			case valueNode(value, ns) =>
+				if (ns.matches("\\d+"))
+					(valueNode(value, "int"), symbol)
+				else if (ns.matches("\"[\\w\\d]+\""))
+					(valueNode(value, "string"), symbol)
+				else (valueNode(value, symbol(value)), symbol)
 			case binopNode(l, r, o, ns) =>
-				if (l.nstype == "int") binopNode(l,r,o,"int")
-				else binopNode(l,r,o,"boolean")
+				(binopNode(l, r, o, "int"), symbol)
 			//case opNode(op, _) => codeblock(ret = op)
 			case assignNode(id, body, ns) =>
-				val btree = typerecurse(body,AST)
-				assignNode(id,btree,btree.nstype)
+				val (btree, _) = typerecurse(body, AST, symbol)
+				(assignNode(id, btree, btree.nstype), symbol + (id -> btree.nstype))
 			case functionNode(_, args, body, ns) =>
-				val id = parent match {case assignNode(name,_,_) => name}
-				val fbody = typerecurse(body,AST)
-				functionNode(id,args,fbody,fbody.nstype)
+				val id = parent match {
+					case assignNode(name, _, _) => name
+				}
+				var s = symbol
+				args.foreach { case argNode(name: String, ty: String) => s = s + (name -> ty) }
+				val (fbody, _) = typerecurse(body, AST, s)
+				(functionNode(id, args, fbody, fbody.nstype), symbol)
 			//case argNode(name, ns) =>
+			case blockNode(children, _) =>
+				var s = symbol
+				val newkids = children.map { e =>
+					val (t, sym) = typerecurse(e, AST, s)
+					s = s ++ sym
+					t
+				}
+				var ns = "void"
+				newkids.foreach { case returnNode(b, ty) => ns = ty
+				case _ =>
+				}
+				(blockNode(newkids, ns), symbol)
+			case ifNode(c, b, Some(els), ns) =>
+				val (ifbody, _) = typerecurse(b, AST, symbol)
+				val (elsbody, _) = typerecurse(els, AST, symbol)
+				(ifNode(c, b, Some(elsbody), b.nstype), symbol)
+			case ifNode(c, b, None, ns) =>
+				val (ifbody, _) = typerecurse(b, AST, symbol)
+				(ifNode(c, b,None, b.nstype), symbol)
+			case whileNode(c, b, ns) =>
+				val (nb, _) = typerecurse(b, AST, symbol)
+				(whileNode(c, nb, ns), symbol)
+		}
+	}
+
+	def augment(AST: Tree): Tree = {
+		AST match {
+			case assignNode(id, body, ns) => assignNode(id, augment(body), ns)
+
+			case functionNode(id, args, body, ns) =>
+				val fbody = augment(body)
+				val retbody = fbody match {
+					case binopNode(l, r, o, ns) =>
+						val tmp = returnNode(binopNode(l, r, o, ns), ns)
+						blockNode(List(tmp), ns)
+					case _ => fbody
+				}
+				functionNode(id, args, retbody, ns)
 			case blockNode(children, ns) =>
-				val newkids = children.map(e => typerecurse(e,AST))
-				blockNode(newkids,"")
-			case ifNode(c,b,els,ns) =>
-				val ifbody = typerecurse(b,AST)
-				val elsbody = els match {case Some(els) => Some(typerecurse(els,AST))
-										case None => None}
-				ifNode(c,b,elsbody,b.nstype)
-			case whileNode(c,b,ns) =>
-				whileNode(c, typerecurse(b,AST), ns)
+				val newkids = children.map(e => augment(e))
+				blockNode(newkids, "")
+			case ifNode(c, b, els, ns) =>
+				val ifbody = augment(b)
+				val elsbody = els match {
+					case Some(els) => Some(augment(els))
+					case None => None
+				}
+				ifNode(c, b, elsbody, b.nstype)
+			case whileNode(c, b, ns) =>
+				whileNode(c, augment(b), ns)
+			case t => t
 		}
 	}
 

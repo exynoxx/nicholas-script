@@ -1,6 +1,4 @@
 import scala.io.Source
-import scala.util.parsing.combinator._
-
 object main {
 
 	def readFile(filename: String): String = {
@@ -24,8 +22,7 @@ object main {
 			case p.Error(msg1,msg2) => println(s"Error: $msg1, $msg2")
 										nullLeaf()
 		}
-		val tyAST:Tree = t.typerecurse(AST,AST)
-		print(cg.gen(AST))
+		print(cg.gen(t.augment(t.typecheck(AST))))
 
 	}
 }
