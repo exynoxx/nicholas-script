@@ -49,7 +49,7 @@ class TypeChecker {
 				(ifNode(c, ifbody, Some(elsbody), ifbody.nstype), symbol)
 			case ifNode(c, b, None, ns) =>
 				val (ifbody, _) = typerecurse(b, AST, symbol)
-				(ifNode(c, ifbody,None, ifbody.nstype), symbol)
+				(ifNode(c, ifbody, None, ifbody.nstype), symbol)
 			case whileNode(c, b, ns) =>
 				val (nb, _) = typerecurse(b, AST, symbol)
 				(whileNode(c, nb, ns), symbol)
