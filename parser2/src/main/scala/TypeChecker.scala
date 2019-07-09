@@ -11,20 +11,21 @@ class TypeChecker {
 	def typerecurse(AST: Tree, parent: Tree, symbol: HashMap[String, String]): (Tree, HashMap[String, String]) = {
 		AST match {
 			case valueNode(value, ns) =>
-				if (ns.matches("\\d+"))
+				if (value.matches("\\d+"))
 					(valueNode(value, "int"), symbol)
-				else if (ns.matches("\"[\\w\\d]+\""))
+				else if (value.matches("\"[\\w\\d]+\""))
 					(valueNode(value, "string"), symbol)
-				else (valueNode(value, symbol(value)), symbol)
+				else
+                    (valueNode(value, symbol(value)), symbol)
 			case binopNode(l, r, o, ns) =>
 				(binopNode(l, r, o, "int"), symbol)
 			//case opNode(op, _) => codeblock(ret = op)
-			case assignNode(id, body, ns) =>
+			case assignNode(id, body,deff, ns) =>
 				val (btree, _) = typerecurse(body, AST, symbol)
-				(assignNode(id, btree, btree.nstype), symbol + (id -> btree.nstype))
+				(assignNode(id, btree,deff, btree.nstype), symbol + (id -> btree.nstype))
 			case functionNode(_, args, body, ns) =>
 				val id = parent match {
-					case assignNode(name, _, _) => name
+					case assignNode(name, _, _, _) => name
 				}
 				var s = symbol
 				args.foreach { case argNode(name: String, ty: String) => s = s + (name -> ty) }
@@ -58,7 +59,7 @@ class TypeChecker {
 
 	def augment(AST: Tree): Tree = {
 		AST match {
-			case assignNode(id, body, ns) => assignNode(id, augment(body), ns)
+			case assignNode(id, body,deff, ns) => assignNode(id, augment(body),deff, ns)
 
 			case functionNode(id, args, body, ns) =>
 				val fbody = augment(body)

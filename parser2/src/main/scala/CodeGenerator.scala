@@ -18,12 +18,12 @@ class CodeGenerator {
 				val codeblock(_, oo, _, _, _) = recurse(o)
 				codeblock(ret = ll + oo + rr)
 			case opNode(op, _) => codeblock(ret = op)
-			case assignNode(id, body, ns) =>
-				//TODO INT ASSIGN NO TYPE
+			case assignNode(id, body,deff, ns) =>
 				val ty = convertType(ns)
 				val codeblock(pre, rett, post, fdef, fimpl) = recurse(body)
-				val line = if (!body.isInstanceOf[functionNode]) ty + " " + id + " = " + rett + ";\n" else ""
-				codeblock("", pre + line + post, "", fdef, fimpl)
+				val line = if (!body.isInstanceOf[functionNode]) id + " = " + rett + ";\n" else ""
+                val finalLine = if(deff) ty + " " + line else line
+                codeblock("", pre + finalLine + post, "", fdef, fimpl)
 			case functionNode(id, args, body, ns) =>
 				val fargs = args.map(e => recurse(e))
 					.map { case codeblock(pre, l, post, fdef, fimpl) => l }.mkString(",")
