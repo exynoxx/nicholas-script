@@ -11,11 +11,11 @@ class Parser extends RegexParsers {
     case n ~ None => n
     }
 
-    def exp: Parser[Tree] = binop
+    def exp: Parser[Tree] = funCall | binop | "(" ~ funCall ~ ")" ^^ {case _ ~ s ~ _ => s} | "(" ~ binop ~ ")" ^^ {case _ ~ s ~ _ => s}
 
     def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, "") }
 
-    def assign: Parser[Tree] = defstatement | assignStatement ^^ { case s => s }
+    def assign: Parser[Tree] = defstatement | assignStatement
 
     def defstatement: Parser[Tree] = "var" ~ word ~ "=" ~ (exp | func) ~ ";" ^^ { case s1 ~ valueNode(s2, _) ~ s3 ~ t ~ s4 => assignNode(s2, t, true, "") } |
         word ~ ":=" ~ (exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, true, "") }
@@ -35,7 +35,7 @@ class Parser extends RegexParsers {
         functionNode("", arg1 :: x, b, "")
     }
 
-
+    def funCall: Parser[Tree] = word ~ ":" ~ rep(exp) ^^ {case valueNode(name,_) ~ _ ~ listargs => callNode(name,listargs,false,"")}
     def arg: Parser[Tree] = word ~ ":" ~ word ^^ { case valueNode(name, _) ~ s ~ valueNode(ty, _) => argNode(name, ty) }
 
     def ifstatement: Parser[Tree] = "if" ~ "(" ~ binop ~ ")" ~ (exp | block) ~ opt("else" ~ (exp | block)) ^^ { case _ ~ _ ~ b ~ _ ~ e1 ~ Some(_ ~ e2) => ifNode(b, e1, Some(e2), "")
