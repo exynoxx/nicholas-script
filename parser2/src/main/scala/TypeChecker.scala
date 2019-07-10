@@ -59,9 +59,7 @@ class TypeChecker {
                     val (t,_) = typerecurse(e,AST,symbol)
                     t
                 }
-                //TODO FIX
-                //val ty = symbol(id)
-                val ty = "int"
+                val ty = symbol(id)
                 (callNode(id,args,deff,ty),symbol)
 		}
 	}
