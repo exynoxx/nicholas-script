@@ -86,7 +86,9 @@ class TypeChecker {
 
 	def augment(AST: Tree): Tree = {
 		AST match {
-			case assignNode(id, body,deff, ns) => assignNode(id, augment(body),deff, ns)
+			case assignNode(id, body,deff, ns) =>
+                val b = augment(body)
+                assignNode(id, b,deff, ns)
 
 			case functionNode(id, args, body, ns) =>
 				val fbody = augment(body)
@@ -106,7 +108,7 @@ class TypeChecker {
 					case Some(els) => Some(augment(els))
 					case None => None
 				}
-				ifNode(c, b, elsbody, b.nstype)
+				ifNode(c, ifbody, elsbody, b.nstype)
 			case whileNode(c, b, ns) =>
 				whileNode(c, augment(b), ns)
 			case t => t
