@@ -17,7 +17,7 @@ class CodeGenerator {
 				val ty = Util.convertType(ns)
 				val codeblock(pre, rett, post, fdef, fimpl) = recurse(body)
 				val line = if (!body.isInstanceOf[functionNode]) id + " = " + rett + ";\n" else ""
-                val finalLine = if(deff) ty + " " + line else line
+                val finalLine = if(deff && !body.isInstanceOf[functionNode]) ty + " " + line else line
                 codeblock("", pre + finalLine + post, "", fdef, fimpl)
 			case functionNode(id, args, body, ns) =>
 				val fargs = args.map(e => recurse(e))
