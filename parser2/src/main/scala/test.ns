@@ -10,4 +10,4 @@ if (a > 0) {
 	}
 }
 
-a:int :=
+var a:int = 5;

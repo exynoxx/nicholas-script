@@ -22,7 +22,11 @@ class TypeChecker {
 			//case opNode(op, _) => codeblock(ret = op)
 			case assignNode(id, body,deff, ns) =>
 				val (btree, _) = typerecurse(body, AST, symbol)
-				(assignNode(id, btree,deff, btree.nstype), symbol + (id -> btree.nstype))
+                val ty = ns match {
+                    case null => btree.nstype
+                    case x => x
+                }
+				(assignNode(id, btree,deff, ty), symbol + (id -> btree.nstype))
 			case functionNode(_, args, body, ns) =>
                 //get id from assign parent
 				val id = parent match {
@@ -38,7 +42,7 @@ class TypeChecker {
 
                 //if type defined by syntax, use that
                 val ty = ns match {
-                    case "" => fbody.nstype
+                    case null => fbody.nstype
                     case x => x
                 }
 
