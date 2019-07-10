@@ -66,6 +66,11 @@ class CodeGenerator {
 				val codeblock(_, body, _, f1, f2) = recurse(b)
 				val line = "if (" + con + ")" + body
 				codeblock("", line, "", f1, f2)
+            case whileNode(c, b, ns) =>
+                val codeblock(_, con, _, _, _) = recurse(c)
+                val codeblock(_, body, _, f1, f2) = recurse(b)
+                val line = "while (" + con + ")" + body
+                codeblock("", line, "", f1, f2)
 			case returnNode(body, ns) =>
 				val codeblock(p, b, _, _, _) = recurse(body)
 				codeblock(ret = p + "return " + b + ";\n")
