@@ -24,6 +24,6 @@ case class opNode(body:String, nstype:String) extends Tree
 
 case class valueNode(value: String, nstype: String) extends Tree
 
-case class callNode(id: String, args: ArrayBuffer[Tree], nstype: String) extends Tree
+case class callNode(id: String, args: List[Tree], definition:Boolean, nstype: String) extends Tree
 
 case class nullLeaf(nstype: String = "null") extends Tree

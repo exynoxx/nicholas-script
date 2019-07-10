@@ -69,6 +69,13 @@ class CodeGenerator {
 			case returnNode(body, ns) =>
 				val codeblock(p, b, _, _, _) = recurse(body)
 				codeblock(ret = p + "return " + b + ";\n")
+            case callNode(id,args,deff,ns) =>
+                val argstring = args.map(e => recurse(e))
+                    .map { case codeblock(pre, l, post, _,_) => l }.mkString(",")
+                val line1 = id + "(" + argstring + ")"
+                val line2 = if (deff) ";\n" else ""
+                val finalline = line1 + line2
+                codeblock(ret = finalline)
 		}
 	}
 
