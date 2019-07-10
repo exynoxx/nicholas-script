@@ -24,13 +24,26 @@ class TypeChecker {
 				val (btree, _) = typerecurse(body, AST, symbol)
 				(assignNode(id, btree,deff, btree.nstype), symbol + (id -> btree.nstype))
 			case functionNode(_, args, body, ns) =>
+                //get id from assign parent
 				val id = parent match {
 					case assignNode(name, _, _, _) => name
 				}
-				var s = symbol
-				args.foreach { case argNode(name: String, ty: String) => s = s + (name -> ty) }
-				val (fbody, _) = typerecurse(body, AST, s)
-				(functionNode(id, args, fbody, fbody.nstype), symbol)
+
+                //update symbol table with args
+                var s = symbol
+                args.foreach { case argNode(name: String, ty: String) => s = s + (name -> ty) }
+
+                //recurse body
+                val (fbody, _) = typerecurse(body, AST, s)
+
+                //if type defined by syntax, use that
+                val ty = ns match {
+                    case "" => fbody.nstype
+                    case x => x
+                }
+
+                //ret
+				(functionNode(id, args, fbody, ty), symbol)
 			//case argNode(name, ns) =>
 			case blockNode(children, _) =>
 				var s = symbol
@@ -61,6 +74,9 @@ class TypeChecker {
                 }
                 val ty = symbol(id)
                 (callNode(id,args,deff,ty),symbol)
+            case returnNode(body,ns) =>
+                val (newbody,_) = typerecurse(body,AST,symbol)
+                (returnNode(newbody,newbody.nstype),symbol)
 		}
 	}
 

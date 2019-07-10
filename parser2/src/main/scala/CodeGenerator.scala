@@ -4,11 +4,6 @@ class CodeGenerator {
 
 	var visitedBlock = false
 
-	def convertType(s: String): String = s match {
-		case "string" => "char *"
-		case z => z
-	}
-
 	def recurse(AST: Tree): codeblock = {
 		AST match {
 			case valueNode(value, ns) => codeblock(ret = value)
@@ -19,7 +14,7 @@ class CodeGenerator {
 				codeblock(ret = ll + oo + rr)
 			case opNode(op, _) => codeblock(ret = op)
 			case assignNode(id, body,deff, ns) =>
-				val ty = convertType(ns)
+				val ty = Util.convertType(ns)
 				val codeblock(pre, rett, post, fdef, fimpl) = recurse(body)
 				val line = if (!body.isInstanceOf[functionNode]) id + " = " + rett + ";\n" else ""
                 val finalLine = if(deff) ty + " " + line else line
@@ -31,7 +26,7 @@ class CodeGenerator {
 				val codeblock(pre, rett, post, adef, aimpl) = recurse(body)
 				val fimpl = rett
 				codeblock("", "", "", fdef + ";\n" + adef, fdef + fimpl + aimpl)
-			case argNode(name, ns) => codeblock(ret = convertType(ns) + " " + name)
+			case argNode(name, ns) => codeblock(ret = Util.convertType(ns) + " " + name)
 			case blockNode(children, ns) =>
 				//TODO fix this
 				if (visitedBlock) {

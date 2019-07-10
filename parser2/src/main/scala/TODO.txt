@@ -1,0 +1,5 @@
+recursive function can assign (auto create parameter for outside var)
+strings (and string operations)
+arrays
+:type notation
+infer func types
