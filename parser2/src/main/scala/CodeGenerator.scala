@@ -2,7 +2,7 @@ class CodeGenerator {
 
 	case class codeblock(before: String = "", ret: String = "", after: String = "", funcdef: String = "", funcImpl: String = "")
 
-	var visitedBlock = false
+	var blockRecursionDepth = 0
 
 	def recurse(AST: Tree): codeblock = {
 		AST match {
@@ -28,27 +28,22 @@ class CodeGenerator {
 				codeblock("", "", "", fdef + ";\n" + adef, fdef + fimpl + aimpl)
 			case argNode(name, ns) => codeblock(ret = Util.convertType(ns) + " " + name)
 			case blockNode(children, ns) =>
-				//TODO fix this
-				if (visitedBlock) {
-					val b = children.map(e => recurse(e))
-					val pre = b.map { case codeblock(pre, l, post, fdef, fimpl) => pre }.mkString
-					val line = b.map { case codeblock(pre, l, post, fdef, fimpl) => l }.mkString
-					val post = b.map { case codeblock(pre, l, post, fdef, fimpl) => post }.mkString
-					val fdef = b.map { case codeblock(pre, l, post, fdef, fimpl) => fdef }.mkString
-					val fimpl = b.map { case codeblock(pre, l, post, fdef, fimpl) => fimpl }.mkString
-					var content = "{\n" + pre + line + post + "}\n"
-					codeblock("", content, "", fdef, fimpl)
-				} else {
-					visitedBlock = true
-					val b = children.map(e => recurse(e))
-					val pre = b.map { case codeblock(pre, l, post, fdef, fimpl) => pre }.mkString
-					val line = b.map { case codeblock(pre, l, post, fdef, fimpl) => l }.mkString
-					val post = b.map { case codeblock(pre, l, post, fdef, fimpl) => post }.mkString
-					val fdef = b.map { case codeblock(pre, l, post, fdef, fimpl) => fdef }.mkString
-					val fimpl = b.map { case codeblock(pre, l, post, fdef, fimpl) => fimpl }.mkString
-					var content = pre + line + post
-					codeblock("", content,"", fdef, fimpl)
-				}
+                blockRecursionDepth += 1
+
+                val b = children.map(e => recurse(e))
+                val pre = b.map { case codeblock(pre, l, post, fdef, fimpl) => pre }.mkString
+                val line = b.map { case codeblock(pre, l, post, fdef, fimpl) => l }.mkString
+                val post = b.map { case codeblock(pre, l, post, fdef, fimpl) => post }.mkString
+                val fdef = b.map { case codeblock(pre, l, post, fdef, fimpl) => fdef }.mkString
+                val fimpl = b.map { case codeblock(pre, l, post, fdef, fimpl) => fimpl }.mkString
+
+                blockRecursionDepth -= 1
+
+                var content = pre + line + post
+                if (blockRecursionDepth > 0) {
+                    content = "{\n" + content + "}\n"
+                }
+                codeblock("", content,"", fdef, fimpl)
 
 			case ifNode(c, b, Some(elsbody), ns) =>
 				val codeblock(_, con, _, _, _) = recurse(c)
