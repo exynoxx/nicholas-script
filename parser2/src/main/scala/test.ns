@@ -1,13 +1,6 @@
-var a = 5;
-if (a > 0) {
-	b := 2;
-	f1 := (x:int,y:int) => x+y;
-	c := f1: b a;
-} else {
-	i := 0;
-	while(i != 0) {
-		i = i + 1;
-	}
-}
-
-var a:int = 5;
+var a = "hello";
+var b = "world";
+var c = a+b;
+var d = "a"+a;
+var e = a + "hh";
+var ee = a+b;

@@ -1,13 +1,15 @@
 import scala.util.parsing.combinator.RegexParsers
 
 class Parser extends RegexParsers {
-    def word: Parser[Tree] = "\\w+".r ^^ { case s => valueNode(s, "") }
+    def word: Parser[Tree] = "\\w+".r ^^ { case s => valueNode(s, null) }
 
-    def number: Parser[Tree] = "\\d+".r ^^ { case s => valueNode(s, "") }
+    def number: Parser[Tree] = "\\d+".r ^^ { case s => valueNode(s, "int") }
+
+    def strings: Parser[Tree] = "\"(?:[^\"\\\\]|\\\\.)*\"".r ^^ { case s => valueNode(s, "string") }
 
     def op: Parser[Tree] = ("+" | "-" | "*" | "/" | "||" | "&&" | ">" | "<" | "<=" | ">=" | "!=" | "==") ^^ { case o => opNode(o, "") }
 
-    def binop: Parser[Tree] = (number | word) ~ opt(op ~ binop) ^^ { case n ~ Some(o ~ b) => binopNode(n, b, o, "")
+    def binop: Parser[Tree] = (number | word| strings) ~ opt(op ~ binop) ^^ { case n ~ Some(o ~ b) => binopNode(n, b, o, "")
     case n ~ None => n
     }
 
