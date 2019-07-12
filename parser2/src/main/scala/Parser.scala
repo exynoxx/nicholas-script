@@ -13,7 +13,8 @@ class Parser extends RegexParsers {
     case n ~ None => n
     }
 
-    def exp: Parser[Tree] = funCall | binop | "(" ~ funCall ~ ")" ^^ { case _ ~ s ~ _ => s } | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
+    //TODO: funcall in args
+    def exp: Parser[Tree] = funCall | binop | /*"(" ~ funCall ~ ")" ^^ { case _ ~ s ~ _ => s } |*/ "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 
     def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, "") }
 
@@ -31,27 +32,19 @@ class Parser extends RegexParsers {
 
     def retStatement: Parser[Tree] = "return" ~ exp ^^ { case _ ~ e => returnNode(e, "") }
 
-    def func: Parser[Tree] = func0 | func1 | funcn
 
-    def func0: Parser[Tree] = "()" ~ opt(":" ~ word) ~ "=>" ~ (exp | block) ^^ {
-        case s1 ~ Some(_ ~ valueNode(ty, _)) ~ s2 ~ b => functionNode("", List(), b, ty)
-        case s1 ~ None ~ s2 ~ b => functionNode("", List(), b, null)
-
-    }
-
-    def func1: Parser[Tree] = "(" ~ arg ~ ")" ~ opt(":" ~ word) ~ "=>" ~ (exp | block) ^^ {
-        case _ ~ l ~ _ ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ b => functionNode("", List(l), b, ty)
-        case _ ~ l ~ _ ~ None ~ _ ~ b => functionNode("", List(l), b, null)
-    }
-
-    def funcn: Parser[Tree] = "(" ~ arg ~ rep("," ~ arg) ~ ")" ~ opt(":" ~ word) ~ "=>" ~ (exp | block) ^^
+    def func: Parser[Tree] = "(" ~ opt(arg) ~ rep("," ~ arg) ~ ")" ~ opt(":" ~ word) ~ "=>" ~ (exp | block) ^^
         {
-            case _ ~ arg1 ~ (l: List[String ~ Tree]) ~ _ ~Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
+            case _ ~ Some(arg1) ~ (l: List[String ~ Tree]) ~ _ ~Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
                 val x = l.map { case s ~ t => t }
                 functionNode("", arg1 :: x, b, ty)
-            case _ ~ arg1 ~ (l: List[String ~ Tree]) ~ _ ~ None ~ _ ~ b =>
+            case _ ~ None ~ l ~ _ ~Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
+                functionNode("", List(), b, ty)
+            case _ ~ Some(arg1) ~ (l: List[String ~ Tree]) ~ _ ~None ~ _ ~ b =>
                 val x = l.map { case s ~ t => t }
                 functionNode("", arg1 :: x, b, null)
+            case _ ~ None ~ l ~ _ ~ None ~ _ ~ b =>
+                functionNode("", List(), b, null)
     }
 
     def funCall: Parser[Tree] = word ~ ":" ~ rep(exp) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, "") }
