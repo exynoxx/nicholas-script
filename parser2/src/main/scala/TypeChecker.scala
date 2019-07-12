@@ -87,77 +87,89 @@ class TypeChecker {
         }
     }
 
-    def augString(t: List[Tree]): List[Tree] = {
-        t match {
+    def iterateBlock(blockBody: List[Tree]): List[Tree] = {
+        blockBody match {
+            case nil => List()
             case x :: xs => {
-                val newBinop: List[Tree] = x match {
-                    case assignNode(id, binopNode(l, r, o, ns), deff, assignNS) => {
-                        if (ns == "string") {
-                            val stringPattern = "\"(?:[^\"\\\\]|\\\\.)*\"".r
-                            val retList = ListBuffer[Tree]()
-                            val lname = l match {
-                                case valueNode(stringPattern(c), _) =>
-                                    val n = Util.genRandomName()
-                                    retList += assignNode(n, l, true, "string")
-                                    n
-                                case valueNode(n, _) => n
+                val ret: List[Tree] = x match {
+                    case assignNode(id, binopNode(l, r, o, "string"), deff, assignNS) => {
+                        val retList = ListBuffer[Tree]()
+                        val lname = l match {
+                            case valueNode(Util.stringPattern(c), _) =>
+                                val n = Util.genRandomName()
+                                retList += assignNode(n, l, true, "string")
+                                n
+                            case valueNode(n, _) => n
 
-                            }
-                            val rname = r match {
-                                case valueNode(stringPattern(c), _) =>
-                                    val n = Util.genRandomName()
-                                    retList += assignNode(n, r, true, "string")
-                                    n
-                                case valueNode(n, _) => n
-
-                            }
-                            val tmpMID = binopNode(valueNode(lname, "string"), valueNode(rname, "string"), o, "string")
-                            val tmpFinal = assignNode(id, tmpMID, deff, assignNS)
-                            retList += tmpFinal
-                            retList.toList
-                        } else {
-                            List(x)
                         }
+                        val rname = r match {
+                            case valueNode(Util.stringPattern(c), _) =>
+                                val n = Util.genRandomName()
+                                retList += assignNode(n, r, true, "string")
+                                n
+                            case valueNode(n, _) => n
 
-
+                        }
+                        val tmpMID = binopNode(valueNode(lname, "string"), valueNode(rname, "string"), o, "string")
+                        val tmpFinal = assignNode(id, tmpMID, deff, assignNS)
+                        retList += tmpFinal
+                        retList.toList
                     }
-                    case x => List(x)
+                    case assignNode(id, body, deff, ns) =>
+                        val b = augment(body)
+                        List(assignNode(id, b, deff, ns))
+
+                    case functionNode(id, args, body, ns) =>
+                        val fbody = augment(body)
+                        val retbody = fbody match {
+                            case binopNode(l, r, o, ns) =>
+                                val tmp = returnNode(binopNode(l, r, o, ns), ns)
+                                blockNode(List(tmp), ns)
+                            case _ => fbody
+                        }
+                        List(functionNode(id, args, retbody, ns))
+                    case blockNode(children, ns) =>
+                        val newkids = iterateBlock(children)
+                        //val newnewkids = augString(newkids)
+                        List(blockNode(newkids, ns))
+                    case ifNode(c, b, els, ns) =>
+                        val ifbody = augment(b)
+                        val elsbody = els match {
+                            case Some(els) => Some(augment(els))
+                            case None => None
+                        }
+                        List(ifNode(c, ifbody, elsbody, b.nstype))
+                    case whileNode(c, b, ns) =>
+                        List(whileNode(c, augment(b), ns))
+                    case callNode(id, args, deff, ns) =>
+                        val tmpList = ListBuffer[Tree]()
+                        val newargs = args.map {
+                            case valueNode(Util.stringPattern(c), vns) =>
+                                val n = Util.genRandomName()
+                                val preassign = assignNode(n, valueNode(c, "string"), true, "string")
+                                val replaceElement = valueNode(n, "string")
+                                tmpList += preassign
+                                replaceElement
+                            case x => x
+                        }
+                        tmpList += callNode(id, newargs, deff, ns)
+                        tmpList.toList
+                    case t => List(t)
                 }
-                newBinop ++ augString(xs)
+
+                ret ++ iterateBlock(xs)
             }
-            case _ => List()
         }
     }
 
     def augment(AST: Tree): Tree = {
         AST match {
-            case assignNode(id, body, deff, ns) =>
-                val b = augment(body)
-                assignNode(id, b, deff, ns)
-
-            case functionNode(id, args, body, ns) =>
-                val fbody = augment(body)
-                val retbody = fbody match {
-                    case binopNode(l, r, o, ns) =>
-                        val tmp = returnNode(binopNode(l, r, o, ns), ns)
-                        blockNode(List(tmp), ns)
-                    case _ => fbody
-                }
-                functionNode(id, args, retbody, ns)
-            case blockNode(children, ns) =>
-                val newkids = children.map(e => augment(e))
-                val newnewkids = augString(newkids)
-                blockNode(newnewkids, ns)
-            case ifNode(c, b, els, ns) =>
-                val ifbody = augment(b)
-                val elsbody = els match {
-                    case Some(els) => Some(augment(els))
-                    case None => None
-                }
-                ifNode(c, ifbody, elsbody, b.nstype)
-            case whileNode(c, b, ns) =>
-                whileNode(c, augment(b), ns)
-            case t => t
+            case blockNode(children, ns) => {
+                val newchildren = iterateBlock(children)
+                blockNode(newchildren, ns)
+            }
+            case _ => println("error")
+                nullLeaf()
         }
     }
 
