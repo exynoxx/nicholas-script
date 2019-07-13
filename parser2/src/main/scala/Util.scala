@@ -1,7 +1,7 @@
 import scala.collection.immutable.HashMap
 
 object Util {
-    val stringPattern = "\"(?:[^\"\\\\]|\\\\.)*\"".r
+    val stringPattern = "(\"(?:[^\"\\\\]|\\\\.)*\")".r
     var ranCounter = 0
     def genRandomName ():String = {
         val ret = "ran"+ranCounter

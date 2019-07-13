@@ -89,7 +89,6 @@ class TypeChecker {
 
     def iterateBlock(blockBody: List[Tree]): List[Tree] = {
         blockBody match {
-            case nil => List()
             case x :: xs => {
                 val ret: List[Tree] = x match {
                     case assignNode(id, binopNode(l, r, o, "string"), deff, assignNS) => {
@@ -116,31 +115,36 @@ class TypeChecker {
                         retList.toList
                     }
                     case assignNode(id, body, deff, ns) =>
-                        val b = augment(body)
-                        List(assignNode(id, b, deff, ns))
+                        val list:List[Tree] = iterateBlock(List(body))
+                        list.reverse match {
+                            case x::xs => xs ++ List(assignNode(id, x, deff, ns))
+                        }
+
 
                     case functionNode(id, args, body, ns) =>
-                        val fbody = augment(body)
+                        val fbody = iterateBlock(List(body))(0)
                         val retbody = fbody match {
                             case binopNode(l, r, o, ns) =>
                                 val tmp = returnNode(binopNode(l, r, o, ns), ns)
+                                blockNode(List(tmp), ns)
+                            case valueNode(value,ns) =>
+                                val tmp = returnNode(valueNode(value,ns), ns)
                                 blockNode(List(tmp), ns)
                             case _ => fbody
                         }
                         List(functionNode(id, args, retbody, ns))
                     case blockNode(children, ns) =>
-                        val newkids = iterateBlock(children)
-                        //val newnewkids = augString(newkids)
-                        List(blockNode(newkids, ns))
+                        val b:Tree = augment(blockNode(children, ns))
+                        List(b)
                     case ifNode(c, b, els, ns) =>
-                        val ifbody = augment(b)
+                        val ifbody = iterateBlock(List(b))(0)
                         val elsbody = els match {
-                            case Some(els) => Some(augment(els))
+                            case Some(els) => Some(iterateBlock(List(els))(0))
                             case None => None
                         }
                         List(ifNode(c, ifbody, elsbody, b.nstype))
                     case whileNode(c, b, ns) =>
-                        List(whileNode(c, augment(b), ns))
+                        List(whileNode(c, iterateBlock(List(b))(0), ns))
                     case callNode(id, args, deff, ns) =>
                         val tmpList = ListBuffer[Tree]()
                         val newargs = args.map {
@@ -159,6 +163,7 @@ class TypeChecker {
 
                 ret ++ iterateBlock(xs)
             }
+            case _  => List()
         }
     }
 

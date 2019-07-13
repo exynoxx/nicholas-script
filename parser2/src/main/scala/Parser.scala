@@ -47,7 +47,7 @@ class Parser extends RegexParsers {
                 functionNode("", List(), b, null)
     }
 
-    def funCall: Parser[Tree] = word ~ ":" ~ rep(exp) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, "") }
+    def funCall: Parser[Tree] = word ~ ":" ~ rep(binop) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, "") }
 
     def arg: Parser[Tree] = word ~ ":" ~ word ^^ { case valueNode(name, _) ~ s ~ valueNode(ty, _) => argNode(name, ty) }
 

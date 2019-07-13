@@ -1,3 +1,5 @@
-t3 := (x:string,y:string) => 1+1;
-
-lr := t3: "text";
+a := "hell0" + "world";
+f := (x:int) => x;
+b := 1;
+c := f: 1;
+d := f: "hello";
