@@ -160,10 +160,20 @@ class TypeChecker {
                         tmpList += callNode(id, newargs, deff, ns)
                         tmpList.toList
                     case returnNode(body,ns) =>
-                        val id = Util.genRandomName()
-                        val preassign = assignNode(id, body, true, ns)
-                        val replaceElement = valueNode(id, ns)
-                        preassign::List(returnNode(replaceElement,ns))
+                        val shouldExtract = body match {
+                            case valueNode(Util.stringPattern(c),ns) => true
+                            case valueNode(name, ns) => false
+                            case _ => true
+                        }
+                        if (shouldExtract) {
+                            val id = Util.genRandomName()
+                            val preassign = assignNode(id, body, true, ns)
+                            val replaceElement = valueNode(id, ns)
+                            preassign::List(returnNode(replaceElement,ns))
+                        } else {
+                            List(returnNode(body,ns))
+                        }
+
                     case t => List(t)
                 }
 

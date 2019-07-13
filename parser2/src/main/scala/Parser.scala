@@ -30,7 +30,7 @@ class Parser extends RegexParsers {
 
     def assignStatement: Parser[Tree] = word ~ "=" ~ (exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, false, "") }
 
-    def retStatement: Parser[Tree] = "return" ~ exp ^^ { case _ ~ e => returnNode(e, "") }
+    def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
 
 
     def func: Parser[Tree] = "(" ~ opt(arg) ~ rep("," ~ arg) ~ ")" ~ opt(":" ~ word) ~ "=>" ~ (exp | block) ^^

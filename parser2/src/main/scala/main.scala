@@ -24,15 +24,15 @@ object main {
 			case p.Error(msg1,msg2) => println(s"Error: $msg1, $msg2")
 										nullLeaf()
 		}
-        /*
+
         println("raw:")
         printer.print(AST)
         println("typecheck:")
         printer.print(t.typecheck(AST))
         println("augment:")
         printer.print(t.augment(t.typecheck(AST)))
-        */
-        printer.print(t.augment(t.typecheck(AST)))
+
+        //printer.print(t.augment(t.typecheck(AST)))
         val tree = t.augment(t.typecheck(AST))
 		print(cg.gen(tree))
 
