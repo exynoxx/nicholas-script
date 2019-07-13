@@ -60,8 +60,9 @@ class TypeChecker {
                     t
                 }
                 var ns = "void"
-                newkids.foreach { case returnNode(b, ty) => ns = ty
-                case _ =>
+                newkids.foreach {
+                    case returnNode(b, ty) => ns = ty
+                    case _ =>
                 }
                 (blockNode(newkids, ns), symbol)
             case ifNode(c, b, Some(els), ns) =>
@@ -158,6 +159,11 @@ class TypeChecker {
                         }
                         tmpList += callNode(id, newargs, deff, ns)
                         tmpList.toList
+                    case returnNode(body,ns) =>
+                        val id = Util.genRandomName()
+                        val preassign = assignNode(id, body, true, ns)
+                        val replaceElement = valueNode(id, ns)
+                        preassign::List(returnNode(replaceElement,ns))
                     case t => List(t)
                 }
 
