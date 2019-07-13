@@ -42,7 +42,7 @@ class CodeGenerator {
             case functionNode(id, args, body, ns) =>
                 val fargs = args.map(e => recurse(e))
                     .map { case codeblock(pre, l, post, fdef, fimpl) => l }.mkString(",")
-                val fdef = ns + " " + id + "(" + fargs + ")"
+                val fdef = Util.convertType(ns) + " " + id + "(" + fargs + ")"
                 val codeblock(pre, rett, post, adef, aimpl) = recurse(body)
                 val fimpl = rett
                 codeblock("", "", "", fdef + ";\n" + adef, fdef + fimpl + aimpl)
