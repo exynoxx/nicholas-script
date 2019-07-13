@@ -32,6 +32,7 @@ object main {
         println("augment:")
         printer.print(t.augment(t.typecheck(AST)))
         */
+        printer.print(t.augment(t.typecheck(AST)))
         val tree = t.augment(t.typecheck(AST))
 		print(cg.gen(tree))
 

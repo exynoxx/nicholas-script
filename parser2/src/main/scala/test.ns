@@ -1,5 +1,6 @@
-a := "hell0" + "world";
-f := (x:int) => x;
-b := 1;
-c := f: 1;
-d := f: "hello";
+g := (x:string,y:string) => {
+	var xx = x + x;
+	var yy = y + y;
+	return xx+yy;
+};
+var r = f: "hello" "world";
