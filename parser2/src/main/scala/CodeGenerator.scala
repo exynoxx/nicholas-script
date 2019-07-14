@@ -1,3 +1,4 @@
+
 class CodeGenerator {
 
     case class codeblock(before: String = "", ret: String = "", after: String = "", funcdef: String = "", funcImpl: String = "")
@@ -51,7 +52,15 @@ class CodeGenerator {
                 blockRecursionDepth += 1
 
                 var str = ""
-                val b = children.map(e => recurse(e))
+                var retStatement:Tree = null
+
+                val filteredChildren = children.filter{
+                    case returnNode(body,ns) =>
+                        retStatement = returnNode(body,ns)
+                        false
+                    case _ => true
+                }
+                val b = filteredChildren.map(e => recurse(e))
                 b.map{case codeblock(pre, l, post, fdef, fimpl) => str += pre+l }
                 val post = b.map { case codeblock(pre, l, post, fdef, fimpl) => post }.mkString
                 val fdef = b.map { case codeblock(pre, l, post, fdef, fimpl) => fdef }.mkString
@@ -61,6 +70,8 @@ class CodeGenerator {
 
                 var content = str + post
                 if (blockRecursionDepth > 0) {
+                    val codeblock(_,retText,_,_,_) = recurse(retStatement)
+                    content += retText
                     content = "{\n" + content + "}\n"
                 }
                 codeblock("", content, "", fdef, fimpl)
