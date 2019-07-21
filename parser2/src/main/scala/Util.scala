@@ -11,6 +11,7 @@ object Util {
 
     def convertType(s: String): String = s match {
         case "string" => "char *"
+        case "actualstring" => "char *"
         case z => z
     }
 }

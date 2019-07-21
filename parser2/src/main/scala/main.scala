@@ -32,9 +32,13 @@ object main {
         println("augment:")
         printer.print(t.augment(t.typecheck(AST)))
 
+        val (tree,_,_) = t.annotateSize(t.augment(t.typecheck(AST)))
+
+        println("alloc idx:")
+        printer.print(tree)
+
         //printer.print(t.augment(t.typecheck(AST)))
-        val tree = t.augment(t.typecheck(AST))
-		print(cg.gen(tree))
+		//print(cg.gen(tree))
 
 	}
 }

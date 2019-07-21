@@ -5,7 +5,7 @@ class Parser extends RegexParsers {
 
     def number: Parser[Tree] = "\\d+".r ^^ { case s => valueNode(s, "int") }
 
-    def strings: Parser[Tree] = "\"(?:[^\"\\\\]|\\\\.)*\"".r ^^ { case s => valueNode(s, "string") }
+    def strings: Parser[Tree] = "\"(?:[^\"\\\\]|\\\\.)*\"".r ^^ { case s => valueNode(s, "actualstring") }
 
     def op: Parser[Tree] = ("+" | "-" | "*" | "/" | "||" | "&&" | ">" | "<" | "<=" | ">=" | "!=" | "==") ^^ { case o => opNode(o, "") }
 
@@ -22,13 +22,13 @@ class Parser extends RegexParsers {
 
     def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ word) ~ "=" ~ (exp | func) ~ ";" ^^
         {
-            case _ ~ valueNode(id, _) ~ Some(_~valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(id, t, true, ty)
-            case _ ~ valueNode(id, _) ~ None ~ _ ~ t ~ _ => assignNode(id, t, true, null)
+            case _ ~ valueNode(id, _) ~ Some(_~valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(id, t, true,0, ty)
+            case _ ~ valueNode(id, _) ~ None ~ _ ~ t ~ _ => assignNode(id, t, true,0,null)
 
         } |
-        word ~ ":=" ~ (exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, true, null) }
+        word ~ ":=" ~ (exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, true,0, null) }
 
-    def assignStatement: Parser[Tree] = word ~ "=" ~ (exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, false, "") }
+    def assignStatement: Parser[Tree] = word ~ "=" ~ (exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, false,0, "") }
 
     def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
 

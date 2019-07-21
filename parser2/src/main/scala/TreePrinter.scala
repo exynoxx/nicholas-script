@@ -9,12 +9,12 @@ class TreePrinter {
 			case valueNode(value, ns) => printMinus("-", depth) +
 				"valueNode(" + value + "," + ns + ")\n"
 			case binopNode(l, r, o, ns) => printMinus("-", depth) +
-				"binopNode(" + recursion(o) + ")\n" +
+				"binopNode(" + recursion(o) + ",ns="+ns+")\n" +
 				recursion(l, depth + increment) +
 				recursion(r, depth + increment)
 			case opNode(b, ns) => b
-			case assignNode(id, b,deff, ns) => printMinus("-", depth) +
-				"assignNode(" + id + ", definition="+deff+")\n" +
+			case assignNode(id, b,deff,idx, ns) => printMinus("-", depth) +
+				"assignNode(" + id + ", definition="+deff+", idx="+idx+", ns="+ns+")\n" +
 				recursion(b, depth + increment)
 			case blockNode(children, ns) => {
 				val s = printMinus("-", depth) + "blockNode(" + children.length + ")\n"
@@ -46,6 +46,10 @@ class TreePrinter {
             case callNode(id,args,deff,ns) => printMinus("-", depth) +
                 "callNode("+id+", definition="+deff+")\n"+
                 args.map(e => recursion(e,depth + increment)).mkString(",")
+            case allocNode(name,size,ns) => printMinus("-", depth) +
+                "allocNode("+name+",size="+size+")\n"
+            case freeNode(variable,ns) => printMinus("-", depth) +
+                "freeNode("+variable+")\n"
 
 		}
 	}

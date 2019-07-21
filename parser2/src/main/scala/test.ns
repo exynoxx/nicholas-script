@@ -1,5 +1,4 @@
-g := (x:string,y:string) => {
-	xx := x + x;
-	yy := y + y;
-	return xx+yy;
-};
+var x = "hell";
+var y = "hey";
+var xy = x+y;
+var ff = (x:string) => x+x;
