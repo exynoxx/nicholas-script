@@ -104,6 +104,7 @@ class TypeChecker {
         }
     }
 
+    //TODO: augment func out of while
 
     def iterateBlock(blockBody: List[Tree]): List[Tree] = {
         blockBody match {
@@ -169,7 +170,8 @@ class TypeChecker {
                         val newargs = args.map {
                             case valueNode(nm, "actualstring") =>
                                 val n = Util.genRandomName()
-                                val preassign = assignNode(n, valueNode(nm, "string"), true, 0, "string")
+                                val ns = "actualstring"
+                                val preassign = assignNode(n, valueNode(nm, ns), true, 0, ns)
                                 val replaceElement = valueNode(n, "string")
                                 tmpList += preassign
                                 replaceElement
@@ -255,16 +257,22 @@ class TypeChecker {
         var symClone = symbol
         var tmpIdx = 0
         val newchildren = children.map (e => {
-            val (newElem,sym,size) = annotateSize(e,symbol,tmpIdx)
+            val (newElem,sym,size) = annotateSize(e,symClone,tmpIdx)
             symClone = symClone ++ sym
             tmpIdx += size
             newElem
         })
         val allocName = Util.genRandomName()
         var ret = List[Tree](allocNode(allocName, tmpIdx))
+        var foundReturn = false
         newchildren.foreach {
-            case returnNode(body, ns) => ret ++= List(freeNode(allocName)) ++ List(returnNode(body, ns))
+            case returnNode(body, ns) =>
+                ret ++= List(freeNode(allocName)) ++ List(returnNode(body, ns))
+                foundReturn = true
             case x: Tree => ret ++= List(x)
+        }
+        if (!foundReturn) {
+            ret ++= List(freeNode(allocName))
         }
         ret
     }
@@ -279,11 +287,13 @@ class TypeChecker {
             case assignNode(id, binopNode(l, r, o, ns), deff, _, "string") =>
                 val sizel: Int = l match {
                     case valueNode(n, "actualstring") => n.length - 2
-                    case _ => symbol.getOrElse(id,0)
+                    case valueNode(n, "string") => symbol.getOrElse(n,0)
+                    case _ => 0
                 }
                 val sizer: Int = r match {
                     case valueNode(n, "actualstring") => n.length - 2
-                    case _ => symbol.getOrElse(id,0)
+                    case valueNode(n, "string") => symbol.getOrElse(n,0)
+                    case _ => 0
                 }
                 val size = sizel + sizer
                 val ret = assignNode(id, binopNode(l, r, o, ns), deff, idx, "string")
@@ -295,6 +305,19 @@ class TypeChecker {
             case blockNode(children,ns) =>
                 val newchildren = annotateChildren(children,symbol)
                 (blockNode(newchildren,ns),symbol,0)
+            case ifNode(cond,body,els,ns) =>
+                val newbody = body match {
+                    case blockNode(children,ns) => blockNode(annotateChildren(children,symbol),ns)
+                    case x => x
+                }
+                val newels = els match {
+                    case Some(blockNode(children,ns)) => Some(blockNode(annotateChildren(children,symbol),ns))
+                    case x => x
+                }
+                (ifNode(cond,newbody,newels,ns),symbol,0)
+            case whileNode(cond,body,ns) =>
+                (whileNode(cond,body,ns),symbol,0)
+
             case x => (x,symbol,0)
         }
     }

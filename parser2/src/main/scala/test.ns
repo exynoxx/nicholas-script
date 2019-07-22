@@ -2,3 +2,11 @@ var x = "hell";
 var y = "hey";
 var xy = x+y;
 var ff = (x:string) => x+x;
+var z = ff: "double" 1+2+3;
+
+var f1 = (x:string, y:string) => {
+	var xy = x+y;
+	var xx = x+"hello";
+	var yy = "g"+y;
+	return yy;
+};
