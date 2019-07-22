@@ -7,16 +7,16 @@ class Parser extends RegexParsers {
 
     def strings: Parser[Tree] = "\"(?:[^\"\\\\]|\\\\.)*\"".r ^^ { case s => valueNode(s, "actualstring") }
 
-    def op: Parser[Tree] = ("+" | "-" | "*" | "/" | "||" | "&&" | ">" | "<" | "<=" | ">=" | "!=" | "==") ^^ { case o => opNode(o, "") }
+    def op: Parser[Tree] = ("+" | "-" | "*" | "/" | "||" | "&&" | ">" | "<" | "<=" | ">=" | "!=" | "==") ^^ { case o => opNode(o, null) }
 
-    def binop: Parser[Tree] = (number | word| strings) ~ opt(op ~ binop) ^^ { case n ~ Some(o ~ b) => binopNode(n, b, o, "")
+    def binop: Parser[Tree] = (number | word| strings) ~ opt(op ~ binop) ^^ { case n ~ Some(o ~ b) => binopNode(n, b, o, null)
     case n ~ None => n
     }
 
     //TODO: funcall in args
     def exp: Parser[Tree] = funCall | binop | /*"(" ~ funCall ~ ")" ^^ { case _ ~ s ~ _ => s } |*/ "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 
-    def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, "") }
+    def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, null) }
 
     def assign: Parser[Tree] = defstatement | assignStatement
 
@@ -28,7 +28,7 @@ class Parser extends RegexParsers {
         } |
         word ~ ":=" ~ (exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, true,0, null) }
 
-    def assignStatement: Parser[Tree] = word ~ "=" ~ (exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, false,0, "") }
+    def assignStatement: Parser[Tree] = word ~ "=" ~ (exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, false,0, null) }
 
     def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
 
@@ -47,15 +47,15 @@ class Parser extends RegexParsers {
                 functionNode("", List(), b, null)
     }
 
-    def funCall: Parser[Tree] = word ~ ":" ~ rep(binop) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, "") }
+    def funCall: Parser[Tree] = word ~ ":" ~ rep(binop) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, null) }
 
     def arg: Parser[Tree] = word ~ ":" ~ word ^^ { case valueNode(name, _) ~ s ~ valueNode(ty, _) => argNode(name, ty) }
 
-    def ifstatement: Parser[Tree] = "if" ~ "(" ~ binop ~ ")" ~ (exp | block) ~ opt("else" ~ (exp | block)) ^^ { case _ ~ _ ~ b ~ _ ~ e1 ~ Some(_ ~ e2) => ifNode(b, e1, Some(e2), "")
-    case _ ~ _ ~ b ~ _ ~ e1 ~ None => ifNode(b, e1, None, "")
+    def ifstatement: Parser[Tree] = "if" ~ "(" ~ binop ~ ")" ~ (exp | block) ~ opt("else" ~ (exp | block)) ^^ { case _ ~ _ ~ b ~ _ ~ e1 ~ Some(_ ~ e2) => ifNode(b, e1, Some(e2), null)
+    case _ ~ _ ~ b ~ _ ~ e1 ~ None => ifNode(b, e1, None, null)
     }
 
-    def whilestatement: Parser[Tree] = "while" ~ "(" ~ binop ~ ")" ~ (exp | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, "") }
+    def whilestatement: Parser[Tree] = "while" ~ "(" ~ binop ~ ")" ~ (exp | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) }
 
     def statement: Parser[Tree] = ifstatement | whilestatement | assign | retStatement ^^ { case s => s }
 

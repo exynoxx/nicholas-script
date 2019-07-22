@@ -5,98 +5,107 @@ class CodeGenerator {
 
     var blockRecursionDepth = 0
 
-    def recurse(AST: Tree): codeblock = {
+    def recurse(AST: Tree, blockAllocName: String): codeblock = {
         AST match {
             case valueNode(value, ns) => codeblock(ret = value)
-            case binopNode(l, r, o, ns) =>
-                val codeblock(_, ll, _, _, _) = recurse(l)
-                val codeblock(_, rr, _, _, _) = recurse(r)
-                val codeblock(_, oo, _, _, _) = recurse(o)
 
-                if (ns == "string") {
-                    val rname = Util.genRandomName()
-                    val alloc = "char *" + rname + " = (char *) malloc (strlen(" + ll + ")+strlen("+rr+"));\n"
-                    val concat = "strcpy("+rname+","+ll+");\nstrcat("+rname+","+rr+");\n"
-                    val free = "free("+rname+");\n"
-                    codeblock(alloc+concat,rname,free,"","")
-                } else {
-                    codeblock(ret = ll + oo + rr)
+            //TODO reassignment to string not activated
+            case assignNode(id, binopNode(l, r, o, bns), deff, idx, ns) =>
+                val codeblock(_, ll, _, _, _) = recurse(l, blockAllocName)
+                val codeblock(_, rr, _, _, _) = recurse(r, blockAllocName)
+                val codeblock(_, oo, _, _, _) = recurse(o, blockAllocName)
+
+                val retLine = ns match {
+                    case "string" =>
+                        val alloc = "char *" + id + " = " + blockAllocName + "+" + idx + ";\n"
+                        val concat = "strcpy(" + id + "," + ll + ");\nstrcat(" + id + "," + rr + ");\n"
+                        alloc + concat
+                    case _ =>
+                        val body = ll + oo + rr
+                        Util.convertType(ns) + " " + id + " = " + body + ";\n"
                 }
+                codeblock(ret = retLine)
+            case assignNode(id, valueNode(value, "actualstring"), deff, idx, ns) =>
+                val alloc = "char *" + id + " = " + blockAllocName + "+" + idx + ";\n"
+                val copyline = "strcpy(" + id + "," + value + ");\n"
+                codeblock(ret = alloc+copyline)
 
             case opNode(op, _) => codeblock(ret = op)
-            case assignNode(id, body, deff, ns) =>
+            case assignNode(id, body, deff, idx, ns) =>
                 val ty = Util.convertType(ns)
-                val codeblock(pre, rett, post, fdef, fimpl) = recurse(body)
+                val codeblock(pre, rett, post, fdef, fimpl) = recurse(body, blockAllocName)
                 body match {
                     case functionNode(_, _, _, _) => codeblock("", "", "", fdef, fimpl)
-                    case valueNode(value, "string") => {
-                        val size = value.length - 2
-                        val mallocline = id + " = (char *) malloc (" + size + ");\n"
-                        val copyline = "strcpy("+id+","+value+");\n"
-                        val free = "free("+id+");\n"
-                        codeblock("",mallocline+copyline,free,fdef,fimpl)
-                    }
                     case _ => val line = if (deff) ty + " " + id + " = " + rett + ";\n" else id + " = " + rett + ";\n"
                         codeblock(pre, line, post, fdef, fimpl)
                 }
 
             case functionNode(id, args, body, ns) =>
-                val fargs = args.map(e => recurse(e))
+                val fargs = args.map(e => recurse(e, blockAllocName))
                     .map { case codeblock(pre, l, post, fdef, fimpl) => l }.mkString(",")
                 val fdef = Util.convertType(ns) + " " + id + "(" + fargs + ")"
-                val codeblock(pre, rett, post, adef, aimpl) = recurse(body)
+                val codeblock(pre, rett, post, adef, aimpl) = recurse(body, blockAllocName)
                 val fimpl = rett
                 codeblock("", "", "", fdef + ";\n" + adef, fdef + fimpl + aimpl)
             case argNode(name, ns) => codeblock(ret = Util.convertType(ns) + " " + name)
             case blockNode(children, ns) =>
                 blockRecursionDepth += 1
 
+                var tmpAllocName: String = null
                 var str = ""
-                var retStatement:Tree = null
+                var free = ""
+                var retStatement: Tree = null
 
-                val filteredChildren = children.filter{
-                    case returnNode(body,ns) =>
-                        retStatement = returnNode(body,ns)
+                val filteredChildren = children.filter {
+                    case returnNode(body, ns) =>
+                        retStatement = returnNode(body, ns)
+                        false
+                    case allocNode(name, size, ns) =>
+                        str = "char *" + name + "= (char *) malloc (" + size + ");\n"
+                        tmpAllocName = name
+                        false
+                    case freeNode(variable, ns) =>
+                        free = "free(" + variable + ");\n"
                         false
                     case _ => true
                 }
-                val b = filteredChildren.map(e => recurse(e))
-                b.map{case codeblock(pre, l, post, fdef, fimpl) => str += pre+l }
+                val b = filteredChildren.map(e => recurse(e, tmpAllocName))
+                b.map { case codeblock(pre, l, post, fdef, fimpl) => str += pre + l }
                 val post = b.map { case codeblock(pre, l, post, fdef, fimpl) => post }.mkString
                 val fdef = b.map { case codeblock(pre, l, post, fdef, fimpl) => fdef }.mkString
                 val fimpl = b.map { case codeblock(pre, l, post, fdef, fimpl) => fimpl }.mkString
 
                 blockRecursionDepth -= 1
 
-                var content = str + post
+                var content = str + post + free
                 if (blockRecursionDepth > 0) {
-                    val codeblock(_,retText,_,_,_) = recurse(retStatement)
+                    val codeblock(_, retText, _, _, _) = recurse(retStatement, tmpAllocName)
                     content += retText
                     content = "{\n" + content + "}\n"
                 }
                 codeblock("", content, "", fdef, fimpl)
 
             case ifNode(c, b, Some(elsbody), ns) =>
-                val codeblock(_, con, _, _, _) = recurse(c)
-                val codeblock(_, body, _, f1, f2) = recurse(b)
-                val codeblock(_, els, _, f3, f4) = recurse(elsbody)
+                val codeblock(_, con, _, _, _) = recurse(c, blockAllocName)
+                val codeblock(_, body, _, f1, f2) = recurse(b, blockAllocName)
+                val codeblock(_, els, _, f3, f4) = recurse(elsbody, blockAllocName)
                 val line = "if (" + con + ")" + body + "else " + els
                 codeblock("", line, "", f1 + f3, f2 + f4)
             case ifNode(c, b, None, ns) =>
-                val codeblock(_, con, _, _, _) = recurse(c)
-                val codeblock(_, body, _, f1, f2) = recurse(b)
+                val codeblock(_, con, _, _, _) = recurse(c, blockAllocName)
+                val codeblock(_, body, _, f1, f2) = recurse(b, blockAllocName)
                 val line = "if (" + con + ")" + body
                 codeblock("", line, "", f1, f2)
             case whileNode(c, b, ns) =>
-                val codeblock(_, con, _, _, _) = recurse(c)
-                val codeblock(_, body, _, f1, f2) = recurse(b)
+                val codeblock(_, con, _, _, _) = recurse(c, blockAllocName)
+                val codeblock(_, body, _, f1, f2) = recurse(b, blockAllocName)
                 val line = "while (" + con + ")" + body
                 codeblock("", line, "", f1, f2)
             case returnNode(body, ns) =>
-                val codeblock(p, b, _, _, _) = recurse(body)
+                val codeblock(p, b, _, _, _) = recurse(body, blockAllocName)
                 codeblock(ret = p + "return " + b + ";\n")
             case callNode(id, args, deff, ns) =>
-                val argstring = args.map(e => recurse(e))
+                val argstring = args.map(e => recurse(e, blockAllocName))
                     .map { case codeblock(pre, l, post, _, _) => l }.mkString(",")
                 val line1 = id + "(" + argstring + ")"
                 val line2 = if (deff) ";\n" else ""
@@ -106,8 +115,18 @@ class CodeGenerator {
     }
 
     def gen(AST: Tree): String = {
-        val codeblock(pre, ret, post, fdef, fimpl) = recurse(AST)
-        val include = "#include <stdio.h>\n#include <string.h>\n"
+
+        var blockAllocName: String = null
+        AST match {
+            case blockNode(children, ns) =>
+                children.foreach {
+                    case allocNode(name, _, _) => blockAllocName = name
+                    case _ => null
+                }
+        }
+
+        val codeblock(pre, ret, post, fdef, fimpl) = recurse(AST, blockAllocName)
+        val include = "#include <stdlib.h>\n#include <stdio.h>\n#include <string.h>\n"
         val main0 = fdef + fimpl
         val main1 = "int main (int arc, char **argv) {\n"
         val main2 = pre + ret + post
