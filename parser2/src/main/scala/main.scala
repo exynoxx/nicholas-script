@@ -1,4 +1,8 @@
+import java.io.{File, PrintWriter}
+
 import scala.io.Source
+import sys.process._
+
 object main {
 
 	def readFile(filename: String): String = {
@@ -7,6 +11,12 @@ object main {
 		bufferedSource.close
 		alltext
 	}
+    def writeFile(filename:String, content:String) = {
+        val writer = new PrintWriter(new File(filename))
+        writer.write(content)
+        writer.close()
+
+    }
 
 	def main(args: Array[String]): Unit = {
 		val printer = new TreePrinter
@@ -25,20 +35,22 @@ object main {
 										nullLeaf()
 		}
 
-        println("raw:")
+        /*println("raw:")
         printer.print(AST)
         println("typecheck:")
         printer.print(t.typecheck(AST))
         println("augment:")
         printer.print(t.augment(t.typecheck(AST)))
+        */
 
         val (tree,_,_) = t.annotateSize(t.augment(t.typecheck(AST)))
 
         println("alloc idx:")
         printer.print(tree)
-
-        //printer.print(t.augment(t.typecheck(AST)))
-		//print(cg.gen(tree))
+        val ret = cg.gen(tree)
+        writeFile("out/out.c",ret)
+        val f = "gcc out/out.c".!
+        println(f)
 
 	}
 }
