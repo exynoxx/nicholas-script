@@ -8,10 +8,10 @@ class TreePrinter {
 		t match {
 			case valueNode(value, ns) => printMinus("-", depth) +
 				"valueNode(" + value + "," + ns + ")\n"
-			case binopNode(l, r, o, ns) => printMinus("-", depth) +
-				"binopNode(" + recursion(o) + ",ns="+ns+")\n" +
-				recursion(l, depth + increment) +
-				recursion(r, depth + increment)
+			case binopNode(numbers, ops,idx, ns) => printMinus("-", depth) +
+				"binopNode(idx="+idx+",ns="+ns+")\n" +
+				printMinus("-", depth + increment) + numbers + "\n" +
+				printMinus("-", depth + increment) + ops + "\n"
 			case opNode(b, ns) => b
 			case assignNode(id, b,deff,idx, ns) => printMinus("-", depth) +
 				"assignNode(" + id + ", definition="+deff+", idx="+idx+", ns="+ns+")\n" +

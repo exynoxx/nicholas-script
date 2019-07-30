@@ -18,7 +18,7 @@ case class ifNode(condition: Tree, body: Tree, elsebody: Option[Tree], nstype: S
 
 case class whileNode(condition: Tree, body: Tree, nstype: String) extends Tree
 
-case class binopNode(left: Tree, right: Tree, op: Tree, nstype: String) extends Tree
+case class binopNode(numbers: List[Tree], ops: List[Tree],idx:Int, nstype: String) extends Tree
 
 case class opNode(body:String, nstype:String) extends Tree
 

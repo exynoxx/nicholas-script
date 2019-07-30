@@ -9,8 +9,13 @@ class Parser extends RegexParsers {
 
     def op: Parser[Tree] = ("+" | "-" | "*" | "/" | "||" | "&&" | ">" | "<" | "<=" | ">=" | "!=" | "==") ^^ { case o => opNode(o, null) }
 
-    def binop: Parser[Tree] = (number | word| strings) ~ opt(op ~ binop) ^^ { case n ~ Some(o ~ b) => binopNode(n, b, o, null)
-    case n ~ None => n
+    def binop: Parser[Tree] = (number | word | strings) ~ rep(op ~ (number | word | strings)) ^^
+        {
+            case n ~ List() => n
+            case n ~ (o:List[Tree ~ Tree]) =>
+                val nn = o.map{case _ ~ num => num}
+                val oo = o.map{case op ~ _ => op}
+                binopNode(nn, oo,0, null)
     }
 
     //TODO: funcall in args

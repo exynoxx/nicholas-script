@@ -21,16 +21,12 @@ class TypeChecker {
                 }
                 (valueNode(value, newns), symbol)
 
-            case binopNode(l, r, o, ns) =>
-                val (leftTree, _) = typerecurse(l, AST, symbol)
-                val (rightTree, _) = typerecurse(r, AST, symbol)
-                val ty = (leftTree.nstype, rightTree.nstype) match {
-                    case ("string", _) => "string"
-                    case (_, "string") => "string"
-                    case x => leftTree.nstype
-                }
-                (binopNode(leftTree, rightTree, o, ty), symbol)
-            //case opNode(op, _) => codeblock(ret = op)
+            case binopNode(numbers,ops,idx,ns) =>
+                val newNum:List[Tree] = numbers.map(e => typerecurse(e,AST,symbol)._1)
+                val ss = newNum.exists{case e:Tree => (e.nstype == "string"|e.nstype == "actualstring")}
+                val ty:String = if (ss) "string" else newNum.head.nstype
+                (binopNode(newNum,ops,idx,ty), symbol)
+
             case assignNode(id, body, deff, idx, ns) =>
                 val (btree, _) = typerecurse(body, AST, symbol)
                 val ty = ns match {
@@ -110,29 +106,20 @@ class TypeChecker {
         blockBody match {
             case x :: xs => {
                 val ret: List[Tree] = x match {
-                    case assignNode(id, binopNode(l, r, o, "string"), deff, idx, assignNS) => {
+                    case binopNode(numbers,ops,idx,"string") =>
+                        //assignNode(id, binopNode(l, r, o, "string"), deff, idx, assignNS) => {
                         val retList = ListBuffer[Tree]()
-                        val lname = l match {
-                            case valueNode(_, "actualstring") =>
+                        val names = numbers.map {
+                            case valueNode(vn, "actualstring") =>
                                 val n = Util.genRandomName()
-                                retList += assignNode(n, l, true, 0, "string")
-                                n
-                            case valueNode(n, _) => n
-
+                                val tmp = valueNode(vn, "actualstring")
+                                retList += assignNode(n, tmp, true, 0, "string")
+                                valueNode(n, "string")
+                            case x => x
                         }
-                        val rname = r match {
-                            case valueNode(_, "actualstring") =>
-                                val n = Util.genRandomName()
-                                retList += assignNode(n, r, true, 0, "string")
-                                n
-                            case valueNode(n, _) => n
-
-                        }
-                        val tmpMID = binopNode(valueNode(lname, "string"), valueNode(rname, "string"), o, "string")
-                        val tmpFinal = assignNode(id, tmpMID, deff, 0, assignNS)
-                        retList += tmpFinal
+                        retList += binopNode(names,ops,0, "string")
                         retList.toList
-                    }
+
                     case assignNode(id, body, deff, idx, ns) =>
                         val list: List[Tree] = iterateBlock(List(body))
                         list.reverse match {
@@ -284,20 +271,13 @@ class TypeChecker {
                 val ret = assignNode(id, valueNode(name, "actualstring"), deff, idx, "string")
                 (ret, symbol + (id -> size), size)
 
-            case assignNode(id, binopNode(l, r, o, ns), deff, _, "string") =>
-                val sizel: Int = l match {
-                    case valueNode(n, "actualstring") => n.length - 2
+            case assignNode(id, binopNode(numbers,ops,_,ns), deff, _, "string") =>
+                val allsizes = numbers.map{
                     case valueNode(n, "string") => symbol.getOrElse(n,0)
                     case _ => 0
-                }
-                val sizer: Int = r match {
-                    case valueNode(n, "actualstring") => n.length - 2
-                    case valueNode(n, "string") => symbol.getOrElse(n,0)
-                    case _ => 0
-                }
-                val size = sizel + sizer
-                val ret = assignNode(id, binopNode(l, r, o, ns), deff, idx, "string")
-                (ret, symbol + (id -> size),size)
+                }.sum
+                val ret = assignNode(id, binopNode(numbers,ops,idx,ns), deff, 0, "string")
+                (ret, symbol + (id -> allsizes),allsizes)
 
             case assignNode(id, functionNode(_, args, blockNode(children, ns), fns), deff, idx, ans) =>
                 val newchildren = annotateChildren(children,symbol)
