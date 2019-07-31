@@ -3,7 +3,10 @@ var b = "hek";
 var y = "world"+"other"+b+"hello"+"hello"+"hello";
 var f1 = (x:int) => x+x+2*x;
 var f2 = (in:string):int => {
+    var t = "hell";
     var triple = in+in+in;
+    var gg = "gwrg";
+
     return 0;
 };
 var c = f1: 1;

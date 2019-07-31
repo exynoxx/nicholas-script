@@ -195,7 +195,7 @@ class TypeChecker {
             case _ => List()
         }
     }
-
+	//TODO string input in func annotate correct size at runtime
     def augment(AST: Tree): Tree = {
         AST match {
             case blockNode(children, ns) => {
