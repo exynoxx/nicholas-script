@@ -101,7 +101,7 @@ class TypeChecker {
     }
 
     //TODO: augment func out of while
-
+	//TODO: func no return in case void
     def iterateBlock(blockBody: List[Tree]): List[Tree] = {
         blockBody match {
             case x :: xs => {
