@@ -1,3 +1,9 @@
 var a = 1+1+2+5+3+1;
 var b = "hek";
 var y = "world"+"other"+b+"hello"+"hello"+"hello";
+var f1 = (x:int) => x+x+2*x;
+var f2 = (in:string):int => {
+    var triple = in+in+in;
+    return 0;
+};
+var c = f1: 1;

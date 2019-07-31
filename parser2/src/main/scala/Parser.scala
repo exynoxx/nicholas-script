@@ -15,7 +15,7 @@ class Parser extends RegexParsers {
             case n ~ (o:List[Tree ~ Tree]) =>
                 val nn = o.map{case _ ~ num => num}
                 val oo = o.map{case op ~ _ => op}
-                binopNode(nn, oo,0, null)
+                binopNode(n::nn, oo,0, null)
     }
 
     //TODO: funcall in args
