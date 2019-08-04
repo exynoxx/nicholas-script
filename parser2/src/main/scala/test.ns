@@ -1,6 +1,11 @@
 var a = 1+1+2+5+3+1;
-var f = ():int => {
-    var b = "hek";
-    var y = "world"+"other"+b+"hello"+"hello"+"hello";
-    return 0;
+var f1 = (s:string) => {
+    var b = "before ";
+    var y = b+"hello "+"world "+s;
+    return y;
+};
+var b = f1: "!";
+var a = 1+2;
+var f2 = () => {
+	a = a+1;
 };

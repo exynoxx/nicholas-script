@@ -3,3 +3,13 @@ strings (and string operations)3
 arrays
 infer func types
 free return statement if string in func
+strings in while
+anon func
+f: ((a:int,b:int) => a+b): 1 2;
+
+
+
+TODO
+call without assign
+return statement copy malloc
+free after call if string func. assign call | call

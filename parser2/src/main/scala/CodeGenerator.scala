@@ -117,8 +117,16 @@ class CodeGenerator {
 				blockRecursionDepth -= 1
 
 				var content = str + post + free
+
+				//this root block? yes: dont print brackets
 				if (blockRecursionDepth > 0) {
-					val codeblock(_, retText, _, _, _) = recurse(retStatement, tmpAllocName)
+
+					val retText = retStatement match {
+						case null => "" //void case
+						case _ =>
+							val codeblock(_, retText, _, _, _) = recurse(retStatement, tmpAllocName)
+							retText
+					}
 					content += retText
 					content = "{\n" + content + "}\n"
 				}
