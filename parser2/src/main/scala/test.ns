@@ -6,6 +6,7 @@ var f1 = (s:string) => {
 };
 var b = f1: "!";
 var a = 1+2;
-var f2 = () => {
-	a = a+1;
+var f2 = (x:int) => {
+	f1:;
 };
+f1:;

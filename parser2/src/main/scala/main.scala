@@ -35,8 +35,9 @@ object main {
 										nullLeaf()
 		}
 
-        /*println("raw:")
+        println("raw:")
         printer.print(AST)
+		/*
         println("typecheck:")
         printer.print(t.typecheck(AST))
         println("augment:")
