@@ -10,6 +10,5 @@ f: ((a:int,b:int) => a+b): 1 2;
 
 
 TODO
-call without assign
 return statement copy malloc
 free after call if string func. assign call | call

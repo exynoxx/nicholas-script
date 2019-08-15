@@ -121,6 +121,7 @@ class TypeChecker {
                         retList.toList
 
                     case assignNode(id, body, deff, idx, ns) =>
+						//TODO if body is call and body type is string: insert freeNode
                         val list: List[Tree] = iterateBlock(List(body))
                         list.reverse match {
                             case x :: xs => xs ++ List(assignNode(id, x, deff, idx, ns))
@@ -171,7 +172,7 @@ class TypeChecker {
                             case valueNode(name, ns) => valueNode(name, ns)
                         }
                         tmpList += callNode(id, newargs, deff, ns)
-                        tmpList.toList
+						tmpList.toList
                     case returnNode(body, ns) =>
                         val shouldExtract = body match {
                             case valueNode(_, "actualstring") => true
