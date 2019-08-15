@@ -35,9 +35,8 @@ object main {
 										nullLeaf()
 		}
 
-        println("raw:")
+        /*println("raw:")
         printer.print(AST)
-		/*
         println("typecheck:")
         printer.print(t.typecheck(AST))
         println("augment:")
@@ -50,8 +49,8 @@ object main {
         printer.print(tree)
         val ret = cg.gen(tree)
         writeFile("out/out.c",ret)
-        //val f = "gcc out/out.c".!
-        //println(f)
+        val f = "gcc out/out.c".!
+        println(f)
 
 	}
 }
