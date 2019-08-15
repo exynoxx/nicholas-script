@@ -1,4 +1,4 @@
-import scala.collection.mutable.ArrayBuffer
+
 
 trait Tree {
 	val nstype: String
@@ -18,3 +18,4 @@ case class callNode(id: String, args: List[Tree], definition: Boolean, nstype: S
 case class nullLeaf(nstype: String = "null") extends Tree
 case class allocNode(name: String, size: Int, nstype: String = null) extends Tree
 case class freeNode(variable: String, nstype: String = null) extends Tree
+case class lineNode(text:String, nstype:String) extends Tree

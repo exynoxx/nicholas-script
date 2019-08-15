@@ -9,3 +9,12 @@ var f2 = (i:string):int => {
     return 0;
 };
 var c = f1: 1;
+var d = f2: "hey";
+var print = (x:string) => {
+    ?$ console.log(x) ?$
+};
+print: c;
+print: d;
+print: a;
+print: b;
+print: y;

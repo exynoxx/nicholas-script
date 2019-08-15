@@ -2,11 +2,19 @@ var a = 1+1+2+5+3+1;
 var b = "hek";
 var y = "world"+"other"+b+"hello"+"hello"+"hello";
 var f1 = (x:int) => x+x+2*x;
-var f2 = (in:string):int => {
+var f2 = (i:string):int => {
     var t = "hell";
-    var triple = in+in+in;
+    var triple = i+i+i;
     var gg = "gwrg";
-
     return 0;
 };
 var c = f1: 1;
+var d = f2: "hey";
+var print = (x:string) => {
+    ?$ console.log(x) ?$
+};
+print: c;
+print: d;
+print: a;
+print: b;
+print: y;

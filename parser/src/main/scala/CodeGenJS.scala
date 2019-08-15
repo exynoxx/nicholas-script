@@ -9,7 +9,7 @@ class CodeGenJS {
 				}
 			case opNode(body, ns) => body
 			case binopNode(numbers, ops, _, ns) =>
-				val opsString = ops.map(x => recurse(x))++List("")
+				val opsString = ops.map(x => recurse(x)) ++ List("")
 				val numbersString = numbers.map(x => recurse(x))
 				numbersString.zip(opsString).map { case (x, y) => x + y }.mkString
 			case valueNode(value, ns) => value
@@ -45,6 +45,9 @@ class CodeGenJS {
 				id + "(" + args.map(x => recurse(x)).mkString(",") + ")\n"
 
 			case returnNode(body, ns) => "return " + recurse(body) + "\n"
+
+			case lineNode(text, ns) => text
+
 			case x => "//" + x.toString + "\n"
 		}
 	}
