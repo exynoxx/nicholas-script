@@ -1,5 +1,6 @@
 import java.io.{File, PrintWriter}
 
+
 import scala.io.Source
 import sys.process._
 
@@ -22,7 +23,7 @@ object main {
 		val printer = new TreePrinter
 		val p = new Parser
 		val t = new TypeChecker
-		val cg = new CodeGenerator
+		val cg = new CodeGenJS //new CodeGenC
 
 		val in = readFile("src/main/scala/test.ns")
 		val AST:Tree = p.parse(p.start,in) match {
@@ -48,7 +49,7 @@ object main {
         println("alloc idx:")
         printer.print(tree)
         val ret = cg.gen(tree)
-        writeFile("out/out.c",ret)
+        writeFile("out/out.js",ret)
         //val f = "gcc out/out.c".!
         //println(f)
 

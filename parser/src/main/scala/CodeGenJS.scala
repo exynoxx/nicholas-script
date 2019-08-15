@@ -1,0 +1,56 @@
+class CodeGenJS {
+
+	def recurse(tree: Tree): String = {
+		tree match {
+			case assignNode(id, body, deff, _, ns) =>
+				deff match {
+					case true => "var " + id + " = " + recurse(body) + "\n"
+					case false => id + " = " + recurse(body) + "\n"
+				}
+			case opNode(body, ns) => body
+			case binopNode(numbers, ops, _, ns) =>
+				val opsString = ops.map(x => recurse(x))++List("")
+				val numbersString = numbers.map(x => recurse(x))
+				numbersString.zip(opsString).map { case (x, y) => x + y }.mkString
+			case valueNode(value, ns) => value
+			case ifNode(c, b, elsebody, ns) =>
+				val s1 = "if (" + recurse(c) + ") {\n"
+				val s2 = recurse(b)
+				val s3 = "}\n"
+
+				val s4 = elsebody match {
+					case Some(ss) => "else {\n" + recurse(ss) + "}\n"
+					case None => ""
+				}
+				s1 + s2 + s3 + s4
+			case whileNode(c, b, ns) =>
+				val s1 = "while (" + recurse(c) + ") {\n"
+				val s2 = recurse(b)
+				val s3 = "}\n"
+				s1 + s2 + s3
+			case argNode(name, ns) => name
+
+			//TODO function at the top
+			case functionNode(id, args, body, ns) =>
+				val s1 = "var " + id + " = "
+				val s2 = "function(" + args.map(x => recurse(x)).mkString(",") + ") {\n"
+				val s3 = recurse(body)
+				val s4 = "}\n"
+				s1 + s2 + s3 + s4
+
+			case blockNode(children, ns) =>
+				children.map(x => recurse(x)).mkString
+
+			case callNode(id, args, deff, ns) =>
+				id + "(" + args.map(x => recurse(x)).mkString(",") + ")\n"
+
+			case returnNode(body, ns) => "return " + recurse(body) + "\n"
+			case x => "//" + x.toString + "\n"
+		}
+	}
+
+	def gen(AST: Tree): String = {
+		recurse(AST)
+	}
+
+}

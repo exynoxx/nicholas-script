@@ -243,14 +243,20 @@ class TypeChecker {
     def annotateChildren (children:List[Tree], symbol: HashMap[String, Int]):List[Tree] = {
         var symClone = symbol
         var tmpIdx = 0
+
+		//iter children
         val newchildren = children.map (e => {
             val (newElem,sym,size) = annotateSize(e,symClone,tmpIdx)
             symClone = symClone ++ sym
             tmpIdx += size
             newElem
         })
+
+		//malloc culmultative size from above
         val allocName = Util.genRandomName()
         var ret = List[Tree](allocNode(allocName, tmpIdx))
+
+		//contains return? free before
         var foundReturn = false
         newchildren.foreach {
             case returnNode(body, ns) =>
@@ -258,6 +264,8 @@ class TypeChecker {
                 foundReturn = true
             case x: Tree => ret ++= List(x)
         }
+
+		//no return? insert free anyway
         if (!foundReturn) {
             ret ++= List(freeNode(allocName))
         }
