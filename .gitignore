@@ -1,3 +1,4 @@
 parser/target
 parser/project
 parser/.idea
+*.xml
