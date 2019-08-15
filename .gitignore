@@ -1,4 +1,5 @@
 parser/target
 parser/project
-parser/.idea
+.idea/
 *.xml
+*.class
