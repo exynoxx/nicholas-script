@@ -1,16 +1,3 @@
 
-.idea/
-*.xml
-*.iml
-*.jar
 *.class
 out/
-parser2/target
-parser2/project/target
-parser2/\.editorconfig
-*.sbt
-*.properties
-
-parser/target/streams/test/externalDependencyClasspath/\$global/streams/
-
-parser/project/target/config-classes/
