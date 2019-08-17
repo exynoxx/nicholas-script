@@ -1,5 +1,0 @@
-recursive function can assign (auto create parameter for outside var)
-strings (and string operations)3
-arrays
-infer func types
-free return statement if string in func
