@@ -169,7 +169,8 @@ class TypeChecker {
 								val replaceElement = valueNode(n, ns)
 								tmpList += preassign
 								replaceElement
-							case valueNode(name, ns) => valueNode(name, ns)
+							case x => x
+
 						}
 						tmpList += callNode(id, newargs, deff, ns)
 						tmpList.toList

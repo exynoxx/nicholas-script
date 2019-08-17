@@ -42,7 +42,11 @@ class CodeGenJS {
 				children.map(x => recurse(x)).mkString
 
 			case callNode(id, args, deff, ns) =>
-				id + "(" + args.map(x => recurse(x)).mkString(",") + ")\n"
+				val ret = id + "(" + args.map(x => recurse(x)).mkString(",") + ")"
+				deff match {
+					case true => ret + "\n"
+					case false => ret
+				}
 
 			case returnNode(body, ns) => "return " + recurse(body) + "\n"
 

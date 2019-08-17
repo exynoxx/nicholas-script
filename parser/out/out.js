@@ -1,38 +1,23 @@
-//allocNode(ran10,59,null)
-var a = 1+1+2+5+3+1
-var b = "hek"
-var ran4 = "hello"
-var ran3 = "hello"
-var ran2 = "hello"
-var ran1 = "other"
-var ran0 = "world"
-var y = ran0+ran1+b+ran2+ran3+ran4
-var f1 = function(x) {
-//allocNode(ran7,0,null)
-var ran5 = x+x+2*x
-//freeNode(ran7,null)
-return ran5
-}
-var f2 = function(i) {
-//allocNode(ran8,8,null)
-var t = "hell"
-var triple = i+i+i
-var gg = "gwrg"
-//freeNode(ran8,null)
-return 0
-}
-var c = f1(1)
-
-var ran6 = "hey"
-var d = f2(ran6)
-
+//allocNode(ran4,5,null)
 var print = function(x) {
-//allocNode(ran9,0,null)
- console.log(x) //freeNode(ran9,null)
+//allocNode(ran1,0,null)
+ console.log(x) //freeNode(ran1,null)
 }
-print(c)
-print(d)
-print(a)
-print(b)
-print(y)
-//freeNode(ran10,null)
+var t = "hello"
+var ident = function(x) {
+//allocNode(ran2,0,null)
+//freeNode(ran2,null)
+return x
+}
+var add = function(x,y) {
+//allocNode(ran3,0,null)
+var ran0 = x+y
+//freeNode(ran3,null)
+return ran0
+}
+var a = ident(t)
+ident(t)
+var b = ident(ident(ident(t)))
+ident(ident(ident(t)))
+var c = add(add(add(1,2),2),2)
+//freeNode(ran4,null)
