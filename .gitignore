@@ -3,3 +3,4 @@ parser/project
 .idea/
 *.xml
 *.class
+parser/.idea/*
