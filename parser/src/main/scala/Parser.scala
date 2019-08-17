@@ -17,7 +17,6 @@ class Parser extends RegexParsers {
 			binopNode(n :: nn, oo, 0, null)
 	}
 
-	//TODO: funcall in args
 	def exp: Parser[Tree] = funCall | binop | /*"(" ~ funCall ~ ")" ^^ { case _ ~ s ~ _ => s } |*/ "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 
 	def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, null) }

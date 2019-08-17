@@ -30,7 +30,6 @@ class CodeGenJS {
 				s1 + s2 + s3
 			case argNode(name, ns) => name
 
-			//TODO function at the top
 			case functionNode(id, args, body, ns) =>
 				val s1 = "var " + id + " = "
 				val s2 = "function(" + args.map(x => recurse(x)).mkString(",") + ") {\n"
