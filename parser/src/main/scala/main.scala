@@ -36,20 +36,11 @@ object main {
 										nullLeaf()
 		}
 
-        /*println("raw:")
-        printer.print(AST)
-        println("typecheck:")
-        printer.print(t.typecheck(AST))
-        println("augment:")
-        printer.print(t.augment(t.typecheck(AST)))
-        */
-
-        val (tree,_,_) = t.annotateSize(t.augment(t.typecheck(AST)))
-
-        println("alloc idx:")
-        printer.print(tree)
+        val tree = t.augment(t.typecheck(AST))
+		printer.print(tree)
         val ret = cg.gen(tree)
         writeFile("out/out.js",ret)
+
         //val f = "gcc out/out.c".!
         //println(f)
 

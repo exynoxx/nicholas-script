@@ -1,12 +1,3 @@
-var print = (x:string) => {
-    ?$ console.log(x) ?$
-};
-var t = "hello";
-var ident = (x:string) => x;
 var add = (x:int,y:int) => x+y;
-var a = ident: t;
-ident: t;
-var b = ident:(ident:(ident:t));
-ident:(ident:(ident:t));
-
-var c = add: (add: (add: 1 2) 2) 2;
+var ident = (x:string) => x;
+a := [1,2+3,add: (add: 1 1) 5];

@@ -50,9 +50,13 @@ class TreePrinter {
 				"allocNode(" + name + ",size=" + size + ")\n"
 			case freeNode(variable, ns) => printMinus("-", depth) +
 				"freeNode(" + variable + ")\n"
-
 			case lineNode(text, ns) => printMinus("-", depth) +
 				"lineNode(" + text + ")\n"
+			case arrayNode(null, ns) => printMinus("-", depth) +
+				"arrayNode()\n"
+			case arrayNode(elem, ns) => printMinus("-", depth) +
+				"arrayNode()\n" +
+				elem.map(e => recursion(e, depth + increment)).mkString
 
 		}
 	}

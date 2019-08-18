@@ -23,14 +23,23 @@ class Parser extends RegexParsers {
 
 	def assign: Parser[Tree] = defstatement | assignStatement
 
-	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ word) ~ "=" ~ (exp | func) ~ ";" ^^ {
+	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ word) ~ "=" ~ (exp | func| arrays) ~ ";" ^^ {
 		case _ ~ valueNode(id, _) ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(id, t, true, 0, ty)
 		case _ ~ valueNode(id, _) ~ None ~ _ ~ t ~ _ => assignNode(id, t, true, 0, null)
 
 	} |
-		word ~ ":=" ~ (exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
+		word ~ ":=" ~ (exp | func| arrays) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
 
-	def assignStatement: Parser[Tree] = word ~ "=" ~ (exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, false, 0, null) }
+	def assignStatement: Parser[Tree] = word ~ "=" ~ (exp | func | arrays) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, false, 0, null) }
+
+	def arrays: Parser[Tree] = "[" ~ opt(exp) ~ rep("," ~ exp) ~ "]" ^^ { case _ ~ firstopt ~ list ~ _ =>
+		firstopt match {
+			case None => arrayNode(null,null)
+			case Some(e) =>
+				val l = list.map { case _ ~ t => t }
+				arrayNode(e::l,null)
+		}
+	}
 
 	def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
 
@@ -47,9 +56,13 @@ class Parser extends RegexParsers {
 		case _ ~ None ~ l ~ _ ~ None ~ _ ~ b =>
 			functionNode("", List(), b, null)
 	}
-	def funArgExp: Parser[Tree] = ("(" ~ binop ~ ")" | "(" ~ funCall ~ ")") ^^ {case _ ~ x ~ _ => x} | binop
+
+	def funArgExp: Parser[Tree] = ("(" ~ binop ~ ")" | "(" ~ funCall ~ ")") ^^ { case _ ~ x ~ _ => x } | binop
+
 	def funCall: Parser[Tree] = word ~ ":" ~ rep(funArgExp) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, null) }
-	def callStatement: Parser[Tree] = funCall ~ ";" ^^ { case callNode(id,args,_,ns) ~ _ => callNode(id,args,true,ns)  }
+
+	def callStatement: Parser[Tree] = funCall ~ ";" ^^ { case callNode(id, args, _, ns) ~ _ => callNode(id, args, true, ns) }
+
 	def arg: Parser[Tree] = word ~ ":" ~ word ^^ { case valueNode(name, _) ~ s ~ valueNode(ty, _) => argNode(name, ty) }
 
 	def ifstatement: Parser[Tree] = "if" ~ "(" ~ binop ~ ")" ~ (exp | block) ~ opt("else" ~ (exp | block)) ^^ { case _ ~ _ ~ b ~ _ ~ e1 ~ Some(_ ~ e2) => ifNode(b, e1, Some(e2), null)

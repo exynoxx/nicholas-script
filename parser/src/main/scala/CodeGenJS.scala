@@ -31,11 +31,10 @@ class CodeGenJS {
 			case argNode(name, ns) => name
 
 			case functionNode(id, args, body, ns) =>
-				val s1 = "var " + id + " = "
-				val s2 = "function(" + args.map(x => recurse(x)).mkString(",") + ") {\n"
-				val s3 = recurse(body)
-				val s4 = "}\n"
-				s1 + s2 + s3 + s4
+				val s1 = "function(" + args.map(x => recurse(x)).mkString(",") + ") {\n"
+				val s2 = recurse(body)
+				val s3 = "}\n"
+				s1 + s2 + s3
 
 			case blockNode(children, ns) =>
 				children.map(x => recurse(x)).mkString
@@ -50,6 +49,9 @@ class CodeGenJS {
 			case returnNode(body, ns) => "return " + recurse(body) + "\n"
 
 			case lineNode(text, ns) => text
+
+			case arrayNode(elements, ns) =>
+				"[" + elements.map(x => recurse(x)).mkString(",") + "]"
 
 			case x => "//" + x.toString + "\n"
 		}

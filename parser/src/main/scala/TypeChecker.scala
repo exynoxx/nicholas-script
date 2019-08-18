@@ -97,6 +97,9 @@ class TypeChecker {
 			case returnNode(body, ns) =>
 				val (newbody, _) = typerecurse(body, AST, symbol)
 				(returnNode(newbody, newbody.nstype), symbol)
+
+			case arrayNode(elem, ns) =>
+				(arrayNode(elem, elem.head.nstype), symbol)
 			case x => (x, symbol)
 		}
 	}
@@ -186,6 +189,20 @@ class TypeChecker {
 						} else {
 							List(returnNode(body, ns))
 						}
+					case arrayNode(elem, ns) =>
+						val tmpList = ListBuffer[Tree]()
+						val newelem = elem.map {
+							case valueNode(value, ns) => valueNode(value, ns)
+							case binopNode(numbers, ops, idx, ns) => binopNode(numbers, ops, idx, ns)
+							case x =>
+								val id = Util.genRandomName()
+								val preassign = assignNode(id, x, true, 0, x.nstype)
+								val replaceElement = valueNode(id, x.nstype)
+								tmpList += preassign
+								replaceElement
+						}
+						tmpList += arrayNode(newelem,ns)
+						tmpList.toList
 
 					case t => List(t)
 				}
@@ -205,109 +222,6 @@ class TypeChecker {
 			}
 			case _ => println("error")
 				nullLeaf()
-		}
-	}
-
-	/*
-
-	def calculateScopeAllocSize(blockBody: List[Tree], symbol: HashMap[String, String]): List[Tree] = {
-		var idx = 0
-		val newbody = blockBody.map {
-			case assignNode(id, valueNode(name, "actualstring"), deff, _, ns) =>
-				val ret = assignNode(id, valueNode(name, "actualstring"), deff, idx, ns)
-				idx += name.length - 2
-				ret
-			case assignNode(id, binopNode(l, r, o, "string"), deff, _, ns) =>
-				val sizel: Int = l match {
-					case valueNode(n, "actualstring") => n.length - 2
-					case _ => (symbol.get(id)).toString.toInt
-				}
-				val sizer: Int = r match {
-					case valueNode(n, "actualstring") => n.length - 2
-					case _ => (symbol.get(id)).toString.toInt
-				}
-				val ret = assignNode(id, binopNode(l, r, o, "string"), deff, idx, ns)
-				idx += sizel + sizer
-			case x => x
-		}
-		val allocName = Util.genRandomName()
-		var ret = List[Tree](allocNode(allocName, idx))
-		newbody.foreach {
-			case returnNode(body, ns) => ret ++= List(freeNode(allocName)) ++ List(returnNode(body, ns))
-			case x: Tree => ret ++= List(x)
-		}
-		ret
-	}
-
-*/
-
-	def annotateChildren(children: List[Tree], symbol: HashMap[String, Int]): List[Tree] = {
-		var symClone = symbol
-		var tmpIdx = 0
-
-		//iter children
-		val newchildren = children.map(e => {
-			val (newElem, sym, size) = annotateSize(e, symClone, tmpIdx)
-			symClone = symClone ++ sym
-			tmpIdx += size
-			newElem
-		})
-
-		//malloc culmultative size from above
-		val allocName = Util.genRandomName()
-		var ret = List[Tree](allocNode(allocName, tmpIdx))
-
-		//contains return? free before
-		var foundReturn = false
-		newchildren.foreach {
-			case returnNode(body, ns) =>
-				ret ++= List(freeNode(allocName)) ++ List(returnNode(body, ns))
-				foundReturn = true
-			case x: Tree => ret ++= List(x)
-		}
-
-		//no return? insert free anyway
-		if (!foundReturn) {
-			ret ++= List(freeNode(allocName))
-		}
-		ret
-	}
-
-	def annotateSize(AST: Tree, symbol: HashMap[String, Int] = HashMap(), idx: Int = 0): (Tree, HashMap[String, Int], Int) = {
-		AST match {
-			case assignNode(id, valueNode(name, "actualstring"), deff, _, _) =>
-				val size = name.length - 2
-				val ret = assignNode(id, valueNode(name, "actualstring"), deff, idx, "string")
-				(ret, symbol + (id -> size), size)
-
-			case assignNode(id, binopNode(numbers, ops, _, ns), deff, _, "string") =>
-				val allsizes = numbers.map {
-					case valueNode(n, "string") => symbol.getOrElse(n, 0)
-					case _ => 0
-				}.sum
-				val ret = assignNode(id, binopNode(numbers, ops, idx, ns), deff, 0, "string")
-				(ret, symbol + (id -> allsizes), allsizes)
-
-			case assignNode(id, functionNode(_, args, blockNode(children, ns), fns), deff, idx, ans) =>
-				val newchildren = annotateChildren(children, symbol)
-				(functionNode(id, args, blockNode(newchildren, ns), fns), symbol, 0)
-			case blockNode(children, ns) =>
-				val newchildren = annotateChildren(children, symbol)
-				(blockNode(newchildren, ns), symbol, 0)
-			case ifNode(cond, body, els, ns) =>
-				val newbody = body match {
-					case blockNode(children, ns) => blockNode(annotateChildren(children, symbol), ns)
-					case x => x
-				}
-				val newels = els match {
-					case Some(blockNode(children, ns)) => Some(blockNode(annotateChildren(children, symbol), ns))
-					case x => x
-				}
-				(ifNode(cond, newbody, newels, ns), symbol, 0)
-			case whileNode(cond, body, ns) =>
-				(whileNode(cond, body, ns), symbol, 0)
-
-			case x => (x, symbol, 0)
 		}
 	}
 
