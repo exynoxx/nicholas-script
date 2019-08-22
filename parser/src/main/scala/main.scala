@@ -25,7 +25,9 @@ object main {
 		val t = new TypeChecker
 		val cg = new CodeGenJS //new CodeGenC
 
-		val in = readFile("src/main/scala/test.ns")
+		val prestring = "print := (x:string) => {\n\t?$ console.log(x) ?$\n};\n"
+
+		val in = prestring+readFile("src/main/scala/test.ns")
 		val AST:Tree = p.parse(p.start,in) match {
 			case p.Success(t, _) => t
             case f : p.NoSuccess => print("error: "+f.msg)

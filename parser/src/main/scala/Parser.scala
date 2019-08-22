@@ -40,8 +40,8 @@ class Parser extends RegexParsers {
 				arrayNode(e::l,null)
 		}
 	}
-	//def arrayrangeNumber: Parser[Tree] = number|("("~binop~")"^^{case _ ~ x ~ _ => x})
-	def arrayrange: Parser[Tree] = number ~ "\\.\\." ~ number ^^ {case a ~ _ ~ b => rangeNode(a,b,"int")}
+	def arrayrangeNumber: Parser[Tree] = number|("("~binop~")"^^{case _ ~ x ~ _ => x})
+	def arrayrange: Parser[Tree] = arrayrangeNumber ~ ".." ~ arrayrangeNumber ^^ {case a ~ _ ~ b => rangeNode(a,b,"int")}
 
 	def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
 

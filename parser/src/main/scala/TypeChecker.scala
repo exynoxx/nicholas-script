@@ -207,17 +207,19 @@ class TypeChecker {
 						val tmpList = ListBuffer[Tree]()
 						val extract = (x: Tree) => {
 							x match {
-								case valueNode(x, vns) => tmpList += valueNode(x, vns)
-								case x =>
+								case valueNode(v, vns) =>
+									valueNode(v, vns)
+								case y =>
 									val id = Util.genRandomName()
-									val assign = assignNode(id, x, true, 0, "int")
+									val assign = assignNode(id, y, true, 0, "int")
 									val valn = valueNode(id, "Int")
 									tmpList += assign
-									tmpList += valn
+									valn
 							}
 						}
-						extract(from)
-						extract(to)
+						val newfrom = extract(from)
+						val newto = extract(to)
+						tmpList += rangeNode(newfrom,newto,ns)
 						tmpList.toList
 
 					case t => List(t)
