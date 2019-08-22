@@ -201,7 +201,23 @@ class TypeChecker {
 								tmpList += preassign
 								replaceElement
 						}
-						tmpList += arrayNode(newelem,ns)
+						tmpList += arrayNode(newelem, ns)
+						tmpList.toList
+					case rangeNode(from, to, ns) =>
+						val tmpList = ListBuffer[Tree]()
+						val extract = (x: Tree) => {
+							x match {
+								case valueNode(x, vns) => tmpList += valueNode(x, vns)
+								case x =>
+									val id = Util.genRandomName()
+									val assign = assignNode(id, x, true, 0, "int")
+									val valn = valueNode(id, "Int")
+									tmpList += assign
+									tmpList += valn
+							}
+						}
+						extract(from)
+						extract(to)
 						tmpList.toList
 
 					case t => List(t)

@@ -23,16 +23,16 @@ class Parser extends RegexParsers {
 
 	def assign: Parser[Tree] = defstatement | assignStatement
 
-	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ word) ~ "=" ~ (exp | func| arrays) ~ ";" ^^ {
+	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ word) ~ "=" ~ (arrays | exp | func) ~ ";" ^^ {
 		case _ ~ valueNode(id, _) ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(id, t, true, 0, ty)
 		case _ ~ valueNode(id, _) ~ None ~ _ ~ t ~ _ => assignNode(id, t, true, 0, null)
 
-	} |
-		word ~ ":=" ~ (exp | func| arrays) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
+	} | word ~ ":=" ~ (arrays | exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
 
-	def assignStatement: Parser[Tree] = word ~ "=" ~ (exp | func | arrays) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, false, 0, null) }
+	def assignStatement: Parser[Tree] = word ~ "=" ~ (arrays | exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, false, 0, null) }
 
-	def arrays: Parser[Tree] = "[" ~ opt(exp) ~ rep("," ~ exp) ~ "]" ^^ { case _ ~ firstopt ~ list ~ _ =>
+	def arrays: Parser[Tree] = arraydef | arrayrange
+	def arraydef: Parser[Tree] = "[" ~ opt(exp) ~ rep("," ~ exp) ~ "]" ^^ { case _ ~ firstopt ~ list ~ _ =>
 		firstopt match {
 			case None => arrayNode(null,null)
 			case Some(e) =>
@@ -40,6 +40,8 @@ class Parser extends RegexParsers {
 				arrayNode(e::l,null)
 		}
 	}
+	//def arrayrangeNumber: Parser[Tree] = number|("("~binop~")"^^{case _ ~ x ~ _ => x})
+	def arrayrange: Parser[Tree] = number ~ "\\.\\." ~ number ^^ {case a ~ _ ~ b => rangeNode(a,b,"int")}
 
 	def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
 

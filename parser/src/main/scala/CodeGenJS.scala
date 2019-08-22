@@ -53,6 +53,8 @@ class CodeGenJS {
 			case arrayNode(elements, ns) =>
 				"[" + elements.map(x => recurse(x)).mkString(",") + "]"
 
+			case rangeNode(valueNode(a,_), valueNode(b,_), ns) => "Array.from(new Array("+b+"-"+a+"), (x,i) => i + "+a+")"
+
 			case x => "//" + x.toString + "\n"
 		}
 	}
