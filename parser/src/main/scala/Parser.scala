@@ -9,7 +9,7 @@ class Parser extends RegexParsers {
 
 	def op: Parser[Tree] = ("+" | "-" | "*" | "/" | "||" | "&&" | ">" | "<" | "<=" | ">=" | "!=" | "==") ^^ { case o => opNode(o, null) }
 
-	def binop: Parser[Tree] = (number | word | strings) ~ rep(op ~ (number | word | strings)) ^^ {
+	def binop: Parser[Tree] = (number | arrayAccess | word | strings) ~ rep(op ~ (number | arrayAccess | word | strings)) ^^ {
 		case n ~ List() => n
 		case n ~ (o: List[Tree ~ Tree]) =>
 			val nn = o.map { case _ ~ num => num }
@@ -17,7 +17,9 @@ class Parser extends RegexParsers {
 			binopNode(n :: nn, oo, 0, null)
 	}
 
-	def exp: Parser[Tree] = funCall | binop | /*"(" ~ funCall ~ ")" ^^ { case _ ~ s ~ _ => s } |*/ "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
+	def arrayAccess: Parser[Tree] = word ~ "[" ~ number ~ "]" ^^ { case valueNode(name, _) ~ _ ~ valueNode(idx, _) ~ _ => accessNode(name, idx, null) }
+
+	def exp: Parser[Tree] = funCall | binop| arrayAccess  | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 
 	def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, null) }
 
@@ -32,16 +34,19 @@ class Parser extends RegexParsers {
 	def assignStatement: Parser[Tree] = word ~ "=" ~ (arrays | exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, false, 0, null) }
 
 	def arrays: Parser[Tree] = arraydef | arrayrange
+
 	def arraydef: Parser[Tree] = "[" ~ opt(exp) ~ rep("," ~ exp) ~ "]" ^^ { case _ ~ firstopt ~ list ~ _ =>
 		firstopt match {
-			case None => arrayNode(null,null)
+			case None => arrayNode(null, null)
 			case Some(e) =>
 				val l = list.map { case _ ~ t => t }
-				arrayNode(e::l,null)
+				arrayNode(e :: l, null)
 		}
 	}
-	def arrayrangeNumber: Parser[Tree] = number|("("~binop~")"^^{case _ ~ x ~ _ => x})
-	def arrayrange: Parser[Tree] = arrayrangeNumber ~ ".." ~ arrayrangeNumber ^^ {case a ~ _ ~ b => rangeNode(a,b,"int")}
+
+	def arrayrangeNumber: Parser[Tree] = number | ("(" ~ binop ~ ")" ^^ { case _ ~ x ~ _ => x })
+
+	def arrayrange: Parser[Tree] = arrayrangeNumber ~ ".." ~ arrayrangeNumber ^^ { case a ~ _ ~ b => rangeNode(a, b, "int") }
 
 	def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
 

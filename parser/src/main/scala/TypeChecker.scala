@@ -100,6 +100,7 @@ class TypeChecker {
 
 			case arrayNode(elem, ns) =>
 				(arrayNode(elem, elem.head.nstype), symbol)
+				//TODO accessNode
 			case x => (x, symbol)
 		}
 	}
