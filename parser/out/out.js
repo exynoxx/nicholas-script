@@ -25,3 +25,7 @@ return ret
 var ran2 = 1+3
 var d = f1(5,ran2)
 print(d)
+var short = Array.from(new Array(5-1), (x,i) => i + 1)
+var long = [1,2,3,4]
+print(short)
+print(long)
