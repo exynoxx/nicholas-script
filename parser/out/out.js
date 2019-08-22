@@ -1,8 +1,27 @@
 var print = function(x) {
  console.log(x) }
 
-var a = 1+1+5
-var b = "rth"
-var c = ["hello","world"]
-var d = c[1]+c[0]
+var a = "hello"
+var b = "world"
+var ident = function(x) {
+return x
+}
+
+var ran1 = "!"
+var ran0 = " "
+var c = a+ran0+b+ran1
+print(c)
+print(ident(ident(c)))
+var f1 = function(x,y) {
+var i = 0
+var ret = x
+while (i<10) {
+ret = ret+y
+i = i+1
+}
+return ret
+}
+
+var ran2 = 1+3
+var d = f1(5,ran2)
 print(d)
