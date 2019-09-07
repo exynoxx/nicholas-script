@@ -99,8 +99,14 @@ class TypeChecker {
 				(returnNode(newbody, newbody.nstype), symbol)
 
 			case arrayNode(elem, ns) =>
-				(arrayNode(elem, elem.head.nstype), symbol)
-				//TODO accessNode
+				(arrayNode(elem, "array("+elem.head.nstype+")"), symbol)
+
+			case accessNode(name, index, ns) =>
+				val arrayName = symbol.get(name).get
+				val newTy = arrayName match {
+					case Util.arrayTypePattern(ty) => ty
+				}
+				(accessNode(name,index,newTy), symbol)
 			case x => (x, symbol)
 		}
 	}
@@ -124,9 +130,15 @@ class TypeChecker {
 						retList.toList
 
 					case assignNode(id, body, deff, idx, ns) =>
+
+						//body might append multiple elem infront.
+						// last element is actual body
 						val list: List[Tree] = iterateBlock(List(body))
 						list.reverse match {
-							case x :: xs => xs ++ List(assignNode(id, x, deff, idx, ns))
+							case x :: xs => x match {
+								case functionNode(_, _, _, _) => List(x)
+								case _ => xs ++ List(assignNode(id, x, deff, idx, ns))
+							}
 						}
 
 					case functionNode(id, args, body, ns) =>
@@ -202,7 +214,12 @@ class TypeChecker {
 								tmpList += preassign
 								replaceElement
 						}
-						tmpList += arrayNode(newelem, ns)
+						val newTy = newelem.head.nstype match {
+							case "string" => "array(string)"
+							case "actualstring" => "array(string)"
+							case "int" => "array(int)"
+						}
+						tmpList += arrayNode(newelem, newTy)
 						tmpList.toList
 					case rangeNode(from, to, ns) =>
 						val tmpList = ListBuffer[Tree]()
@@ -220,7 +237,7 @@ class TypeChecker {
 						}
 						val newfrom = extract(from)
 						val newto = extract(to)
-						tmpList += rangeNode(newfrom,newto,ns)
+						tmpList += rangeNode(newfrom, newto, ns)
 						tmpList.toList
 
 					case t => List(t)

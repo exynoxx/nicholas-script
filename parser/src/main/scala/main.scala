@@ -13,7 +13,11 @@ object main {
 		alltext
 	}
     def writeFile(filename:String, content:String) = {
-        val writer = new PrintWriter(new File(filename))
+		val file = new File(filename)
+		if (!file.exists()) {
+			file.createNewFile()
+		}
+		val writer = new PrintWriter(file)
         writer.write(content)
         writer.close()
 
@@ -23,11 +27,18 @@ object main {
 		val printer = new TreePrinter
 		val p = new Parser
 		val t = new TypeChecker
-		val cg = new CodeGenJS //new CodeGenC
+		val cg = new CodeGenRust
 
-		val prestring = "print := (x:string) => {\n\t?$ console.log(x) ?$\n};\n"
+		val inputFile = "src/main/scala/test.ns"
+		val outputFile = "out/output.rust"
 
-		val in = prestring+readFile("src/main/scala/test.ns")
+		//JS
+		//val prestring = "print := (x:string) => {\n\t?$ console.log(x) ?$\n};\n"
+		//rust
+		val prestring = "print := (x:string) => {\n?$ println!(\"{}\",x); ?$\n};\n"
+
+
+		val in = prestring+readFile(inputFile)
 		val AST:Tree = p.parse(p.start,in) match {
 			case p.Success(t, _) => t
             case f : p.NoSuccess => print("error: "+f.msg)
@@ -41,10 +52,10 @@ object main {
         val tree = t.augment(t.typecheck(AST))
 		printer.print(tree)
         val ret = cg.gen(tree)
-        writeFile("out/out.js",ret)
+        writeFile(outputFile,ret)
 
-        //val f = "gcc out/out.c".!
-        //println(f)
+        val f = "rustc out/output.rust -o out/output".!
+        println(f)
 
 	}
 }

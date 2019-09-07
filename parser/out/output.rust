@@ -1,0 +1,10 @@
+fn main(){
+fn print(x:String) {
+ println!("{}",x); }
+let mut a:Vec<i32> = (1..5).collect();
+let mut b:i32 = a[0];
+fn ident(x:i32)-> i32 {
+x
+}
+let mut c:i32 = ident(5);
+}
