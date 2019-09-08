@@ -2,3 +2,6 @@ a := 1..5;
 b := a[0];
 ident := (x:int) => x;
 var c = ident: 5;
+print: a;
+print: b;
+print: c;

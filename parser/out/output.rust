@@ -7,4 +7,7 @@ fn ident(x:i32)-> i32 {
 x
 }
 let mut c:i32 = ident(5);
+print(a);
+print(b);
+print(c);
 }

@@ -61,6 +61,8 @@ class TypeChecker {
 					case x => x
 				}
 
+				//val newSym = symbol + (id -> args.mkString(","))
+
 				//ret
 				(functionNode(id, args, fbody, ty), symbol)
 			//case argNode(name, ns) =>
@@ -93,7 +95,7 @@ class TypeChecker {
 					t
 				}
 				val ty = symbol(id)
-				(callNode(id, args, deff, ty), symbol)
+				(callNode(id, newargs, deff, ty), symbol)
 			case returnNode(body, ns) =>
 				val (newbody, _) = typerecurse(body, AST, symbol)
 				(returnNode(newbody, newbody.nstype), symbol)
