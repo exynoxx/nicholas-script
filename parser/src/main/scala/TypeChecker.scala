@@ -61,8 +61,6 @@ class TypeChecker {
 					case x => x
 				}
 
-				//val newSym = symbol + (id -> args.mkString(","))
-
 				//ret
 				(functionNode(id, args, fbody, ty), symbol)
 			//case argNode(name, ns) =>
@@ -113,149 +111,155 @@ class TypeChecker {
 		}
 	}
 
-	def iterateBlock(blockBody: List[Tree]): List[Tree] = {
-		blockBody match {
-			case x :: xs => {
-				val ret: List[Tree] = x match {
-					case binopNode(numbers, ops, idx, "string") =>
-						//assignNode(id, binopNode(l, r, o, "string"), deff, idx, assignNS) => {
-						val retList = ListBuffer[Tree]()
-						val names = numbers.map {
-							case valueNode(vn, "actualstring") =>
-								val n = Util.genRandomName()
-								val tmp = valueNode(vn, "actualstring")
-								retList += assignNode(n, tmp, true, 0, "string")
-								valueNode(n, "string")
-							case x => x
-						}
-						retList += binopNode(names, ops, 0, "string")
-						retList.toList
+	def iterateBlock(blockBody: List[Tree],symbol: Map[String, String]):List[Tree] = {
 
-					case assignNode(id, body, deff, idx, ns) =>
+		var sym = Map.from(symbol)
+		val arrayidx = 1 to blockBody.size
+		var result = List[Tree]()
 
-						//body might append multiple elem infront.
-						// last element is actual body
-						val list: List[Tree] = iterateBlock(List(body))
-						list.reverse match {
-							case x :: xs => x match {
-								case functionNode(_, _, _, _) => List(x)
-								case _ => xs ++ List(assignNode(id, x, deff, idx, ns))
-							}
-						}
+		for (i <- arrayidx) {
+			val ret: List[Tree] = blockBody(i) match {
+				case binopNode(numbers, ops, idx, "string") =>
+					//assignNode(id, binopNode(l, r, o, "string"), deff, idx, assignNS) => {
+					val retList = ListBuffer[Tree]()
+					val names = numbers.map {
+						case valueNode(vn, "actualstring") =>
+							val n = Util.genRandomName()
+							val tmp = valueNode(vn, "actualstring")
+							retList += assignNode(n, tmp, true, 0, "string")
+							valueNode(n, "string")
+						case x => x
+					}
+					retList += binopNode(names, ops, 0, "string")
+					retList.toList
 
-					case functionNode(id, args, body, ns) =>
-						val fbody = iterateBlock(List(body))(0)
-						val retbody = fbody match {
-							case binopNode(l, r, o, ns) =>
-								val idName = Util.genRandomName()
-								val tmpAssign = assignNode(idName, binopNode(l, r, o, ns), true, 0, ns)
-								val tmp = returnNode(valueNode(idName, ns), ns)
-								blockNode(List(tmpAssign, tmp), ns)
-							case valueNode(value, ns) =>
-								val tmp = returnNode(valueNode(value, ns), ns)
-								blockNode(List(tmp), ns)
-							case _ => fbody
-						}
-						List(functionNode(id, args, retbody, ns))
-					case blockNode(children, ns) =>
-						val b: Tree = augment(blockNode(children, ns))
-						List(b)
-					case ifNode(c, b, els, ns) =>
-						val ifbody = iterateBlock(List(b))(0)
-						val elsbody = els match {
-							case Some(els) => Some(iterateBlock(List(els))(0))
-							case None => None
-						}
-						List(ifNode(c, ifbody, elsbody, b.nstype))
-					case whileNode(c, b, ns) =>
-						List(whileNode(c, iterateBlock(List(b))(0), ns))
-					case callNode(id, args, deff, ns) =>
-						val tmpList = ListBuffer[Tree]()
-						val newargs = args.map {
-							case valueNode(nm, "actualstring") =>
-								val n = Util.genRandomName()
-								val ns = "actualstring"
-								val preassign = assignNode(n, valueNode(nm, ns), true, 0, ns)
-								val replaceElement = valueNode(n, "string")
-								tmpList += preassign
-								replaceElement
-							case binopNode(l, r, o, ns) =>
-								val n = Util.genRandomName()
-								val preassign = assignNode(n, binopNode(l, r, o, ns), true, 0, ns)
-								val replaceElement = valueNode(n, ns)
-								tmpList += preassign
-								replaceElement
-							case x => x
+				case assignNode(id, body, deff, idx, ns) =>
 
+					//body might append multiple elem infront.
+					// last element is actual body
+					val list = iterateBlock(List(body),symbol)
+					list.reverse match {
+						case x :: xs => x match {
+							case functionNode(_, _, _, _) => List(x)
+							case _ => xs ++ List(assignNode(id, x, deff, idx, ns))
 						}
-						tmpList += callNode(id, newargs, deff, ns)
-						tmpList.toList
-					case returnNode(body, ns) =>
-						val shouldExtract = body match {
-							case valueNode(_, "actualstring") => true
-							case valueNode(name, ns) => false
-							case _ => true
-						}
-						if (shouldExtract) {
+					}
+
+				case functionNode(id, args, body, ns) =>
+					val fbody= iterateBlock(List(body),symbol)(0)
+					val retbody = fbody match {
+						case binopNode(l, r, o, ns) =>
+							val idName = Util.genRandomName()
+							val tmpAssign = assignNode(idName, binopNode(l, r, o, ns), true, 0, ns)
+							val tmp = returnNode(valueNode(idName, ns), ns)
+							blockNode(List(tmpAssign, tmp), ns)
+						case valueNode(value, ns) =>
+							val tmp = returnNode(valueNode(value, ns), ns)
+							blockNode(List(tmp), ns)
+						case _ => fbody
+					}
+
+					val argsString = args.map{case argNode(_,t) => t}.mkString(",")
+					sym += (id -> argsString)
+					List(functionNode(id, args, retbody, ns))
+				case blockNode(children, ns) =>
+					val b: Tree = augment(blockNode(children, ns))
+					List(b)
+				case ifNode(c, b, els, ns) =>
+					val ifbody = iterateBlock(List(b),symbol)(0)
+					val elsbody = els match {
+						case Some(els) => Some(iterateBlock(List(els),symbol)(0))
+						case None => None
+					}
+					List(ifNode(c, ifbody, elsbody, b.nstype))
+				case whileNode(c, b, ns) =>
+					val prod = iterateBlock(List(b),symbol)
+					List(whileNode(c, prod(0), ns))
+				case callNode(id, args, deff, ns) =>
+					val tmpList = ListBuffer[Tree]()
+					val newargs = args.map {
+						case valueNode(nm, "actualstring") =>
+							val n = Util.genRandomName()
+							val ns = "actualstring"
+							val preassign = assignNode(n, valueNode(nm, ns), true, 0, ns)
+							val replaceElement = valueNode(n, "string")
+							tmpList += preassign
+							replaceElement
+						case binopNode(l, r, o, ns) =>
+							val n = Util.genRandomName()
+							val preassign = assignNode(n, binopNode(l, r, o, ns), true, 0, ns)
+							val replaceElement = valueNode(n, ns)
+							tmpList += preassign
+							replaceElement
+						case x => x
+
+					}
+					tmpList += callNode(id, newargs, deff, ns)
+					tmpList.toList
+				case returnNode(body, ns) =>
+					val shouldExtract = body match {
+						case valueNode(_, "actualstring") => true
+						case valueNode(name, ns) => false
+						case _ => true
+					}
+					if (shouldExtract) {
+						val id = Util.genRandomName()
+						val preassign = assignNode(id, body, true, 0, ns)
+						val replaceElement = valueNode(id, ns)
+						preassign :: List(returnNode(replaceElement, ns))
+					} else {
+						List(returnNode(body, ns))
+					}
+				case arrayNode(elem, ns) =>
+					val tmpList = ListBuffer[Tree]()
+					val newelem = elem.map {
+						case valueNode(value, ns) => valueNode(value, ns)
+						case binopNode(numbers, ops, idx, ns) => binopNode(numbers, ops, idx, ns)
+						case x =>
 							val id = Util.genRandomName()
-							val preassign = assignNode(id, body, true, 0, ns)
-							val replaceElement = valueNode(id, ns)
-							preassign :: List(returnNode(replaceElement, ns))
-						} else {
-							List(returnNode(body, ns))
-						}
-					case arrayNode(elem, ns) =>
-						val tmpList = ListBuffer[Tree]()
-						val newelem = elem.map {
-							case valueNode(value, ns) => valueNode(value, ns)
-							case binopNode(numbers, ops, idx, ns) => binopNode(numbers, ops, idx, ns)
-							case x =>
+							val preassign = assignNode(id, x, true, 0, x.nstype)
+							val replaceElement = valueNode(id, x.nstype)
+							tmpList += preassign
+							replaceElement
+					}
+					val newTy = newelem.head.nstype match {
+						case "string" => "array(string)"
+						case "actualstring" => "array(string)"
+						case "int" => "array(int)"
+					}
+					tmpList += arrayNode(newelem, newTy)
+					tmpList.toList
+				case rangeNode(from, to, ns) =>
+					val tmpList = ListBuffer[Tree]()
+					val extract = (x: Tree) => {
+						x match {
+							case valueNode(v, vns) =>
+								valueNode(v, vns)
+							case y =>
 								val id = Util.genRandomName()
-								val preassign = assignNode(id, x, true, 0, x.nstype)
-								val replaceElement = valueNode(id, x.nstype)
-								tmpList += preassign
-								replaceElement
+								val assign = assignNode(id, y, true, 0, "int")
+								val valn = valueNode(id, "Int")
+								tmpList += assign
+								valn
 						}
-						val newTy = newelem.head.nstype match {
-							case "string" => "array(string)"
-							case "actualstring" => "array(string)"
-							case "int" => "array(int)"
-						}
-						tmpList += arrayNode(newelem, newTy)
-						tmpList.toList
-					case rangeNode(from, to, ns) =>
-						val tmpList = ListBuffer[Tree]()
-						val extract = (x: Tree) => {
-							x match {
-								case valueNode(v, vns) =>
-									valueNode(v, vns)
-								case y =>
-									val id = Util.genRandomName()
-									val assign = assignNode(id, y, true, 0, "int")
-									val valn = valueNode(id, "Int")
-									tmpList += assign
-									valn
-							}
-						}
-						val newfrom = extract(from)
-						val newto = extract(to)
-						tmpList += rangeNode(newfrom, newto, ns)
-						tmpList.toList
+					}
+					val newfrom = extract(from)
+					val newto = extract(to)
+					tmpList += rangeNode(newfrom, newto, ns)
+					tmpList.toList
 
-					case t => List(t)
-				}
-
-				ret ++ iterateBlock(xs)
+				case t => List(t)
 			}
-			case _ => List()
+			result ++= ret
 		}
+		result
 	}
 
 	//TODO string input in func annotate correct size at runtime
 	def augment(AST: Tree): Tree = {
 		AST match {
 			case blockNode(children, ns) => {
-				val newchildren = iterateBlock(children)
+				val newchildren = iterateBlock(children,HashMap())
 				blockNode(newchildren, ns)
 			}
 			case _ => println("error")
