@@ -22,4 +22,3 @@ case class freeNode(variable: String, nstype: String = null) extends Tree
 case class lineNode(text:String, nstype:String) extends Tree
 case class rangeNode(from: Tree, to:Tree,nstype:String) extends Tree
 case class accessNode(name:String,index:String,nstype:String) extends Tree
-case class castNode(name:String, from: Tree,oldtype:String,nstype:String) extends Tree

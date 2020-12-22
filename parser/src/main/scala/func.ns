@@ -1,0 +1,8 @@
+a := () => 1+1;
+concat := (s1:string,s2:string) => s1+s2;
+poly := (x:int) => 5*x**3 + 3*x**2 + 1*x;
+b:= a:;
+
+print: (concat: (poly:5) (poly:b));
+print: 1+1 2*2 3%3;
+print: 1<<2;

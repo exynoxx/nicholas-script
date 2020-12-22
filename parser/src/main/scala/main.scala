@@ -29,8 +29,8 @@ object main {
 		val t = new TypeChecker
 		val cg = new CodeGenRust
 
-		val inputFile = "src/main/scala/test.ns"
-		val outputFile = "out/output.rust"
+		val inputFile = "src/main/scala/func.ns"
+		val outputFile = "out/output.rs"
 
 		//JS
 		//val prestring = "print := (x:string) => {\n\t?$ console.log(x) ?$\n};\n"
@@ -54,8 +54,8 @@ object main {
         val ret = cg.gen(tree)
         writeFile(outputFile,ret)
 
-        val f = "rustc out/output.rust -o out/output".!
-        println(f)
+        //val f = "rustc out/output.rust -o out/output".!
+        //println(f)
 
 	}
 }

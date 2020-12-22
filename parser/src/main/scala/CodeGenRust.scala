@@ -1,4 +1,4 @@
-
+import scala.collection.mutable.ListBuffer
 
 class CodeGenRust {
 
@@ -7,7 +7,7 @@ class CodeGenRust {
 			case "actualstring" => "String"
 			case "string" => "String"
 			case "int" => "i32"
-			case Util.arrayTypePattern(ty) => "Vec<"+convertType(ty)+">"
+			case Util.arrayTypePattern(ty) => "Vec<" + convertType(ty) + ">"
 			case x => x
 		}
 	}
@@ -28,7 +28,21 @@ class CodeGenRust {
 			case binopNode(numbers, ops, _, ns) =>
 				val opsString = ops.map(x => recurse(x)) ++ List("")
 				val numbersString = numbers.map(x => recurse(x))
-				numbersString.zip(opsString).map { case (x, y) => x + y }.mkString
+				val flatList = ListBuffer.from(numbersString.zip(opsString).flatMap(tup => List(tup._1, tup._2)))
+
+
+				var i = 1
+				while (i < flatList.size - 1) {
+					if (flatList(i) == "**") {
+						val tmp = flatList(i-1)+".pow("+flatList(i+1)+")"
+						flatList.remove(i-1)
+						flatList.remove(i-1)
+						flatList.remove(i-1)
+						flatList.insert(i-1,tmp)
+					}
+					i+=2
+				}
+				flatList.mkString
 			case valueNode(value, ns) => value
 			case ifNode(c, b, elsebody, ns) =>
 				val s1 = "if " + recurse(c) + " {\n"
