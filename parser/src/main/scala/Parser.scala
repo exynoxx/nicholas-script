@@ -7,33 +7,6 @@ class Parser extends RegexParsers {
 
 	def strings: Parser[Tree] = "\"(?:[^\"\\\\]|\\\\.)*\"".r ^^ { case s => valueNode(s, "actualstring") }
 
-	/*
-	<expression> ::= <term> | <expression> "+" <term>
-<term>       ::= <factor> | <term> "*" <factor>
-<factor>     ::= <constant> | <variable> | "(" <expression> ")"
-	 */
-
-	/*def unit: Parser[Tree] = number | arrayAccess | word | strings
-
-	def term: Parser[Tree] = factor | factor ~ op ~ term ^^ {
-		case f1 ~ o ~ f2 => binopNode()
-		case x => x
-	}
-
-	def factor: Parser[Tree] = unit | "(" ~ binop ~ ")" ^^ {
-		case _ ~ binop ~ _ => binop
-		case x => x
-	}
-
-	def binop: Parser[Tree] = term | binop ~ op ~ term ~~ ~ rep(op ~ (number | arrayAccess | word | strings)) ^^ {
-		case n ~ List() => n
-		case n ~ (o: List[Tree ~ Tree]) =>
-			val nn = o.map { case _ ~ num => num }
-			val oo = o.map { case op ~ _ => op }
-			binopNode(n :: nn, oo, 0, null)
-	}
-*/
-
 	def op: Parser[Tree] = ("+" | "-" | "**" | "*" | "/" | "%" | "||" | "&&" | ">" | "<" | "<=" | ">=" | "!=" | "==") ^^ { case o => opNode(o, null) }
 
 	def binop: Parser[Tree] = (number | arrayAccess | word | strings) ~ rep(op ~ (number | arrayAccess | word | strings)) ^^ {

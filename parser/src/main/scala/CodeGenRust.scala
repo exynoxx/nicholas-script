@@ -34,13 +34,13 @@ class CodeGenRust {
 				var i = 1
 				while (i < flatList.size - 1) {
 					if (flatList(i) == "**") {
-						val tmp = flatList(i-1)+".pow("+flatList(i+1)+")"
-						flatList.remove(i-1)
-						flatList.remove(i-1)
-						flatList.remove(i-1)
-						flatList.insert(i-1,tmp)
+						val tmp = flatList(i - 1) + ".pow(" + flatList(i + 1) + ")"
+						flatList.remove(i - 1)
+						flatList.remove(i - 1)
+						flatList.remove(i - 1)
+						flatList.insert(i - 1, tmp)
 					}
-					i+=2
+					i += 2
 				}
 				flatList.mkString
 			case valueNode(value, ns) => value

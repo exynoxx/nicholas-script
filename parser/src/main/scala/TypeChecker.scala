@@ -99,14 +99,14 @@ class TypeChecker {
 				(returnNode(newbody, newbody.nstype), symbol)
 
 			case arrayNode(elem, ns) =>
-				(arrayNode(elem, "array("+elem.head.nstype+")"), symbol)
+				(arrayNode(elem, "array(" + elem.head.nstype + ")"), symbol)
 
 			case accessNode(name, index, ns) =>
 				val arrayName = symbol.get(name).get
 				val newTy = arrayName match {
 					case Util.arrayTypePattern(ty) => ty
 				}
-				(accessNode(name,index,newTy), symbol)
+				(accessNode(name, index, newTy), symbol)
 			case x => (x, symbol)
 		}
 	}
