@@ -1,0 +1,2 @@
+int binop in array access
+auto type cast
