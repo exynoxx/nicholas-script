@@ -30,4 +30,5 @@ fn toString(x:i32) {
 print(toInt("500"));
 print(toInt("600"));
 print(toInt("700"));
+print(toString((1+5*4*(102+1))));
 }

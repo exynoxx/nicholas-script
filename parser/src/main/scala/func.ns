@@ -17,6 +17,8 @@ toString := (x:int) => {
 print: (toInt: "500");
 print: ("600".toInt);
 print: "700".toInt;
+print: 1+5*4*(102+1).toString;
+
 
 
 
