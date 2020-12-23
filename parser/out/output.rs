@@ -20,15 +20,14 @@ let mut ran3:i32 = (1+1);
 let mut ran4:i32 = (2*2);
 let mut ran5:i32 = (3%3);
 print(ran3,ran4,ran5);
-fn toInt(x:String) {
+fn toInt(x:String)-> i32 {
  return x.parse::<i32>().unwrap(); 
 }
-let mut vb:i32 = 0;
-fn toString(x:i32) {
+fn toString(x:i32)-> String {
  return x.to_string(); 
 }
-print(toInt("500"));
-print(toInt("600"));
-print(toInt("700"));
-print(toString((1+5*4*(102+1))));
+fn pow(a:i32,b:i32)-> i32 {
+let mut ran6:i32 = (a.pow(b));
+ran6
+}
 }

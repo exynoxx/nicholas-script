@@ -1,5 +1,6 @@
 int binop in array access
 auto type cast
+rust string ref
 
 +=1
 *=1

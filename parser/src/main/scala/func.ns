@@ -6,19 +6,21 @@ b:= a:;
 print: (concat: (poly:5) (poly:b));
 print: 1+1 2*2 3%3;
 
-toInt := (x:string) => {
+toInt := (x:string):int => {
 	?$ return x.parse::<i32>().unwrap(); ?$
 };
-vb:=0;
-toString := (x:int) => {
+toString := (x:int):string => {
 	?$ return x.to_string(); ?$
 };
+pow := (a:int,b:int) => a**b;
+sqrt := (x:int) => x;
 
 print: (toInt: "500");
 print: ("600".toInt);
 print: "700".toInt;
 print: 1+5*4*(102+1).toString;
-
+print: (pow: 2 10).toString;
+ten :=  (pow: 2 10).sqrt;
 
 
 

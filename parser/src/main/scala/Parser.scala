@@ -67,11 +67,13 @@ class Parser extends RegexParsers {
 			functionNode("", List(), b, null)
 	}
 
-	def funArgExp: Parser[Tree] = ("(" ~ propertyCall ~ ")" | "(" ~ funCall ~ ")" | "(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x } | propertyCall | binop
+	def funArgExp: Parser[Tree] = propertyCall | ("(" ~ propertyCall ~ ")" | "(" ~ funCall ~ ")" | "(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x } | binop
 
 	def funCall: Parser[Tree] = word ~ ":" ~ rep(funArgExp) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, null) }
 
-	def propertyCall: Parser[Tree] = binop ~ "." ~ word ^^ { case arg1 ~ _ ~ valueNode(id,_) => callNode(id, List(arg1), false, null) }
+	def propertyCall: Parser[Tree] = propertyCallFunCall | propertyCallBinop
+	def propertyCallBinop: Parser[Tree] = binop ~ "." ~ word ^^ { case arg1 ~ _ ~ valueNode(id,_) => callNode(id, List(arg1), false, null) }
+	def propertyCallFunCall: Parser[Tree] = "(" ~ funCall ~ ")" ~ "." ~ word ^^ { case _ ~ arg1 ~ _ ~ _ ~ valueNode(id,_) => callNode(id, List(arg1), false, null) }
 
 	def callStatement: Parser[Tree] = propertyCall | funCall ~ ";" ^^ { case callNode(id, args, _, ns) ~ _ => callNode(id, args, true, ns) }
 
