@@ -14,4 +14,11 @@ let mut d:i32 = (1+c+5*30/4+b[0]);
 let mut e:i32 = (1+1*3+2.pow(10)+2/4);
 let mut f:i32 = ((1+1)*11*(1+(5%2)*(1+(3/2)+a[2]*(a[3]+a[2]))));
 let mut g:bool = (4||a>=0&&a[1]<a[2]);
+let mut world:String = "world".to_string();
+let mut ran2:String = "!".to_string();
+let mut ran1:String = " ".to_string();
+let mut ran0:String = "hello".to_string();
+let mut s:String = (ran0+ran1+world+ran2);
+let mut ran3:String = ("hello"+" "+world+"!");
+print(ran3);
 }

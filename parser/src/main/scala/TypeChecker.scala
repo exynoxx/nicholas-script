@@ -132,7 +132,7 @@ class TypeChecker {
 							case valueNode(vn, "actualstring") =>
 								val n = Util.genRandomName()
 								val tmp = valueNode(vn, "actualstring")
-								retList += assignNode(n, tmp, true, 0, "string")
+								retList += assignNode(n, tmp, true, 0, "actualstring")
 								valueNode(n, "string")
 							case x => x
 						}
