@@ -84,7 +84,7 @@ class Parser extends RegexParsers {
 	def whilestatement: Parser[Tree] = "while" ~ "(" ~ binop ~ ")" ~ (exp | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) }
 
 
-	def ignoreStatement: Parser[Tree] = "\\?\\$.*\\?\\$".r ^^ { case s => lineNode(s.substring(2, s.length - 2), "") }
+	def ignoreStatement: Parser[Tree] = "\\?\\$[^\\?]*\\?\\$".r ^^ { case s => lineNode(s.substring(2, s.length - 2), "") }
 
 	def statement: Parser[Tree] = callStatement | ifstatement | whilestatement | assign | retStatement | ignoreStatement ^^ { case s => s }
 

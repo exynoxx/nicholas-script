@@ -1,6 +1,7 @@
 fn main(){
 fn print(x:String) {
- println!("{}",x); }
+ println!("{}",x); 
+}
 fn a()-> i32 {
 let mut ran0:i32 = (1+1);
 ran0
@@ -20,7 +21,12 @@ let mut ran4:i32 = (2*2);
 let mut ran5:i32 = (3%3);
 print(ran3,ran4,ran5);
 fn toInt(x:String) {
- return x.parse::<i32>().unwrap(); }
+ return x.parse::<i32>().unwrap(); 
+}
+let mut vb:i32 = 0;
+fn toString(x:i32) {
+ return x.to_string(); 
+}
 print(toInt("500"));
 print(toInt("600"));
 print(toInt("700"));

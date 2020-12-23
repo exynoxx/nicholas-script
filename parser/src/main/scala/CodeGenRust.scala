@@ -90,7 +90,7 @@ class CodeGenRust {
 			=> recurse(body) + "\n"
 
 			case lineNode(text, ns)
-			=> text
+			=> text + "\n"
 
 			case arrayNode(elements, ns)
 			=>
