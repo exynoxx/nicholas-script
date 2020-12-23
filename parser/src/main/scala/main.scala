@@ -29,7 +29,7 @@ object main {
 		val t = new TypeChecker
 		val cg = new CodeGenRust
 
-		val inputFile = "src/main/scala/basic.ns"
+		val inputFile = "src/main/scala/func.ns"
 		val outputFile = "out/output.rs"
 
 		//JS

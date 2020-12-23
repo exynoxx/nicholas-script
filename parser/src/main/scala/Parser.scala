@@ -8,10 +8,12 @@ class Parser extends RegexParsers {
 	def strings: Parser[Tree] = "\"(?:[^\"\\\\]|\\\\.)*\"".r ^^ { case s => valueNode(s, "actualstring") }
 
 	def op: Parser[Tree] = intOp | boolOp
-	def boolOp: Parser[Tree] = ("||" | "&&" | "<=" | ">="  | ">" | "<" | "!=" | "==") ^^ { case o => opNode(o, "bool") }
+
+	def boolOp: Parser[Tree] = ("||" | "&&" | "<=" | ">=" | ">" | "<" | "!=" | "==") ^^ { case o => opNode(o, "bool") }
+
 	def intOp: Parser[Tree] = ("+" | "-" | "**" | "*" | "/" | "%") ^^ { case o => opNode(o, "int") }
 
-	def binop: Parser[Tree] = (number | arrayAccess | word | strings | "("~ binop ~ ")" ^^ {case _ ~b~_=> b}) ~ rep(op ~ (number | arrayAccess | word | strings | "("~ binop ~ ")"^^ {case _ ~b~_=> b})) ^^ {
+	def binop: Parser[Tree] = (number | arrayAccess | word | strings | "(" ~ binop ~ ")" ^^ { case _ ~ b ~ _ => b }) ~ rep(op ~ (number | arrayAccess | word | strings | "(" ~ binop ~ ")" ^^ { case _ ~ b ~ _ => b })) ^^ {
 		case n ~ List() => n
 		case n ~ (o: List[Tree ~ Tree]) =>
 			val nn = o.map { case _ ~ num => num }
@@ -21,7 +23,7 @@ class Parser extends RegexParsers {
 
 	def arrayAccess: Parser[Tree] = word ~ "[" ~ number ~ "]" ^^ { case valueNode(name, _) ~ _ ~ valueNode(idx, _) ~ _ => accessNode(name, idx, null) }
 
-	def exp: Parser[Tree] = funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
+	def exp: Parser[Tree] = propertyCall | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 
 	def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, null) }
 
@@ -52,7 +54,6 @@ class Parser extends RegexParsers {
 
 	def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
 
-
 	def func: Parser[Tree] = "(" ~ opt(arg) ~ rep("," ~ arg) ~ ")" ~ opt(":" ~ word) ~ "=>" ~ (exp | block) ^^ {
 		case _ ~ Some(arg1) ~ (l: List[String ~ Tree]) ~ _ ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
 			val x = l.map { case s ~ t => t }
@@ -66,11 +67,13 @@ class Parser extends RegexParsers {
 			functionNode("", List(), b, null)
 	}
 
-	def funArgExp: Parser[Tree] = ("(" ~ binop ~ ")" | "(" ~ funCall ~ ")") ^^ { case _ ~ x ~ _ => x } | binop
+	def funArgExp: Parser[Tree] = ("(" ~ propertyCall ~ ")" | "(" ~ funCall ~ ")" | "(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x } | propertyCall | binop
 
 	def funCall: Parser[Tree] = word ~ ":" ~ rep(funArgExp) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, null) }
 
-	def callStatement: Parser[Tree] = funCall ~ ";" ^^ { case callNode(id, args, _, ns) ~ _ => callNode(id, args, true, ns) }
+	def propertyCall: Parser[Tree] = ("(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x } | binop ~ "." ~ word ^^ { case arg1 ~ _ ~ valueNode(id,_) => callNode(id, List(arg1), false, null) }
+
+	def callStatement: Parser[Tree] = propertyCall | funCall ~ ";" ^^ { case callNode(id, args, _, ns) ~ _ => callNode(id, args, true, ns) }
 
 	def arg: Parser[Tree] = word ~ ":" ~ word ^^ { case valueNode(name, _) ~ s ~ valueNode(ty, _) => argNode(name, ty) }
 
