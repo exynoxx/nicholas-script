@@ -55,7 +55,7 @@ class CodeGenRust {
 				}
 				s1 + s2 + s3 + s4
 			case whileNode(c, b, ns) =>
-				val s1 = "while " + recurse(c) + ") \n"
+				val s1 = "while " + recurse(c) + " {\n"
 				val s2 = recurse(b)
 				val s3 = "}\n"
 				s1 + s2 + s3

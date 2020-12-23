@@ -85,8 +85,9 @@ class TypeChecker {
 				val (ifbody, _) = typerecurse(b, AST, symbol)
 				(ifNode(c, ifbody, None, ifbody.nstype), symbol)
 			case whileNode(c, b, ns) =>
+				val (nc, _) = typerecurse(c, AST, symbol)
 				val (nb, _) = typerecurse(b, AST, symbol)
-				(whileNode(c, nb, ns), symbol)
+				(whileNode(nc, nb, ns), symbol)
 			case callNode(id, args, deff, ns) =>
 				val newargs = args.map { e =>
 					val (t, _) = typerecurse(e, AST, symbol)

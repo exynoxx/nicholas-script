@@ -5,4 +5,8 @@ b:= a:;
 
 print: (concat: (poly:5) (poly:b));
 print: 1+1 2*2 3%3;
-print: 1<<2;
+
+while (5+5) {
+
+}
+
