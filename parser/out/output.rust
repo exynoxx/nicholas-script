@@ -1,6 +1,0 @@
-fn main(){
-fn print(x:String) {
- println!("{}",x); }
-let mut a:i32 = 1;
-print(a);
-}
