@@ -7,3 +7,10 @@ auto type cast
 -=
 ++
 --
+
+rule toInt(x){
+	!? return x.parse::<i32>.collect() !?
+}
+
+s := "5";
+print: s.toInt() + s.toInt()
