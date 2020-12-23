@@ -14,9 +14,4 @@ print: (toInt: "500");
 print: ("600".toInt);
 print: "700".toInt;
 
-toInt := (x:string) => {
-	?$ return x.parse::<i32>().unwrap(); ?$
-};
-
-print: "600".toInt;
 
