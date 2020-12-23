@@ -7,9 +7,11 @@ class Parser extends RegexParsers {
 
 	def strings: Parser[Tree] = "\"(?:[^\"\\\\]|\\\\.)*\"".r ^^ { case s => valueNode(s, "actualstring") }
 
-	def op: Parser[Tree] = ("+" | "-" | "**" | "*" | "/" | "%" | "||" | "&&" | ">" | "<" | "<=" | ">=" | "!=" | "==") ^^ { case o => opNode(o, null) }
+	def op: Parser[Tree] = intOp | boolOp
+	def boolOp: Parser[Tree] = ("||" | "&&" | "<=" | ">="  | ">" | "<" | "!=" | "==") ^^ { case o => opNode(o, "bool") }
+	def intOp: Parser[Tree] = ("+" | "-" | "**" | "*" | "/" | "%") ^^ { case o => opNode(o, "int") }
 
-	def binop: Parser[Tree] = (number | arrayAccess | word | strings) ~ rep(op ~ (number | arrayAccess | word | strings)) ^^ {
+	def binop: Parser[Tree] = (number | arrayAccess | word | strings | "("~ binop ~ ")" ^^ {case _ ~b~_=> b}) ~ rep(op ~ (number | arrayAccess | word | strings | "("~ binop ~ ")"^^ {case _ ~b~_=> b})) ^^ {
 		case n ~ List() => n
 		case n ~ (o: List[Tree ~ Tree]) =>
 			val nn = o.map { case _ ~ num => num }

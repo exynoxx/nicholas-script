@@ -1,24 +1,17 @@
 fn main(){
 fn print(x:String) {
  println!("{}",x); }
-fn a()-> i32 {
-let mut ran0:i32 = 1+1;
-ran0
+let mut a:i32 = 5;
+if (1+1>2||a<a.pow(2)) {
 }
-fn concat(s1:String,s2:String)-> String {
-let mut ran1:String = s1+s2;
-ran1
+if (a<=a%2) {
+let mut b:i32 = a;
 }
-fn poly(x:i32)-> i32 {
-let mut ran2:i32 = 5*x.pow(3)+3*x.pow(2)+1*x;
-ran2
+else {
+let mut b:i32 = (a.pow(2)/2);
 }
-let mut b:i32 = a();
-print(concat(poly(5),poly(b)));
-let mut ran3:i32 = 1+1;
-let mut ran4:i32 = 2*2;
-let mut ran5:i32 = 3%3;
-print(ran3,ran4,ran5);
-while 5+5 {
+let mut c:i32 = 10;
+while (c>0||c+a%2==3&&c.pow(5)>0||(1+1)*3*(a%2)<=450) {
+c = (c-1);
 }
 }

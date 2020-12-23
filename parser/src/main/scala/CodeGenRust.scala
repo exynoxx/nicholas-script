@@ -42,7 +42,7 @@ class CodeGenRust {
 					}
 					i += 2
 				}
-				flatList.mkString
+				"(" + flatList.mkString + ")"
 			case valueNode(value, ns) => value
 			case ifNode(c, b, elsebody, ns) =>
 				val s1 = "if " + recurse(c) + " {\n"

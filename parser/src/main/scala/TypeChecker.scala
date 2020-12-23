@@ -23,8 +23,17 @@ class TypeChecker {
 
 			case binopNode(numbers, ops, idx, ns) =>
 				val newNum: List[Tree] = numbers.map(e => typerecurse(e, AST, symbol)._1)
-				val ss = newNum.exists { case e: Tree => (e.nstype == "string" | e.nstype == "actualstring") }
-				val ty: String = if (ss) "string" else newNum.head.nstype
+				val stringTypeExist = newNum.exists { case e: Tree => e.nstype == "string" | e.nstype == "actualstring" }
+				val boolTypeExist = ops.exists { case opNode(o, t) => t == "bool" }
+				val ty: String =
+					if (stringTypeExist) {
+						"string"
+					} else if (boolTypeExist)
+						"bool"
+					else {
+						"int"
+					}
+
 				(binopNode(newNum, ops, idx, ty), symbol)
 
 			case assignNode(id, body, deff, idx, ns) =>
