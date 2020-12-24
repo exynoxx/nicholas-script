@@ -12,6 +12,13 @@ class CodeGenRust {
 		}
 	}
 
+	def convertArgType(t: String): String = {
+		t match {
+			case "string" => "&mut String"
+			case x => convertType(x)
+		}
+	}
+
 	def recurse(tree: Tree): String = {
 		tree match {
 			case assignNode(id, body, deff, _, ns) =>
@@ -59,45 +66,44 @@ class CodeGenRust {
 				val s2 = recurse(b)
 				val s3 = "}\n"
 				s1 + s2 + s3
-			case argNode(name, ns) => name + ":" + convertType(ns)
+
+			case argNode(name, ns) => name + ":" + convertArgType(ns)
 
 			case functionNode(id, args, body, ns) =>
 
-				val retS = convertType(ns) match {
+				val retTy = convertType(ns) match {
 					case "void" => ""
 					case x => "-> " + x
 				}
 
 				val s0 = "fn " + id
-				val s1 = "(" + args.map(x => recurse(x)).mkString(",") + ")" + retS + " {\n"
+				val s1 = "(" + args.map(x => recurse(x)).mkString(",") + ")" + retTy + " {\n"
 				val s2 = recurse(body)
 				val s3 = "}\n"
 				s0 + s1 + s2 + s3
 
-			case blockNode(children, ns)
-			=>
-				children.map(x => recurse(x)).mkString
+			case blockNode(children, ns) => children.map(x => recurse(x)).mkString
 
-			case callNode(id, args, deff, ns)
-			=>
-				val ret = id + "(" + args.map(x => recurse(x)).mkString(",") + ")"
+			case callNode(id, args, deff, ns) =>
+
+				val stringArgs = args.map{
+					case valueNode(name,"string") => "&mut "+name
+					case x => recurse(x)
+				}
+
+				val ret = id + "(" + stringArgs.mkString(",") + ")"
 				deff match {
 					case true => ret + ";\n"
 					case false => ret
 				}
 
-			case returnNode(body, ns)
-			=> recurse(body) + "\n"
+			case returnNode(body, ns) => recurse(body) + "\n"
 
-			case lineNode(text, ns)
-			=> text + "\n"
+			case lineNode(text, ns) => text + "\n"
 
-			case arrayNode(elements, ns)
-			=>
-				"vec![" + elements.map(x => recurse(x)).mkString(",") + "]"
+			case arrayNode(elements, ns) => "vec![" + elements.map(x => recurse(x)).mkString(",") + "]"
 
-			case rangeNode(valueNode(a, _), valueNode(b, _), ns)
-			=> "(" + a + ".." + b + ").collect()"
+			case rangeNode(valueNode(a, _), valueNode(b, _), ns) => "(" + a + ".." + b + ").collect()"
 
 			case accessNode(name, idx, _) =>
 				val idxString = recurse(idx)
@@ -105,8 +111,8 @@ class CodeGenRust {
 					case valueNode(_,_) => ""
 					case binopNode(_,_,_,_) => " as usize"
 				}
-
 				name + "[" + idxString + postfix +"]"
+
 			case x => "//" + x.toString + "\n"
 		}
 	}
