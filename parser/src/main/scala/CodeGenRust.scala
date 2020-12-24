@@ -86,9 +86,13 @@ class CodeGenRust {
 
 			case callNode(id, args, deff, ns) =>
 
-				val stringArgs = args.map{
-					case valueNode(name,"string") => "&mut "+name
-					case x => recurse(x)
+				val stringArgs = args.map {
+					x =>val xString = recurse(x)
+						if (x.nstype == "string") {
+							"&mut " + xString
+						} else {
+							xString
+						}
 				}
 
 				val ret = id + "(" + stringArgs.mkString(",") + ")"

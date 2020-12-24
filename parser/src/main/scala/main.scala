@@ -58,8 +58,8 @@ object main {
         val ret = cg.gen(tree)
         writeFile(outputFile,ret)
 
-        //val f = "rustc out/output.rust -o out/output".!
-        //println(f)
+        val f = "rustc out/output.rs -o out/output".!
+        println(f)
 
 	}
 }
