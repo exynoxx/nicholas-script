@@ -21,7 +21,7 @@ class Parser extends RegexParsers {
 			binopNode(n :: nn, oo, 0, null)
 	}
 
-	def arrayAccess: Parser[Tree] = word ~ "[" ~ number ~ "]" ^^ { case valueNode(name, _) ~ _ ~ valueNode(idx, _) ~ _ => accessNode(name, idx, null) }
+	def arrayAccess: Parser[Tree] = word ~ "[" ~ binop ~ "]" ^^ { case valueNode(name, _) ~ _ ~ b ~ _ => accessNode(name, b, null) }
 
 	def exp: Parser[Tree] = propertyCall | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 
@@ -54,7 +54,7 @@ class Parser extends RegexParsers {
 
 	def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
 
-	def func: Parser[Tree] = "(" ~ opt(arg) ~ rep("," ~ arg) ~ ")" ~ opt(":" ~ word) ~ "=>" ~ (exp | block) ^^ {
+	def func: Parser[Tree] = "(" ~ opt(arg) ~ rep("," ~ arg) ~ ")" ~ opt(":" ~ word) ~ "=>" ~ (exp | block|ignoreStatement) ^^ {
 		case _ ~ Some(arg1) ~ (l: List[String ~ Tree]) ~ _ ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
 			val x = l.map { case s ~ t => t }
 			functionNode("", arg1 :: x, b, ty)

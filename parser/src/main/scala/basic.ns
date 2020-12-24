@@ -14,3 +14,6 @@ g := 4 || a>= 0 && a[1] < a[2];
 world:= "world";
 s := "hello" + " " + world + "!";
 print: "hello" + " " + world + "!";
+
+arr1 = b[0];
+arr2 = b[1+1]+b[c%5]+b[((1+c)*5)%2];

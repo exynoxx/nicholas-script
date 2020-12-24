@@ -116,7 +116,8 @@ class TypeChecker {
 				val newTy = arrayName match {
 					case Util.arrayTypePattern(ty) => ty
 				}
-				(accessNode(name, index, newTy), symbol)
+				val (idx,_) = typerecurse(index,AST,symbol)
+				(accessNode(name, idx, newTy), symbol)
 			case x => (x, symbol)
 		}
 	}
@@ -162,7 +163,10 @@ class TypeChecker {
 							case valueNode(value, ns) =>
 								val tmp = returnNode(valueNode(value, ns), ns)
 								blockNode(List(tmp), ns)
-							case _ => fbody
+							case x =>
+								val tmp = returnNode(x, x.nstype)
+								blockNode(List(tmp), ns)
+
 						}
 						List(functionNode(id, args, retbody, ns))
 					case blockNode(children, ns) =>
