@@ -4,7 +4,7 @@ import scala.util.parsing.combinator.RegexParsers
 class Parser extends RegexParsers {
 	def word: Parser[Tree] = "\\w+".r ^^ { case s => valueNode(s, null) }
 
-	def number: Parser[Tree] = "\\d+".r ^^ { case s => valueNode(s, "int") }
+	def number: Parser[Tree] = "\\d+".r ^^ { case s => valueNode(s, "actualint") }
 
 	def strings: Parser[Tree] = "\"(?:[^\"\\\\]|\\\\.)*\"".r ^^ { case s => valueNode(s, "actualstring") }
 

@@ -1,22 +1,30 @@
-a := () => 1+1;
-concat := (s1:string,s2:string) => s1+s2;
-poly := (x:int) => 5*x**3 + 3*x**2 + 1*x;
-b:= a:;
-
-print: (concat: (poly:5) (poly:b));
-print: 1+1 2*2 3%3;
-
+concat := (x:string, y:string):string => ?$ return format!("{}{}", x, y) ?$;
 toInt := (x:string):int => ?$ return x.parse::<i32>().unwrap(); ?$;
 toString := (x:int):string => ?$ return x.to_string(); ?$;
-pow := (a:int,b:int) => a**b;
+
+a := () => 1+1;
+b:= a:;
+poly := (x:int) => 5*x**3 + 3*x**2 + 1*x;
+
+print: (poly: 5).toString;
+print: (poly: b).toString;
+print: (concat: (poly:5).toString (poly:b).toString);
+print: 3%3.toString;
 
 
-print: (toInt: "500");
-print: ("600".toInt);
-print: "700".toInt;
-print: 1+5*4*(102+1).toString;
+print: (toInt: "500").toString;
+c:="10".toInt;
+print: c.toString;
+d:= "600".toInt;
+print: (1+5*4*(102+1)).toString;
+
+pow := (x:int,y:int) => x**y;
+ccc:= b**b;
+
 print: (pow: 2 10).toString;
 print: (2**10).toString;
+
+print: c**3+10**2+(d/60)+1.toString;
 
 
 

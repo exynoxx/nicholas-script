@@ -248,6 +248,7 @@ class TypeChecker {
 							case "string" => "array(string)"
 							case "actualstring" => "array(string)"
 							case "int" => "array(int)"
+							case "actualint" => "array(int)"
 						}
 						tmpList += arrayNode(newelem, newTy)
 						tmpList.toList
@@ -260,7 +261,7 @@ class TypeChecker {
 								case y =>
 									val id = Util.genRandomName()
 									val assign = assignNode(id, y, true, 0, "int")
-									val valn = valueNode(id, "Int")
+									val valn = valueNode(id, "int")
 									tmpList += assign
 									valn
 							}

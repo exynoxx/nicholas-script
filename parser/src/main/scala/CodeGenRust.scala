@@ -7,6 +7,7 @@ class CodeGenRust {
 			case "actualstring" => "String"
 			case "string" => "String"
 			case "int" => "i32"
+			case "actualint" => "i32"
 			case Util.arrayTypePattern(ty) => "Vec<" + convertType(ty) + ">"
 			case x => x
 		}
@@ -37,11 +38,19 @@ class CodeGenRust {
 				val numbersString = numbers.map(x => recurse(x))
 				val flatList = ListBuffer.from(numbersString.zip(opsString).flatMap(tup => List(tup._1, tup._2)))
 
-
 				var i = 1
 				while (i < flatList.size - 1) {
 					if (flatList(i) == "**") {
-						val tmp = flatList(i - 1) + ".pow(" + flatList(i + 1) + ")"
+
+						//TODO: improve
+
+						val postfixType = if (flatList(i - 1).matches("[0-9]+")){
+							"_i32"
+						} else {
+							""
+						}
+
+						val tmp = flatList(i - 1) + postfixType + ".pow(" + flatList(i + 1) + " as u32)"
 						flatList.remove(i - 1)
 						flatList.remove(i - 1)
 						flatList.remove(i - 1)
@@ -87,7 +96,8 @@ class CodeGenRust {
 			case callNode(id, args, deff, ns) =>
 
 				val stringArgs = args.map {
-					x =>val xString = recurse(x)
+					x =>
+						val xString = recurse(x)
 						if (x.nstype == "string") {
 							"&mut " + xString
 						} else {
@@ -112,20 +122,21 @@ class CodeGenRust {
 			case accessNode(name, idx, _) =>
 				val idxString = recurse(idx)
 				val postfix = idx match {
-					case valueNode(_,_) => ""
-					case binopNode(_,_,_,_) => " as usize"
+					case valueNode(_, _) => ""
+					case binopNode(_, _, _, _) => " as usize"
 				}
-				name + "[" + idxString + postfix +"]"
+				name + "[" + idxString + postfix + "]"
 
 			case x => "//" + x.toString + "\n"
 		}
 	}
 
 	def gen(AST: Tree): String = {
+		val s0 = "#![allow(unused_parens)]\n#![allow(unused_mut)]\n#![allow(non_snake_case)]\n"
 		val s1 = "fn main(){\n"
 		val s2 = recurse(AST)
 		val s3 = "}\n"
-		s1 + s2 + s3
+		s0 + s1 + s2 + s3
 	}
 
 }

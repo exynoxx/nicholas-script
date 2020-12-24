@@ -1,5 +1,6 @@
 array access take any exp not only binop
-assign to array
+assign to array access
 auto type cast
-rust string ref
+fix array ref
+
 
