@@ -1,4 +1,5 @@
 array access take any exp not only binop
+assign to array
 auto type cast
 rust string ref
 

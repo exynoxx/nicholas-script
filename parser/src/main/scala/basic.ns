@@ -17,3 +17,4 @@ print: "hello" + " " + world + "!";
 
 arr1 = b[0];
 arr2 = b[1+1]+b[c%5]+b[((1+c)*5)%2];
+c+=4;

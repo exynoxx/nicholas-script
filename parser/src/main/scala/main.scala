@@ -40,12 +40,16 @@ object main {
 
 		val in = prestring+readFile(inputFile)
 		val AST:Tree = p.parse(p.start,in) match {
-			case p.Success(t, _) => t
-            case f : p.NoSuccess => print("error: "+f.msg)
+			case p.Success(t, _) =>
+				println("success")
+				t
+            case f : p.NoSuccess => println("error: "+f.msg)
                                         nullLeaf()
 			case p.Failure(msg1,msg2) => println(s"Error: $msg1, $msg2")
 										nullLeaf()
 			case p.Error(msg1,msg2) => println(s"Error: $msg1, $msg2")
+										nullLeaf()
+			case x => println("Error: "+x)
 										nullLeaf()
 		}
 
