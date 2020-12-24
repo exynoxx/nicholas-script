@@ -118,6 +118,8 @@ class TypeChecker {
 				}
 				val (idx, _) = typerecurse(index, AST, symbol)
 				(accessNode(name, idx, newTy), symbol)
+
+				case lineNode(t,ns)=> (lineNode(t,"void"),symbol)
 			case x => (x, symbol)
 		}
 	}

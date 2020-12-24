@@ -44,7 +44,7 @@ class CodeGenRust {
 
 						//TODO: improve
 
-						val postfixType = if (flatList(i - 1).matches("[0-9]+")){
+						val postfixType = if (flatList(i - 1).matches("[0-9]+")) {
 							"_i32"
 						} else {
 							""
@@ -82,6 +82,7 @@ class CodeGenRust {
 
 				val retTy = convertType(ns) match {
 					case "void" => ""
+					case null => ""
 					case x => "-> " + x
 				}
 
