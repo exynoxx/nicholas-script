@@ -3,10 +3,3 @@ assign to array
 auto type cast
 rust string ref
 
-+=1
-*=1
-/=
--=
-++
---
-

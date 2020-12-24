@@ -40,19 +40,20 @@ class Parser extends RegexParsers {
 
 	def incrementStatement: Parser[Tree] = word ~ ("+=" | "-=" | "*=" | "/=" | "%=") ~ exp ~ ";" ^^ {
 		case valueNode(id, _) ~ op ~ b ~ _ =>
-			val newBody = binopNode(List(valueNode(id, null), b), List(opNode(op.charAt(0).toString,null)), 0, null)
+			val newBody = binopNode(List(valueNode(id, null), b), List(opNode(op.charAt(0).toString, null)), 0, null)
 			assignNode(id, newBody, false, 0, null)
 	}
 
 	def arrays: Parser[Tree] = arraydef | arrayrange
 
-	def arraydef: Parser[Tree] = "[" ~ opt(exp) ~ rep("," ~ exp) ~ "]" ^^ { case _ ~ firstopt ~ list ~ _ =>
-		firstopt match {
-			case None => arrayNode(null, null)
-			case Some(e) =>
-				val l = list.map { case _ ~ t => t }
-				arrayNode(e :: l, null)
-		}
+	def arraydef: Parser[Tree] = "[" ~ opt(exp) ~ rep("," ~ exp) ~ "]" ^^ {
+		case _ ~ firstopt ~ list ~ _ =>
+			firstopt match {
+				case None => arrayNode(null, null)
+				case Some(e) =>
+					val l = list.map { case _ ~ t => t }
+					arrayNode(e :: l, null)
+			}
 	}
 
 	def arrayrangeNumber: Parser[Tree] = number | ("(" ~ binop ~ ")" ^^ { case _ ~ x ~ _ => x })
@@ -88,8 +89,9 @@ class Parser extends RegexParsers {
 
 	def arg: Parser[Tree] = word ~ ":" ~ word ^^ { case valueNode(name, _) ~ s ~ valueNode(ty, _) => argNode(name, ty) }
 
-	def ifstatement: Parser[Tree] = "if" ~ "(" ~ binop ~ ")" ~ (exp | block) ~ opt("else" ~ (exp | block)) ^^ { case _ ~ _ ~ b ~ _ ~ e1 ~ Some(_ ~ e2) => ifNode(b, e1, Some(e2), null)
-	case _ ~ _ ~ b ~ _ ~ e1 ~ None => ifNode(b, e1, None, null)
+	def ifstatement: Parser[Tree] = "if" ~ "(" ~ binop ~ ")" ~ (exp | block) ~ opt("else" ~ (exp | block)) ^^ {
+		case _ ~ _ ~ b ~ _ ~ e1 ~ Some(_ ~ e2) => ifNode(b, e1, Some(e2), null)
+		case _ ~ _ ~ b ~ _ ~ e1 ~ None => ifNode(b, e1, None, null)
 	}
 
 	def whilestatement: Parser[Tree] = "while" ~ "(" ~ binop ~ ")" ~ (exp | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) }

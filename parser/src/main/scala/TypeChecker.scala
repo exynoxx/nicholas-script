@@ -116,7 +116,7 @@ class TypeChecker {
 				val newTy = arrayName match {
 					case Util.arrayTypePattern(ty) => ty
 				}
-				val (idx,_) = typerecurse(index,AST,symbol)
+				val (idx, _) = typerecurse(index, AST, symbol)
 				(accessNode(name, idx, newTy), symbol)
 			case x => (x, symbol)
 		}
@@ -191,13 +191,29 @@ class TypeChecker {
 								val replaceElement = valueNode(n, "string")
 								tmpList += preassign
 								replaceElement
-							case binopNode(l, r, o, ns) =>
+							/*case binopNode(l, r, o, ns) =>
+								val retList = iterateBlock(List(binopNode(l, r, o, ns)))(0)
+								if (retList.size() > 1) {
+									val last = retList.last
+									retList.dropRight(1)
+									last
+								} else {
+									retList
+								}*/
+							/*case binopNode(l, r, o, ns) =>
 								val n = Util.genRandomName()
 								val preassign = assignNode(n, binopNode(l, r, o, ns), true, 0, ns)
 								val replaceElement = valueNode(n, ns)
 								tmpList += preassign
-								replaceElement
-							case x => x
+								replaceElement*/
+							case x =>
+								val retList:List[Tree] = iterateBlock(List(x))
+								val retElement:Tree = retList.reverse match {
+									case x::xs =>
+										tmpList ++= xs
+										x
+								}
+							retElement
 
 						}
 						tmpList += callNode(id, newargs, deff, ns)
