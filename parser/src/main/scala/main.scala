@@ -58,7 +58,7 @@ object main {
         val ret = cg.gen(tree)
         writeFile(outputFile,ret)
 
-        val f = "rustc out/output.rs --out-dir out".!
+        val f = "rustc "+outputFile+" --out-dir out".!
         println(f)
 
 	}
