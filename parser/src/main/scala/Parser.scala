@@ -31,16 +31,16 @@ class Parser extends RegexParsers {
 	def assign: Parser[Tree] = defstatement | assignStatement
 
 	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ word) ~ "=" ~ (arrays | exp | func) ~ ";" ^^ {
-		case _ ~ valueNode(id, _) ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(id, t, true, 0, ty)
-		case _ ~ valueNode(id, _) ~ None ~ _ ~ t ~ _ => assignNode(id, t, true, 0, null)
+		case _ ~ valueNode(id, _) ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(valueNode(id, ty), t, true, 0, ty)
+		case _ ~ s1 ~ None ~ _ ~ t ~ _ => assignNode(s1, t, true, 0, null)
 
-	} | word ~ ":=" ~ (arrays | exp | func) ~ ";" ^^ { case valueNode(s1, _) ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
+	} | word ~ ":=" ~ (arrays | exp | func) ~ ";" ^^ { case s1 ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
 
-	def assignStatement: Parser[Tree] = word ~ "=" ~ (arrays | exp | func) ~ ";" ^^ { case valueNode(id, _) ~ _ ~ b ~ _ => assignNode(id, b, false, 0, null) }
+	def assignStatement: Parser[Tree] = (arrayAccess | word) ~ "=" ~ (arrays | exp | func) ~ ";" ^^ { case id ~ _ ~ b ~ _ => assignNode(id, b, false, 0, null) }
 
-	def incrementStatement: Parser[Tree] = word ~ ("+=" | "-=" | "*=" | "/=" | "%=") ~ exp ~ ";" ^^ {
-		case valueNode(id, _) ~ op ~ b ~ _ =>
-			val newBody = binopNode(List(valueNode(id, null), b), List(opNode(op.charAt(0).toString, null)), 0, null)
+	def incrementStatement: Parser[Tree] = (arrayAccess | word) ~ ("+=" | "-=" | "*=" | "/=" | "%=") ~ exp ~ ";" ^^ {
+		case id ~ op ~ b ~ _ =>
+			val newBody = binopNode(List(id, b), List(opNode(op.charAt(0).toString, null)), 0, null)
 			assignNode(id, newBody, false, 0, null)
 	}
 

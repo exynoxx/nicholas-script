@@ -23,13 +23,16 @@ class CodeGenRust {
 	def recurse(tree: Tree): String = {
 		tree match {
 			case assignNode(id, body, deff, _, ns) =>
+
+				val idString = recurse(id)
+
 				val end = ns match {
 					case "actualstring" => recurse(body) + ".to_string();\n"
 					case _ => recurse(body) + ";\n"
 				}
 				val ss = deff match {
-					case true => "let mut " + id + ":" + convertType(ns) + " = " + end
-					case false => id + " = " + end
+					case true => "let mut " + idString + ":" + convertType(ns) + " = " + end
+					case false => idString + " = " + end
 				}
 				ss
 			case opNode(body, ns) => body

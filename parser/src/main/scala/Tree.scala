@@ -5,7 +5,7 @@ trait Tree {
 }
 
 case class blockNode(children: List[Tree], nstype: String) extends Tree
-case class assignNode(id: String, body: Tree, definition: Boolean, idx: Int, nstype: String) extends Tree
+case class assignNode(id: Tree, body: Tree, definition: Boolean, idx: Int, nstype: String) extends Tree
 case class returnNode(body: Tree, nstype: String) extends Tree
 case class functionNode(id: String, args: List[Tree], body: Tree, nstype: String) extends Tree
 case class argNode(name: String, nstype: String) extends Tree

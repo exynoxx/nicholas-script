@@ -37,15 +37,22 @@ class TypeChecker {
 				(binopNode(newNum, ops, idx, ty), symbol)
 
 			case assignNode(id, body, deff, idx, ns) =>
+				//val (idtree,_) = typerecurse(id, AST, symbol)
 				val (btree, _) = typerecurse(body, AST, symbol)
 				val ty = ns match {
 					case null => btree.nstype
 					case x => x
 				}
-				val idmap = HashMap(id -> btree.nstype)
+
+				val textid  = id match {
+					case valueNode(rid,_) => rid
+					case x=>x.toString
+				}
+
+				val idmap = HashMap(textid -> btree.nstype)
 				val s = btree match {
 					case valueNode(n, "actualstring") =>
-						val hashID = "size" + id
+						val hashID = "size" + textid
 						val sizemap = HashMap(hashID -> (n.length - 2).toString)
 						symbol ++ sizemap ++ idmap
 					case _ => idmap
@@ -54,7 +61,7 @@ class TypeChecker {
 			case functionNode(_, args, body, ns) =>
 				//get id from assign parent
 				val id = parent match {
-					case assignNode(name, _, _, _, _) => name
+					case assignNode(valueNode(name,_), _, _, _, _) => name
 				}
 
 				//update symbol table with args
@@ -135,7 +142,7 @@ class TypeChecker {
 							case valueNode(vn, "actualstring") =>
 								val n = Util.genRandomName()
 								val tmp = valueNode(vn, "actualstring")
-								retList += assignNode(n, tmp, true, 0, "actualstring")
+								retList += assignNode(valueNode(n,"string"), tmp, true, 0, "actualstring")
 								valueNode(n, "string")
 							case x => x
 						}
@@ -159,7 +166,7 @@ class TypeChecker {
 						val retbody = fbody match {
 							case binopNode(l, r, o, ns) =>
 								val idName = Util.genRandomName()
-								val tmpAssign = assignNode(idName, binopNode(l, r, o, ns), true, 0, ns)
+								val tmpAssign = assignNode(valueNode(idName,ns), binopNode(l, r, o, ns), true, 0, ns)
 								val tmp = returnNode(valueNode(idName, ns), ns)
 								blockNode(List(tmpAssign, tmp), ns)
 							case valueNode(value, ns) =>
@@ -189,7 +196,7 @@ class TypeChecker {
 							case valueNode(nm, "actualstring") =>
 								val n = Util.genRandomName()
 								val ns = "actualstring"
-								val preassign = assignNode(n, valueNode(nm, ns), true, 0, ns)
+								val preassign = assignNode(valueNode(n,ns), valueNode(nm, ns), true, 0, ns)
 								val replaceElement = valueNode(n, "string")
 								tmpList += preassign
 								replaceElement
@@ -228,7 +235,7 @@ class TypeChecker {
 						}
 						if (shouldExtract) {
 							val id = Util.genRandomName()
-							val preassign = assignNode(id, body, true, 0, ns)
+							val preassign = assignNode(valueNode(id,ns), body, true, 0, ns)
 							val replaceElement = valueNode(id, ns)
 							preassign :: List(returnNode(replaceElement, ns))
 						} else {
@@ -241,7 +248,7 @@ class TypeChecker {
 							case binopNode(numbers, ops, idx, ns) => binopNode(numbers, ops, idx, ns)
 							case x =>
 								val id = Util.genRandomName()
-								val preassign = assignNode(id, x, true, 0, x.nstype)
+								val preassign = assignNode(valueNode(id,ns), x, true, 0, x.nstype)
 								val replaceElement = valueNode(id, x.nstype)
 								tmpList += preassign
 								replaceElement
@@ -262,7 +269,7 @@ class TypeChecker {
 									valueNode(v, vns)
 								case y =>
 									val id = Util.genRandomName()
-									val assign = assignNode(id, y, true, 0, "int")
+									val assign = assignNode(valueNode(id,ns), y, true, 0, "int")
 									val valn = valueNode(id, "int")
 									tmpList += assign
 									valn
