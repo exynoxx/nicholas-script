@@ -1,4 +1,3 @@
-array access take any exp not only binop
 fix array ref - fix arrays in general
 auto type cast
 overloading

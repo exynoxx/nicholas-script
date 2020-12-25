@@ -1,4 +1,6 @@
 toString := (x:int):string => ?$ return x.to_string(); ?$;
+toInt := (x:string):int => ?$ return x.parse::<i32>().unwrap(); ?$;
+
 
 a := 1..5;
 b:= [1,2,3,4];
@@ -25,7 +27,9 @@ if (b[2]>5){
 
 arr1 := b[0];
 arr2 := b[1+1]+b[c%5]+b[((1+c)*5)%2];
-b[0] = 2;
-print: b[0].toString;
-b[0]+=4;
-print: b[0].toString;
+b[0] += arr1;
+print: "-------";
+print: b[1].toString;
+print: b["1".toInt].toString;
+print: b[5%4].toString;
+print: b[a[1%1]].toString;

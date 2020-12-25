@@ -125,11 +125,7 @@ class CodeGenRust {
 
 			case accessNode(name, idx, _) =>
 				val idxString = recurse(idx)
-				val postfix = idx match {
-					case valueNode(_, _) => ""
-					case binopNode(_, _, _, _) => " as usize"
-				}
-				name + "[" + idxString + postfix + "]"
+				name + "[" + idxString + " as usize]"
 
 			case x => "//" + x.toString + "\n"
 		}

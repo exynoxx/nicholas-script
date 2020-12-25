@@ -22,7 +22,7 @@ class Parser extends RegexParsers {
 			binopNode(n :: nn, oo, 0, null)
 	}
 
-	def arrayAccess: Parser[Tree] = word ~ "[" ~ binop ~ "]" ^^ { case valueNode(name, _) ~ _ ~ b ~ _ => accessNode(name, b, null) }
+	def arrayAccess: Parser[Tree] = word ~ "[" ~ exp ~ "]" ^^ { case valueNode(name, _) ~ _ ~ b ~ _ => accessNode(name, b, null) }
 
 	def exp: Parser[Tree] = propertyCall | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 

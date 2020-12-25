@@ -44,9 +44,9 @@ class TypeChecker {
 					case x => x
 				}
 
-				val textid  = id match {
-					case valueNode(rid,_) => rid
-					case x=>x.toString
+				val textid = id match {
+					case valueNode(rid, _) => rid
+					case x => x.toString
 				}
 
 				val idmap = HashMap(textid -> btree.nstype)
@@ -61,7 +61,7 @@ class TypeChecker {
 			case functionNode(_, args, body, ns) =>
 				//get id from assign parent
 				val id = parent match {
-					case assignNode(valueNode(name,_), _, _, _, _) => name
+					case assignNode(valueNode(name, _), _, _, _, _) => name
 				}
 
 				//update symbol table with args
@@ -126,7 +126,7 @@ class TypeChecker {
 				val (idx, _) = typerecurse(index, AST, symbol)
 				(accessNode(name, idx, newTy), symbol)
 
-				case lineNode(t,ns)=> (lineNode(t,"void"),symbol)
+			case lineNode(t, ns) => (lineNode(t, "void"), symbol)
 			case x => (x, symbol)
 		}
 	}
@@ -142,7 +142,7 @@ class TypeChecker {
 							case valueNode(vn, "actualstring") =>
 								val n = Util.genRandomName()
 								val tmp = valueNode(vn, "actualstring")
-								retList += assignNode(valueNode(n,"string"), tmp, true, 0, "actualstring")
+								retList += assignNode(valueNode(n, "string"), tmp, true, 0, "actualstring")
 								valueNode(n, "string")
 							case x => x
 						}
@@ -166,7 +166,7 @@ class TypeChecker {
 						val retbody = fbody match {
 							case binopNode(l, r, o, ns) =>
 								val idName = Util.genRandomName()
-								val tmpAssign = assignNode(valueNode(idName,ns), binopNode(l, r, o, ns), true, 0, ns)
+								val tmpAssign = assignNode(valueNode(idName, ns), binopNode(l, r, o, ns), true, 0, ns)
 								val tmp = returnNode(valueNode(idName, ns), ns)
 								blockNode(List(tmpAssign, tmp), ns)
 							case valueNode(value, ns) =>
@@ -196,7 +196,7 @@ class TypeChecker {
 							case valueNode(nm, "actualstring") =>
 								val n = Util.genRandomName()
 								val ns = "actualstring"
-								val preassign = assignNode(valueNode(n,ns), valueNode(nm, ns), true, 0, ns)
+								val preassign = assignNode(valueNode(n, ns), valueNode(nm, ns), true, 0, ns)
 								val replaceElement = valueNode(n, "string")
 								tmpList += preassign
 								replaceElement
@@ -216,13 +216,13 @@ class TypeChecker {
 								tmpList += preassign
 								replaceElement*/
 							case x =>
-								val retList:List[Tree] = iterateBlock(List(x))
-								val retElement:Tree = retList.reverse match {
-									case x::xs =>
+								val retList: List[Tree] = iterateBlock(List(x))
+								val retElement: Tree = retList.reverse match {
+									case x :: xs =>
 										tmpList ++= xs
 										x
 								}
-							retElement
+								retElement
 
 						}
 						tmpList += callNode(id, newargs, deff, ns)
@@ -235,7 +235,7 @@ class TypeChecker {
 						}
 						if (shouldExtract) {
 							val id = Util.genRandomName()
-							val preassign = assignNode(valueNode(id,ns), body, true, 0, ns)
+							val preassign = assignNode(valueNode(id, ns), body, true, 0, ns)
 							val replaceElement = valueNode(id, ns)
 							preassign :: List(returnNode(replaceElement, ns))
 						} else {
@@ -248,7 +248,7 @@ class TypeChecker {
 							case binopNode(numbers, ops, idx, ns) => binopNode(numbers, ops, idx, ns)
 							case x =>
 								val id = Util.genRandomName()
-								val preassign = assignNode(valueNode(id,ns), x, true, 0, x.nstype)
+								val preassign = assignNode(valueNode(id, ns), x, true, 0, x.nstype)
 								val replaceElement = valueNode(id, x.nstype)
 								tmpList += preassign
 								replaceElement
@@ -269,7 +269,7 @@ class TypeChecker {
 									valueNode(v, vns)
 								case y =>
 									val id = Util.genRandomName()
-									val assign = assignNode(valueNode(id,ns), y, true, 0, "int")
+									val assign = assignNode(valueNode(id, ns), y, true, 0, "int")
 									val valn = valueNode(id, "int")
 									tmpList += assign
 									valn
@@ -279,6 +279,19 @@ class TypeChecker {
 						val newto = extract(to)
 						tmpList += rangeNode(newfrom, newto, ns)
 						tmpList.toList
+					case accessNode(id, index, ns) =>
+						var preList:ListBuffer[Tree] = ListBuffer()
+						val list = iterateBlock(List(index)).reverse
+						val newIndex:Tree = list match {
+							case x::xs => {
+								preList ++= xs
+								x
+							}
+						}
+
+						preList += accessNode(id, newIndex, ns)
+						preList.toList
+
 
 					case t => List(t)
 				}
