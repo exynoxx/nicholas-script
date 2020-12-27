@@ -2,7 +2,7 @@ import scala.util.parsing.combinator.RegexParsers
 
 
 class Parser extends RegexParsers {
-	
+
 	// ### BASICS ###
 	def word: Parser[Tree] = "\\w+".r ^^ { case s => valueNode(s, null) }
 	def number: Parser[Tree] = "\\d+".r ^^ { case s => valueNode(s, "actualint") }
@@ -68,7 +68,7 @@ class Parser extends RegexParsers {
 	}
 
 	// ### FUNCTION CALL ###
-	def funArgExp: Parser[Tree] = propertyCall | ("(" ~ propertyCall ~ ")" | "(" ~ funCall ~ ")" | "(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x } | binop
+	def funArgExp: Parser[Tree] = propertyCall | ("(" ~ propertyCall ~ ")" | "(" ~ funCall ~ ")" | "(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x } | arrayAccess | arrays | binop
 	def funCall: Parser[Tree] = word ~ ":" ~ rep(funArgExp) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, null) }
 	def callStatement: Parser[Tree] = propertyCall | funCall ~ ";" ^^ { case callNode(id, args, _, ns) ~ _ => callNode(id, args, true, ns) }
 

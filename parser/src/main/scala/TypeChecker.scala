@@ -1,3 +1,5 @@
+import java.util.NoSuchElementException
+
 import scala.collection.immutable.HashMap
 import scala.collection.mutable.ListBuffer
 
@@ -11,13 +13,18 @@ class TypeChecker {
 	def typerecurse(AST: Tree, parent: Tree, symbol: HashMap[String, String]): (Tree, HashMap[String, String]) = {
 		AST match {
 			case valueNode(value, ns) =>
-				val newns = ns match {
+
+				val newns = if (value == "true" || value == "false"){
+					"bool"
+				} else {
+					ns match {
 					case null =>
 						symbol(value) match {
 							case "actualstring" => "string"
 							case x => x
 						}
 					case _ => ns
+				}
 				}
 				(valueNode(value, newns), symbol)
 
@@ -40,7 +47,10 @@ class TypeChecker {
 				//val (idtree,_) = typerecurse(id, AST, symbol)
 				val (btree, _) = typerecurse(body, AST, symbol)
 				val ty = ns match {
-					case null => btree.nstype
+					case null => btree.nstype match {
+						case "actualstring" => "string"
+						case x => x
+					}
 					case x => x
 				}
 
@@ -49,14 +59,7 @@ class TypeChecker {
 					case x => x.toString
 				}
 
-				val idmap = HashMap(textid -> btree.nstype)
-				val s = btree match {
-					case valueNode(n, "actualstring") =>
-						val hashID = "size" + textid
-						val sizemap = HashMap(hashID -> (n.length - 2).toString)
-						symbol ++ sizemap ++ idmap
-					case _ => idmap
-				}
+				val s = symbol ++ HashMap(textid -> ty)
 				(assignNode(id, btree, deff, idx, ty), s)
 			case functionNode(_, args, body, ns) =>
 				//get id from assign parent
@@ -109,14 +112,25 @@ class TypeChecker {
 					val (t, _) = typerecurse(e, AST, symbol)
 					t
 				}
-				val ty = symbol(id)
+				val ty = symbol.get(id) match {
+					case Some(t) => t
+					case None => println(id + " not found in symbol")
+						throw new NoSuchElementException
+				}
+
 				(callNode(id, newargs, deff, ty), symbol)
 			case returnNode(body, ns) =>
 				val (newbody, _) = typerecurse(body, AST, symbol)
 				(returnNode(newbody, newbody.nstype), symbol)
 
 			case arrayNode(elem, ns) =>
-				(arrayNode(elem, "array(" + elem.head.nstype + ")"), symbol)
+				val newelem = elem.map(e => typerecurse(e,AST,symbol)._1)
+				val ty = newelem.head.nstype match {
+					case "actualstring" => "string"
+					case "actualint" => "int"
+					case x=>x
+				}
+				(arrayNode(newelem, "array(" +ty + ")"), symbol)
 
 			case accessNode(name, index, ns) =>
 				val arrayName = symbol.get(name).get

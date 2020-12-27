@@ -64,26 +64,11 @@ class TreeAugmenter {
 					case callNode(id, args, deff, ns) =>
 						val tmpList = ListBuffer[Tree]()
 						val newargs = args.map {
-							case valueNode(nm, "actualstring") =>
+							/*case valueNode(nm, "actualstring") =>
 								val n = Util.genRandomName()
 								val ns = "actualstring"
 								val preassign = assignNode(valueNode(n, ns), valueNode(nm, ns), true, 0, ns)
 								val replaceElement = valueNode(n, "string")
-								tmpList += preassign
-								replaceElement
-							/*case binopNode(l, r, o, ns) =>
-								val retList = iterateBlock(List(binopNode(l, r, o, ns)))(0)
-								if (retList.size() > 1) {
-									val last = retList.last
-									retList.dropRight(1)
-									last
-								} else {
-									retList
-								}*/
-							/*case binopNode(l, r, o, ns) =>
-								val n = Util.genRandomName()
-								val preassign = assignNode(n, binopNode(l, r, o, ns), true, 0, ns)
-								val replaceElement = valueNode(n, ns)
 								tmpList += preassign
 								replaceElement*/
 							case x =>
@@ -114,7 +99,8 @@ class TreeAugmenter {
 						}
 					case arrayNode(elem, ns) =>
 						val tmpList = ListBuffer[Tree]()
-						val newelem = elem.map {
+						val newelem = elem;
+						/*val newelem = elem.map {
 							case valueNode(value, ns) => valueNode(value, ns)
 							case binopNode(numbers, ops, idx, ns) => binopNode(numbers, ops, idx, ns)
 							case x =>
@@ -123,12 +109,11 @@ class TreeAugmenter {
 								val replaceElement = valueNode(id, x.nstype)
 								tmpList += preassign
 								replaceElement
-						}
+						}*/
 						val newTy = newelem.head.nstype match {
-							case "string" => "array(string)"
 							case "actualstring" => "array(string)"
-							case "int" => "array(int)"
 							case "actualint" => "array(int)"
+							case x => "array("+x+")"
 						}
 						tmpList += arrayNode(newelem, newTy)
 						tmpList.toList

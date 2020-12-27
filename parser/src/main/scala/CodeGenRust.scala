@@ -32,13 +32,9 @@ class CodeGenRust {
 	def recurse(tree: Tree): String = {
 		tree match {
 			case assignNode(id, body, deff, _, ns) =>
-
 				val idString = recurse(id)
 
-				val end = ns match {
-					case "actualstring" => recurse(body) + ".to_string();\n"
-					case _ => recurse(body) + ";\n"
-				}
+				val end = recurse(body) + ";\n"
 				val ss = deff match {
 					case true => "let mut " + idString + ":" + convertType(ns) + " = " + end
 					case false => idString + " = " + end
@@ -71,7 +67,11 @@ class CodeGenRust {
 					i += 2
 				}
 				"(" + flatList.mkString + ")"
-			case valueNode(value, ns) => value
+			case valueNode(value, ns) =>
+				ns match {
+					case "actualstring" => value + ".to_string()"
+					case _ => value
+				}
 			case ifNode(c, b, elsebody, ns) =>
 				val s1 = "if " + recurse(c) + " {\n"
 				val s2 = recurse(b)
@@ -107,14 +107,14 @@ class CodeGenRust {
 			case blockNode(children, ns) => children.map(x => recurse(x)).mkString
 
 			case callNode(id, args, deff, ns) =>
-
-				val stringArgs = args.map {
-					x =>val xString = recurse(x)
-						x.nstype match {
-							case "string" => "&mut " + xString
-							case Util.arrayTypePattern(ty) => "&mut " + xString
-							case _ => xString
-						}
+				val stringArgs = args.map { x =>
+					val xString = recurse(x)
+					x.nstype match {
+						case "string" => "&mut " + xString
+						case "actualstring" => "&mut " + xString
+						case Util.arrayTypePattern(ty) => "&mut " + xString
+						case _ => xString
+					}
 				}
 
 				val ret = id + "(" + stringArgs.mkString(",") + ")"
@@ -127,7 +127,12 @@ class CodeGenRust {
 
 			case lineNode(text, ns) => text + "\n"
 
-			case arrayNode(elements, ns) => "vec![" + elements.map(x => recurse(x)).mkString(",") + "]"
+			case arrayNode(elements, ns) =>
+				val stringElements = elements.map{
+					case accessNode(id,index,ns) => recurse(accessNode(id,index,ns))+".clone()"
+					case x => recurse(x)
+				}
+				"vec![" + stringElements.mkString(",") + "]"
 
 			case rangeNode(valueNode(a, _), valueNode(b, _), ns) => "(" + a + ".." + b + ").collect()"
 
@@ -140,7 +145,7 @@ class CodeGenRust {
 	}
 
 	def gen(AST: Tree): String = {
-		val s0 = ""//"#![allow(unused_parens)]\n#![allow(unused_mut)]\n#![allow(non_snake_case)]\n"
+		val s0 = "#![allow(unused_parens)]\n#![allow(unused_mut)]\n#![allow(non_snake_case)]\n"
 		val s1 = "fn main(){\n"
 		val s2 = recurse(AST)
 		val s3 = "}\n"
