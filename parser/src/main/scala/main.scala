@@ -32,13 +32,8 @@ object main {
 		val inputFile = "src/main/scala/func2.ns"
 		val outputFile = "out/output.rs"
 
-		//JS
-		//val prestring = "print := (x:string) => {\n\t?$ console.log(x) ?$\n};\n"
-		//rust
-		val prestring = "print := (x:string) => {\n?$ println!(\"{}\",x); ?$\n};\n"
 
-
-		val in = prestring+readFile(inputFile)
+		val in = cg.genPreString()+readFile(inputFile)
 		val AST:Tree = p.parse(p.start,in) match {
 			case p.Success(t, _) =>
 				println("success")

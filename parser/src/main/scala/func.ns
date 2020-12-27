@@ -1,6 +1,4 @@
 concat := (x:string, y:string):string => ?$ return format!("{}{}", x, y) ?$;
-toInt := (x:string):int => ?$ return x.parse::<i32>().unwrap(); ?$;
-toString := (x:int):string => ?$ return x.to_string(); ?$;
 
 a := () => 1+1;
 b:= a:;

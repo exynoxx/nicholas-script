@@ -1,5 +1,3 @@
-toString := (x:int):string => ?$ return x.to_string(); ?$;
-toInt := (x:string):int => ?$ return x.parse::<i32>().unwrap(); ?$;
 
 
 a := 1..5;

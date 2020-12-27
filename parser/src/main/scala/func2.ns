@@ -1,7 +1,5 @@
-toString := (x:int):string => ?$ return x.to_string(); ?$;
-
 concat := (x:string, y:string):string => ?$ return format!("{}{}", x, y) ?$;
-print: (concat: "hello" "world");
+println: (concat: "hello" "world");
 
 printArr := (x:array(int)) => {
 	i := 0;
@@ -12,5 +10,5 @@ printArr := (x:array(int)) => {
 	}
 };
 
-a:= 5..500;
+a:= 5..11;
 printArr: a;

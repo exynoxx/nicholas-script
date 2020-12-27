@@ -21,6 +21,14 @@ class CodeGenRust {
 		}
 	}
 
+	def genPreString(): String ={
+		val print = "print := (x:string) => ?$ print!(\"{} \",x); ?$;\n"
+		val println = "println := (x:string) => ?$ println!(\"{}\",x); ?$;\n"
+		val toString = "toString := (x:int):string => ?$ return x.to_string(); ?$;\n"
+		val toInt = "toInt := (x:string):int => ?$ return x.parse::<i32>().unwrap(); ?$;\n"
+		print+println+toString+toInt
+	}
+
 	def recurse(tree: Tree): String = {
 		tree match {
 			case assignNode(id, body, deff, _, ns) =>
