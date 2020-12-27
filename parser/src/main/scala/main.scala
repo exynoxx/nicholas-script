@@ -30,11 +30,11 @@ object main {
 		val treeAugmenter = new TreeAugmenter
 		val codeGen = new CodeGenRust
 
-		val inputFile = "src/main/scala/func2.ns"
+		val inputFile = "src/main/scala/tmp.ns"
 		val outputFile = "out/output.rs"
 
 
-		val in = codeGen.genPreString()+readFile(inputFile)
+		val in = /*codeGen.genPreString()+*/readFile(inputFile)
 		val AST:Tree = parser.parse(parser.start,in) match {
 			case parser.Success(t, _) =>
 				println("success")
@@ -53,10 +53,14 @@ object main {
 		val augmentedTree = treeAugmenter.augment(typedTree)
 		printer.print(augmentedTree)
         val ret = codeGen.gen(augmentedTree)
-        writeFile(outputFile,ret)
+        //writeFile(outputFile,ret)
 
-        val f = ("rustc "+outputFile+" --out-dir out").!
-        println(f)
+        //val f = ("rustc "+outputFile+" --out-dir out").!
+        //println(f)
+		println("----")
+		println(ret)
+		println("----")
+
 
 	}
 }
