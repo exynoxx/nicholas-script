@@ -25,32 +25,34 @@ object main {
 
 	def main(args: Array[String]): Unit = {
 		val printer = new TreePrinter
-		val p = new Parser
-		val t = new TypeChecker
-		val cg = new CodeGenRust
+		val parser = new Parser
+		val typeChecker = new TypeChecker
+		val treeAugmenter = new TreeAugmenter
+		val codeGen = new CodeGenRust
 
 		val inputFile = "src/main/scala/func2.ns"
 		val outputFile = "out/output.rs"
 
 
-		val in = cg.genPreString()+readFile(inputFile)
-		val AST:Tree = p.parse(p.start,in) match {
-			case p.Success(t, _) =>
+		val in = codeGen.genPreString()+readFile(inputFile)
+		val AST:Tree = parser.parse(parser.start,in) match {
+			case parser.Success(t, _) =>
 				println("success")
 				t
-            case f : p.NoSuccess => println("error: "+f.msg)
+            case f : parser.NoSuccess => println("error: "+f.msg)
                                         nullLeaf()
-			case p.Failure(msg1,msg2) => println(s"Error: $msg1, $msg2")
+			case parser.Failure(msg1,msg2) => println(s"Error: $msg1, $msg2")
 										nullLeaf()
-			case p.Error(msg1,msg2) => println(s"Error: $msg1, $msg2")
+			case parser.Error(msg1,msg2) => println(s"Error: $msg1, $msg2")
 										nullLeaf()
 			case x => println("Error: "+x)
 										nullLeaf()
 		}
 
-        val tree = t.augment(t.typecheck(AST))
-		printer.print(tree)
-        val ret = cg.gen(tree)
+        val typedTree = typeChecker.typecheck(AST)
+		val augmentedTree = treeAugmenter.augment(typedTree)
+		printer.print(augmentedTree)
+        val ret = codeGen.gen(augmentedTree)
         writeFile(outputFile,ret)
 
         val f = ("rustc "+outputFile+" --out-dir out").!
