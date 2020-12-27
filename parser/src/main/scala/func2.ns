@@ -1,3 +1,16 @@
-concat := (x:string, y:string):string => ?$ return format!("{}{}", x, y) ?$;
+toString := (x:int):string => ?$ return x.to_string(); ?$;
 
+concat := (x:string, y:string):string => ?$ return format!("{}{}", x, y) ?$;
 print: (concat: "hello" "world");
+
+printArr := (x:array(int)) => {
+	i := 0;
+	var size:int = ?$ x.len() as i32 ?$;
+	while (i < size) {
+		print: x[i].toString;
+		i+=1;
+	}
+};
+
+a:= 5..500;
+printArr: a;

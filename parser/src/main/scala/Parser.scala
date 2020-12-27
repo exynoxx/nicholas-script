@@ -30,13 +30,13 @@ class Parser extends RegexParsers {
 
 	def assign: Parser[Tree] = defstatement | assignStatement
 
-	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ word) ~ "=" ~ (arrays | exp | func) ~ ";" ^^ {
+	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ word) ~ "=" ~ (arrays | exp | func | ignoreStatement) ~ ";" ^^ {
 		case _ ~ valueNode(id, _) ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(valueNode(id, ty), t, true, 0, ty)
 		case _ ~ s1 ~ None ~ _ ~ t ~ _ => assignNode(s1, t, true, 0, null)
 
-	} | word ~ ":=" ~ (arrays | exp | func) ~ ";" ^^ { case s1 ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
+	} | word ~ ":=" ~ (arrays | exp | func | ignoreStatement) ~ ";" ^^ { case s1 ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
 
-	def assignStatement: Parser[Tree] = (arrayAccess | word) ~ "=" ~ (arrays | exp | func) ~ ";" ^^ { case id ~ _ ~ b ~ _ => assignNode(id, b, false, 0, null) }
+	def assignStatement: Parser[Tree] = (arrayAccess | word) ~ "=" ~ (arrays | exp | func | ignoreStatement) ~ ";" ^^ { case id ~ _ ~ b ~ _ => assignNode(id, b, false, 0, null) }
 
 	def incrementStatement: Parser[Tree] = (arrayAccess | word) ~ ("+=" | "-=" | "*=" | "/=" | "%=") ~ exp ~ ";" ^^ {
 		case id ~ op ~ b ~ _ =>
@@ -87,7 +87,8 @@ class Parser extends RegexParsers {
 
 	def callStatement: Parser[Tree] = propertyCall | funCall ~ ";" ^^ { case callNode(id, args, _, ns) ~ _ => callNode(id, args, true, ns) }
 
-	def arg: Parser[Tree] = word ~ ":" ~ word ^^ { case valueNode(name, _) ~ s ~ valueNode(ty, _) => argNode(name, ty) }
+	def arg: Parser[Tree] = word ~ ":" ~ word ~ "(" ~ word ~ ")" ^^ { case valueNode(name, _) ~ _ ~ valueNode(ty1, _) ~s1~ valueNode(ty2, _) ~s2 => argNode(name, ty1+s1+ty2+s2) } |
+		word ~ ":" ~ word ^^ { case valueNode(name, _) ~ s ~ valueNode(ty, _) => argNode(name, ty) }
 
 	def ifstatement: Parser[Tree] = "if" ~ "(" ~ binop ~ ")" ~ (exp | block) ~ opt("else" ~ (exp | block)) ^^ {
 		case _ ~ _ ~ b ~ _ ~ e1 ~ Some(_ ~ e2) => ifNode(b, e1, Some(e2), null)

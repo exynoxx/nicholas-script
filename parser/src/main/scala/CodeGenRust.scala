@@ -16,6 +16,7 @@ class CodeGenRust {
 	def convertArgType(t: String): String = {
 		t match {
 			case "string" => "&mut String"
+			case Util.arrayTypePattern(ty) => "&mut Vec<" + convertType(ty) + ">"
 			case x => convertType(x)
 		}
 	}
@@ -100,12 +101,11 @@ class CodeGenRust {
 			case callNode(id, args, deff, ns) =>
 
 				val stringArgs = args.map {
-					x =>
-						val xString = recurse(x)
-						if (x.nstype == "string") {
-							"&mut " + xString
-						} else {
-							xString
+					x =>val xString = recurse(x)
+						x.nstype match {
+							case "string" => "&mut " + xString
+							case Util.arrayTypePattern(ty) => "&mut " + xString
+							case _ => xString
 						}
 				}
 

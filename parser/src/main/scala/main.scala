@@ -29,7 +29,7 @@ object main {
 		val t = new TypeChecker
 		val cg = new CodeGenRust
 
-		val inputFile = "src/main/scala/basic.ns"
+		val inputFile = "src/main/scala/func2.ns"
 		val outputFile = "out/output.rs"
 
 		//JS
@@ -58,7 +58,7 @@ object main {
         val ret = cg.gen(tree)
         writeFile(outputFile,ret)
 
-        val f = "rustc "+outputFile+" --out-dir out".!
+        val f = ("rustc "+outputFile+" --out-dir out").!
         println(f)
 
 	}

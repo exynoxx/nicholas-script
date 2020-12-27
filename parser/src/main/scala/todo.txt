@@ -2,5 +2,6 @@ fix array ref - fix arrays in general
 auto type cast
 overloading
 propertyfunc with any number of args
+property.property.property...........
 methods take any len vec args
 
