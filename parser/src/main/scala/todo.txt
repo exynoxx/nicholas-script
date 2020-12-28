@@ -1,7 +1,7 @@
 auto type cast
+map func
 overloading
 propertyfunc with any number of args
 property.property.property...........
 methods take any len vec args
-call node take actualarray as arg
-
+for each
