@@ -30,7 +30,7 @@ object main {
 		val treeAugmenter = new TreeAugmenter
 		val codeGen = new CodeGenRust
 
-		val inputFile = "src/main/scala/func2.ns"
+		val inputFile = "src/main/scala/tmp.ns"
 		val outputFile = "out/output.rs"
 
 

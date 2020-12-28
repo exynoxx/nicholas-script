@@ -1,6 +1,9 @@
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 class TreeAugmenter {
+
+	var functionArgumentTypes = mutable.HashMap[String,List[String]]()
 
 	def iterateBlock(blockBody: List[Tree]): List[Tree] = {
 		blockBody match {
@@ -48,6 +51,7 @@ class TreeAugmenter {
 								blockNode(List(tmp), ns)
 
 						}
+						functionArgumentTypes += (id -> args.map{case argNode(name,ty) => ty})
 						List(functionNode(id, args, retbody, ns))
 					case blockNode(children, ns) =>
 						val b: Tree = augment(blockNode(children, ns))
@@ -63,6 +67,7 @@ class TreeAugmenter {
 						List(whileNode(c, iterateBlock(List(b))(0), ns))
 					case callNode(id, args, deff, ns) =>
 						val tmpList = ListBuffer[Tree]()
+
 						val newargs = args.map {
 							/*case valueNode(nm, "actualstring") =>
 								val n = Util.genRandomName()
@@ -81,7 +86,30 @@ class TreeAugmenter {
 								retElement
 
 						}
-						tmpList += callNode(id, newargs, deff, ns)
+
+						val argsTy = newargs.zip(functionArgumentTypes(id))
+						val autoTypeArgs = argsTy.map{
+							case (elem, ty) => {
+								val elemTy = elem.nstype match {
+									case "actualstring" => "string"
+									case "actualint" => "int"
+									case x => x
+								}
+								if (elemTy != ty) {
+
+									val fCallName = ty match {
+										case "string" => "toString"
+										case "int" => "toInt"
+										case "bool" => "toBool"
+									}
+									callNode(fCallName,List(elem),false,ty)
+								} else {
+									elem
+								}
+							}
+						}
+
+						tmpList += callNode(id, autoTypeArgs, deff, ns)
 						tmpList.toList
 					case returnNode(body, ns) =>
 						val shouldExtract = body match {
