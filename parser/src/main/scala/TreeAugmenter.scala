@@ -114,11 +114,11 @@ class TreeAugmenter {
 									case "actualstring" => "string"
 									case x => x
 								}
-								if (elemTy != ty) {
+								if (elemTy == ty || Util.arrayTypePattern.matches(ty)) {
+									elem
+								} else {
 									val fCallName = castToFunction(ty)
 									callNode(fCallName, List(elem), false, ty)
-								} else {
-									elem
 								}
 							}
 						}
@@ -159,7 +159,7 @@ class TreeAugmenter {
 									case _ => callNode(fCallName, List(retElement), false, ns)
 								}
 						}
-						tmpList += arrayNode(newelem, ns)
+						tmpList += arrayNode(newelem, "array("+ns+")")
 						tmpList.toList
 					case rangeNode(from, to, ns) =>
 						val tmpList = ListBuffer[Tree]()

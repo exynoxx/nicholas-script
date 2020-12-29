@@ -55,7 +55,7 @@ class TreePrinter {
 			case arrayNode(null, ns) => printMinus("-", depth) +
 				"arrayNode()\n"
 			case arrayNode(elem, ns) => printMinus("-", depth) +
-				"arrayNode()\n" +
+				"arrayNode("+elem+","+ns+")\n" +
 				elem.map(e => recursion(e, depth + increment)).mkString
 			case rangeNode(l, r, ns) => printMinus("-", depth) +
 				"rangeNode()\n" +

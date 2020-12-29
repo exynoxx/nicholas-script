@@ -34,7 +34,7 @@ class CodeGenRust {
 			case assignNode(id, body, deff, _, ns) =>
 				val idString = recurse(id)
 
-				val vectorExtension = if (Util.arrayTypePattern.matches(ns)) {
+				val vectorExtension = if (Util.arrayTypePattern.matches(ns) && !body.isInstanceOf[rangeNode]) {
 					".to_vec()"
 				} else {
 					""

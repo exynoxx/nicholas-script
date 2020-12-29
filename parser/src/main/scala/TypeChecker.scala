@@ -15,7 +15,7 @@ class TypeChecker {
 		AST match {
 			case valueNode(value, ns) =>
 
-				val newns = if (value == "true" || value == "false") {
+				val newns = if (value== "true" || value== "false") {
 					"bool"
 				} else {
 					ns match {
@@ -135,7 +135,7 @@ class TypeChecker {
 			case arrayNode(elem, ns) =>
 				val newelem = elem.map(e => typerecurse(e, AST, symbol)._1)
 				var types = new mutable.HashMap[String, Int]()
-				elem.foreach {
+				newelem.foreach {
 					case x => types.updateWith(x.nstype)({
 						case Some(count) => Some(count + 1)
 						case None => Some(1)
