@@ -21,12 +21,12 @@ class CodeGenRust {
 		}
 	}
 
-	def genPreString(): String ={
+	def genPreString(): String = {
 		val print = "print := (x:string) => ?$ print!(\"{} \",x); ?$;\n"
 		val println = "println := (x:string) => ?$ println!(\"{}\",x); ?$;\n"
 		val toString = "toString := (x:int):string => ?$ return x.to_string(); ?$;\n"
 		val toInt = "toInt := (x:string):int => ?$ return x.parse::<i32>().unwrap(); ?$;\n"
-		print+println+toString+toInt
+		print + println + toString + toInt
 	}
 
 	def recurse(tree: Tree): String = {
@@ -34,7 +34,13 @@ class CodeGenRust {
 			case assignNode(id, body, deff, _, ns) =>
 				val idString = recurse(id)
 
-				val end = recurse(body) + ";\n"
+				val vectorExtension = if (Util.arrayTypePattern.matches(ns)) {
+					".to_vec()"
+				} else {
+					""
+				}
+
+				val end = recurse(body) + vectorExtension + ";\n"
 				val ss = deff match {
 					case true => "let mut " + idString + ":" + convertType(ns) + " = " + end
 					case false => idString + " = " + end
@@ -128,8 +134,8 @@ class CodeGenRust {
 			case lineNode(text, ns) => text + "\n"
 
 			case arrayNode(elements, ns) =>
-				val stringElements = elements.map{
-					case accessNode(id,index,ns) => recurse(accessNode(id,index,ns))+".clone()"
+				val stringElements = elements.map {
+					case accessNode(id, index, ns) => recurse(accessNode(id, index, ns)) + ".clone()"
 					case x => recurse(x)
 				}
 				"vec![" + stringElements.mkString(",") + "]"

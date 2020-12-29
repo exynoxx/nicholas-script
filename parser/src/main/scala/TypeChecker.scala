@@ -45,7 +45,9 @@ class TypeChecker {
 				(binopNode(newNum, ops, idx, ty), symbol)
 
 			case assignNode(id, body, deff, idx, ns) =>
-				//val (idtree,_) = typerecurse(id, AST, symbol)
+
+
+
 				val (btree, _) = typerecurse(body, AST, symbol)
 				val ty = ns match {
 					case null => btree.nstype match {
@@ -55,13 +57,19 @@ class TypeChecker {
 					case x => x
 				}
 
+				val newid = id match {
+					case valueNode(n,null) => valueNode(n,ty)
+					case accessNode(n,localidx,null) => accessNode(n,localidx,ty)
+					case x => x
+				}
+
 				val textid = id match {
 					case valueNode(rid, _) => rid
 					case x => x.toString
 				}
 
 				val s = symbol ++ HashMap(textid -> ty)
-				(assignNode(id, btree, deff, idx, ty), s)
+				(assignNode(newid, btree, deff, idx, ty), s)
 			case functionNode(_, args, body, ns) =>
 				//get id from assign parent
 				val id = parent match {
