@@ -125,7 +125,7 @@ class CodeGenRust {
 
 			case returnNode(body, ns) => recurse(body) + "\n"
 
-			case lineNode(text, ns) => text
+			case lineNode(text, ns) => text + "\n"
 
 			case arrayNode(elements, ns) =>
 				val stringElements = elements.map{

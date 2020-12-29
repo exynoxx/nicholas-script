@@ -1,4 +1,24 @@
-f := (a:string,b:int,c:string)=>1+1;
+f := (a:string,b:int,c:string) => 1+1;
 
 f: "1" "2" "3";
 f: 1 2 3;
+var a:string = "1";
+var b:int = "1";
+
+printArrS := (x:array(string)) => {
+	i := 0;
+	var size:int = ?$ x.len() as i32 ?$;
+	while (i < size) {
+		print: x[i];
+		i+=1;
+	}
+	println: "";
+};
+
+c:= [1,2,3,4];
+d:= [1,"2",3,"4",5];
+var e :  array(string)  = [1,"2",3,"4",f: 1 2 3];
+ee :=  ["1","2",3,"4",f: 1 2 3];
+
+printArrS: e;
+printArrS: ee;

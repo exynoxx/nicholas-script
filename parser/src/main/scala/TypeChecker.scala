@@ -1,6 +1,7 @@
 import java.util.NoSuchElementException
 
 import scala.collection.immutable.HashMap
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 class TypeChecker {
@@ -14,17 +15,17 @@ class TypeChecker {
 		AST match {
 			case valueNode(value, ns) =>
 
-				val newns = if (value == "true" || value == "false"){
+				val newns = if (value == "true" || value == "false") {
 					"bool"
 				} else {
 					ns match {
-					case null =>
-						symbol(value) match {
-							case "actualstring" => "string"
-							case x => x
-						}
-					case _ => ns
-				}
+						case null =>
+							symbol(value) match {
+								case "actualstring" => "string"
+								case x => x
+							}
+						case _ => ns
+					}
 				}
 				(valueNode(value, newns), symbol)
 
@@ -124,13 +125,19 @@ class TypeChecker {
 				(returnNode(newbody, newbody.nstype), symbol)
 
 			case arrayNode(elem, ns) =>
-				val newelem = elem.map(e => typerecurse(e,AST,symbol)._1)
-				val ty = newelem.head.nstype match {
-					case "actualstring" => "string"
-					case "actualint" => "int"
-					case x=>x
+				val newelem = elem.map(e => typerecurse(e, AST, symbol)._1)
+				var types = new mutable.HashMap[String, Int]()
+				elem.foreach {
+					case x => types.updateWith(x.nstype)({
+						case Some(count) => Some(count + 1)
+						case None => Some(1)
+					})
 				}
-				(arrayNode(newelem, "array(" +ty + ")"), symbol)
+				val newTy = types.maxBy(_._2)._1 match {
+					case "actualstring" => "array(string)"
+					case x => "array(" + x + ")"
+				}
+				(arrayNode(newelem, newTy), symbol)
 
 			case accessNode(name, index, ns) =>
 				val arrayName = symbol.get(name).get

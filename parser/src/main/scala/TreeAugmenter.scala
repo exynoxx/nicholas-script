@@ -3,7 +3,15 @@ import scala.collection.mutable.ListBuffer
 
 class TreeAugmenter {
 
-	var functionArgumentTypes = mutable.HashMap[String,List[String]]()
+	var functionArgumentTypes = mutable.HashMap[String, List[String]]()
+
+	def castToFunction(ty: String): String = {
+		ty match {
+			case "string" => "toString"
+			case "int" => "toInt"
+			case "bool" => "toBool"
+		}
+	}
 
 	def iterateBlock(blockBody: List[Tree]): List[Tree] = {
 		blockBody match {
@@ -31,7 +39,19 @@ class TreeAugmenter {
 						list.reverse match {
 							case x :: xs => x match {
 								case functionNode(_, _, _, _) => List(x)
-								case _ => xs ++ List(assignNode(id, x, deff, idx, ns))
+								case lineNode(_, _) => xs ++ List(assignNode(id, x, deff, idx, ns))
+								case _ =>
+									val xTy = x.nstype match {
+										case "actualstring" => "string"
+										case x => x
+									}
+									val newX = if (xTy == ns || Util.arrayTypePattern.matches(ns)) {
+										x
+									} else {
+										val fCallName = castToFunction(ns)
+										callNode(fCallName, List(x), false, ns)
+									}
+									xs ++ List(assignNode(id, newX, deff, idx, ns))
 							}
 						}
 
@@ -51,7 +71,7 @@ class TreeAugmenter {
 								blockNode(List(tmp), ns)
 
 						}
-						functionArgumentTypes += (id -> args.map{case argNode(name,ty) => ty})
+						functionArgumentTypes += (id -> args.map { case argNode(name, ty) => ty })
 						List(functionNode(id, args, retbody, ns))
 					case blockNode(children, ns) =>
 						val b: Tree = augment(blockNode(children, ns))
@@ -88,21 +108,15 @@ class TreeAugmenter {
 						}
 
 						val argsTy = newargs.zip(functionArgumentTypes(id))
-						val autoTypeArgs = argsTy.map{
+						val autoTypeArgs = argsTy.map {
 							case (elem, ty) => {
 								val elemTy = elem.nstype match {
 									case "actualstring" => "string"
-									case "actualint" => "int"
 									case x => x
 								}
 								if (elemTy != ty) {
-
-									val fCallName = ty match {
-										case "string" => "toString"
-										case "int" => "toInt"
-										case "bool" => "toBool"
-									}
-									callNode(fCallName,List(elem),false,ty)
+									val fCallName = castToFunction(ty)
+									callNode(fCallName, List(elem), false, ty)
 								} else {
 									elem
 								}
@@ -125,25 +139,27 @@ class TreeAugmenter {
 						} else {
 							List(returnNode(body, ns))
 						}
-					case arrayNode(elem, ns) =>
+					case arrayNode(elem, Util.arrayTypePattern(ns)) =>
 						val tmpList = ListBuffer[Tree]()
-						val newelem = elem;
-						/*val newelem = elem.map {
-							case valueNode(value, ns) => valueNode(value, ns)
-							case binopNode(numbers, ops, idx, ns) => binopNode(numbers, ops, idx, ns)
+						val fCallName = castToFunction(ns)
+						val newelem = elem.map {
 							case x =>
-								val id = Util.genRandomName()
-								val preassign = assignNode(valueNode(id, ns), x, true, 0, x.nstype)
-								val replaceElement = valueNode(id, x.nstype)
-								tmpList += preassign
-								replaceElement
-						}*/
-						val newTy = newelem.head.nstype match {
-							case "actualstring" => "array(string)"
-							case "actualint" => "array(int)"
-							case x => "array("+x+")"
+								val xTy = x.nstype match {
+									case "actualstring" => "string"
+									case x => x
+								}
+								val retList: List[Tree] = iterateBlock(List(x))
+								val retElement: Tree = retList.reverse match {
+									case y :: ys =>
+										tmpList ++= ys
+										y
+								}
+								xTy match {
+									case `ns` => retElement
+									case _ => callNode(fCallName, List(retElement), false, ns)
+								}
 						}
-						tmpList += arrayNode(newelem, newTy)
+						tmpList += arrayNode(newelem, ns)
 						tmpList.toList
 					case rangeNode(from, to, ns) =>
 						val tmpList = ListBuffer[Tree]()
@@ -164,10 +180,10 @@ class TreeAugmenter {
 						tmpList += rangeNode(newfrom, newto, ns)
 						tmpList.toList
 					case accessNode(id, index, ns) =>
-						var preList:ListBuffer[Tree] = ListBuffer()
+						var preList: ListBuffer[Tree] = ListBuffer()
 						val list = iterateBlock(List(index)).reverse
-						val newIndex:Tree = list match {
-							case x::xs => {
+						val newIndex: Tree = list match {
+							case x :: xs => {
 								preList ++= xs
 								x
 							}

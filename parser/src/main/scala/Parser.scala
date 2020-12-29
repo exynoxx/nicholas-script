@@ -5,7 +5,7 @@ class Parser extends RegexParsers {
 
 	// ### BASICS ###
 	def word: Parser[Tree] = "\\w+".r ^^ { case s => valueNode(s, null) }
-	def number: Parser[Tree] = "\\d+".r ^^ { case s => valueNode(s, "actualint") }
+	def number: Parser[Tree] = "\\d+".r ^^ { case s => valueNode(s, "int") }
 	def strings: Parser[Tree] = "\"(?:[^\"\\\\]|\\\\.)*\"".r ^^ { case s => valueNode(s, "actualstring") }
 	def op: Parser[Tree] = intOp | boolOp
 	def boolOp: Parser[Tree] = ("||" | "&&" | "<=" | ">=" | ">" | "<" | "!=" | "==") ^^ { case o => opNode(o, "bool") }
@@ -21,7 +21,9 @@ class Parser extends RegexParsers {
 	// ### ASSIGN ###
 	def assign: Parser[Tree] = defstatement | assignStatement
 
-	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ word) ~ "=" ~ (arrays | exp | func | ignoreStatement) ~ ";" ^^ {
+	def vartype: Parser[Tree] = "array" ~"("~ word ~ ")"^^{case _~_~valueNode(w,ns)~_=>valueNode("array("+w+")",ns)} | word
+	
+	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ vartype) ~ "=" ~ (arrays | exp | func | ignoreStatement) ~ ";" ^^ {
 		case _ ~ valueNode(id, _) ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(valueNode(id, ty), t, true, 0, ty)
 		case _ ~ s1 ~ None ~ _ ~ t ~ _ => assignNode(s1, t, true, 0, null)
 	} | word ~ ":=" ~ (arrays | exp | func | ignoreStatement) ~ ";" ^^ { case s1 ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
