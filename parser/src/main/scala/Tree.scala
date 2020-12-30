@@ -23,3 +23,4 @@ case class lineNode(text:String, nstype:String) extends Tree
 case class rangeNode(from: Tree, to:Tree,nstype:String) extends Tree
 case class accessNode(name:String,index:Tree,nstype:String) extends Tree
 case class propertyNode(body:Tree,funcall:Tree, definition: Boolean, nstype:String) extends Tree
+case class forNode(variable:Tree, array:Tree, body: Tree, nstype: String) extends Tree

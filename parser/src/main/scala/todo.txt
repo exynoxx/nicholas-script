@@ -1,4 +1,3 @@
-auto type cast
 map func
 parser simplify: replace long |||| with exp
 overloading
@@ -6,3 +5,4 @@ propertyfunc with any number of args
 property.property.property...........
 methods take any len vec args
 for each
+

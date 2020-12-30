@@ -85,6 +85,17 @@ class TreeAugmenter {
 						List(ifNode(c, ifbody, elsbody, b.nstype))
 					case whileNode(c, b, ns) =>
 						List(whileNode(c, iterateBlock(List(b))(0), ns))
+					case forNode(v, a, b, ns) =>
+						val tmpList = ListBuffer[Tree]()
+						val arrList = iterateBlock(List(a))
+						val newa: Tree = arrList.reverse match {
+							case x :: xs =>
+								tmpList ++= xs
+								x
+						}
+						tmpList ++= List(forNode(v,newa,iterateBlock(List(b))(0),ns))
+						tmpList.toList
+
 					case callNode(id, args, deff, ns) =>
 						val tmpList = ListBuffer[Tree]()
 
@@ -159,7 +170,7 @@ class TreeAugmenter {
 									case _ => callNode(fCallName, List(retElement), false, ns)
 								}
 						}
-						tmpList += arrayNode(newelem, "array("+ns+")")
+						tmpList += arrayNode(newelem, "array(" + ns + ")")
 						tmpList.toList
 					case rangeNode(from, to, ns) =>
 						val tmpList = ListBuffer[Tree]()

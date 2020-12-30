@@ -22,7 +22,7 @@ class Parser extends RegexParsers {
 	def assign: Parser[Tree] = defstatement | assignStatement
 
 	def vartype: Parser[Tree] = "array" ~"("~ word ~ ")"^^{case _~_~valueNode(w,ns)~_=>valueNode("array("+w+")",ns)} | word
-	
+
 	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ vartype) ~ "=" ~ (arrays | exp | func | ignoreStatement) ~ ";" ^^ {
 		case _ ~ valueNode(id, _) ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(valueNode(id, ty), t, true, 0, ty)
 		case _ ~ s1 ~ None ~ _ ~ t ~ _ => assignNode(s1, t, true, 0, null)
@@ -84,13 +84,14 @@ class Parser extends RegexParsers {
 		case _ ~ _ ~ b ~ _ ~ e1 ~ None => ifNode(b, e1, None, null)
 	}
 	def whilestatement: Parser[Tree] = "while" ~ "(" ~ binop ~ ")" ~ (exp | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) }
+	def forstatement: Parser[Tree] = "for" ~ "(" ~ word ~ ":" ~ (word|arrays) ~ ")" ~ (exp | block) ^^ { case _~_~id~_~arr~_~body => forNode(id,arr,body,null)}
 
 
 	// ### GENERAL ###
 	def exp: Parser[Tree] = propertyCall | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 	def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, null) }
 	def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
-	def statement: Parser[Tree] = callStatement | ifstatement | whilestatement | incrementStatement | assign | retStatement | ignoreStatement ^^ { case s => s }
+	def statement: Parser[Tree] = callStatement | ifstatement | forstatement |  whilestatement | incrementStatement | assign | retStatement | ignoreStatement ^^ { case s => s }
 
 	// ### MISC ###
 	def ignoreStatement: Parser[Tree] = "\\?\\$[^\\?]*\\?\\$".r ^^ { case s => lineNode(s.substring(2, s.length - 2), "") }

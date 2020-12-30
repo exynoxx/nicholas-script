@@ -15,7 +15,7 @@ class TypeChecker {
 		AST match {
 			case valueNode(value, ns) =>
 
-				val newns = if (value== "true" || value== "false") {
+				val newns = if (value == "true" || value == "false") {
 					"bool"
 				} else {
 					ns match {
@@ -45,10 +45,7 @@ class TypeChecker {
 				(binopNode(newNum, ops, idx, ty), symbol)
 
 			case assignNode(id, body, deff, idx, ns) =>
-
-
-
-				val (btree, _) = typerecurse(body, AST, symbol)
+				val (btree, updatedSymbol) = typerecurse(body, AST, symbol)
 				val ty = ns match {
 					case null => btree.nstype match {
 						case "actualstring" => "string"
@@ -58,8 +55,8 @@ class TypeChecker {
 				}
 
 				val newid = id match {
-					case valueNode(n,null) => valueNode(n,ty)
-					case accessNode(n,localidx,null) => accessNode(n,localidx,ty)
+					case valueNode(n, null) => valueNode(n, ty)
+					case accessNode(n, localidx, null) => accessNode(n, localidx, ty)
 					case x => x
 				}
 
@@ -68,7 +65,7 @@ class TypeChecker {
 					case x => x.toString
 				}
 
-				val s = symbol ++ HashMap(textid -> ty)
+				val s = updatedSymbol ++ HashMap(textid -> ty)
 				(assignNode(newid, btree, deff, idx, ty), s)
 			case functionNode(_, args, body, ns) =>
 				//get id from assign parent
@@ -77,11 +74,19 @@ class TypeChecker {
 				}
 
 				//update symbol table with args
-				var s = symbol
-				args.foreach { case argNode(name: String, ty: String) => s = s + (name -> ty) }
+				var localSymbol = symbol.to(mutable.HashMap)
+				var globalSymbol = symbol.to(mutable.HashMap)
+
+				var i = -1
+				args.foreach {
+					case argNode(name: String, ty: String) =>
+						i += 1
+						localSymbol += (name -> ty)
+						globalSymbol += ((id + "::" + i) -> ty)
+				}
 
 				//recurse body
-				val (fbody, _) = typerecurse(body, AST, s)
+				val (fbody, _) = typerecurse(body, AST, localSymbol.to(HashMap))
 
 				//if type defined by syntax, use that
 				val ty = ns match {
@@ -89,8 +94,9 @@ class TypeChecker {
 					case x => x
 				}
 
+
 				//ret
-				(functionNode(id, args, fbody, ty), symbol)
+				(functionNode(id, args, fbody, ty), globalSymbol.to(HashMap))
 			//case argNode(name, ns) =>
 			case blockNode(children, _) =>
 				var s = symbol
@@ -116,10 +122,26 @@ class TypeChecker {
 				val (nc, _) = typerecurse(c, AST, symbol)
 				val (nb, _) = typerecurse(b, AST, symbol)
 				(whileNode(nc, nb, ns), symbol)
+			case forNode(valueNode(variable, _), arr, body, ns) =>
+				//val (nvar, _) = typerecurse(variable, AST, symbol)
+				val (narr, _) = typerecurse(arr, AST, symbol)
+				val varTy = narr.nstype match {
+					case Util.arrayTypePattern(ty) => ty
+				}
+				val (nbody, _) = typerecurse(body, AST, symbol ++ HashMap(variable -> varTy))
+
+				(forNode(valueNode(variable, varTy), narr, nbody, "void"), symbol)
 			case callNode(id, args, deff, ns) =>
+				var i = -1
 				val newargs = args.map { e =>
 					val (t, _) = typerecurse(e, AST, symbol)
-					t
+					t match {
+						case arrayNode(elem, Util.arrayTypePattern(ty)) =>
+							i += 1
+							val newTy = symbol.get(id+"::"+i).get
+							arrayNode(elem,newTy )
+						case x => x
+					}
 				}
 				val ty = symbol.get(id) match {
 					case Some(t) => t
