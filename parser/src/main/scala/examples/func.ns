@@ -1,0 +1,24 @@
+concat := (x:string, y:string):string => ?$ return format!("{}{}", x, y) ?$;
+
+a := () => 1+1;
+b:= a:;
+poly := (x:int) => 5*x**3 + 3*x**2 + 1*x;
+
+println: (poly: 1).toString;
+println: (poly: b).toString;
+println: (concat: (poly:5).toString (poly:b).toString);
+println: 3%9.toString;
+println: 3%9;
+println: (toInt: "4").toString;
+println: (1+5*4*(102+1)).toString;
+pow := (x:int,y:int) => x**y;
+ccc:= b**b;
+println: 5;
+println: (pow: 2 10).toString;
+println: (2**10).toString;
+println: c**3+10**2+(d/60)+1.toString;
+world:= "world";
+s := concat: (concat: (concat: "hello"  " ") world) "!";
+print: s;
+print3 := (a:string,b:string,c:string) => ?$ println!("{}{}{}",a,b,c); ?$;
+print3: "hello" " " world;
