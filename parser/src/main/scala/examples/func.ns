@@ -16,7 +16,7 @@ ccc:= b**b;
 println: 5;
 println: (pow: 2 10).toString;
 println: (2**10).toString;
-println: c**3+10**2+(d/60)+1.toString;
+println: ccc**3+10**2+(ccc/60)+1.toString;
 world:= "world";
 s := concat: (concat: (concat: "hello"  " ") world) "!";
 print: s;

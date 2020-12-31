@@ -53,6 +53,12 @@ class TypeChecker {
 					}
 					case x => x
 				}
+				val newbtree = ns match {
+					case Util.arrayTypePattern(arrTy) => btree match {
+						case arrayNode(elem,_) =>  arrayNode(elem,"array("+arrTy+")")
+					}
+					case x => btree
+				}
 
 				val newid = id match {
 					case valueNode(n, null) => valueNode(n, ty)
@@ -66,7 +72,7 @@ class TypeChecker {
 				}
 
 				val s = updatedSymbol ++ HashMap(textid -> ty)
-				(assignNode(newid, btree, deff, idx, ty), s)
+				(assignNode(newid, newbtree, deff, idx, ty), s)
 			case functionNode(_, args, body, ns) =>
 				//get id from assign parent
 				val id = parent match {

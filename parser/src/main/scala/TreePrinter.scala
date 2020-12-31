@@ -49,7 +49,7 @@ class TreePrinter {
 				"returnNode()\n" +
 				recursion(body, depth + increment, increment)
 			case callNode(id, args, deff, ns) => printMinus("-", depth) +
-				"callNode(" + id + ", definition=" + deff + ")\n" +
+				"callNode(" + id + ", definition=" + deff + ", ns="+ns+")\n" +
 				args.map(e => recursion(e, depth + increment)).mkString(",")
 			case allocNode(name, size, ns) => printMinus("-", depth) +
 				"allocNode(" + name + ",size=" + size + ")\n"

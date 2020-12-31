@@ -1,3 +1,4 @@
+rewrite grammar
 map func
 parser simplify: replace long |||| with exp
 overloading

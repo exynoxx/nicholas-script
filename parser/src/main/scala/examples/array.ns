@@ -1,16 +1,13 @@
 a:= 0..11;
 println: a[0];
 b := a[a[a[0]]+1];
-arr2 := a[1+1]+a[c%5]+a[((1+b)*5)%2];
+arr2 := a[1+1]+a[b%5]+a[((1+b)*5)%2];
 a[0] += b;
 println: a[0].toString;
 println: a[0];
 println: a["1".toInt].toString;
 println: a["1"];
 
-aa := [1,2,3];
-bb := [1,"2",3];
-var cc:array(string) = [1,2,3];
 
 printArr := (x:array(string)) => {
 	for ( e : x ){
@@ -18,15 +15,18 @@ printArr := (x:array(string)) => {
 	}
 	println: "";
 };
-printArr: aa;
-printArr: bb;
-printArr: cc;
-printArr: [true,false,true];
+var c:array(string) = [1,2,3];
+
+printArr: [1,2,3];
+printArr: [1,"2",3];
+printArr: c;
 
 add:=(a:int,b:int) => a+b;
+retString := () => "6";
+stringarray := ["7","8"];
 
-aaa := [a[0],a[1],a[2]];
-bbb := ["s","1".toString,2,add: 1 2,a[4%5]];
+var aaa:array(string) = [a[0],a[1],a[2]];
+bbb := ["s","1".toString,2,add: 1 2,a[4%5],"5",retString:,stringarray[0]];
 
 printArr: aaa;
 printArr: bbb;

@@ -9,3 +9,4 @@ printA: [1,2,3];
 printA: ["1","2","3"];
 printA: [1,"2",3];
 
+#printArr: [true,false,true];

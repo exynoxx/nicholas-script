@@ -48,14 +48,12 @@ class Parser extends RegexParsers {
 					arrayNode(e :: l, null)
 			}
 	}
-	def arrayrangeNumber: Parser[Tree] = number | ("(" ~ binop ~ ")" ^^ { case _ ~ x ~ _ => x })
+	def arrayrangeNumber: Parser[Tree] = number |arrayAccess| ("(" ~ binop ~ ")"|"(" ~ propertyCall ~ ")"|"(" ~ funCall ~ ")") ^^ { case _ ~ x ~ _ => x }
 	def arrayrange: Parser[Tree] = arrayrangeNumber ~ ".." ~ arrayrangeNumber ^^ { case a ~ _ ~ b => rangeNode(a, b, "array(int)") }
 	def arrayAccess: Parser[Tree] = word ~ "[" ~ exp ~ "]" ^^ { case valueNode(name, _) ~ _ ~ b ~ _ => accessNode(name, b, null) }
 
 	// ### FUNC ###
-	def arg: Parser[Tree] = word ~ ":" ~ word ~ "(" ~ word ~ ")" ^^ { case valueNode(name, _) ~ _ ~ valueNode(ty1, _) ~s1~ valueNode(ty2, _) ~s2 => argNode(name, ty1+s1+ty2+s2) } |
-		word ~ ":" ~ word ^^ { case valueNode(name, _) ~ s ~ valueNode(ty, _) => argNode(name, ty) }
-
+	def arg: Parser[Tree] = word ~ ":" ~ vartype ^^ { case valueNode(name, _) ~ s ~ valueNode(ty, _) => argNode(name, ty) }
 	def func: Parser[Tree] = "(" ~ opt(arg) ~ rep("," ~ arg) ~ ")" ~ opt(":" ~ word) ~ "=>" ~ (exp | block | ignoreStatement) ^^ {
 		case _ ~ Some(arg1) ~ (l: List[String ~ Tree]) ~ _ ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
 			val x = l.map { case s ~ t => t }
@@ -75,15 +73,15 @@ class Parser extends RegexParsers {
 	def callStatement: Parser[Tree] = propertyCall | funCall ~ ";" ^^ { case callNode(id, args, _, ns) ~ _ => callNode(id, args, true, ns) }
 
 	def propertyCall: Parser[Tree] = propertyCallFunCall | propertyCallBinop
-	def propertyCallBinop: Parser[Tree] = binop ~ "." ~ word ^^ { case arg1 ~ _ ~ valueNode(id, _) => callNode(id, List(arg1), false, null) }
+	def propertyCallBinop: Parser[Tree] =( binop | "(" ~ binop ~ ")" ^^ { case _ ~ x ~ _ => x }) ~ "." ~ word ^^ { case arg1 ~ _ ~ valueNode(id, _) => callNode(id, List(arg1), false, null) }
 	def propertyCallFunCall: Parser[Tree] = "(" ~ funCall ~ ")" ~ "." ~ word ^^ { case _ ~ arg1 ~ _ ~ _ ~ valueNode(id, _) => callNode(id, List(arg1), false, null) }
 
 	// ### CONTROL FLOW ###
-	def ifstatement: Parser[Tree] = "if" ~ "(" ~ binop ~ ")" ~ (exp | block) ~ opt("else" ~ (exp | block)) ^^ {
+	def ifstatement: Parser[Tree] = "if" ~ "(" ~ exp ~ ")" ~ (exp | block) ~ opt("else" ~ (exp | block)) ^^ {
 		case _ ~ _ ~ b ~ _ ~ e1 ~ Some(_ ~ e2) => ifNode(b, e1, Some(e2), null)
 		case _ ~ _ ~ b ~ _ ~ e1 ~ None => ifNode(b, e1, None, null)
 	}
-	def whilestatement: Parser[Tree] = "while" ~ "(" ~ binop ~ ")" ~ (exp | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) }
+	def whilestatement: Parser[Tree] = "while" ~ "(" ~ exp ~ ")" ~ (exp | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) }
 	def forstatement: Parser[Tree] = "for" ~ "(" ~ word ~ ":" ~ (word|arrays) ~ ")" ~ (exp | block) ^^ { case _~_~id~_~arr~_~body => forNode(id,arr,body,null)}
 
 
@@ -95,6 +93,7 @@ class Parser extends RegexParsers {
 
 	// ### MISC ###
 	def ignoreStatement: Parser[Tree] = "\\?\\$[^\\?]*\\?\\$".r ^^ { case s => lineNode(s.substring(2, s.length - 2), "") }
+	//def inlineComment: Parser[Tree] = "#^[;]*".r ^^ { case s => lineNode("//"+s.substring(1, s.length - 1), "") }
 
 	// ### PARSING START HERE ###
 	def start: Parser[Tree] = rep(statement) ^^ { case s => blockNode(s, "") }
