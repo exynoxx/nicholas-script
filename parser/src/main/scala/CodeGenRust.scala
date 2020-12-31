@@ -97,7 +97,7 @@ class CodeGenRust {
 			case forNode(valueNode(v,ty), a, b, ns) =>
 
 				val mutOp = if (ty == "string") "mut " else "&mut "
-				val s1 = "for " + mutOp + v + " in " + recurse(a) + " {\n"
+				val s1 = "for " + mutOp + v + " in " + recurse(a) + ".iter_mut() {\n"
 				val s2 = recurse(b)
 				val s3 = "}\n"
 				s1 + s2 + s3

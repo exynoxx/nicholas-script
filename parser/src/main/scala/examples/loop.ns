@@ -1,6 +1,6 @@
 a:= 5;
 if (1+1 > 2 || a < a**2){
-
+	a = 3;
 }
 if (a <= a%2){
 	b:= a;
@@ -11,4 +11,11 @@ c:= 10;
 while ( c > 0 ) {
 	c = c-1;
 	print: "x";
+}
+println: "";
+for (x : [1,2,3]){
+	println: x;
+}
+for (x : ["1","2","3"]){
+	println: x;
 }

@@ -96,8 +96,15 @@ class TreeAugmenter {
 						val newa: Tree = arrList.reverse match {
 							case x :: xs =>
 								tmpList ++= xs
-								x
+								x match {
+									case arrayNode(elem,Util.arrayTypePattern(ty)) =>
+										val newname = Util.genRandomName()
+										tmpList += assignNode(valueNode(newname,ty),arrayNode(elem,ty),true,0,"array("+ty+")")
+										valueNode(newname,ty)
+									case x => x
+								}
 						}
+
 						tmpList ++= List(forNode(v, newa, iterateBlock(List(b))(0), ns))
 						tmpList.toList
 
