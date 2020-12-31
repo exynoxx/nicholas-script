@@ -31,7 +31,7 @@ class CodeGenJS {
 			case argNode(name, ns) => name
 
 			case functionNode(id, args, body, ns) =>
-				val s1 = "var " +id+ " = function(" + args.map(x => recurse(x)).mkString(",") + ") {\n"
+				val s1 = "var " + id + " = function(" + args.map(x => recurse(x)).mkString(",") + ") {\n"
 				val s2 = recurse(body)
 				val s3 = "}\n"
 				s1 + s2 + s3
@@ -55,7 +55,7 @@ class CodeGenJS {
 
 			case rangeNode(valueNode(a, _), valueNode(b, _), ns) => "Array.from(new Array(" + b + "-" + a + "), (x,i) => i + " + a + ")"
 
-			case accessNode(name, idx, _) => name+"["+idx+"]"
+			case accessNode(name, idx, _) => name + "[" + idx + "]"
 			case x => "//" + x.toString + "\n"
 		}
 	}

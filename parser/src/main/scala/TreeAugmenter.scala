@@ -97,10 +97,10 @@ class TreeAugmenter {
 							case x :: xs =>
 								tmpList ++= xs
 								x match {
-									case arrayNode(elem,Util.arrayTypePattern(ty)) =>
+									case arrayNode(elem, Util.arrayTypePattern(ty)) =>
 										val newname = Util.genRandomName()
-										tmpList += assignNode(valueNode(newname,ty),arrayNode(elem,ty),true,0,"array("+ty+")")
-										valueNode(newname,ty)
+										tmpList += assignNode(valueNode(newname, ty), arrayNode(elem, ty), true, 0, "array(" + ty + ")")
+										valueNode(newname, ty)
 									case x => x
 								}
 						}
@@ -180,7 +180,7 @@ class TreeAugmenter {
 						val newIndex: Tree = list match {
 							case x :: xs => {
 								preList ++= xs
-								autoCastElement(x,"int")
+								autoCastElement(x, "int")
 							}
 						}
 

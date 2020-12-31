@@ -17,8 +17,6 @@ case class valueNode(value: String, nstype: String) extends Tree
 case class callNode(id: String, args: List[Tree], definition: Boolean, nstype: String) extends Tree
 case class nullLeaf(nstype: String = "null") extends Tree
 case class arrayNode(elements: List[Tree], nstype:String) extends Tree
-case class allocNode(name: String, size: Int, nstype: String = null) extends Tree
-case class freeNode(variable: String, nstype: String = null) extends Tree
 case class lineNode(text:String, nstype:String) extends Tree
 case class rangeNode(from: Tree, to:Tree,nstype:String) extends Tree
 case class accessNode(name:String,index:Tree,nstype:String) extends Tree

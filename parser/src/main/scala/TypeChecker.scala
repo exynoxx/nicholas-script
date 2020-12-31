@@ -55,7 +55,7 @@ class TypeChecker {
 				}
 				val newbtree = ns match {
 					case Util.arrayTypePattern(arrTy) => btree match {
-						case arrayNode(elem,_) =>  arrayNode(elem,"array("+arrTy+")")
+						case arrayNode(elem, _) => arrayNode(elem, "array(" + arrTy + ")")
 					}
 					case x => btree
 				}
@@ -144,8 +144,8 @@ class TypeChecker {
 					t match {
 						case arrayNode(elem, Util.arrayTypePattern(ty)) =>
 							i += 1
-							val newTy = symbol.get(id+"::"+i).get
-							arrayNode(elem,newTy )
+							val newTy = symbol.get(id + "::" + i).get
+							arrayNode(elem, newTy)
 						case x => x
 					}
 				}

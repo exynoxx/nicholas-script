@@ -34,7 +34,7 @@ class TreePrinter {
 				"whileNode\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment)
-			case forNode(v,a,b,ns)=> printMinus("-", depth) +
+			case forNode(v, a, b, ns) => printMinus("-", depth) +
 				"forNode\n" +
 				recursion(v, depth + increment) +
 				recursion(a, depth + increment) +
@@ -49,12 +49,8 @@ class TreePrinter {
 				"returnNode()\n" +
 				recursion(body, depth + increment, increment)
 			case callNode(id, args, deff, ns) => printMinus("-", depth) +
-				"callNode(" + id + ", definition=" + deff + ", ns="+ns+")\n" +
+				"callNode(" + id + ", definition=" + deff + ", ns=" + ns + ")\n" +
 				args.map(e => recursion(e, depth + increment)).mkString(",")
-			case allocNode(name, size, ns) => printMinus("-", depth) +
-				"allocNode(" + name + ",size=" + size + ")\n"
-			case freeNode(variable, ns) => printMinus("-", depth) +
-				"freeNode(" + variable + ")\n"
 			case lineNode(text, ns) => printMinus("-", depth) +
 				"lineNode(" + text + ")\n"
 			case arrayNode(null, ns) => printMinus("-", depth) +

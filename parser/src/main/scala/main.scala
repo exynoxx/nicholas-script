@@ -12,16 +12,17 @@ object main {
 		bufferedSource.close
 		alltext
 	}
-    def writeFile(filename:String, content:String) = {
+
+	def writeFile(filename: String, content: String) = {
 		val file = new File(filename)
 		if (!file.exists()) {
 			file.createNewFile()
 		}
 		val writer = new PrintWriter(file)
-        writer.write(content)
-        writer.close()
+		writer.write(content)
+		writer.close()
 
-    }
+	}
 
 	def main(args: Array[String]): Unit = {
 		val printer = new TreePrinter
@@ -34,29 +35,29 @@ object main {
 		val outputFile = "out/output.rs"
 
 
-		val in = codeGen.genPreString()+readFile(inputFile)
-		val AST:Tree = parser.parse(parser.start,in) match {
+		val in = codeGen.genPreString() + readFile(inputFile)
+		val AST: Tree = parser.parse(parser.start, in) match {
 			case parser.Success(t, _) =>
 				println("success")
 				t
-            case f : parser.NoSuccess => println("error: "+f.msg)
-                                        nullLeaf()
-			case parser.Failure(msg1,msg2) => println(s"Error: $msg1, $msg2")
-										nullLeaf()
-			case parser.Error(msg1,msg2) => println(s"Error: $msg1, $msg2")
-										nullLeaf()
-			case x => println("Error: "+x)
-										nullLeaf()
+			case f: parser.NoSuccess => println("error: " + f.msg)
+				nullLeaf()
+			case parser.Failure(msg1, msg2) => println(s"Error: $msg1, $msg2")
+				nullLeaf()
+			case parser.Error(msg1, msg2) => println(s"Error: $msg1, $msg2")
+				nullLeaf()
+			case x => println("Error: " + x)
+				nullLeaf()
 		}
 
-        val typedTree = typeChecker.typecheck(AST)
+		val typedTree = typeChecker.typecheck(AST)
 		val augmentedTree = treeAugmenter.augment(typedTree)
 		printer.print(augmentedTree)
-        val ret = codeGen.gen(augmentedTree)
-        writeFile(outputFile,ret)
+		val ret = codeGen.gen(augmentedTree)
+		writeFile(outputFile, ret)
 
-        val f = ("rustc "+outputFile+" --out-dir out").!
-        println(f)
+		val f = ("rustc " + outputFile + " --out-dir out").!
+		println(f)
 		/*println("----")
 		println(ret)
 		println("----")*/
