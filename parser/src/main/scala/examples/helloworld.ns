@@ -1,8 +1,5 @@
-
 concat := (x:string, y:string):string => ?$ return format!("{}{}", x, y) ?$;
-toString := (x:int):string => ?$ return x.to_string(); ?$;
-
 
 world := "world";
-print: (concat: "hello" world);
-print: (1024 % 10).toString;
+println: (concat: "hello" world);
+println: 1024 % 10;
