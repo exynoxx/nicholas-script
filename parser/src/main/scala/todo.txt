@@ -5,5 +5,3 @@ overloading
 propertyfunc with any number of args
 property.property.property...........
 methods take any len vec args
-for each
-
