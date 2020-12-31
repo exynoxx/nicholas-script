@@ -1,5 +1,5 @@
 printA := (x:array(int)) => {
-	for ( e : x ){
+	for ( e in x ){
 		print: e;
 	}
 	println: "";

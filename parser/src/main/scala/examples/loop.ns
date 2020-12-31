@@ -13,9 +13,9 @@ while ( c > 0 ) {
 	print: "x";
 }
 println: "";
-for (x : [1,2,3]){
+for (x in [1,2,3]){
 	println: x;
 }
-for (x : ["1","2","3"]){
+for (x in ["1","2","3"]){
 	println: x;
 }

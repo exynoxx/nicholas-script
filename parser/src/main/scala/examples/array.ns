@@ -10,7 +10,7 @@ println: a["1"];
 
 
 printArr := (x:array(string)) => {
-	for ( e : x ){
+	for ( e in x ){
 		print: e;
 	}
 	println: "";
