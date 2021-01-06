@@ -82,7 +82,7 @@ class Parser extends RegexParsers {
 		case _ ~ _ ~ b ~ _ ~ e1 ~ None => ifNode(b, e1, None, null)
 	}
 	def whilestatement: Parser[Tree] = "while" ~ "(" ~ exp ~ ")" ~ (exp | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) }
-	def forstatement: Parser[Tree] = "for" ~ "(" ~ word ~ "in" ~ (word|arrays) ~ ")" ~ (exp | block) ^^ { case _~_~id~_~arr~_~body => forNode(id,arr,body,null)}
+	def forstatement: Parser[Tree] = "for" ~ "(" ~ word ~ "in" ~ (exp|arrays) ~ ")" ~ (exp | block) ^^ { case _~_~id~_~arr~_~body => forNode(id,arr,body,null)}
 
 
 	// ### GENERAL ###
