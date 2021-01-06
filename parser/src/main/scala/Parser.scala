@@ -42,7 +42,7 @@ class Parser extends RegexParsers {
 	def arraydef: Parser[Tree] = "[" ~ opt(exp) ~ rep("," ~ exp) ~ "]" ^^ {
 		case _ ~ firstopt ~ list ~ _ =>
 			firstopt match {
-				case None => arrayNode(null, null)
+				case None => arrayNode(List(), null)
 				case Some(e) =>
 					val l = list.map { case _ ~ t => t }
 					arrayNode(e :: l, null)

@@ -33,3 +33,24 @@ printArr: bbb;
 printArr: [a[0],a[1],a[2]];
 printArr: ["s","1".toString,2,add: 1 2,a[4%5]];
 
+
+
+printIntArr := (x:array(int)) => {
+	for ( e in x ){
+		print: e;
+	}
+	println: "";
+};
+range := (x:int) => {
+	var tmp:array(int) = [];
+	i:=0;
+
+	while (i < x) {
+		?$ tmp.push(i); ?$
+		i+=1;
+	}
+
+	return tmp;
+};
+
+printIntArr: (range: 10);

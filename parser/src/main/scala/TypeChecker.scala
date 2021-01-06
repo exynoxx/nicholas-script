@@ -169,9 +169,12 @@ class TypeChecker {
 						case None => Some(1)
 					})
 				}
-				val newTy = types.maxBy(_._2)._1 match {
-					case "actualstring" => "array(string)"
-					case x => "array(" + x + ")"
+				val newTy = types.size match {
+					case 0 => ns
+					case _ => types.maxBy(_._2)._1 match {
+						case "actualstring" => "array(string)"
+						case x => "array(" + x + ")"
+					}
 				}
 				(arrayNode(newelem, newTy), symbol)
 
