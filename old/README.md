@@ -1,2 +1,0 @@
-# nicholas-script
-compiler

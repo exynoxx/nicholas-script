@@ -1,7 +1,0 @@
-var f = () => {
-
-var concat = (a:string, b:string) => a~b;
-return concat: "hello" "world";
-};
-
-var ex = f:;

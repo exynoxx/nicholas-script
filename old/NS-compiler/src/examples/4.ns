@@ -1,3 +1,0 @@
-import "src/examples/stdlib.ns";
-var sq = (x:int) => x*x;
-printi: sq: stdini:;

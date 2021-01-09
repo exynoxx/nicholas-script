@@ -1,9 +1,0 @@
-var f1 = (a:int,b:int) => {
-
-    var f2 = (a:int) => {
-        var c = a+4;
-        var identity:int = (x:int) => {return x;};
-        return identity: identity: identity: c;
-    };
-    return f2: (2*a);
-};
