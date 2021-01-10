@@ -2,4 +2,4 @@ target
 project
 .idea/
 .idea/*
-out/
+out/*
