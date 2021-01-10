@@ -1,7 +1,5 @@
-parser/target
-parser/project
+target
+project
 .idea/
-*.xml
-*.class
-parser/.idea/*
-parser/out/
+.idea/*
+out/
