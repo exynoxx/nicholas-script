@@ -34,9 +34,4 @@ let mut y:i32 = f(e);
 tmp
 
 }
-fn ran0(x:i32)-> i32 {
-let mut ran1:i32 = (x*2);
-ran1
-}
-printArr(&mut map(ran0,&mut vec![1,2,3,4]));
 }

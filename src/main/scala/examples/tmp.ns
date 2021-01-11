@@ -15,4 +15,26 @@ map := (f: (int)=>int, l:array(int)) => {
 	return tmp;
 };
 
+sum := (l:array(int)) => {
+	tmp := 0;
+	for (e in l) tmp += e;
+	return tmp;
+};
+
 printArr: (map: ((x:int) => x*2) [1,2,3,4]);
+println: (sum: [1,2,3,4]);
+
+fg := (f: (int,int)=>int, g: (int)=>int, x:int) => f: (g: x);
+square := (x:int)=>x**2;
+val := fg: square square 5;
+
+napply1 := (f: (int)=>int,n,x) => {
+	tmp := x;
+	for (e in 0..n) tmp = f(tmp);
+	return tmp;
+}
+
+napply2 := (f: (int)=>int,n,x) => {
+	if (n == 1) return x;
+	else return f: (napply2: f, n-1, x);
+}
