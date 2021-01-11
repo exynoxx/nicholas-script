@@ -1,9 +1,8 @@
-rewrite grammar
-map func
 func as arg
-parser simplify: replace long |||| with exp
-overloading
+grammer simplify: replace long |||| with exp
+overloading or autocast?
 propertyfunc with any number of args
 property.property.property...........
 methods take any len vec args
 list comprehension
+.... => 0..x not recognized bug
