@@ -14,6 +14,9 @@ class TreeAugmenter {
 	}
 
 	def autoCastElement(e: Tree, targetType: String): Tree = {
+		if (targetType == "void") {
+			return e
+		}
 		val eType = e.nstype match {
 			case "actualstring" => "string"
 			case x => x
@@ -61,6 +64,20 @@ class TreeAugmenter {
 						}
 
 					case functionNode(id, args, body, ns) =>
+						functionArgumentTypes += (id -> args.map {
+							case argNode(name, Util.functionTypePattern1(_)) => "void"
+							case argNode(name, ty) => ty
+						})
+						args.foreach {
+							case argNode(fid, ty) => {
+								if (Util.functionTypePattern2.matches(ty)) {
+									val list = Util.functionTypePattern2.findAllIn(ty).group(1).split(",")
+									functionArgumentTypes += (fid -> list.toList)
+								}
+							}
+							case _ =>
+						}
+
 						val fbody = iterateBlock(List(body))(0)
 						val retbody = fbody match {
 							case binopNode(l, r, o, ns) =>
@@ -76,7 +93,6 @@ class TreeAugmenter {
 								blockNode(List(tmp), ns)
 
 						}
-						functionArgumentTypes += (id -> args.map { case argNode(name, ty) => ty })
 						List(functionNode(id, args, retbody, ns))
 					case blockNode(children, ns) =>
 						val b: Tree = augment(blockNode(children, ns))
@@ -186,6 +202,17 @@ class TreeAugmenter {
 
 						preList += accessNode(id, newIndex, ns)
 						preList.toList
+
+					case anonNode(args,body,ns) =>
+						val randomName = Util.genRandomName()
+						val replacement = functionNode(randomName,args,body,ns)
+
+						var retList: ListBuffer[Tree] = ListBuffer()
+						retList += iterateBlock(List(replacement))(0)
+						retList += valueNode(randomName,ns)
+						retList.toList
+
+
 
 
 					case t => List(t)

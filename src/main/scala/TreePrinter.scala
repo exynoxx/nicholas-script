@@ -62,6 +62,10 @@ class TreePrinter {
 				"rangeNode()\n" +
 				recursion(l, depth + increment) +
 				recursion(r, depth + increment)
+			case anonNode(args,b,ns)=> printMinus("-", depth) +
+				"anonNode()\n" +
+				args.map(e => recursion(e, depth + increment)).mkString(",") +
+				recursion(b, depth + increment)
 			case x => printMinus("-", depth) +
 				x.toString + "\n"
 		}

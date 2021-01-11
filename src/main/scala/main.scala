@@ -51,6 +51,7 @@ object main {
 		}
 
 		val typedTree = typeChecker.typecheck(AST)
+		printer.print(typedTree)
 		val augmentedTree = treeAugmenter.augment(typedTree)
 		printer.print(augmentedTree)
 		val ret = codeGen.gen(augmentedTree)

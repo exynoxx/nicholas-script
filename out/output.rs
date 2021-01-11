@@ -18,23 +18,25 @@ fn toInt(x:&mut String)-> i32 {
  return x.parse::<i32>().unwrap(); 
 
 }
-fn range(x:i32)-> Vec<i32> {
+fn printArr(x:&mut Vec<i32>) {
+for &mut e in x.iter_mut() {
+print(&mut toString(e));
+}
+println(&mut "".to_string());
+
+}
+fn map(f:fn(i32)->i32,l:&mut Vec<i32>)-> Vec<i32> {
 let mut tmp:Vec<i32> = vec![].to_vec();
-let mut i:i32 = 0;
-while (i<x) {
- tmp.push(i); 
-i = (i+1);
+for &mut e in l.iter_mut() {
+let mut y:i32 = f(e);
+ tmp.push (y); 
 }
 tmp
 
 }
-for &mut i in range(10).iter_mut() {
-print(&mut toString(i));
+fn ran0(x:i32)-> i32 {
+let mut ran1:i32 = (x*2);
+ran1
 }
-println(&mut "".to_string());
-let mut ran0:Vec<i32> = vec![1,2,3].to_vec();
-for &mut i in ran0.iter_mut() {
-print(&mut toString(i));
-}
-println(&mut "".to_string());
+printArr(&mut map(ran0,&mut vec![1,2,3,4]));
 }

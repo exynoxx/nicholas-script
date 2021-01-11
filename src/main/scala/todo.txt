@@ -6,3 +6,4 @@ property.property.property...........
 methods take any len vec args
 list comprehension
 .... => 0..x not recognized bug
+rename array(int) notation -> [int]

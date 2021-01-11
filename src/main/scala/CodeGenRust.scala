@@ -9,6 +9,7 @@ class CodeGenRust {
 			case "int" => "i32"
 			case "actualint" => "i32"
 			case Util.arrayTypePattern(ty) => "Vec<" + convertType(ty) + ">"
+			case Util.functionTypePattern2(args,ret) => "fn("+args.split(",").map(convertType).mkString(",")+")->"+convertType(ret)
 			case x => x
 		}
 	}

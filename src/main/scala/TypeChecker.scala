@@ -87,7 +87,11 @@ class TypeChecker {
 				args.foreach {
 					case argNode(name: String, ty: String) =>
 						i += 1
-						localSymbol += (name -> ty)
+						val newTy =ty match {
+							case Util.functionTypePattern1(t) => t
+							case _ => ty
+						}
+						localSymbol += (name -> newTy)
 						globalSymbol += ((id + "::" + i) -> ty)
 				}
 
@@ -146,7 +150,9 @@ class TypeChecker {
 							i += 1
 							val newTy = symbol.get(id + "::" + i).get
 							arrayNode(elem, newTy)
-						case x => x
+						case x =>
+							i+=1
+							x
 					}
 				}
 				val ty = symbol.get(id) match {
@@ -185,6 +191,30 @@ class TypeChecker {
 				}
 				val (idx, _) = typerecurse(index, AST, symbol)
 				(accessNode(name, idx, newTy), symbol)
+
+
+			case anonNode(args,body,ns)=>
+				var localSymbol = symbol.to(mutable.HashMap)
+
+				var i = -1
+				args.foreach {
+					case argNode(name: String, ty: String) =>
+						i += 1
+						localSymbol += (name -> ty)
+				}
+
+				//recurse body
+				val (fbody, _) = typerecurse(body, AST, localSymbol.to(HashMap))
+
+				//if type defined by syntax, use that
+				val ty = ns match {
+					case null => fbody.nstype
+					case x => x
+				}
+				(anonNode(args,fbody,ty),symbol)
+
+
+
 
 			case lineNode(t, ns) => (lineNode(t, "void"), symbol)
 			case x => (x, symbol)

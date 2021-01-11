@@ -1,21 +1,18 @@
-range := (x:int) => {
-	var tmp:array(int) = [];
-	i:=0;
 
-	while (i < x) {
-		?$ tmp.push(i); ?$
-		i+=1;
+printArr := (x:array(int)) => {
+	for ( e in x ){
+		print: e;
 	}
+	println: "";
+};
 
+map := (f: (int)=>int, l:array(int)) => {
+	var tmp:array(int) = [];
+	for (e in l) {
+		y := f: e;
+		?$ tmp.push (y); ?$
+	}
 	return tmp;
 };
 
-for (i in range: 10){
-	print: i;
-}
-println: "";
-for (i in [1,2,3]){
-	print: i;
-}
-println: "";
-
+printArr: (map: ((x:int) => x*2) [1,2,3,4]);
