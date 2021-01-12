@@ -149,7 +149,7 @@ class CodeGenRust {
 				}
 				"vec![" + stringElements.mkString(",") + "]"
 
-			case rangeNode(valueNode(a, _), valueNode(b, _), ns) => "(" + a + ".." + b + ").collect()"
+			case rangeNode(valueNode(a, _), valueNode(b, _), ns) => "(" + a + ".." + b + ").collect::<Vec<i32>>()"
 
 			case accessNode(name, idx, _) =>
 				val idxString = recurse(idx)

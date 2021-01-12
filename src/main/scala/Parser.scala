@@ -36,12 +36,12 @@ class Parser extends RegexParsers {
 			}
 		} | word
 
-	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ vartype) ~ "=" ~ (arrays | exp | func | ignoreStatement) ~ ";" ^^ {
+	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ vartype) ~ "=" ~ (exp | ignoreStatement) ~ ";" ^^ {
 		case _ ~ valueNode(id, _) ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(valueNode(id, ty), t, true, 0, ty)
 		case _ ~ s1 ~ None ~ _ ~ t ~ _ => assignNode(s1, t, true, 0, null)
-	} | word ~ ":=" ~ (arrays | exp | func | ignoreStatement) ~ ";" ^^ { case s1 ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
+	} | word ~ ":=" ~ (exp | ignoreStatement) ~ ";" ^^ { case s1 ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
 
-	def assignStatement: Parser[Tree] = (arrayAccess | word) ~ "=" ~ (arrays | exp | func | ignoreStatement) ~ ";" ^^ { case id ~ _ ~ b ~ _ => assignNode(id, b, false, 0, null) }
+	def assignStatement: Parser[Tree] = (arrayAccess | word) ~ "=" ~ (exp |ignoreStatement) ~ ";" ^^ { case id ~ _ ~ b ~ _ => assignNode(id, b, false, 0, null) }
 
 	def incrementStatement: Parser[Tree] = (arrayAccess | word) ~ ("+=" | "-=" | "*=" | "/=" | "%=") ~ exp ~ ";" ^^ {
 		case id ~ op ~ b ~ _ =>
@@ -62,7 +62,7 @@ class Parser extends RegexParsers {
 			}
 	}
 
-	def arrayrangeNumber: Parser[Tree] = number | arrayAccess | ("(" ~ binop ~ ")" | "(" ~ propertyCall ~ ")" | "(" ~ funCall ~ ")") ^^ { case _ ~ x ~ _ => x }
+	def arrayrangeNumber: Parser[Tree] = number| word | arrayAccess | ("(" ~ binop ~ ")"/* | "(" ~ propertyCall ~ ")" | "(" ~ funCall ~ ")"*/) ^^ { case _ ~ x ~ _ => x }
 
 	def arrayrange: Parser[Tree] = arrayrangeNumber ~ ".." ~ arrayrangeNumber ^^ { case a ~ _ ~ b => rangeNode(a, b, "array(int)") }
 
@@ -103,11 +103,12 @@ class Parser extends RegexParsers {
 
 	def whilestatement: Parser[Tree] = "while" ~ "(" ~ exp ~ ")" ~ (statement | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) }
 
-	def forstatement: Parser[Tree] = "for" ~ "(" ~ word ~ "in" ~ (exp | arrays) ~ ")" ~ (statement | block) ^^ { case _ ~ _ ~ id ~ _ ~ arr ~ _ ~ body => forNode(id, arr, body, null) }
+	def forstatement: Parser[Tree] = "for" ~ "(" ~ word ~ "in" ~ exp ~ ")" ~ (statement | block) ^^ { case _ ~ _ ~ id ~ _ ~ arr ~ _ ~ body => forNode(id, arr, body, null) }
 
 
 	// ### GENERAL ###
-	def exp: Parser[Tree] = propertyCall | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
+	//exp anything that returns something
+	def exp: Parser[Tree] =  arrays | propertyCall | func | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 
 	def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, null) }
 

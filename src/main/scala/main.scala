@@ -33,7 +33,7 @@ object main {
 
 		val inputFile = "src/main/scala/examples/tmp.ns"
 		val outputFile = "out/output.rs"
-		
+
 		val in = codeGen.genPreString() + readFile(inputFile)
 		val AST: Tree = parser.parse(parser.start, in) match {
 			case parser.Success(t, _) =>
@@ -48,7 +48,7 @@ object main {
 			case x => println("Error: " + x)
 				nullLeaf()
 		}
-
+		//printer.print(AST)
 		val typedTree = typeChecker.typecheck(AST)
 		//printer.print(typedTree)
 		val augmentedTree = treeAugmenter.augment(typedTree)

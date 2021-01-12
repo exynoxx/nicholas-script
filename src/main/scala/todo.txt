@@ -4,10 +4,11 @@ propertyfunc with any number of args
 property.property.property...........objects?
 methods take any len vec args, syntax sugar around arrays?
 list comprehension
-.... => 0..x not recognized bug
-for 0..x not recognized
-add arrays rule to exp
 rename array(int) notation -> [int]
 implement objects + add std lib wrapping rust vec and hashmap...
 update JS backend
 low priority: add unit test for every grammar rules.
+add float type
+bool conversion add
+overload binop operators recursivly fix binop traversal
+return func pointer

@@ -7,10 +7,7 @@ printArr := (x:array(int)) => {
 
 map := (f: (int)=>int, l:array(int)) => {
 	var tmp:array(int) = [];
-	for (e in l) {
-		y := f: e;
-		?$ tmp.push (y); ?$
-	}
+	for (e in l) ?$ tmp.push (f(e)); ?$
 	return tmp;
 };
 
@@ -20,7 +17,7 @@ sum := (l:array(int)) => {
 	return tmp;
 };
 
-printArr: (map: ((x:int) => x*2) [1,2,3,4]);
+printArr: (map: ((x:int) => x*2) 1..5);
 println: (sum: [1,2,3,4]);
 
 fg := (f: (int)=>int, g: (int)=>int, x:int) => f: (g: x);
@@ -28,3 +25,6 @@ square := (x:int)=>x**2;
 val := fg: square square 5;
 println: val;
 
+
+e := (x:int) => 1..x;
+for (i in 1..11) print: i;
