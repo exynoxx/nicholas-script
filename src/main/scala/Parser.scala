@@ -75,12 +75,12 @@ class Parser extends RegexParsers {
 		case _ ~ Some(arg1) ~ (l: List[String ~ Tree]) ~ _ ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
 			val x = l.map { case s ~ t => t }
 			functionNode("", arg1 :: x, b, ty)
-		case _ ~ None ~ l ~ _ ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
-			functionNode("", List(), b, ty)
+		/*case _ ~ None ~ l ~ _ ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
+			functionNode("", List(), b, ty)*/
 		case _ ~ Some(arg1) ~ (l: List[String ~ Tree]) ~ _ ~ None ~ _ ~ b =>
 			val x = l.map { case s ~ t => t }
 			functionNode("", arg1 :: x, b, null)
-		case _ ~ None ~ l ~ _ ~ None ~ _ ~ b =>
+		case _ ~ None ~ l ~ _ ~ _ ~ _ ~ b =>
 			functionNode("", List(), b, null)
 	}
 
