@@ -1,10 +1,8 @@
-grammer simplify: replace long |||| with exp
 overloading or autocast?
-propertyfunc with any number of args
-property.property.property...........objects?
 methods take any len vec args, syntax sugar around arrays?
 list comprehension
-implement objects + add std lib wrapping rust vec and hashmap...
+objects (remember recursive objects)
+add std lib wrapping rust vec and hashmap...
 update JS backend
 low priority: add unit test for every grammar rules.
 add float type
