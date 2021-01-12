@@ -1,17 +1,17 @@
-printArr := (x:array(int)) => {
+printArr := (x:[int]) => {
 	for ( e in x ){
 		print: e;
 	}
 	println: "";
 };
 
-map := (f: (int)=>int, l:array(int)) => {
-	var tmp:array(int) = [];
+map := (f: (int)=>int, l:[int]) => {
+	var tmp:[int] = [];
 	for (e in l) ?$ tmp.push (f(e)); ?$
 	return tmp;
 };
 
-sum := (l:array(int)) => {
+sum := (l:[int]) => {
 	tmp := 0;
 	for (e in l) tmp += e;
 	return tmp;

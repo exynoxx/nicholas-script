@@ -9,13 +9,13 @@ println: a["1".toInt].toString;
 println: a["1"];
 
 
-printArr := (x:array(string)) => {
+printArr := (x:[string]) => {
 	for ( e in x ){
 		print: e;
 	}
 	println: "";
 };
-var c:array(string) = [1,2,3];
+var c:[string] = [1,2,3];
 
 printArr: [1,2,3];
 printArr: [1,"2",3];
@@ -25,7 +25,7 @@ add:=(a:int,b:int) => a+b;
 retString := () => "6";
 stringarray := ["7","8"];
 
-var aaa:array(string) = [a[0],a[1],a[2]];
+var aaa:[string] = [a[0],a[1],a[2]];
 bbb := ["s","1".toString,2,add: 1 2,a[4%5],"5",retString:,stringarray[0]];
 
 printArr: aaa;
@@ -35,14 +35,14 @@ printArr: ["s","1".toString,2,add: 1 2,a[4%5]];
 
 
 
-printIntArr := (x:array(int)) => {
+printIntArr := (x:[int]) => {
 	for ( e in x ){
 		print: e;
 	}
 	println: "";
 };
 range := (x:int) => {
-	var tmp:array(int) = [];
+	var tmp:[int] = [];
 	i:=0;
 
 	while (i < x) {

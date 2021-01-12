@@ -27,7 +27,7 @@ class Parser extends RegexParsers {
 	// ### ASSIGN ###
 	def assign: Parser[Tree] = defstatement | assignStatement
 
-	def vartype: Parser[Tree] = "array" ~ "(" ~ word ~ ")" ^^ { case _ ~ _ ~ valueNode(w, ns) ~ _ => valueNode("array(" + w + ")", ns) } |
+	def vartype: Parser[Tree] = "[" ~ word ~ "]" ^^ { case _ ~ valueNode(w, ns) ~ _ => valueNode("array(" + w + ")", ns) } |
 		"(" ~ opt(word) ~ rep("," ~ word) ~ ")" ~ "=>" ~ word ^^ {
 			case _ ~ None ~ l ~ _ ~ _ ~ valueNode(ret,_) => valueNode("()=>" + ret, null)
 			case _ ~ Some(valueNode(w1, _)) ~ l ~ _ ~ _ ~ valueNode(ret,_) => {
