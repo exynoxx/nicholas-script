@@ -1,4 +1,3 @@
-
 printArr := (x:array(int)) => {
 	for ( e in x ){
 		print: e;
@@ -24,17 +23,8 @@ sum := (l:array(int)) => {
 printArr: (map: ((x:int) => x*2) [1,2,3,4]);
 println: (sum: [1,2,3,4]);
 
-fg := (f: (int,int)=>int, g: (int)=>int, x:int) => f: (g: x);
+fg := (f: (int)=>int, g: (int)=>int, x:int) => f: (g: x);
 square := (x:int)=>x**2;
 val := fg: square square 5;
+println: val;
 
-napply1 := (f: (int)=>int,n,x) => {
-	tmp := x;
-	for (e in 0..n) tmp = f(tmp);
-	return tmp;
-}
-
-napply2 := (f: (int)=>int,n,x) => {
-	if (n == 1) return x;
-	else return f: (napply2: f, n-1, x);
-}

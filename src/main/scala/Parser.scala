@@ -98,14 +98,14 @@ class Parser extends RegexParsers {
 	def propertyCallFunCall: Parser[Tree] = "(" ~ funCall ~ ")" ~ "." ~ word ^^ { case _ ~ arg1 ~ _ ~ _ ~ valueNode(id, _) => callNode(id, List(arg1), false, null) }
 
 	// ### CONTROL FLOW ###
-	def ifstatement: Parser[Tree] = "if" ~ "(" ~ exp ~ ")" ~ (exp | block) ~ opt("else" ~ (exp | block)) ^^ {
+	def ifstatement: Parser[Tree] = "if" ~ "(" ~ exp ~ ")" ~ (statement | block) ~ opt("else" ~ (statement | block)) ^^ {
 		case _ ~ _ ~ b ~ _ ~ e1 ~ Some(_ ~ e2) => ifNode(b, e1, Some(e2), null)
 		case _ ~ _ ~ b ~ _ ~ e1 ~ None => ifNode(b, e1, None, null)
 	}
 
-	def whilestatement: Parser[Tree] = "while" ~ "(" ~ exp ~ ")" ~ (exp | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) }
+	def whilestatement: Parser[Tree] = "while" ~ "(" ~ exp ~ ")" ~ (statement | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) }
 
-	def forstatement: Parser[Tree] = "for" ~ "(" ~ word ~ "in" ~ (exp | arrays) ~ ")" ~ (exp | block) ^^ { case _ ~ _ ~ id ~ _ ~ arr ~ _ ~ body => forNode(id, arr, body, null) }
+	def forstatement: Parser[Tree] = "for" ~ "(" ~ word ~ "in" ~ (exp | arrays) ~ ")" ~ (statement | block) ^^ { case _ ~ _ ~ id ~ _ ~ arr ~ _ ~ body => forNode(id, arr, body, null) }
 
 
 	// ### GENERAL ###
@@ -115,7 +115,7 @@ class Parser extends RegexParsers {
 
 	def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
 
-	def statement: Parser[Tree] = callStatement | ifstatement | forstatement | whilestatement | incrementStatement | assign | retStatement | ignoreStatement ^^ { case s => s }
+	def statement: Parser[Tree] = callStatement | ifstatement | forstatement | whilestatement | incrementStatement | assign | retStatement | ignoreStatement|exp ^^ { case s => s }
 
 	// ### MISC ###
 	def ignoreStatement: Parser[Tree] = "\\?\\$[^\\?]*\\?\\$".r ^^ { case s => lineNode(s.substring(2, s.length - 2), "") }
