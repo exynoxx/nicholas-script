@@ -72,12 +72,10 @@ class Parser extends RegexParsers {
 	def arg: Parser[Tree] = word ~ ":" ~ vartype ^^ { case valueNode(name, _) ~ s ~ valueNode(ty, _) => argNode(name, ty) }
 
 	def func: Parser[Tree] = "(" ~ opt(arg) ~ rep("," ~ arg) ~ ")" ~ opt(":" ~ word) ~ "=>" ~ (exp | block | ignoreStatement) ^^ {
-		case _ ~ Some(arg1) ~ (l: List[String ~ Tree]) ~ _ ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
+		case _ ~ Some(arg1) ~ l ~ _ ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
 			val x = l.map { case s ~ t => t }
 			functionNode("", arg1 :: x, b, ty)
-		/*case _ ~ None ~ l ~ _ ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
-			functionNode("", List(), b, ty)*/
-		case _ ~ Some(arg1) ~ (l: List[String ~ Tree]) ~ _ ~ None ~ _ ~ b =>
+		case _ ~ Some(arg1) ~ l~ _ ~ None ~ _ ~ b =>
 			val x = l.map { case s ~ t => t }
 			functionNode("", arg1 :: x, b, null)
 		case _ ~ None ~ l ~ _ ~ _ ~ _ ~ b =>
