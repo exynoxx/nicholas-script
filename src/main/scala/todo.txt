@@ -12,3 +12,4 @@ overload binop operators recursivly fix binop traversal
 return func pointer
 bug: if return is not last element in block no return is printed
 recursion? untested
+add: x := [int]; short empty array notation
