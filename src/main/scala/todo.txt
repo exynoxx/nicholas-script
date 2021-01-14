@@ -7,6 +7,7 @@ update JS backend
 low priority: add unit test for every grammar rules.
 add float type
 bool conversion add
+bool: a < b < c < d not accepted in rust
 overload binop operators recursivly fix binop traversal
 return func pointer
 bug: if return is not last element in block no return is printed
