@@ -1,0 +1,34 @@
+printArr := (x:[int]) => {
+	for ( e in x ){
+		print: e;
+	}
+	println: "";
+};
+
+map := (f: (int)=>int, l:[int]) => {
+	var tmp:[int] = [];
+	for (e in l) ?$ tmp.push (f(e)); ?$
+	return tmp;
+};
+
+sum := (l:[int]) => {
+	tmp := 0;
+	for (e in l) tmp += e;
+	return tmp;
+};
+
+printArr: (map: ((x:int) => x*2) 1..5);
+println: (sum: [1,2,3,4]);
+
+fg := (f: (int)=>int, g: (int)=>int, x:int) => f: (g: x);
+square := (x:int)=>x**2;
+val := fg: square square 5;
+println: val;
+
+add :=  (x:int) => {
+	return (y:int) => x+y;
+};
+
+addFive := add: 5;
+println: (addFive: 3);
+

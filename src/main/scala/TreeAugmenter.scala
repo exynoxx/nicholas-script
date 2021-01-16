@@ -4,6 +4,7 @@ import scala.collection.mutable.ListBuffer
 class TreeAugmenter {
 
 	var functionArgumentTypes = mutable.HashMap[String, List[String]]()
+	var globalFunctionExtracs = ListBuffer[Tree]()
 
 	def castToFunction(ty: String): String = {
 		ty match {
@@ -34,9 +35,9 @@ class TreeAugmenter {
 		blockBody match {
 			case x :: xs => {
 				val ret: List[Tree] = x match {
-					case binopNode(numbers, ops, idx, "string") =>
+					//case binopNode(numbers, ops, idx, "string") =>
 						//assignNode(id, binopNode(l, r, o, "string"), deff, idx, assignNS) => {
-						val retList = ListBuffer[Tree]()
+						/*val retList = ListBuffer[Tree]()
 						val names = numbers.map {
 							case valueNode(vn, "actualstring") =>
 								val n = Util.genRandomName()
@@ -46,7 +47,7 @@ class TreeAugmenter {
 							case x => x
 						}
 						retList += binopNode(names, ops, 0, "string")
-						retList.toList
+						retList.toList*/
 
 					case assignNode(id, body, deff, idx, ns) =>
 
@@ -65,13 +66,13 @@ class TreeAugmenter {
 
 					case functionNode(id, args, body, ns) =>
 						functionArgumentTypes += (id -> args.map {
-							case argNode(name, Util.functionTypePattern1(_)) => "void"
+							case argNode(name, Util.functionTypePattern(_,_)) => "void"
 							case argNode(name, ty) => ty
 						})
 						args.foreach {
 							case argNode(fid, ty) => {
-								if (Util.functionTypePattern2.matches(ty)) {
-									val list = Util.functionTypePattern2.findAllIn(ty).group(1).split(",")
+								if (Util.functionTypePattern.matches(ty)) {
+									val list = Util.functionTypePattern.findAllIn(ty).group(1).split(",")
 									functionArgumentTypes += (fid -> list.toList)
 								}
 							}
@@ -80,6 +81,7 @@ class TreeAugmenter {
 
 						val fbody = iterateBlock(List(body))(0)
 						val retbody = fbody match {
+							/*//TODO: rm binop valuenode
 							case binopNode(l, r, o, ns) =>
 								val idName = Util.genRandomName()
 								val tmpAssign = assignNode(valueNode(idName, ns), binopNode(l, r, o, ns), true, 0, ns)
@@ -87,7 +89,7 @@ class TreeAugmenter {
 								blockNode(List(tmpAssign, tmp), ns)
 							case valueNode(value, ns) =>
 								val tmp = returnNode(valueNode(value, ns), ns)
-								blockNode(List(tmp), ns)
+								blockNode(List(tmp), ns)*/
 							case x =>
 								val tmp = returnNode(x, x.nstype)
 								blockNode(List(tmp), ns)
@@ -95,8 +97,9 @@ class TreeAugmenter {
 						}
 						List(functionNode(id, args, retbody, ns))
 					case blockNode(children, ns) =>
-						val b: Tree = augment(blockNode(children, ns))
-						List(b)
+						val newchildren = iterateBlock(children)
+						List(blockNode(newchildren, ns))
+
 					case ifNode(c, b, els, ns) =>
 						val ifbody = iterateBlock(List(b))(0)
 						val elsbody = els match {
@@ -136,29 +139,23 @@ class TreeAugmenter {
 							}
 							retElement
 						}
-						val argsTy = newargs.zip(functionArgumentTypes(id))
-						val autoTypeArgs = argsTy.map {
-							case (elem, ty) => {
-								autoCastElement(elem, ty)
+
+						val autoTypeArgs = functionArgumentTypes.get(id) match {
+							case Some(l) => newargs.zip(l).map {
+								case (elem, ty) => {
+									autoCastElement(elem, ty)
+								}
 							}
+							case None => newargs
 						}
 						tmpList += callNode(id, autoTypeArgs, deff, ns)
 						tmpList.toList
 
-					case returnNode(body, ns) =>
-						val shouldExtract = body match {
-							case valueNode(_, "actualstring") => true
-							case valueNode(name, ns) => false
-							case _ => true
-						}
-						if (shouldExtract) {
-							val id = Util.genRandomName()
-							val preassign = assignNode(valueNode(id, ns), body, true, 0, ns)
-							val replaceElement = valueNode(id, ns)
-							preassign :: List(returnNode(replaceElement, ns))
-						} else {
-							List(returnNode(body, ns))
-						}
+					case returnNode(functionNode("ret",args,body,ty), ns) =>
+						val id = Util.genRandomName()
+						globalFunctionExtracs += functionNode(id,args,body,ty)
+						List(returnNode(valueNode(id, ty), ty))
+
 					case arrayNode(elem, Util.arrayTypePattern(ns)) =>
 						val tmpList = ListBuffer[Tree]()
 						val newelem = elem.map { x =>
@@ -229,7 +226,7 @@ class TreeAugmenter {
 		AST match {
 			case blockNode(children, ns) => {
 				val newchildren = iterateBlock(children)
-				blockNode(newchildren, ns)
+				blockNode(newchildren++globalFunctionExtracs.toList, ns)
 			}
 			case _ => println("error")
 				nullLeaf()

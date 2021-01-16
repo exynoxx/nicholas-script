@@ -1,3 +1,5 @@
+import Util.{NSType, arrayTypeNode, functionTypeNode, simpleType, tyToString}
+
 import scala.collection.mutable.ListBuffer
 
 class CodeGenRust {
@@ -7,11 +9,22 @@ class CodeGenRust {
 			case "actualstring" => "String"
 			case "string" => "String"
 			case "int" => "i32"
-			case "actualint" => "i32"
 			case Util.arrayTypePattern(ty) => "Vec<" + convertType(ty) + ">"
-			case Util.functionTypePattern2(args,ret) => "fn("+args.split(",").map(convertType).mkString(",")+")->"+convertType(ret)
+			case Util.functionTypePattern(args, ret) => convertFunctionType(t)
 			case x => x
 		}
+	}
+
+	def recursiveFunctionType(t: NSType): String = {
+		t match {
+			case simpleType(s, _) => convertType(s)
+			case arrayTypeNode(ty) => "Vec<"+recursiveFunctionType(ty)+">"
+			case functionTypeNode(args, ty) => "fn(" + args.map(recursiveFunctionType).mkString(",") + ")->" + recursiveFunctionType(ty)
+		}
+	}
+
+	def convertFunctionType(t: String): String = {
+		recursiveFunctionType(Util.getType(t))
 	}
 
 	def convertArgType(t: String): String = {
@@ -106,8 +119,7 @@ class CodeGenRust {
 			case argNode(name, ns) => name + ":" + convertArgType(ns)
 
 			case functionNode(id, args, body, ns) =>
-
-				val retTy = convertType(ns) match {
+				val retTy = recursiveFunctionType(Util.getType(ns).ty) match {
 					case "void" => ""
 					case null => ""
 					case x => "-> " + x

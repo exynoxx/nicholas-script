@@ -77,6 +77,7 @@ class TypeChecker {
 				//get id from assign parent
 				val id = parent match {
 					case assignNode(valueNode(name, _), _, _, _, _) => name
+					case returnNode(_,_) => "ret"
 				}
 
 				//update symbol table with args
@@ -87,8 +88,8 @@ class TypeChecker {
 				args.foreach {
 					case argNode(name: String, ty: String) =>
 						i += 1
-						val newTy =ty match {
-							case Util.functionTypePattern1(t) => t
+						val newTy = ty match {
+							case Util.functionTypePattern(_,t) => t
 							case _ => ty
 						}
 						localSymbol += (name -> newTy)
@@ -100,8 +101,8 @@ class TypeChecker {
 
 				//if type defined by syntax, use that
 				val ty = ns match {
-					case null => fbody.nstype
-					case x => x
+					case null => "("+args.map(e => e.nstype).mkString(",")+")=>"+fbody.nstype
+					case x => "("+args.map(e => e.nstype).mkString(",")+")=>"+x
 				}
 
 
@@ -156,7 +157,7 @@ class TypeChecker {
 					}
 				}
 				val ty = symbol.get(id) match {
-					case Some(t) => t
+					case Some(t) => Util.getReturnType(t)
 					case None => println(id + " not found in symbol")
 						throw new NoSuchElementException
 				}

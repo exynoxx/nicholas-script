@@ -1,12 +1,61 @@
+import scala.util.parsing.combinator.RegexParsers
+
+
 object Util {
-    val stringPattern = "(\"(?:[^\"\\\\]|\\\\.)*\")".r
+	val stringPattern = "(\"(?:[^\"\\\\]|\\\\.)*\")".r
 	val arrayTypePattern = "array\\((\\w+)\\)".r
-	val functionTypePattern1 = "\\([\\w\\s,]+\\)\\s*=>\\s*(\\w+)".r
-	val functionTypePattern2 = "\\(([\\w\\s,]+)\\)\\s*=>\\s*(\\w+)".r
+	val functionTypePattern = "\\(([^=]*)\\)\\s*=>\\s*(.+)".r
 	var ranCounter = 0
-    def genRandomName ():String = {
-        val ret = "ran"+ranCounter
-        ranCounter += 1
-        ret
-    }
+
+	def genRandomName(): String = {
+		val ret = "ran" + ranCounter
+		ranCounter += 1
+		ret
+	}
+
+	trait NSType {
+		val ty: NSType
+	}
+
+	case class simpleType(stringTy: String, ty: NSType) extends NSType
+	case class arrayTypeNode(ty: NSType) extends NSType
+	case class functionTypeNode(args: List[NSType], ty: NSType) extends NSType
+
+	class TypeParser extends RegexParsers {
+		def word: Parser[NSType] = "\\w+".r ^^ { case s => simpleType(s, null) }
+
+		def array: Parser[NSType] = "array"~"("~arg~")" ^^ { case _ ~ _ ~ ty ~ _ => arrayTypeNode(ty)}
+
+		def arg: Parser[NSType] =  array | word | func
+
+		def func: Parser[NSType] = "(" ~ opt(arg) ~ rep("," ~ arg) ~ ")" ~ "=>" ~ arg ^^ {
+			case _ ~ Some(frst) ~ largs ~ _ ~ _ ~ ty => {
+				functionTypeNode(List(frst) ++ largs.map(x => x._2), ty)
+			}
+			case _ ~ None ~ largs ~ _ ~ _ ~ ty => functionTypeNode(List(), ty)
+		}
+	}
+
+	def tyToString(tree:NSType): String = {
+		tree match {
+			case simpleType(s,_) => s
+			case arrayTypeNode(ty) => "array("+tyToString(ty)+")"
+			case functionTypeNode(args,ty) => "("+args.map(tyToString).mkString(",")+")=>"+tyToString(ty)
+		}
+	}
+	val tyParser = new TypeParser
+	def getReturnType(inn:String): String ={
+		tyParser.parse(tyParser.func,inn) match {
+			case tyParser.Success(t,_) => tyToString(t.ty)
+			case _ => println("could not parse type: "+inn)
+				throw new NullPointerException
+		}
+	}
+	def getType(inn:String):NSType = {
+		tyParser.parse(tyParser.func,inn) match {
+			case tyParser.Success(t,_) => t
+			case _ => throw new NullPointerException
+		}
+	}
+
 }

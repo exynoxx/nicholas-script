@@ -58,9 +58,6 @@ object main {
 
 		val f = ("rustc " + outputFile + " --out-dir out").!
 		println(f)
-		/*println("----")
-		println(ret)
-		println("----")*/
 
 
 	}

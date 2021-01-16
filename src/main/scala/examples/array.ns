@@ -54,3 +54,6 @@ range := (x:int) => {
 };
 
 printIntArr: (range: 10);
+rangee := (x:int) => 1..x;
+for (i in 1..11) print: i;
+println: "";
