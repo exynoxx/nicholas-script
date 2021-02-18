@@ -48,7 +48,7 @@ object main {
 			case x => println("Error: " + x)
 				nullLeaf()
 		}
-		//printer.print(AST)
+		printer.print(AST)
 		val typedTree = typeChecker.typecheck(AST)
 		//printer.print(typedTree)
 		val augmentedTree = treeAugmenter.augment(typedTree)
