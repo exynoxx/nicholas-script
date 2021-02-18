@@ -1,7 +1,12 @@
-factory :=  () => {
-	return (x:int) => 5+x;
+point := {
+	x:int,
+	y:int,
+	sum:()=>int,
 };
+p:=point(0,1,() => x+y);
 
-addFive := factory:;
-println: (addFive: 3);
+arrayToString := (l:[int]) => {
+	for (e in l) print: e;
+	println: "";
+};
 

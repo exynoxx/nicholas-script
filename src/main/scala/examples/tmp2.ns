@@ -32,3 +32,9 @@ add :=  (x:int) => {
 addFive := add: 5;
 println: (addFive: 3);
 
+factory :=  () => {
+	return (x:int) => 5+x;
+};
+
+addFive := factory:;
+println: (addFive: 3);
