@@ -1,15 +1,20 @@
+objects (remember recursive objects)
+list comprehension
+add float type (f64vsf32)
+bool: a < b < c < d not accepted in rust
+recursion? untested
+add error handling to combintor
+
+
+
+
 overloading or autocast?
 methods take any len vec args, syntax sugar around arrays?
-list comprehension
-objects (remember recursive objects)
 add std lib wrapping rust vec and hashmap...
 update JS backend
 low priority: add unit test for every grammar rules.
-add float type (f64vsf32)
 i32 -> i64? maybe configurable.
 bool conversion add
-bool: a < b < c < d not accepted in rust
 overload binop operators recursivly fix binop traversal
 bug: if return is not last element in block no return is printed
-recursion? untested
 add: x := [int]; short empty array notation
