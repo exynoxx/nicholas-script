@@ -25,7 +25,6 @@ case class forNode(variable:Tree, array:Tree, body: Tree, nstype: String) extend
 case class anonNode(args: List[Tree], body: Tree, nstype: String) extends Tree
 case class objectNode(id:String, rows: List[Tree], nstype:String) extends Tree
 case class objectElementNode(name:String, nstype:String) extends Tree
-case class objectPropertyNode(name:String,body:Tree, nstype:String) extends Tree
 case class objectInstansNode(name:String,args:List[Tree], nstype:String) extends Tree
 case class objectAssociatedFunctionNode(name:String,functions:List[Tree],nstype:String) extends Tree
 case class specialArgNode(content: String, nstype: String) extends Tree

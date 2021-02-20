@@ -6,9 +6,14 @@ point := {
 };
 
 p:=point(0,1);
+p.x = 1;
+p.y += 2;
+sum := p.sum:;
 
-arrayToString := (l:[int]) => {
-	for (e in l) print: e;
-	println: "";
+vec := {
+	arr:[int],
+	size: ():int=> ?$ self.arr.len() as i32 ?$,
 };
 
+v := vec([]);
+println: (v.size:);

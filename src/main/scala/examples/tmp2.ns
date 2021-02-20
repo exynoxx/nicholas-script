@@ -38,3 +38,8 @@ factory :=  () => {
 
 addFive := factory:;
 println: (addFive: 3);
+arrayToString := (l:[int]) => {
+	for (e in l) print: e;
+	println: "";
+};
+

@@ -78,15 +78,20 @@ class TypeChecker {
 
 				val s = btree match {
 					//child is block? extract all variable ID's and add to symbol: textid.[varname]
-					case blockNode(_, _) => {
-						var childSymbol = HashMap[String, String]()
-						updatedSymbol.keys.foreach(e => {
-							if (!symbol.contains(e)) {
-								childSymbol += (textid + "." + e -> updatedSymbol(e))
-							}
-						})
-						childSymbol ++ HashMap(textid -> ty)
-					}
+
+					//child, "p" object? make p.x,p.y etc. (local variable types) accessable
+					case objectInstansNode(name, args, oty) =>
+						val objName = ty match {
+							case Util.objectInstansTypePattern(on) => on
+						}
+						val pattern = (objName + "::(\\w+)").r
+						var newGlobalSym = mutable.HashMap[String, String]()
+						symbol.keys.foreach {
+							case k@pattern(variable) =>
+								newGlobalSym += (textid + "." + variable -> symbol(k))
+							case _ => ()
+						}
+						updatedSymbol ++ HashMap(textid -> ty) ++ newGlobalSym.to(HashMap)
 					case _ => updatedSymbol ++ HashMap(textid -> ty)
 				}
 
@@ -244,15 +249,24 @@ class TypeChecker {
 				var globalSymbol = symbol.to(mutable.HashMap)
 				var localSymbol = symbol.to(mutable.HashMap)
 
+				//put struct variables into local scope
 				rows.foreach {
 					case objectElementNode(name, ty: String) =>
-						globalSymbol += ((id + "::" + name) -> ty)
 						localSymbol += (name -> ty)
 					case x => ()
 				}
 
+				//typecheck functions with local var's in scope
 				val newrows = rows.map {
 					case x => typerecurse(x, AST, localSymbol.to(HashMap))._1
+				}
+
+				//put type of vars and funcs in global scope
+				newrows.foreach {
+					case objectElementNode(name, ty) =>
+						globalSymbol += ((id + "::" + name) -> ty)
+					case functionNode(name, _, _, ty) =>
+						globalSymbol += ((id + "::" + name) -> ty)
 				}
 
 				val ty = "object(" + id + "," + rows.map(t => t.nstype) + ")"
@@ -260,31 +274,18 @@ class TypeChecker {
 			//case objectElementNode(name, ns) =>
 			case objectInstansNode(id, args, ns) =>
 
+				//get all variables in object type
 				var s = symbol.to(mutable.HashMap)
 				val pattern = (id + "::(\\w+)").r
 				symbol.keys.foreach {
-					k => {
-						k match {
-							case pattern(variable) => s += (variable -> symbol(k))
-							case _ => ()
-						}
-					}
+					case k@pattern(variable) => s += (variable -> symbol(k))
+					case _ => ()
 				}
 				val localSym = s.to(immutable.HashMap)
-
-				var i = -1
-				val newargs = args.map { e =>
-					val (t, _) = typerecurse(e, AST, localSym)
-					t match {
-						case arrayNode(elem, Util.arrayTypePattern(ty)) =>
-							i += 1
-							val newTy = symbol.get(id + "::" + i).get
-							arrayNode(elem, newTy)
-						case x =>
-							i += 1
-							x
-					}
+				val newargs = args.map {
+					typerecurse(_, AST, localSym)._1
 				}
+
 				val ty = "objectInstans(" + id + "," + newargs.map(t => t.nstype) + ")"
 				(objectInstansNode(id, newargs, ty), symbol)
 
