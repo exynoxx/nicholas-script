@@ -29,19 +29,19 @@ class Parser extends RegexParsers {
 
 	def vartype: Parser[Tree] = "[" ~ word ~ "]" ^^ { case _ ~ valueNode(w, ns) ~ _ => valueNode("array(" + w + ")", ns) } |
 		"(" ~ opt(word) ~ rep("," ~ word) ~ ")" ~ "=>" ~ word ^^ {
-			case _ ~ None ~ l ~ _ ~ _ ~ valueNode(ret,_) => valueNode("()=>" + ret, null)
-			case _ ~ Some(valueNode(w1, _)) ~ l ~ _ ~ _ ~ valueNode(ret,_) => {
-				val lString = l.map{case s ~ valueNode(e,_) => s+e}.mkString
+			case _ ~ None ~ l ~ _ ~ _ ~ valueNode(ret, _) => valueNode("()=>" + ret, null)
+			case _ ~ Some(valueNode(w1, _)) ~ l ~ _ ~ _ ~ valueNode(ret, _) => {
+				val lString = l.map { case s ~ valueNode(e, _) => s + e }.mkString
 				valueNode("(" + w1 + lString + ")=>" + ret, null)
 			}
 		} | word
 
-	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ vartype) ~ "=" ~ (exp | ignoreStatement) ~ ";" ^^ {
+	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ vartype) ~ "=" ~ (exp | objectdef | block | ignoreStatement) ~ ";" ^^ {
 		case _ ~ valueNode(id, _) ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(valueNode(id, ty), t, true, 0, ty)
 		case _ ~ s1 ~ None ~ _ ~ t ~ _ => assignNode(s1, t, true, 0, null)
-	} | word ~ ":=" ~ (exp | ignoreStatement) ~ ";" ^^ { case s1 ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
+	} | word ~ ":=" ~ (exp | objectdef | block | ignoreStatement) ~ ";" ^^ { case s1 ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
 
-	def assignStatement: Parser[Tree] = (arrayAccess | word) ~ "=" ~ (exp |ignoreStatement) ~ ";" ^^ { case id ~ _ ~ b ~ _ => assignNode(id, b, false, 0, null) }
+	def assignStatement: Parser[Tree] = (arrayAccess | word) ~ "=" ~ (exp | ignoreStatement) ~ ";" ^^ { case id ~ _ ~ b ~ _ => assignNode(id, b, false, 0, null) }
 
 	def incrementStatement: Parser[Tree] = (arrayAccess | word) ~ ("+=" | "-=" | "*=" | "/=" | "%=") ~ exp ~ ";" ^^ {
 		case id ~ op ~ b ~ _ =>
@@ -62,7 +62,7 @@ class Parser extends RegexParsers {
 			}
 	}
 
-	def arrayrangeNumber: Parser[Tree] = number| word | arrayAccess | ("(" ~ binop ~ ")"/* | "(" ~ propertyCall ~ ")" | "(" ~ funCall ~ ")"*/) ^^ { case _ ~ x ~ _ => x }
+	def arrayrangeNumber: Parser[Tree] = number | word | arrayAccess | ("(" ~ binop ~ ")" /* | "(" ~ propertyCall ~ ")" | "(" ~ funCall ~ ")"*/) ^^ { case _ ~ x ~ _ => x }
 
 	def arrayrange: Parser[Tree] = arrayrangeNumber ~ ".." ~ arrayrangeNumber ^^ { case a ~ _ ~ b => rangeNode(a, b, "array(int)") }
 
@@ -74,16 +74,16 @@ class Parser extends RegexParsers {
 	def func: Parser[Tree] = "(" ~ opt(arg) ~ rep("," ~ arg) ~ ")" ~ opt(":" ~ word) ~ "=>" ~ (exp | block | ignoreStatement) ^^ {
 		case _ ~ Some(arg1) ~ l ~ _ ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ b =>
 			val x = l.map { case s ~ t => t }
-			functionNode("", arg1 :: x, b, ty)
-		case _ ~ Some(arg1) ~ l~ _ ~ None ~ _ ~ b =>
+			functionNode(null, arg1 :: x, b, ty)
+		case _ ~ Some(arg1) ~ l ~ _ ~ None ~ _ ~ b =>
 			val x = l.map { case s ~ t => t }
-			functionNode("", arg1 :: x, b, null)
+			functionNode(null, arg1 :: x, b, null)
 		case _ ~ None ~ l ~ _ ~ _ ~ _ ~ b =>
-			functionNode("", List(), b, null)
+			functionNode(null, List(), b, null)
 	}
 
 	// ### FUNCTION CALL ###
-	def funArgExp: Parser[Tree] = propertyCall | "(" ~ func ~ ")" ^^{case _ ~ functionNode(_,args,body,ns) ~ _ => anonNode(args,body,ns)}| ("(" ~ propertyCall ~ ")" | "(" ~ funCall ~ ")" | "(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x } | arrayAccess | arrays | binop
+	def funArgExp: Parser[Tree] = propertyCall | "(" ~ func ~ ")" ^^ { case _ ~ functionNode(_, args, body, ns) ~ _ => anonNode(args, body, ns) } | ("(" ~ propertyCall ~ ")" | "(" ~ funCall ~ ")" | "(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x } | arrayAccess | arrays | binop
 
 	def funCall: Parser[Tree] = word ~ ":" ~ rep(funArgExp) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, null) }
 
@@ -105,16 +105,28 @@ class Parser extends RegexParsers {
 
 	def forstatement: Parser[Tree] = "for" ~ "(" ~ word ~ "in" ~ exp ~ ")" ~ (statement | block) ^^ { case _ ~ _ ~ id ~ _ ~ arr ~ _ ~ body => forNode(id, arr, body, null) }
 
+	// ### OBJECTS ###
+	def objectrow: Parser[Tree] =
+		word ~ ":" ~ func ^^ { case valueNode(name, _) ~ _ ~ functionNode(_, args, body, ns) => functionNode(name, args, body, ns) } |
+		word ~ ":" ~ vartype ^^ { case valueNode(name, _) ~ _ ~ valueNode(ty, _) => objectElementNode(name, ty) }
+
+	def objectdef: Parser[Tree] = "{" ~ rep(objectrow ~ ",") ~ "}" ^^ { case _ ~ args ~ _ => objectNode(null, args.map(_._1), null) }
+
+	def objectinstans: Parser[Tree] = word ~ "(" ~ opt(exp) ~ rep("," ~ exp) ~ ")" ^^ {
+		case valueNode(name, _) ~ _ ~ None ~ _ ~ _ => objectInstansNode(name, List(), null)
+		case valueNode(name, _) ~ _ ~ Some(exp1) ~ list ~ _ => objectInstansNode(name, List(exp1) ++ list.map(_._2), null)
+	}
+
 
 	// ### GENERAL ###
 	//exp anything that returns something
-	def exp: Parser[Tree] =  arrays | propertyCall | func | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
+	def exp: Parser[Tree] = objectinstans | arrays | propertyCall | func | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 
 	def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, null) }
 
 	def retStatement: Parser[Tree] = "return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, "") }
 
-	def statement: Parser[Tree] = callStatement | ifstatement | forstatement | whilestatement | incrementStatement | assign | retStatement | ignoreStatement|exp ^^ { case s => s }
+	def statement: Parser[Tree] = callStatement | ifstatement | forstatement | whilestatement | incrementStatement | assign | retStatement | ignoreStatement | exp ^^ { case s => s }
 
 	// ### MISC ###
 	def ignoreStatement: Parser[Tree] = "\\?\\$[^\\?]*\\?\\$".r ^^ { case s => lineNode(s.substring(2, s.length - 2), "") }

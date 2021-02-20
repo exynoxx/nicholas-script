@@ -5,6 +5,8 @@ object Util {
 	val stringPattern = "(\"(?:[^\"\\\\]|\\\\.)*\")".r
 	val arrayTypePattern = "array\\((\\w+)\\)".r
 	val functionTypePattern = "\\(([^=]*)\\)\\s*=>\\s*(.+)".r
+	val objectTypePattern = "object\\((\\w+).*".r
+	val objectInstansTypePattern = "objectInstans\\((\\w+).*".r
 	var ranCounter = 0
 
 	def genRandomName(): String = {

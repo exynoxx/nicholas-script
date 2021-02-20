@@ -36,27 +36,54 @@ class TreeAugmenter {
 			case x :: xs => {
 				val ret: List[Tree] = x match {
 					//case binopNode(numbers, ops, idx, "string") =>
-						//assignNode(id, binopNode(l, r, o, "string"), deff, idx, assignNS) => {
-						/*val retList = ListBuffer[Tree]()
-						val names = numbers.map {
-							case valueNode(vn, "actualstring") =>
-								val n = Util.genRandomName()
-								val tmp = valueNode(vn, "actualstring")
-								retList += assignNode(valueNode(n, "string"), tmp, true, 0, "actualstring")
-								valueNode(n, "string")
-							case x => x
-						}
-						retList += binopNode(names, ops, 0, "string")
-						retList.toList*/
+					//assignNode(id, binopNode(l, r, o, "string"), deff, idx, assignNS) => {
+					/*val retList = ListBuffer[Tree]()
+					val names = numbers.map {
+						case valueNode(vn, "actualstring") =>
+							val n = Util.genRandomName()
+							val tmp = valueNode(vn, "actualstring")
+							retList += assignNode(valueNode(n, "string"), tmp, true, 0, "actualstring")
+							valueNode(n, "string")
+						case x => x
+					}
+					retList += binopNode(names, ops, 0, "string")
+					retList.toList*/
 
 					case assignNode(id, body, deff, idx, ns) =>
+
+						val stringID = id match {
+							case valueNode(v, _) => v
+							case x => x.toString
+						}
 
 						//body might append multiple elem infront.
 						// last element is actual body
 						val list: List[Tree] = iterateBlock(List(body))
 						list.reverse match {
 							case x :: xs => x match {
+								//assign of a function is just a function for the backend languages
 								case functionNode(_, _, _, _) => List(x)
+								case objectNode(_, _, _) => List(x)++xs
+								//case objectAssociatedFunctionNode(_, _, _) => List(x)
+
+								//assign of block is an object, extract definition and initialization
+								/*case blockNode(children, _) => {
+
+									val content = children.filter{
+										case assignNode(_, _, _, _, _) => true
+										case _ => false
+									}.map {
+										case assignNode(thisid, _, _, _, ns) => objectElementNode(thisid, ns)
+									}
+									val assignmentStatements = children.map {
+										case assignNode(name, body, deff, idx, ns) => objectPropertyNode(valueNode(stringID,null),assignNode(name, body, deff, idx, ns),ns)
+										case functionNode(fid,args,body,ns) => objectPropertyNode(valueNode(stringID,null),functionNode(fid,args,body,ns),ns)
+										case x => nullLeaf()
+									}
+									val obj:List[Tree] = List(objectNode(id, content, "object(" + stringID + ")"))
+									val init:List[Tree] = assignmentStatements
+									obj ++ init
+								}*/
 								case lineNode(_, _) => xs ++ List(assignNode(id, x, deff, idx, ns))
 								case _ =>
 									val newX = autoCastElement(x, ns)
@@ -66,7 +93,7 @@ class TreeAugmenter {
 
 					case functionNode(id, args, body, ns) =>
 						functionArgumentTypes += (id -> args.map {
-							case argNode(name, Util.functionTypePattern(_,_)) => "void"
+							case argNode(name, Util.functionTypePattern(_, _)) => "void"
 							case argNode(name, ty) => ty
 						})
 						args.foreach {
@@ -151,9 +178,9 @@ class TreeAugmenter {
 						tmpList += callNode(id, autoTypeArgs, deff, ns)
 						tmpList.toList
 
-					case returnNode(functionNode("ret",args,body,ty), ns) =>
+					case returnNode(functionNode("ret", args, body, ty), ns) =>
 						val id = Util.genRandomName()
-						globalFunctionExtracs += functionNode(id,args,body,ty)
+						globalFunctionExtracs += functionNode(id, args, body, ty)
 						List(returnNode(valueNode(id, ty), ty))
 
 					case arrayNode(elem, Util.arrayTypePattern(ns)) =>
@@ -200,16 +227,43 @@ class TreeAugmenter {
 						preList += accessNode(id, newIndex, ns)
 						preList.toList
 
-					case anonNode(args,body,ns) =>
+					case anonNode(args, body, ns) =>
 						val randomName = Util.genRandomName()
-						val replacement = functionNode(randomName,args,body,ns)
+						val replacement = functionNode(randomName, args, body, ns)
 
 						var retList: ListBuffer[Tree] = ListBuffer()
 						retList += iterateBlock(List(replacement))(0)
-						retList += valueNode(randomName,ns)
+						retList += valueNode(randomName, ns)
+						retList.toList
+
+					case objectNode(id, rows, ns) =>
+						var retList: ListBuffer[Tree] = ListBuffer()
+						var funcs: ListBuffer[Tree] = ListBuffer()
+						val newrows = rows.filter {
+							case functionNode(name, args, body, ty) =>
+								funcs += functionNode(name, List(specialArgNode("&mut self", "")) ++ args, body, ty)
+								false
+							case x => true
+						}
+						retList += objectAssociatedFunctionNode(id, funcs.toList, null)
+						retList += objectNode(id, newrows, ns)
 						retList.toList
 
 
+
+
+					/*case objectInstansNode(name, args, ns) =>
+						var retList: ListBuffer[Tree] = ListBuffer()
+						val newargs = args.map {
+							case functionNode(_, args, body, fns) => {
+								val rname = Util.genRandomName()
+								retList += iterateBlock(List(functionNode(rname, args, body, fns)))(0)
+								valueNode(rname, fns)
+							}
+							case x => x
+						}
+						retList += objectInstansNode(name,newargs,ns)
+						retList.toList*/
 
 
 					case t => List(t)
@@ -226,7 +280,7 @@ class TreeAugmenter {
 		AST match {
 			case blockNode(children, ns) => {
 				val newchildren = iterateBlock(children)
-				blockNode(newchildren++globalFunctionExtracs.toList, ns)
+				blockNode(newchildren ++ globalFunctionExtracs.toList, ns)
 			}
 			case _ => println("error")
 				nullLeaf()

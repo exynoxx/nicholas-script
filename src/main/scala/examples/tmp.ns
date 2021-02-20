@@ -1,9 +1,11 @@
 point := {
 	x:int,
 	y:int,
-	sum:()=>int,
+	sum: ()=>1+1,
+	toString: ()=> "point",
 };
-p:=point(0,1,() => x+y);
+
+p:=point(0,1);
 
 arrayToString := (l:[int]) => {
 	for (e in l) print: e;

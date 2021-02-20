@@ -1,12 +1,12 @@
-objects (remember recursive objects)
-list comprehension
+remove propertycall
+use self in object functions
+recursive objects + operator overloading
 add float type (f64vsf32)
 bool: a < b < c < d not accepted in rust
 recursion? untested
 add error handling to combintor //| failure("illegal start of value")
-remove propertycall
 
-
+list comprehension
 overloading or autocast?
 methods take any len vec args, syntax sugar around arrays?
 add std lib wrapping rust vec and hashmap...

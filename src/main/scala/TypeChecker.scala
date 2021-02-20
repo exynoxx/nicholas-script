@@ -1,7 +1,7 @@
 import java.util.NoSuchElementException
 
 import scala.collection.immutable.HashMap
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ListBuffer
 
 class TypeChecker {
@@ -20,9 +20,14 @@ class TypeChecker {
 				} else {
 					ns match {
 						case null =>
-							symbol(value) match {
-								case "actualstring" => "string"
-								case x => x
+							symbol.get(value) match {
+								case Some(v) => v match {
+									case "actualstring" => "string"
+									case x => x
+								}
+								case None => throw new NoSuchElementException(value + " not found in symbol l25")
+
+
 							}
 						case _ => ns
 					}
@@ -71,13 +76,30 @@ class TypeChecker {
 					case x => x.toString
 				}
 
-				val s = updatedSymbol ++ HashMap(textid -> ty)
+				val s = btree match {
+					//child is block? extract all variable ID's and add to symbol: textid.[varname]
+					case blockNode(_, _) => {
+						var childSymbol = HashMap[String, String]()
+						updatedSymbol.keys.foreach(e => {
+							if (!symbol.contains(e)) {
+								childSymbol += (textid + "." + e -> updatedSymbol(e))
+							}
+						})
+						childSymbol ++ HashMap(textid -> ty)
+					}
+					case _ => updatedSymbol ++ HashMap(textid -> ty)
+				}
+
 				(assignNode(newid, newbtree, deff, idx, ty), s)
-			case functionNode(_, args, body, ns) =>
+			case functionNode(originalID, args, body, ns) =>
 				//get id from assign parent
-				val id = parent match {
-					case assignNode(valueNode(name, _), _, _, _, _) => name
-					case returnNode(_,_) => "ret"
+
+				val id = originalID match {
+					case null => parent match {
+						case assignNode(valueNode(name, _), _, _, _, _) => name
+						case _ => "ret"
+					}
+					case something => something
 				}
 
 				//update symbol table with args
@@ -89,7 +111,7 @@ class TypeChecker {
 					case argNode(name: String, ty: String) =>
 						i += 1
 						val newTy = ty match {
-							case Util.functionTypePattern(_,t) => t
+							case Util.functionTypePattern(_, t) => t
 							case _ => ty
 						}
 						localSymbol += (name -> newTy)
@@ -101,8 +123,8 @@ class TypeChecker {
 
 				//if type defined by syntax, use that
 				val ty = ns match {
-					case null => "("+args.map(e => e.nstype).mkString(",")+")=>"+fbody.nstype
-					case x => "("+args.map(e => e.nstype).mkString(",")+")=>"+x
+					case null => "(" + args.map(e => e.nstype).mkString(",") + ")=>" + fbody.nstype
+					case x => "(" + args.map(e => e.nstype).mkString(",") + ")=>" + x
 				}
 
 
@@ -121,7 +143,7 @@ class TypeChecker {
 					case returnNode(b, ty) => ns = ty
 					case _ =>
 				}
-				(blockNode(newkids, ns), symbol)
+				(blockNode(newkids, ns), s)
 			case ifNode(c, b, Some(els), ns) =>
 				val (ifbody, _) = typerecurse(b, AST, symbol)
 				val (elsbody, _) = typerecurse(els, AST, symbol)
@@ -152,7 +174,7 @@ class TypeChecker {
 							val newTy = symbol.get(id + "::" + i).get
 							arrayNode(elem, newTy)
 						case x =>
-							i+=1
+							i += 1
 							x
 					}
 				}
@@ -194,7 +216,7 @@ class TypeChecker {
 				(accessNode(name, idx, newTy), symbol)
 
 
-			case anonNode(args,body,ns)=>
+			case anonNode(args, body, ns) =>
 				var localSymbol = symbol.to(mutable.HashMap)
 
 				var i = -1
@@ -212,10 +234,59 @@ class TypeChecker {
 					case null => fbody.nstype
 					case x => x
 				}
-				(anonNode(args,fbody,ty),symbol)
+				(anonNode(args, fbody, ty), symbol)
 
+			case objectNode(_, rows, ns) =>
+				val id = parent match {
+					case assignNode(valueNode(name, _), _, _, _, _) => name
+				}
 
+				var globalSymbol = symbol.to(mutable.HashMap)
+				var localSymbol = symbol.to(mutable.HashMap)
 
+				rows.foreach {
+					case objectElementNode(name, ty: String) =>
+						globalSymbol += ((id + "::" + name) -> ty)
+						localSymbol += (name -> ty)
+					case x => ()
+				}
+
+				val newrows = rows.map {
+					case x => typerecurse(x, AST, localSymbol.to(HashMap))._1
+				}
+
+				val ty = "object(" + id + "," + rows.map(t => t.nstype) + ")"
+				(objectNode(id, newrows, ty), globalSymbol.to(HashMap))
+			//case objectElementNode(name, ns) =>
+			case objectInstansNode(id, args, ns) =>
+
+				var s = symbol.to(mutable.HashMap)
+				val pattern = (id + "::(\\w+)").r
+				symbol.keys.foreach {
+					k => {
+						k match {
+							case pattern(variable) => s += (variable -> symbol(k))
+							case _ => ()
+						}
+					}
+				}
+				val localSym = s.to(immutable.HashMap)
+
+				var i = -1
+				val newargs = args.map { e =>
+					val (t, _) = typerecurse(e, AST, localSym)
+					t match {
+						case arrayNode(elem, Util.arrayTypePattern(ty)) =>
+							i += 1
+							val newTy = symbol.get(id + "::" + i).get
+							arrayNode(elem, newTy)
+						case x =>
+							i += 1
+							x
+					}
+				}
+				val ty = "objectInstans(" + id + "," + newargs.map(t => t.nstype) + ")"
+				(objectInstansNode(id, newargs, ty), symbol)
 
 			case lineNode(t, ns) => (lineNode(t, "void"), symbol)
 			case x => (x, symbol)

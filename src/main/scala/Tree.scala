@@ -23,7 +23,9 @@ case class accessNode(name:String,index:Tree,nstype:String) extends Tree
 case class propertyNode(body:Tree,funcall:Tree, definition: Boolean, nstype:String) extends Tree
 case class forNode(variable:Tree, array:Tree, body: Tree, nstype: String) extends Tree
 case class anonNode(args: List[Tree], body: Tree, nstype: String) extends Tree
-case class objectNode(id:Tree, rows: List[Tree], nstype:String) extends Tree
-case class objectElementNode(name:Tree, nstype:String) extends Tree
-case class objectPropertyNode(name:Tree,body:Tree, nstype:String) extends Tree
-case class objectInstansNode(name:Tree,args:List[Tree], nstype:String) extends Tree
+case class objectNode(id:String, rows: List[Tree], nstype:String) extends Tree
+case class objectElementNode(name:String, nstype:String) extends Tree
+case class objectPropertyNode(name:String,body:Tree, nstype:String) extends Tree
+case class objectInstansNode(name:String,args:List[Tree], nstype:String) extends Tree
+case class objectAssociatedFunctionNode(name:String,functions:List[Tree],nstype:String) extends Tree
+case class specialArgNode(content: String, nstype: String) extends Tree

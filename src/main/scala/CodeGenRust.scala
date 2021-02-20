@@ -1,8 +1,12 @@
 import Util.{NSType, arrayTypeNode, functionTypeNode, simpleType, tyToString}
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 class CodeGenRust {
+
+	var objectVariables = mutable.HashMap[String, List[String]]()
+
 
 	def convertType(t: String): String = {
 		t match {
@@ -11,6 +15,8 @@ class CodeGenRust {
 			case "int" => "i32"
 			case Util.arrayTypePattern(ty) => "Vec<" + convertType(ty) + ">"
 			case Util.functionTypePattern(args, ret) => convertFunctionType(t)
+			case Util.objectTypePattern(id) => id
+			case Util.objectInstansTypePattern(id) => id
 			case x => x
 		}
 	}
@@ -18,7 +24,7 @@ class CodeGenRust {
 	def recursiveFunctionType(t: NSType): String = {
 		t match {
 			case simpleType(s, _) => convertType(s)
-			case arrayTypeNode(ty) => "Vec<"+recursiveFunctionType(ty)+">"
+			case arrayTypeNode(ty) => "Vec<" + recursiveFunctionType(ty) + ">"
 			case functionTypeNode(args, ty) => "fn(" + args.map(recursiveFunctionType).mkString(",") + ")->" + recursiveFunctionType(ty)
 		}
 	}
@@ -48,10 +54,9 @@ class CodeGenRust {
 			case assignNode(id, body, deff, _, ns) =>
 				val idString = recurse(id)
 
-				val vectorExtension = if (Util.arrayTypePattern.matches(ns) && !body.isInstanceOf[rangeNode]) {
-					".to_vec()"
-				} else {
-					""
+				val vectorExtension = body.isInstanceOf[arrayNode] match {
+					case true => ".to_vec()"
+					case false => ""
 				}
 
 				val end = recurse(body) + vectorExtension + ";\n"
@@ -117,6 +122,7 @@ class CodeGenRust {
 				s1 + s2 + s3
 
 			case argNode(name, ns) => name + ":" + convertArgType(ns)
+			case specialArgNode(content, ns) => content
 
 			case functionNode(id, args, body, ns) =>
 				val retTy = recursiveFunctionType(Util.getType(ns).ty) match {
@@ -166,6 +172,29 @@ class CodeGenRust {
 			case accessNode(name, idx, _) =>
 				val idxString = recurse(idx)
 				name + "[" + idxString + " as usize]"
+
+			case objectNode(id, rows, ns) =>
+				val s1 = "struct " + id + " {\n"
+				val s2 = rows.map({
+					case objectElementNode(name, ns) =>
+						objectVariables.get(id) match {
+							case Some(nameList) => objectVariables.update(id, nameList ++ List(name))
+							case None => objectVariables += (id -> List(name))
+						}
+						name + ":" + convertType(ns) + ","
+				}).mkString("\n")
+				val s3 = "}\n"
+				s1 + s2 + s3
+			//case objectElementNode(name, ns) => name + ":" + convertType(ns) + ","
+
+			case objectInstansNode(name, args, ns) =>
+				name + "{" + objectVariables(name).zip(args.map(recurse)).map { case (a, b) => a + ":" + b }.mkString(",") + "}"
+
+			case objectAssociatedFunctionNode(name, func, ns) =>
+				val s1 = "impl " + name + "{\n"
+				val s2 = func.map(recurse).mkString("\n")
+				val s3 = "}\n"
+				s1+s2+s3
 
 			case x => "//" + x.toString + "\n"
 		}

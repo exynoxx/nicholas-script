@@ -71,9 +71,13 @@ class TreePrinter {
 				rows.map(e => recursion(e, depth + increment)).mkString(",")
 			case objectElementNode(name, ns) => printMinus("-", depth) +
 				"ObjectElementNode(" + name + "," + ns + ")\n"
-			case objectInstansNode(name,args,ns) => printMinus("-", depth) +
+			case objectInstansNode(name, args, ns) => printMinus("-", depth) +
 				"ObjectInstansNode(" + name + ", " + ns + ")\n" +
 				args.map(e => recursion(e, depth + increment)).mkString(",")
+			case objectAssociatedFunctionNode(name, functions, ns) => printMinus("-", depth) +
+				"ObjectAssociatedFunctionNode(" + name + ")\n" +
+				functions.map(e => recursion(e, depth + increment)).mkString(",")
+
 			case x => printMinus("-", depth) +
 				x.toString + "\n"
 		}
