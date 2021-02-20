@@ -1,4 +1,3 @@
-remove propertycall
 use self in object functions
 recursive objects + operator overloading
 add float type (f64vsf32)
