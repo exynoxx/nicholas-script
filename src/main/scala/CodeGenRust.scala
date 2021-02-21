@@ -201,7 +201,7 @@ class CodeGenRust {
 	}
 
 	def gen(AST: Tree): String = {
-		val s0 = "#![allow(unused_parens)]\n#![allow(unused_mut)]\n#![allow(non_snake_case)]\n"
+		val s0 = "#![allow(unused_parens)]\n#![allow(unused_mut)]\n#![allow(non_snake_case)]\n#![allow(non_camel_case_types)]\n#![allow(dead_code)]\n"
 		val s1 = "fn main(){\n"
 		val s2 = recurse(AST)
 		val s3 = "}\n"
