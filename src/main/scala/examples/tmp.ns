@@ -1,19 +1,12 @@
 point := {
 	x:int,
 	y:int,
-	sum: ()=>1+1,
-	toString: ()=> "point",
+	sum: ()=>x+y,
+	toString: ():string=> "point",
 };
 
 p:=point(0,1);
 p.x = 1;
 p.y += 2;
 sum := p.sum:;
-
-vec := {
-	arr:[int],
-	size: ():int=> ?$ self.arr.len() as i32 ?$,
-};
-
-v := vec([]);
-println: (v.size:);
+println: sum;

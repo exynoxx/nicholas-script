@@ -2,9 +2,10 @@ import java.util.NoSuchElementException
 
 import scala.collection.immutable.HashMap
 import scala.collection.{immutable, mutable}
-import scala.collection.mutable.ListBuffer
 
 class TypeChecker {
+
+
 
 	def typecheck(AST: Tree): Tree = {
 		val (t, _) = typerecurse(AST, AST, HashMap())
@@ -247,7 +248,7 @@ class TypeChecker {
 				}
 
 				var globalSymbol = symbol.to(mutable.HashMap)
-				var localSymbol = symbol.to(mutable.HashMap)
+				var localSymbol = mutable.HashMap[String,String]()
 
 				//put struct variables into local scope
 				rows.foreach {
@@ -271,7 +272,6 @@ class TypeChecker {
 
 				val ty = "object(" + id + "," + rows.map(t => t.nstype) + ")"
 				(objectNode(id, newrows, ty), globalSymbol.to(HashMap))
-			//case objectElementNode(name, ns) =>
 			case objectInstansNode(id, args, ns) =>
 
 				//get all variables in object type
