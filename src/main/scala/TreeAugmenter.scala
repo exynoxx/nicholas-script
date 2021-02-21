@@ -4,7 +4,7 @@ import scala.collection.mutable.ListBuffer
 class TreeAugmenter {
 
 	var functionArgumentTypes = mutable.HashMap[String, List[String]]()
-	var globalFunctionExtracs = ListBuffer[Tree]()
+	var globalFunctionExtracts = ListBuffer[Tree]()
 
 	def castToFunction(ty: String): String = {
 		ty match {
@@ -138,7 +138,7 @@ class TreeAugmenter {
 
 					case returnNode(functionNode("ret", args, body, ty), ns) =>
 						val id = Util.genRandomName()
-						globalFunctionExtracs += functionNode(id, args, body, ty)
+						globalFunctionExtracts += functionNode(id, args, body, ty)
 						List(returnNode(valueNode(id, ty), ty))
 
 					case arrayNode(elem, Util.arrayTypePattern(ns)) =>
@@ -199,7 +199,7 @@ class TreeAugmenter {
 						var funcs: ListBuffer[Tree] = ListBuffer()
 						val newrows = rows.filter {
 							case functionNode(name, args, body, ty) =>
-								funcs += functionNode(name, List(specialArgNode("&mut self", "")) ++ args, body, ty)
+								funcs += functionNode(name, List(specialArgNode("&mut self", null)) ++ args, body, ty)
 								false
 							case x => true
 						}
@@ -221,7 +221,7 @@ class TreeAugmenter {
 		AST match {
 			case blockNode(children, ns) => {
 				val newchildren = iterateBlock(children)
-				blockNode(newchildren ++ globalFunctionExtracs.toList, ns)
+				blockNode(newchildren ++ globalFunctionExtracts.toList, ns)
 			}
 			case _ => println("error")
 				nullLeaf()
