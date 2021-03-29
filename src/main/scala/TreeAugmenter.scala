@@ -17,7 +17,7 @@ class TreeAugmenter {
 	}
 
 	def autoCastElement(e: Tree, targetType: String): Tree = {
-		if (targetType == "void") {
+		/*if (targetType == "void") {
 			return e
 		}
 		val eType = e.nstype match {
@@ -30,7 +30,8 @@ class TreeAugmenter {
 			case _ =>
 				val fCallName = castToFunction(targetType)
 				callNode(fCallName, List(e), false, targetType)
-		}
+		}*/
+		e
 	}
 
 	def iterateBlock(blockBody: List[Tree], objSymbol: HashMap[String, String]): List[Tree] = {
