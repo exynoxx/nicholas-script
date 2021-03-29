@@ -58,8 +58,4 @@ sum := p.sum:;
 println: sum;
 
 
-vec2 := {
-	x:int,
-	y:int,
-	override +: (this:vec2, other:vec2):vec2 =>  vec2(this.x+other.x,this.y+other.y),
-};
+
