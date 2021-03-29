@@ -121,7 +121,7 @@ class CodeGenRust {
 				val s3 = "}\n"
 				s1 + s2 + s3
 
-			case argNode(name, ns) => name + ":" + convertArgType(ns)
+			case argNode(name, ns) => "mut " + name + ":" + convertArgType(ns)
 			case specialArgNode(content, ns) => content
 
 			case functionNode(id, args, body, ns) =>
