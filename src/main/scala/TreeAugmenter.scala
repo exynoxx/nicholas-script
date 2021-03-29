@@ -7,33 +7,6 @@ class TreeAugmenter {
 	var functionArgumentTypes = mutable.HashMap[String, List[String]]()
 	var globalFunctionExtracts = ListBuffer[Tree]()
 
-	def castToFunction(ty: String): String = {
-		ty match {
-			case "string" => "toString"
-			case "int" => "toInt"
-			case "bool" => "toBool"
-			case x => "to"+x.toString
-		}
-	}
-
-	def autoCastElement(e: Tree, targetType: String): Tree = {
-		/*if (targetType == "void") {
-			return e
-		}
-		val eType = e.nstype match {
-			case "actualstring" => "string"
-			case x => x
-		}
-		eType match {
-			case `targetType` => e
-			case Util.arrayTypePattern(ty) => e
-			case _ =>
-				val fCallName = castToFunction(targetType)
-				callNode(fCallName, List(e), false, targetType)
-		}*/
-		e
-	}
-
 	def iterateBlock(blockBody: List[Tree], objSymbol: HashMap[String, String]): List[Tree] = {
 		blockBody match {
 			case x :: xs => {
@@ -62,8 +35,7 @@ class TreeAugmenter {
 								case objectNode(_, _, _) => List(x) ++ xs
 								case lineNode(_, _) => xs ++ List(assignNode(id, x, deff, idx, ns))
 								case _ =>
-									val newX = autoCastElement(x, ns)
-									xs ++ List(assignNode(id, newX, deff, idx, ns))
+									xs ++ List(assignNode(id, x, deff, idx, ns))
 							}
 						}
 
@@ -142,15 +114,7 @@ class TreeAugmenter {
 							retElement
 						}
 
-						val autoTypeArgs = functionArgumentTypes.get(id) match {
-							case Some(l) => newargs.zip(l).map {
-								case (elem, ty) => {
-									autoCastElement(elem, ty)
-								}
-							}
-							case None => newargs
-						}
-						tmpList += callNode(id, autoTypeArgs, deff, ns)
+						tmpList += callNode(id, newargs, deff, ns)
 						tmpList.toList
 
 					case returnNode(functionNode("ret", args, body, ty), ns) =>
@@ -167,7 +131,7 @@ class TreeAugmenter {
 									tmpList ++= ys
 									y
 							}
-							autoCastElement(retElement, ns)
+							retElement
 						}
 						tmpList += arrayNode(newelem, "array(" + ns + ")")
 						tmpList.toList
@@ -195,7 +159,7 @@ class TreeAugmenter {
 						val newIndex: Tree = list match {
 							case x :: xs => {
 								preList ++= xs
-								autoCastElement(x, "int")
+								x
 							}
 						}
 
