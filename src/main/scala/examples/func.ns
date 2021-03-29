@@ -22,3 +22,26 @@ s := concat: (concat: (concat: "hello"  " ") world) "!";
 print: s;
 print3 := (a:string,b:string,c:string) => ?$ println!("{}{}{}",a,b,c); ?$;
 print3: "hello" " " world;
+
+fg := (f: (int)=>int, g: (int)=>int, x:int) => f: (g: x);
+square := (x:int)=>x**2;
+val := fg: square square 5;
+println: val;
+
+add :=  (x:int) => {
+	return (y:int) => x+y;
+};
+
+addFive := add: 5;
+println: (addFive: 3);
+
+factory :=  () => {
+	return (x:int) => 5+x;
+};
+
+addFive := factory:;
+println: (addFive: 3);
+arrayToString := (l:[int]) => {
+	for (e in l) print: e;
+	println: "";
+};

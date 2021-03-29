@@ -31,7 +31,7 @@ object main {
 		val treeAugmenter = new TreeAugmenter
 		val codeGen = new CodeGenRust
 
-		val inputFile = "src/main/scala/examples/tmp.ns"
+		val inputFile = "src/main/scala/examples/object.ns"
 		val outputFile = "out/output.rs"
 
 		val in = codeGen.genPreString() + readFile(inputFile)
@@ -39,13 +39,13 @@ object main {
 			case parser.Success(t, _) =>
 				println("success")
 				t
-			case f: parser.NoSuccess => println("error: " + f.msg)
+			/*case f: parser.NoSuccess => println("error: " + f.msg)
 				nullLeaf()
 			case parser.Failure(msg1, msg2) => println(s"Error: $msg1, $msg2")
 				nullLeaf()
 			case parser.Error(msg1, msg2) => println(s"Error: $msg1, $msg2")
-				nullLeaf()
-			case x => println("Error: " + x)
+				nullLeaf()*/
+			case x => println("Error in .parse: " + x)
 				nullLeaf()
 		}
 		printer.print(AST)

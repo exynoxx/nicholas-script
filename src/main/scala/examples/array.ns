@@ -57,3 +57,18 @@ printIntArr: (range: 10);
 rangee := (x:int) => 1..x;
 for (i in 1..11) print: i;
 println: "";
+
+map := (f: (int)=>int, l:[int]) => {
+	var tmp:[int] = [];
+	for (e in l) ?$ tmp.push (f(e)); ?$
+	return tmp;
+};
+
+sum := (l:[int]) => {
+	tmp := 0;
+	for (e in l) tmp += e;
+	return tmp;
+};
+
+printIntArr: (map: ((x:int) => x*2) 1..5);
+println: (sum: [1,2,3,4]);
