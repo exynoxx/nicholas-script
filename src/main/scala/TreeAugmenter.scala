@@ -12,6 +12,7 @@ class TreeAugmenter {
 			case "string" => "toString"
 			case "int" => "toInt"
 			case "bool" => "toBool"
+			case x => "to"+x.toString
 		}
 	}
 
@@ -40,11 +41,11 @@ class TreeAugmenter {
 					case valueNode(name, ns) =>
 						objSymbol.contains(name) match {
 							case true => List(valueNode("self." + name, ns))
-							case false => List(valueNode(name,ns))
+							case false => List(valueNode(name, ns))
 						}
 
 					case binopNode(numbers, ops, idx, ns) =>
-						val newNumbers = numbers.map (e => iterateBlock(List(e),objSymbol)(0))
+						val newNumbers = numbers.map(e => iterateBlock(List(e), objSymbol)(0))
 						List(binopNode(newNumbers, ops, idx, ns))
 
 
@@ -212,6 +213,7 @@ class TreeAugmenter {
 					case objectNode(id, rows, ns) =>
 						var retList: ListBuffer[Tree] = ListBuffer()
 						var funcs: ListBuffer[Tree] = ListBuffer()
+						var overrides: ListBuffer[Tree] = ListBuffer()
 
 						var newObjSymb = mutable.HashMap[String, String]()
 
@@ -219,14 +221,20 @@ class TreeAugmenter {
 							case functionNode(name, args, body, ty) =>
 								funcs += functionNode(name, List(specialArgNode("&mut self", null)) ++ args, body, ty)
 								false
+							case overrideNode(op, f, ns) =>
+								val augmentedF = iterateBlock(List(f), newObjSymb.to(HashMap))(0)
+								overrides += overrideNode(op, augmentedF, ns)
+								false
 							case objectElementNode(name, ty) =>
 								newObjSymb += (name -> ty)
 								true
 							case x => true
 						}
 
+
 						val augmentedFuncs = iterateBlock(funcs.toList, newObjSymb.to(HashMap))
 						retList += objectAssociatedFunctionNode(id, augmentedFuncs, null)
+						retList ++= overrides
 						retList += objectNode(id, newrows, ns)
 						retList.toList
 

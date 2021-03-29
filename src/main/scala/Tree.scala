@@ -28,3 +28,4 @@ case class objectElementNode(name:String, nstype:String) extends Tree
 case class objectInstansNode(name:String,args:List[Tree], nstype:String) extends Tree
 case class objectAssociatedFunctionNode(name:String,functions:List[Tree],nstype:String) extends Tree
 case class specialArgNode(content: String, nstype: String) extends Tree
+case class overrideNode(op:Tree,function:Tree,nstype:String) extends Tree

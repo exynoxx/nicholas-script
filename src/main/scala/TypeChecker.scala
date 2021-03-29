@@ -6,7 +6,6 @@ import scala.collection.{immutable, mutable}
 class TypeChecker {
 
 
-
 	def typecheck(AST: Tree): Tree = {
 		val (t, _) = typerecurse(AST, AST, HashMap())
 		t
@@ -80,7 +79,7 @@ class TypeChecker {
 				val s = btree match {
 					//child is block? extract all variable ID's and add to symbol: textid.[varname]
 
-					//child, "p" object? make p.x,p.y etc. (local variable types) accessable
+					//child, "p", is object? make p.x,p.y etc. (local variable types) accessable
 					case objectInstansNode(name, args, oty) =>
 						val objName = ty match {
 							case Util.objectInstansTypePattern(on) => on
@@ -112,6 +111,7 @@ class TypeChecker {
 				var localSymbol = symbol.to(mutable.HashMap)
 				var globalSymbol = symbol.to(mutable.HashMap)
 
+
 				var i = -1
 				args.foreach {
 					case argNode(name: String, ty: String) =>
@@ -120,6 +120,17 @@ class TypeChecker {
 							case Util.functionTypePattern(_, t) => t
 							case _ => ty
 						}
+
+						//if type of arg is object, make object variables visible
+						if (symbol.contains(newTy)) {
+							val pattern = (newTy + "::(\\w+)").r
+							symbol.keys.foreach {
+								case k@pattern(variable) =>
+									localSymbol += (name + "." + variable -> symbol(k))
+								case _ => ()
+							}
+						}
+
 						localSymbol += (name -> newTy)
 						globalSymbol += ((id + "::" + i) -> ty)
 				}
@@ -248,7 +259,7 @@ class TypeChecker {
 				}
 
 				var globalSymbol = symbol.to(mutable.HashMap)
-				var localSymbol = mutable.HashMap[String,String]()
+				var localSymbol = mutable.HashMap[String, String]()
 
 				//put struct variables into local scope
 				rows.foreach {
@@ -256,21 +267,27 @@ class TypeChecker {
 						localSymbol += (name -> ty)
 					case x => ()
 				}
+				localSymbol += (id -> ("object("+id+")"))
 
 				//typecheck functions with local var's in scope
 				val newrows = rows.map {
-					case x => typerecurse(x, AST, localSymbol.to(HashMap))._1
-				}
-
-				//put type of vars and funcs in global scope
-				newrows.foreach {
+					case overrideNode(op, f, _) =>
+						val (tyF, _) = typerecurse(f, AST, localSymbol.to(HashMap))
+						overrideNode(op, tyF, id)
+					case x =>
+						typerecurse(x, AST, localSymbol.to(HashMap))._1
+				}.filter {
+					//put type of vars and funcs in global scope
 					case objectElementNode(name, ty) =>
 						globalSymbol += ((id + "::" + name) -> ty)
+						true
 					case functionNode(name, _, _, ty) =>
 						globalSymbol += ((id + "::" + name) -> ty)
+						false
+					case _ => false
 				}
 
-				val ty = "object(" + id + "," + rows.map(t => t.nstype) + ")"
+				val ty = "object(" + id + "," + newrows.map(t => t.nstype).mkString(",") + ")"
 				(objectNode(id, newrows, ty), globalSymbol.to(HashMap))
 			case objectInstansNode(id, args, ns) =>
 

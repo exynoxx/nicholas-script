@@ -194,7 +194,36 @@ class CodeGenRust {
 				val s1 = "impl " + name + "{\n"
 				val s2 = func.map(recurse).mkString("\n")
 				val s3 = "}\n"
-				s1+s2+s3
+				s1 + s2 + s3
+
+			case overrideNode(op, f, ns) =>
+				val rustString = op match {
+					case opNode("+", _) => "Add"
+					case opNode("-", _) => "Sub"
+					case opNode("*", _) => "Mult"
+					case opNode("/", _) => "Div"
+				}
+
+
+				val (args,body) = f match {
+					case functionNode(_, a, b, _) => (a,b)
+				}
+				val other = args(1) match {
+					case argNode(n, _) => n
+				}
+
+				val retTy = recursiveFunctionType(Util.getType(f.nstype).ty) match {
+					case "void" => ""
+					case null => ""
+					case x => x
+				}
+				val s0 = "impl std::ops::" + rustString + " for " + ns + "{\n"
+				val s1 = "type Output = " + retTy + ";\n"
+				val s2 = "fn " + rustString.toLowerCase + "(self, " + other + ":Self) ->" + retTy + "{\n"
+				val s3 = recurse(body)
+				val s4 = "}\n}\n"
+				s0 + s1 + s2 + s3 + s4
+
 
 			case x => "//" + x.toString + "\n"
 		}

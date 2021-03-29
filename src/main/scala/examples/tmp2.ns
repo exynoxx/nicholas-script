@@ -43,3 +43,23 @@ arrayToString := (l:[int]) => {
 	println: "";
 };
 
+
+point := {
+	x:int,
+	y:int,
+	sum: ()=>x+y,
+	toString: ():string=> ns(x) + ns(y),
+};
+
+p:=point(0,1,ns("yo"));
+p.x = 1;
+p.y += 2;
+sum := p.sum:;
+println: sum;
+
+
+vec2 := {
+	x:int,
+	y:int,
+	override +: (this:vec2, other:vec2):vec2 =>  vec2(this.x+other.x,this.y+other.y),
+};

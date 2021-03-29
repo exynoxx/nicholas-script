@@ -1,12 +1,12 @@
-point := {
-	x:int,
-	y:int,
-	sum: ()=>x+y,
-	toString: ():string=> "point",
+ns := {
+	s:string,
+	override +: (this:ns, other:ns):ns => ?$ ns{s:format!("{}{}", this.s, other.s)} ?$,
 };
 
-p:=point(0,1);
-p.x = 1;
-p.y += 2;
-sum := p.sum:;
-println: sum;
+printlnObj := (inn:ns) => {
+	println: inn.s;
+};
+
+printlnObj: (ns("a") + ns("b"));
+
+
