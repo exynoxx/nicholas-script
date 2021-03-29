@@ -267,7 +267,7 @@ class TypeChecker {
 						localSymbol += (name -> ty)
 					case x => ()
 				}
-				localSymbol += (id -> ("object("+id+")"))
+				localSymbol += (id -> ("object(" + id + ")"))
 
 				//typecheck functions with local var's in scope
 				val newrows = rows.map {
@@ -276,15 +276,14 @@ class TypeChecker {
 						overrideNode(op, tyF, id)
 					case x =>
 						typerecurse(x, AST, localSymbol.to(HashMap))._1
-				}.filter {
+				}
+				newrows.foreach {
 					//put type of vars and funcs in global scope
 					case objectElementNode(name, ty) =>
 						globalSymbol += ((id + "::" + name) -> ty)
-						true
 					case functionNode(name, _, _, ty) =>
 						globalSymbol += ((id + "::" + name) -> ty)
-						false
-					case _ => false
+					case _ => ()
 				}
 
 				val ty = "object(" + id + "," + newrows.map(t => t.nstype).mkString(",") + ")"
@@ -305,6 +304,12 @@ class TypeChecker {
 
 				val ty = "objectInstans(" + id + "," + newargs.map(t => t.nstype) + ")"
 				(objectInstansNode(id, newargs, ty), symbol)
+
+
+			case overrideNode(op, f, ns) =>
+				//TODO: do this right
+				(overrideNode(op, f, ns), symbol)
+
 
 			case lineNode(t, ns) => (lineNode(t, "void"), symbol)
 			case x => (x, symbol)

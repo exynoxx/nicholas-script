@@ -1,6 +1,6 @@
 ns := {
 	s:string,
-	override +: (this:ns, other:ns):ns => ?$ ns{s:format!("{}{}", this.s, other.s)} ?$,
+	override +: (this:ns, other:ns):ns => ?$ ns{s:format!("{}{}", self.s, other.s)} ?$,
 };
 
 printlnObj := (inn:ns) => {
