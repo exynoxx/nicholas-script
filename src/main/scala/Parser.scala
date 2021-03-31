@@ -16,7 +16,7 @@ class Parser extends RegexParsers {
 
 	def intOp: Parser[Tree] = ("+" | "-" | "**" | "*" | "/" | "%") ^^ { case o => opNode(o, "int") }
 
-	def binop: Parser[Tree] = (number | arrayAccess | objectinstans | identifier | strings | "(" ~ binop ~ ")" ^^ { case _ ~ b ~ _ => b }) ~ rep(op ~ (number | arrayAccess | objectinstans | word | strings | "(" ~ binop ~ ")" ^^ { case _ ~ b ~ _ => b })) ^^ {
+	def binop: Parser[Tree] = (number | arrayAccess | objectinstans | identifier | strings | "(" ~ binop ~ ")" ^^ { case _ ~ b ~ _ => b }) ~ rep(op ~ (number | arrayAccess | objectinstans | identifier | strings | "(" ~ binop ~ ")" ^^ { case _ ~ b ~ _ => b })) ^^ {
 		case n ~ List() => n
 		case n ~ (o: List[Tree ~ Tree]) =>
 			val nn = o.map { case _ ~ num => num }
@@ -109,8 +109,8 @@ class Parser extends RegexParsers {
 	// ### OBJECTS ###
 	def objectrow: Parser[Tree] =
 		word ~ ":" ~ func ^^ { case valueNode(name, _) ~ _ ~ functionNode(_, args, body, ns) => functionNode(name, args, body, ns) } |
-			word ~ ":" ~ vartype ^^ { case valueNode(name, _) ~ _ ~ valueNode(ty, _) => objectElementNode(name, ty) } |
-			"override" ~ op ~ ":" ~ func ^^ { case _ ~ op ~ _ ~ f => overrideNode(op,f,null)}
+		word ~ ":" ~ vartype ^^ { case valueNode(name, _) ~ _ ~ valueNode(ty, _) => objectElementNode(name, ty) } |
+		"override" ~ op ~ ":" ~ func ^^ { case _ ~ op ~ _ ~ f => overrideNode(op,f,null)}
 
 
 	def objectdef: Parser[Tree] = "{" ~ rep(objectrow ~ ",") ~ "}" ^^ { case _ ~ args ~ _ => objectNode(null, args.map(_._1), null) }
