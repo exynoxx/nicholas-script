@@ -78,6 +78,10 @@ class TreePrinter {
 				"ObjectAssociatedFunctionNode(" + name + ")\n" +
 				functions.map(e => recursion(e, depth + increment)).mkString(",")
 
+			case overrideNode(op, f, ns) => printMinus("-", depth) +
+				"OverrideNode()\n" +
+				printMinus("-", depth+ increment) + op + "\n" +
+				recursion(f, depth + increment)
 			case x => printMinus("-", depth) +
 				x.toString + "\n"
 		}

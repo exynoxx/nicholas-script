@@ -1,4 +1,4 @@
-import Util.{NSType, arrayTypeNode, functionTypeNode, simpleType, tyToString}
+import Util.{NSType, arrayTypeNode, functionTypeNode, objectInstansTypeNode, simpleType}
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -26,6 +26,7 @@ class CodeGenRust {
 			case simpleType(s, _) => convertType(s)
 			case arrayTypeNode(ty) => "Vec<" + recursiveFunctionType(ty) + ">"
 			case functionTypeNode(args, ty) => "fn(" + args.map(recursiveFunctionType).mkString(",") + ")->" + recursiveFunctionType(ty)
+			case objectInstansTypeNode(args, ty) => recursiveFunctionType(ty)
 		}
 	}
 
@@ -208,7 +209,7 @@ class CodeGenRust {
 				val (args,body) = f match {
 					case functionNode(_, a, b, _) => (a,b)
 				}
-				val other = args(1) match {
+				val other = args(0) match {
 					case argNode(n, _) => n
 				}
 

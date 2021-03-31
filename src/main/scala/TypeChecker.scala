@@ -118,6 +118,7 @@ class TypeChecker {
 						i += 1
 						val newTy = ty match {
 							case Util.functionTypePattern(_, t) => t
+							case Util.objectTypePattern(t) => t
 							case _ => ty
 						}
 
@@ -261,10 +262,14 @@ class TypeChecker {
 				var globalSymbol = symbol.to(mutable.HashMap)
 				var localSymbol = mutable.HashMap[String, String]()
 
-				//put struct variables into local scope
+				//put struct variables and object definition into local scope
 				rows.foreach {
 					case objectElementNode(name, ty: String) =>
+						localSymbol += ("self." + name -> ty)
 						localSymbol += (name -> ty)
+						localSymbol += ((id + "::" + name) -> ty)
+					case functionNode(name, _, _, ty) =>
+						localSymbol += ((id + "::" + name) -> ty)
 					case x => ()
 				}
 				localSymbol += (id -> ("object(" + id + ")"))
@@ -274,11 +279,11 @@ class TypeChecker {
 					case overrideNode(op, f, _) =>
 						val (tyF, _) = typerecurse(f, AST, localSymbol.to(HashMap))
 						overrideNode(op, tyF, id)
-					case x =>
-						typerecurse(x, AST, localSymbol.to(HashMap))._1
+					case x => typerecurse(x, AST, localSymbol.to(HashMap))._1
 				}
+
+				//put type of vars and funcs in global scope
 				newrows.foreach {
-					//put type of vars and funcs in global scope
 					case objectElementNode(name, ty) =>
 						globalSymbol += ((id + "::" + name) -> ty)
 					case functionNode(name, _, _, ty) =>
