@@ -73,4 +73,13 @@ object Util {
 		}
 	}
 
+	def parseStringType(s: String): Type = {
+		s match {
+			case "int" => intType(null)
+			case "string" => stringType(null)
+			case "bool" => boolType(null)
+			case _ => simpleType(null, null)
+		}
+	}
+
 }
