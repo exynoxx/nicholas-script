@@ -99,7 +99,12 @@ class CodeGenRust {
 
 			case forNode(valueNode(v, ty), a, b, ns) =>
 
-				val mutOp = if (ty == stringType(null)) "mut " else "&mut "
+				val mutOp = ty match {
+					case stringType(null) => "mut "
+					case explicitStringType(null) => "mut "
+					case _ => "&mut "
+				}
+
 				val s1 = "for " + mutOp + v + " in " + recurse(a) + ".iter_mut() {\n"
 				val s2 = recurse(b)
 				val s3 = "}\n"
