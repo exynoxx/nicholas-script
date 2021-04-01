@@ -9,7 +9,9 @@ class CodeGenRust {
 	def convertType(t: Type): String = {
 		t match {
 			case stringType(_) => "String"
+			case explicitStringType(_) => "String"
 			case intType(_) => "i32"
+			case boolType(_) => "bool"
 			case arrayType(ty) => "Vec<" + convertType(ty) + ">"
 			case functionType(args, ret) => "fn(" + args.map(convertType).mkString(",") + ")->"+convertType(ret)
 			case objectType(id,_,_) => id
@@ -77,6 +79,7 @@ class CodeGenRust {
 					i += 2
 				}
 				"(" + flatList.mkString + ")"
+			case valueNode(value, explicitStringType(_)) => value+".to_string()"
 			case valueNode(value, ns) => value
 			case ifNode(c, b, elsebody, ns) =>
 				val s1 = "if " + recurse(c) + " {\n"
@@ -108,7 +111,7 @@ class CodeGenRust {
 			case functionNode(id, args, body, ns) =>
 				val retTy = ns.ty match {
 					case voidType(_) | null => ""
-					case x => "-> " + x
+					case x => "-> " + convertType(x)
 				}
 
 				val s0 = "fn " + id

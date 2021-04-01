@@ -12,6 +12,8 @@ case class boolType(ty: Type) extends Type
 
 case class stringType(ty: Type) extends Type
 
+case class explicitStringType(ty: Type) extends Type
+
 case class arrayType(ty: Type) extends Type
 
 case class functionType(args: List[Type], ty: Type) extends Type

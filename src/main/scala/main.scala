@@ -31,7 +31,7 @@ object main {
 		val treeAugmenter = new TreeAugmenter
 		val codeGen = new CodeGenRust
 
-		val inputFile = "src/main/scala/examples/basic.ns"
+		val inputFile = "src/main/scala/examples/array.ns"
 		val outputFile = "out/output.rs"
 
 		val in = codeGen.genPreString() + readFile(inputFile)
@@ -50,7 +50,7 @@ object main {
 		}
 		printer.print(AST)
 		val typedTree = typeChecker.typecheck(AST)
-		//printer.print(typedTree)
+		printer.print(typedTree)
 		val augmentedTree = treeAugmenter.augment(typedTree)
 		printer.print(augmentedTree)
 		val ret = codeGen.gen(augmentedTree)

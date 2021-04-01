@@ -220,7 +220,7 @@ class TypeChecker {
 				}*/
 				val newTy = newelem.size match {
 					case 0 => ns
-					case _ => newelem.head.ty
+					case _ => arrayType( newelem.head.ty)
 				}
 				(arrayNode(newelem, newTy), symbol)
 
@@ -248,7 +248,7 @@ class TypeChecker {
 
 				//if type defined by syntax, use that
 				val ty = ns match {
-					case null => fbody.ty
+					case null => functionType(args.map(x=>x.ty),fbody.ty)
 					case x => x
 				}
 				(anonNode(args, fbody, ty), symbol)

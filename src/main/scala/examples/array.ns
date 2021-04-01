@@ -1,46 +1,40 @@
 a:= 0..11;
-println: a[0];
+println: (toString: a[0]);
 b := a[a[a[0]]+1];
 arr2 := a[1+1]+a[b%5]+a[((1+b)*5)%2];
 a[0] += b;
-println: a[0].toString;
-println: a[0];
-println: a["1".toInt].toString;
-println: a["1"];
+println: (toString: a[0]);
 
-
-printArr := (x:[string]) => {
+printArrS := (x:[string]) => {
 	for ( e in x ){
 		print: e;
 	}
 	println: "";
 };
-var c:[string] = [1,2,3];
 
-printArr: [1,2,3];
-printArr: [1,"2",3];
-printArr: c;
+printArrI := (x:[int]) => {
+	for ( e in x ){
+		print: (toString: e);
+	}
+	println: "";
+};
+
+
+var c:[string] = ["1","2","3"];
+printArrI: [1,2,3];
+printArrS: c;
 
 add:=(a:int,b:int) => a+b;
 retString := () => "6";
 stringarray := ["7","8"];
 
 var aaa:[string] = [a[0],a[1],a[2]];
-bbb := ["s","1".toString,2,add: 1 2,a[4%5],"5",retString:,stringarray[0]];
+bbb := [1,2,add: 1 2,a[4%5],5,toInt: "6",toString: (stringarray[0])];
 
-printArr: aaa;
-printArr: bbb;
-printArr: [a[0],a[1],a[2]];
-printArr: ["s","1".toString,2,add: 1 2,a[4%5]];
+printArrS: aaa;
+printArrI: bbb;
+printArrI: [a[0],a[1],a[2]];
 
-
-
-printIntArr := (x:[int]) => {
-	for ( e in x ){
-		print: e;
-	}
-	println: "";
-};
 range := (x:int) => {
 	var tmp:[int] = [];
 	i:=0;
@@ -53,7 +47,7 @@ range := (x:int) => {
 	return tmp;
 };
 
-printIntArr: (range: 10);
+printArrI: (range: 10);
 rangee := (x:int) => 1..x;
 for (i in 1..11) print: i;
 println: "";
@@ -70,5 +64,5 @@ sum := (l:[int]) => {
 	return tmp;
 };
 
-printIntArr: (map: ((x:int) => x*2) 1..5);
+printArrI: (map: ((x:int) => x*2) 1..5);
 println: (sum: [1,2,3,4]);

@@ -8,7 +8,7 @@ class Parser extends RegexParsers {
 
 	def number: Parser[Tree] = "\\d+".r ^^ { case s => valueNode(s, intType(null)) }
 
-	def strings: Parser[Tree] = "\"(?:[^\"\\\\]|\\\\.)*\"".r ^^ { case s => valueNode(s, stringType(null)) }
+	def strings: Parser[Tree] = "\"(?:[^\"\\\\]|\\\\.)*\"".r ^^ { case s => valueNode(s, explicitStringType(null)) }
 
 	def op: Parser[Tree] = intOp | boolOp
 
@@ -78,12 +78,12 @@ class Parser extends RegexParsers {
 
 		case _ ~ Some(arg1) ~ l ~ _ ~ Some(_ ~ ty) ~ _ ~ b =>
 			val x = l.map { case s ~ t => t }
-			functionNode(null, arg1 :: x, b, ty)
+			functionNode(null, arg1 :: x, b, functionType(List(),ty))
 		case _ ~ Some(arg1) ~ l ~ _ ~ None ~ _ ~ b =>
 			val x = l.map { case s ~ t => t }
 			functionNode(null, arg1 :: x, b, null)
 		case _ ~ None ~ l ~ _ ~ Some(_ ~ ty) ~ _ ~ b =>
-			functionNode(null, List(), b, ty)
+			functionNode(null, List(), b, functionType(List(),ty))
 		case _ ~ None ~ l ~ _ ~ _ ~ _ ~ b =>
 			functionNode(null, List(), b, null)
 
