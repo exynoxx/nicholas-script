@@ -54,7 +54,10 @@ class TypeChecker {
 				val (btree, updatedSymbol) = typerecurse(body, AST, symbol)
 
 				val ty = ns match {
-					case null => btree.ty
+					case null => btree.ty match {
+						case explicitStringType(_) => stringType(null)
+						case x => x
+					}
 					case x => x
 				}
 				/*				val newbtree = ns match {
@@ -193,7 +196,7 @@ class TypeChecker {
 					}
 				}
 				val ty = symbol.get(id) match {
-					case Some(t) => t
+					case Some(t) => t.ty
 					case None => println(id + " not found in symbol")
 						throw new NoSuchElementException
 				}
@@ -220,7 +223,7 @@ class TypeChecker {
 				}*/
 				val newTy = newelem.size match {
 					case 0 => ns
-					case _ => arrayType( newelem.head.ty)
+					case _ => arrayType(newelem.head.ty)
 				}
 				(arrayNode(newelem, newTy), symbol)
 
@@ -248,7 +251,7 @@ class TypeChecker {
 
 				//if type defined by syntax, use that
 				val ty = ns match {
-					case null => functionType(args.map(x=>x.ty),fbody.ty)
+					case null => functionType(args.map(x => x.ty), fbody.ty)
 					case x => x
 				}
 				(anonNode(args, fbody, ty), symbol)
@@ -271,7 +274,7 @@ class TypeChecker {
 						localSymbol += ((id + "::" + name) -> ty)
 					case x => ()
 				}
-				localSymbol += (id -> objectType(id,null,null))
+				localSymbol += (id -> objectType(id, null, null))
 
 				//typecheck functions with local var's in scope
 				val newrows = rows.map {
@@ -290,7 +293,7 @@ class TypeChecker {
 					case _ => ()
 				}
 
-				val ty = objectType(id,newrows.map(t => t.ty),null)
+				val ty = objectType(id, newrows.map(t => t.ty), null)
 				(objectNode(id, newrows, ty), globalSymbol.to(HashMap))
 
 
@@ -307,7 +310,7 @@ class TypeChecker {
 					typerecurse(_, AST, localSym)._1
 				}
 
-				val ty = objectInstansType(id,newargs.map(t => t.ty),null)
+				val ty = objectInstansType(id, newargs.map(t => t.ty), null)
 				(objectInstansNode(id, newargs, ty), symbol)
 
 
