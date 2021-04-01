@@ -28,10 +28,10 @@ add:=(a:int,b:int) => a+b;
 retString := () => "6";
 stringarray := ["7","8"];
 
-var aaa:[string] = [a[0],a[1],a[2]];
-bbb := [1,2,add: 1 2,a[4%5],5,toInt: "6",toString: (stringarray[0])];
+var aaa:[int] = [a[0],a[1],a[2]];
+bbb := [1,2,add: 1 2,a[4%5],5,toInt: "6",toInt: (stringarray[0])];
 
-printArrS: aaa;
+printArrI: aaa;
 printArrI: bbb;
 printArrI: [a[0],a[1],a[2]];
 
@@ -49,7 +49,7 @@ range := (x:int) => {
 
 printArrI: (range: 10);
 rangee := (x:int) => 1..x;
-for (i in 1..11) print: i;
+for (i in 1..11) print: (toString: i);
 println: "";
 
 map := (f: (int)=>int, l:[int]) => {
@@ -65,4 +65,4 @@ sum := (l:[int]) => {
 };
 
 printArrI: (map: ((x:int) => x*2) 1..5);
-println: (sum: [1,2,3,4]);
+println: (toString: (sum: [1,2,3,4]));

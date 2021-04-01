@@ -138,7 +138,7 @@ class TypeChecker {
 				//if type defined by syntax, use that
 				val retTy = ns match {
 					case null => fbody.ty
-					case x => x
+					case x => x.ty
 				}
 				val ty = functionType(args.map(e => e.ty), retTy)
 				(functionNode(id, args, fbody, ty), globalSymbol.to(HashMap))

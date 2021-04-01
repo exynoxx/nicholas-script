@@ -13,9 +13,9 @@ class CodeGenRust {
 			case intType(_) => "i32"
 			case boolType(_) => "bool"
 			case arrayType(ty) => "Vec<" + convertType(ty) + ">"
-			case functionType(args, ret) => "fn(" + args.map(convertType).mkString(",") + ")->"+convertType(ret)
-			case objectType(id,_,_) => id
-			case objectInstansType(id,_,_) => id
+			case functionType(args, ret) => "fn(" + args.map(convertType).mkString(",") + ")->" + convertType(ret)
+			case objectType(id, _, _) => id
+			case objectInstansType(id, _, _) => id
 			case x => x.toString
 		}
 	}
@@ -79,7 +79,7 @@ class CodeGenRust {
 					i += 2
 				}
 				"(" + flatList.mkString + ")"
-			case valueNode(value, explicitStringType(_)) => value+".to_string()"
+			case valueNode(value, explicitStringType(_)) => value + ".to_string()"
 			case valueNode(value, ns) => value
 			case ifNode(c, b, elsebody, ns) =>
 				val s1 = "if " + recurse(c) + " {\n"
@@ -99,13 +99,13 @@ class CodeGenRust {
 
 			case forNode(valueNode(v, ty), a, b, ns) =>
 
-				val mutOp = if (ty == "string") "mut " else "&mut "
+				val mutOp = if (ty == stringType(null)) "mut " else "&mut "
 				val s1 = "for " + mutOp + v + " in " + recurse(a) + ".iter_mut() {\n"
 				val s2 = recurse(b)
 				val s3 = "}\n"
 				s1 + s2 + s3
 
-			case argNode(name, ns) => "mut " + name + ":" + convertArgType(ns)
+			case argNode(name, ns) => /*"mut " + */ name + ":" + convertArgType(ns)
 			case specialArgNode(content, ns) => content
 
 			case functionNode(id, args, body, ns) =>
@@ -127,7 +127,10 @@ class CodeGenRust {
 					val xString = recurse(x)
 					x.ty match {
 						case stringType(_) => "&mut " + xString
+						case explicitStringType(_) => "&mut " + xString
 						case arrayType(_) => "&mut " + xString
+						case functionType(_, stringType(_)) => "&mut " + xString
+						case functionType(_, arrayType(_)) => "&mut " + xString
 						case _ => xString
 					}
 				}
@@ -149,7 +152,7 @@ class CodeGenRust {
 				}
 				"vec![" + stringElements.mkString(",") + "]"
 
-			case rangeNode(valueNode(a, _), valueNode(b, _), ns) => "(" + a + ".." + b + ").collect::<Vec<"+convertType(intType(null))+">>()"
+			case rangeNode(valueNode(a, _), valueNode(b, _), ns) => "(" + a + ".." + b + ").collect::<Vec<" + convertType(intType(null)) + ">>()"
 
 			case accessNode(name, idx, _) =>
 				val idxString = recurse(idx)
@@ -187,8 +190,8 @@ class CodeGenRust {
 				}
 
 
-				val (args,body) = f match {
-					case functionNode(_, a, b, _) => (a,b)
+				val (args, body) = f match {
+					case functionNode(_, a, b, _) => (a, b)
 				}
 				val other = args(0) match {
 					case argNode(n, _) => n
