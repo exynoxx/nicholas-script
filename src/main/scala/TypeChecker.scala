@@ -71,12 +71,6 @@ class TypeChecker {
 					}
 					case x => x
 				}
-				/*				val newbtree = ns match {
-									case arrayType(arrTy) => btree match {
-										case arrayNode(elem, _) => arrayNode(elem, "array(" + arrTy + ")")
-									}
-									case x => btree
-								}*/
 
 				val newid = id match {
 					case valueNode(n, null) => valueNode(n, ty)
@@ -90,29 +84,9 @@ class TypeChecker {
 				}
 
 				val s = ty match {
-					//case objectType(id, _, _) => expandObjectVariables(id,textid,symbol) ++ updatedSymbol ++ HashMap(textid -> ty)
 					case objectInstansType(id, _, _) => expandObjectVariables(id,textid,symbol) ++ updatedSymbol ++ HashMap(textid -> ty)
 					case _ => updatedSymbol ++ HashMap(textid -> ty)
 				}
-
-				/*val s = btree match {
-					//child is block? extract all variable ID's and add to symbol: textid.[varname]
-
-					//child, "p", is object? make p.x,p.y etc. (local variable types) accessable
-					case objectInstansNode(name, args, oty) =>
-						val objName = ty match {
-							case Util.objectInstansTypePattern(on) => on
-						}
-						val pattern = (objName + "::(\\w+)").r
-						var newGlobalSym = mutable.HashMap[String, String]()
-						symbol.keys.foreach {
-							case k@pattern(variable) =>
-								newGlobalSym += (textid + "." + variable -> symbol(k))
-							case _ => ()
-						}
-						updatedSymbol ++ HashMap(textid -> ty) ++ newGlobalSym.to(HashMap)
-					case _ => updatedSymbol ++ HashMap(textid -> ty)
-				}*/
 
 				(assignNode(newid, btree, deff, idx, ty), s)
 			case functionNode(originalID, args, body, ns) =>
@@ -218,19 +192,6 @@ class TypeChecker {
 
 			case arrayNode(elem, ns) =>
 				val newelem = elem.map(e => typerecurse(e, AST, symbol)._1)
-				//var types = new mutable.HashMap[Type, Int]()
-				/*newelem.foreach {
-					case x => types.updateWith(x.ty)({
-						case Some(count) => Some(count + 1)
-						case None => Some(1)
-					})
-				}
-				val newTy = types.size match {
-					case 0 => ns
-					case _ => types.maxBy(_._2)._1 match {
-						case x => arrayType(x)
-					}
-				}*/
 				val newTy = newelem.size match {
 					case 0 => ns
 					case _ => arrayType(newelem.head.ty)
