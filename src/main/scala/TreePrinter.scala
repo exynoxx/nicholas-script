@@ -7,14 +7,14 @@ class TreePrinter {
 	def recursion(t: Tree, depth: Int = 0, increment: Int = 6): String = {
 		t match {
 			case valueNode(value, ns) => printMinus("-", depth) +
-				"valueNode(" + value + "," + ns + ")\n"
+				"valueNode(" + value + "," + ns.toString + ")\n"
 			case binopNode(numbers, ops, idx, ns) => printMinus("-", depth) +
-				"binopNode(idx=" + idx + ",ns=" + ns + ")\n" +
+				"binopNode(idx=" + idx + ",ns=" + ns.toString + ")\n" +
 				printMinus("-", depth + increment) + numbers + "\n" +
 				printMinus("-", depth + increment) + ops + "\n"
 			case opNode(b, ns) => b
 			case assignNode(id, b, deff, idx, ns) => printMinus("-", depth) +
-				"assignNode(" + id + ", definition=" + deff + ", idx=" + idx + ", ns=" + ns + ")\n" +
+				"assignNode(" + id + ", definition=" + deff + ", idx=" + idx + ", ns=" + ns.toString + ")\n" +
 				recursion(b, depth + increment)
 			case blockNode(children, ns) => {
 				val s = printMinus("-", depth) + "blockNode(" + children.length + ")\n"
@@ -40,23 +40,23 @@ class TreePrinter {
 				recursion(a, depth + increment) +
 				recursion(b, depth + increment)
 			case functionNode(id, args, b, ns) => printMinus("-", depth) +
-				"functionNode(" + id + ",ns=" + ns + ")\n" +
+				"functionNode(" + id + ",ns=" + ns.toString + ")\n" +
 				args.map(e => recursion(e, depth + increment)).mkString(",") +
 				recursion(b, depth + increment)
 			case argNode(name, ns) => printMinus("-", depth) +
-				"argNode(" + name + ":" + ns + ")\n"
+				"argNode(" + name + ":" + ns.toString + ")\n"
 			case returnNode(body, ns) => printMinus("-", depth) +
 				"returnNode()\n" +
 				recursion(body, depth + increment, increment)
 			case callNode(id, args, deff, ns) => printMinus("-", depth) +
-				"callNode(" + id + ", definition=" + deff + ", ns=" + ns + ")\n" +
+				"callNode(" + id + ", definition=" + deff + ", ns=" + ns.toString + ")\n" +
 				args.map(e => recursion(e, depth + increment)).mkString(",")
 			case lineNode(text, ns) => printMinus("-", depth) +
 				"lineNode(" + text + ")\n"
 			case arrayNode(null, ns) => printMinus("-", depth) +
 				"arrayNode()\n"
 			case arrayNode(elem, ns) => printMinus("-", depth) +
-				"arrayNode(" + elem + "," + ns + ")\n" +
+				"arrayNode(" + elem + "," + ns.toString + ")\n" +
 				elem.map(e => recursion(e, depth + increment)).mkString
 			case rangeNode(l, r, ns) => printMinus("-", depth) +
 				"rangeNode()\n" +
@@ -67,12 +67,12 @@ class TreePrinter {
 				args.map(e => recursion(e, depth + increment)).mkString(",") +
 				recursion(b, depth + increment)
 			case objectNode(name, rows, ns) => printMinus("-", depth) +
-				"ObjectNode(" + name + ", " + ns + ")\n" +
+				"ObjectNode(" + name + ", " + ns.toString + ")\n" +
 				rows.map(e => recursion(e, depth + increment)).mkString(",")
 			case objectElementNode(name, ns) => printMinus("-", depth) +
-				"ObjectElementNode(" + name + "," + ns + ")\n"
+				"ObjectElementNode(" + name + "," + ns.toString + ")\n"
 			case objectInstansNode(name, args, ns) => printMinus("-", depth) +
-				"ObjectInstansNode(" + name + ", " + ns + ")\n" +
+				"ObjectInstansNode(" + name + ", " + ns.toString + ")\n" +
 				args.map(e => recursion(e, depth + increment)).mkString(",")
 			case objectAssociatedFunctionNode(name, functions, ns) => printMinus("-", depth) +
 				"ObjectAssociatedFunctionNode(" + name + ")\n" +
