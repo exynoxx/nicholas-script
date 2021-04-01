@@ -2,11 +2,6 @@ import scala.util.parsing.combinator.RegexParsers
 
 
 object Util {
-	val stringPattern = "(\"(?:[^\"\\\\]|\\\\.)*\")".r
-	val arrayTypePattern = "array\\((\\w+)\\)".r
-	val functionTypePattern = "\\(([^=]*)\\)\\s*=>\\s*(.+)".r
-	val objectTypePattern = "object\\((\\w+).*".r
-	val objectInstansTypePattern = "objectInstans\\((\\w+).*".r
 	var ranCounter = 0
 
 	def genRandomName(): String = {
@@ -15,7 +10,7 @@ object Util {
 		ret
 	}
 
-	trait NSType {
+	/*trait NSType {
 		val ty: NSType
 	}
 
@@ -71,7 +66,7 @@ object Util {
 			case tyParser.Success(t, _) => t
 			case _ => throw new NullPointerException
 		}
-	}
+	}*/
 
 	def parseStringType(s: String): Type = {
 		s match {
