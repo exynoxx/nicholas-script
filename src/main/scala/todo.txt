@@ -5,6 +5,7 @@ bool: a < b < c < d not accepted in rust
 recursion? untested
 use case classes hierarchy to represent types instead of strings
 add error handling to combintor //| failure("illegal start of value")
+use anonNode in func as well (reuse overlap)
 
 list comprehension
 overloading or autocast?
