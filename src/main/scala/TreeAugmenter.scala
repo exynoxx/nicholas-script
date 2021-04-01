@@ -6,7 +6,7 @@ class TreeAugmenter {
 
 	var globalFunctionExtracts = ListBuffer[Tree]()
 
-	def iterateBlock(blockBody: List[Tree], objSymbol: HashMap[String, String]): List[Tree] = {
+	def iterateBlock(blockBody: List[Tree], objSymbol: HashMap[String, Type]): List[Tree] = {
 		blockBody match {
 			case x :: xs => {
 				val ret: List[Tree] = x match {
@@ -165,7 +165,7 @@ class TreeAugmenter {
 								funcs += functionNode(name, List(specialArgNode("&mut self", null)) ++ args, body, ty)
 								false
 							case overrideNode(op, f, ns) =>
-								val augmentedF = iterateBlock(List(f), newObjSymb.to(HashMap))(0)
+								val augmentedF = iterateBlock(List(f), newObjSymb.to(HashMap)).head
 								overrides += overrideNode(op, augmentedF, ns)
 								false
 							case objectElementNode(name, ty) =>

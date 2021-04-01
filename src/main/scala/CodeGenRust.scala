@@ -1,4 +1,3 @@
-import Util.{NSType, arrayTypeNode, functionTypeNode, objectInstansTypeNode, simpleType}
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -7,37 +6,22 @@ class CodeGenRust {
 
 	var objectVariables = mutable.HashMap[String, List[String]]()
 
-
-	def convertType(t: String): String = {
+	def convertType(t: Type): String = {
 		t match {
-			case "actualstring" => "String"
-			case "string" => "String"
-			case "int" => "i32"
-			case Util.arrayTypePattern(ty) => "Vec<" + convertType(ty) + ">"
-			case Util.functionTypePattern(args, ret) => convertFunctionType(t)
-			case Util.objectTypePattern(id) => id
-			case Util.objectInstansTypePattern(id) => id
-			case x => x
+			case stringType(_) => "String"
+			case intType(_) => "i32"
+			case arrayType(ty) => "Vec<" + convertType(ty) + ">"
+			case functionType(args, ret) => "fn(" + args.map(convertType).mkString(",") + ")->"+convertType(ret)
+			case objectType(id,_,_) => id
+			case objectInstansType(id,_,_) => id
+			case x => x.toString
 		}
 	}
 
-	def recursiveFunctionType(t: NSType): String = {
+	def convertArgType(t: Type): String = {
 		t match {
-			case simpleType(s, _) => convertType(s)
-			case arrayTypeNode(ty) => "Vec<" + recursiveFunctionType(ty) + ">"
-			case functionTypeNode(args, ty) => "fn(" + args.map(recursiveFunctionType).mkString(",") + ")->" + recursiveFunctionType(ty)
-			case objectInstansTypeNode(args, ty) => recursiveFunctionType(ty)
-		}
-	}
-
-	def convertFunctionType(t: String): String = {
-		recursiveFunctionType(Util.getType(t))
-	}
-
-	def convertArgType(t: String): String = {
-		t match {
-			case "string" => "&mut String"
-			case Util.arrayTypePattern(ty) => "&mut Vec<" + convertType(ty) + ">"
+			case stringType(_) => "&mut String"
+			case arrayType(ty) => "&mut Vec<" + convertType(ty) + ">"
 			case x => convertType(x)
 		}
 	}
@@ -93,11 +77,7 @@ class CodeGenRust {
 					i += 2
 				}
 				"(" + flatList.mkString + ")"
-			case valueNode(value, ns) =>
-				ns match {
-					case "actualstring" => value + ".to_string()"
-					case _ => value
-				}
+			case valueNode(value, ns) => value
 			case ifNode(c, b, elsebody, ns) =>
 				val s1 = "if " + recurse(c) + " {\n"
 				val s2 = recurse(b)
@@ -126,9 +106,8 @@ class CodeGenRust {
 			case specialArgNode(content, ns) => content
 
 			case functionNode(id, args, body, ns) =>
-				val retTy = recursiveFunctionType(Util.getType(ns).ty) match {
-					case "void" => ""
-					case null => ""
+				val retTy = ns.ty match {
+					case voidType(_) | null => ""
 					case x => "-> " + x
 				}
 
@@ -143,10 +122,9 @@ class CodeGenRust {
 			case callNode(id, args, deff, ns) =>
 				val stringArgs = args.map { x =>
 					val xString = recurse(x)
-					x.nstype match {
-						case "string" => "&mut " + xString
-						case "actualstring" => "&mut " + xString
-						case Util.arrayTypePattern(ty) => "&mut " + xString
+					x.ty match {
+						case stringType(_) => "&mut " + xString
+						case arrayType(_) => "&mut " + xString
 						case _ => xString
 					}
 				}
@@ -168,7 +146,7 @@ class CodeGenRust {
 				}
 				"vec![" + stringElements.mkString(",") + "]"
 
-			case rangeNode(valueNode(a, _), valueNode(b, _), ns) => "(" + a + ".." + b + ").collect::<Vec<i32>>()"
+			case rangeNode(valueNode(a, _), valueNode(b, _), ns) => "(" + a + ".." + b + ").collect::<Vec<"+convertType(intType(null))+">>()"
 
 			case accessNode(name, idx, _) =>
 				val idxString = recurse(idx)
@@ -213,11 +191,11 @@ class CodeGenRust {
 					case argNode(n, _) => n
 				}
 
-				val retTy = recursiveFunctionType(Util.getType(f.nstype).ty) match {
-					case "void" => ""
-					case null => ""
-					case x => x
+				val retTy = f.ty match {
+					case voidType(_) | null => ""
+					case x => "-> " + x
 				}
+
 				val s0 = "impl std::ops::" + rustString + " for " + ns + "{\n"
 				val s1 = "type Output = " + retTy + ";\n"
 				val s2 = "fn " + rustString.toLowerCase + "(self, " + other + ":Self) ->" + retTy + "{\n"
