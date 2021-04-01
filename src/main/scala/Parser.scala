@@ -16,6 +16,26 @@ class Parser extends RegexParsers {
 
 	def intOp: Parser[Tree] = ("+" | "-" | "**" | "*" | "/" | "%") ^^ { case o => opNode(o, intType(null)) }
 
+	// ### TYPES ###
+
+	def typeArray: Parser[Type] = "[" ~ word ~ "]" ^^ { case _ ~ valueNode(w, _) ~ _ => arrayType(Util.parseStringType(w)) }
+	def typefunction: Parser[Type] = "(" ~ opt(word) ~ rep("," ~ word) ~ ")" ~ "=>" ~ word ^^ {
+		case _ ~ None ~ l ~ _ ~ _ ~ valueNode(ret, _) => functionType(null, Util.parseStringType(ret))
+		case _ ~ Some(valueNode(w1, _)) ~ l ~ _ ~ _ ~ valueNode(ret, _) => {
+			val frst = Util.parseStringType(w1)
+			val ll = l.map { case s ~ valueNode(e, _) => Util.parseStringType(e) }
+			functionType(List(frst) ++ ll, Util.parseStringType(ret))
+		}
+	}
+	def typeSimple: Parser[Type] = word ^^ {
+		case valueNode(x,_) => Util.parseStringType(x)
+	}
+	def vartype: Parser[Type] = typeArray | typefunction | typeSimple
+
+
+
+	// ### BINOP ###
+
 	def binop: Parser[Tree] = (number | arrayAccess | objectinstans | identifier | strings | "(" ~ binop ~ ")" ^^ { case _ ~ b ~ _ => b }) ~ rep(op ~ (number | arrayAccess | objectinstans | identifier | strings | "(" ~ binop ~ ")" ^^ { case _ ~ b ~ _ => b })) ^^ {
 		case n ~ List() => n
 		case n ~ (o: List[Tree ~ Tree]) =>
@@ -26,18 +46,6 @@ class Parser extends RegexParsers {
 
 	// ### ASSIGN ###
 	def assign: Parser[Tree] = defstatement | assignStatement
-
-	def vartype: Parser[Type] = "[" ~ word ~ "]" ^^ { case _ ~ valueNode(w, _) ~ _ => arrayType(Util.parseStringType(w)) } |
-		"(" ~ opt(word) ~ rep("," ~ word) ~ ")" ~ "=>" ~ word ^^ {
-			case _ ~ None ~ l ~ _ ~ _ ~ valueNode(ret, _) => functionType(null, Util.parseStringType(ret))
-			case _ ~ Some(valueNode(w1, _)) ~ l ~ _ ~ _ ~ valueNode(ret, _) => {
-				val frst = Util.parseStringType(w1)
-				val ll = l.map { case s ~ valueNode(e, _) => Util.parseStringType(e) }
-				functionType(List(frst) ++ ll, Util.parseStringType(ret))
-			}
-		} | word ^^ {
-			case valueNode(x,_) => Util.parseStringType(x)
-		}
 
 	def defstatement: Parser[Tree] = "var" ~ word ~ opt(":" ~ vartype) ~ "=" ~ (objectdef | exp | block | ignoreStatement) ~ ";" ^^ {
 		case _ ~ valueNode(id, _) ~ Some(_ ~ ty) ~ _ ~ t ~ _ => assignNode(valueNode(id, ty), t, true, 0, ty)
