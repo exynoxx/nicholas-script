@@ -20,11 +20,11 @@ class CodeGenRust {
 		}
 	}
 
-	def convertArgType(t: Type): String = {
-		t match {
-			case stringType(_) => "&mut String"
-			case arrayType(ty) => "&mut Vec<" + convertType(ty) + ">"
-			case x => convertType(x)
+	def convertArgType(name:String, ty: Type): String = {
+		ty match {
+			case stringType(_) => name + ": &mut String"
+			case arrayType(ty) => name + ": &mut Vec<" + convertType(ty) + ">"
+			case x => "mut " + name + ":" + convertType(x)
 		}
 	}
 
@@ -110,7 +110,7 @@ class CodeGenRust {
 				val s3 = "}\n"
 				s1 + s2 + s3
 
-			case argNode(name, ns) => /*"mut " + */ name + ":" + convertArgType(ns)
+			case argNode(name, ns) => convertArgType(name,ns)
 			case specialArgNode(content, ns) => content
 
 			case functionNode(id, args, body, ns) =>
@@ -195,19 +195,23 @@ class CodeGenRust {
 				}
 
 
-				val (args, body) = f match {
-					case functionNode(_, a, b, _) => (a, b)
+				val objectID = ns match {
+					case objectType(id,_,_) => id
+				}
+
+				val (args, body, retTy) = f match {
+					case functionNode(_, a, b, ty) =>
+						val c = ty.ty match {
+							case voidType(_) | null => ""
+							case objectType(id,_,_) => id
+						}
+						(a, b, c)
 				}
 				val other = args(0) match {
 					case argNode(n, _) => n
 				}
 
-				val retTy = f.ty match {
-					case voidType(_) | null => ""
-					case x => "-> " + x
-				}
-
-				val s0 = "impl std::ops::" + rustString + " for " + ns + "{\n"
+				val s0 = "impl std::ops::" + rustString + " for " + objectID + "{\n"
 				val s1 = "type Output = " + retTy + ";\n"
 				val s2 = "fn " + rustString.toLowerCase + "(self, " + other + ":Self) ->" + retTy + "{\n"
 				val s3 = recurse(body)

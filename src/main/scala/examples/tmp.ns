@@ -30,7 +30,7 @@ println: sum;
 
 
 
-
+println: (toString: sum);
 
 vec2 := {
 	x:int,

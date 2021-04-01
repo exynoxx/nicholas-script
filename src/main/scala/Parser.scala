@@ -117,14 +117,17 @@ class Parser extends RegexParsers {
 
 	def forstatement: Parser[Tree] = "for" ~ "(" ~ word ~ "in" ~ exp ~ ")" ~ (statement | block) ^^ { case _ ~ _ ~ id ~ _ ~ arr ~ _ ~ body => forNode(id, arr, body, null) }
 
+
+
 	// ### OBJECTS ###
+
+	def objectdef: Parser[Tree] = "{" ~ rep(objectrow ~ ",") ~ "}" ^^ { case _ ~ args ~ _ => objectNode(null, args.map(_._1), null) }
+
+
 	def objectrow: Parser[Tree] =
 		word ~ ":" ~ func ^^ { case valueNode(name, _) ~ _ ~ functionNode(_, args, body, ns) => functionNode(name, args, body, ns) } |
 			word ~ ":" ~ vartype ^^ { case valueNode(name, _) ~ _ ~ ty => objectElementNode(name, ty) } |
 			"override" ~ op ~ ":" ~ func ^^ { case _ ~ op ~ _ ~ f => overrideNode(op, f, null) }
-
-
-	def objectdef: Parser[Tree] = "{" ~ rep(objectrow ~ ",") ~ "}" ^^ { case _ ~ args ~ _ => objectNode(null, args.map(_._1), null) }
 
 	def objectinstans: Parser[Tree] = identifier ~ "(" ~ opt(exp) ~ rep("," ~ exp) ~ ")" ^^ {
 		case valueNode(name, _) ~ _ ~ None ~ _ ~ _ => objectInstansNode(name, List(), null)

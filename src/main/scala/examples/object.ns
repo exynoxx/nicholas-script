@@ -1,6 +1,19 @@
+ns := {
+	s:string,
+	override +: (other:ns):ns => ?$ ns{s:format!("{}{}", self.s, other.s)} ?$,
+};
 
-vec2 := {
+printlnObj := (inn:ns) => {
+	println: inn.s;
+};
+
+printlnObj: (ns("a") + ns("b"));
+
+point := {
 	x:int,
 	y:int,
-	override +: (other:vec2) => vec2(x + other.x , y + other.y),
 };
+
+p := point(0,1);
+p.x = 1;
+p.y += 2;
