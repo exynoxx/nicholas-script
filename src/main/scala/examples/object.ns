@@ -7,7 +7,7 @@ printlnObj := (inn:ns) => {
 	println: inn.s;
 };
 
-printlnObj: (ns("a") + ns("b"));
+printlnObj: ns("a") + ns("b");
 
 point := {
 	x:int,
