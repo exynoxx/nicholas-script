@@ -42,7 +42,7 @@ class TypeChecker {
 
 			case binopNode(numbers, ops, idx, ns) =>
 				val newNum: List[Tree] = numbers.map(e => typerecurse(e, AST, symbol)._1)
-				/*val stringTypeExist = newNum.map(e => e.ty).exists {
+				val stringTypeExist = newNum.map(e => e.ty).exists {
 					case stringType(null) => true
 					case _ => false
 				}
@@ -56,12 +56,11 @@ class TypeChecker {
 					} else if (boolTypeExist)
 						boolType(null)
 					else {
-						intType(null)
-					}*/
-				val ty = newNum.head.ty match {
-					case explicitStringType(_) => stringType(null)
-					case x => x
-				}
+						newNum.head.ty match {
+							case explicitStringType(_) => stringType(null)
+							case x => x
+						}
+					}
 
 				(binopNode(newNum, ops, idx, ty), symbol)
 

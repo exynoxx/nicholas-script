@@ -1,0 +1,7 @@
+nstring := {
+	content:string,
+	override +: (other:nstring):nstring => ?$ nstring{content:format!("{}{}", self.content, other.content)} ?$,
+};
+
+concat := (nstring("hello ") + nstring("world!"));
+println: concat.content;
