@@ -12,8 +12,26 @@ printlnObj: (ns("a") + ns("b"));
 point := {
 	x:int,
 	y:int,
+	sum: ()=>x+y,
+	toString: ():string => {
+		tmp := (ns(toString: self.x) + ns(toString: self.y));
+		return tmp.s;
+	},
 };
 
 p := point(0,1);
 p.x = 1;
 p.y += 2;
+sum := p.sum:;
+println: (toString: sum);
+println: (p.toString:);
+
+
+vec2 := {
+	x:int,
+	y:int,
+	override +: (other:vec2):vec2 =>  vec2(self.x+other.x , self.y+other.y),
+	override -: (other:vec2):vec2 =>  vec2(self.x-other.x , self.y-other.y),
+	override *: (other:vec2):vec2 =>  vec2(0, 0),
+	override /: (other:vec2):vec2 =>  vec2(1, 1),
+};

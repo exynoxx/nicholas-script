@@ -190,7 +190,7 @@ class CodeGenRust {
 				val rustString = op match {
 					case opNode("+", _) => "Add"
 					case opNode("-", _) => "Sub"
-					case opNode("*", _) => "Mult"
+					case opNode("*", _) => "Mul"
 					case opNode("/", _) => "Div"
 				}
 

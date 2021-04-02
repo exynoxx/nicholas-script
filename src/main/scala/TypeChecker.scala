@@ -7,7 +7,7 @@ class TypeChecker {
 
 
 	def expandObjectVariables(objectID: String, varName: String, symbol: HashMap[String, Type]): HashMap[String, Type] = {
-		val localSymbol = mutable.HashMap[String,Type]()
+		val localSymbol = mutable.HashMap[String, Type]()
 		val pattern = (objectID + "::(\\w+)").r
 		symbol.keys.foreach {
 			case k@pattern(variable) =>
@@ -42,7 +42,7 @@ class TypeChecker {
 
 			case binopNode(numbers, ops, idx, ns) =>
 				val newNum: List[Tree] = numbers.map(e => typerecurse(e, AST, symbol)._1)
-				val stringTypeExist = newNum.map(e => e.ty).exists {
+				/*val stringTypeExist = newNum.map(e => e.ty).exists {
 					case stringType(null) => true
 					case _ => false
 				}
@@ -57,7 +57,11 @@ class TypeChecker {
 						boolType(null)
 					else {
 						intType(null)
-					}
+					}*/
+				val ty = newNum.head.ty match {
+					case explicitStringType(_) => stringType(null)
+					case x => x
+				}
 
 				(binopNode(newNum, ops, idx, ty), symbol)
 
@@ -84,7 +88,7 @@ class TypeChecker {
 				}
 
 				val s = ty match {
-					case objectInstansType(id, _, _) => expandObjectVariables(id,textid,symbol) ++ updatedSymbol ++ HashMap(textid -> ty)
+					case objectInstansType(id, _, _) => expandObjectVariables(id, textid, symbol) ++ updatedSymbol ++ HashMap(textid -> ty)
 					case _ => updatedSymbol ++ HashMap(textid -> ty)
 				}
 
@@ -220,7 +224,7 @@ class TypeChecker {
 				}
 
 				var globalSymbol = symbol.to(mutable.HashMap)
-				var localSymbol = mutable.HashMap[String, Type]()
+				var localSymbol = symbol.to(mutable.HashMap)
 
 				//put struct variables and object definition into local scope
 				rows.foreach {
