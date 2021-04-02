@@ -2,12 +2,8 @@ add float type (f64vsf32)
 bool: a < b < c < d not accepted in rust
 recursion? untested
 add error handling to combintor //| failure("illegal start of value")
-use anonNode in func as well (reuse overlap)
-
 list comprehension
 add std lib wrapping rust vec and hashmap...
-update JS backend
-low priority: add unit test for every grammar rules.
 i32 -> i64? maybe configurable.
 overload binop operators recursivly fix binop traversal
 bug: if return is not last element in block no return is printed
