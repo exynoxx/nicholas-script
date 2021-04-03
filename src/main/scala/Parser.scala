@@ -141,7 +141,7 @@ class Parser extends RegexParsers {
 			case valueNode(first, _) ~ list => valueNode(first + list.map { case s ~ valueNode(t, _) => s + t }.mkString, null)
 		}
 
-	def exp: Parser[Tree] = objectinstans | arrays | func | binop | funCall  | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
+	def exp: Parser[Tree] = binop | objectinstans | arrays | func |  funCall  | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 
 	def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, null) }
 

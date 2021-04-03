@@ -236,6 +236,7 @@ class TypeChecker {
 					case x => ()
 				}
 				localSymbol += (id -> objectType(id, null, null))
+				localSymbol += ("self" -> objectType(id, null, null))
 
 				//typecheck functions with local var's in scope
 				val newrows = rows.map {

@@ -1,7 +1,22 @@
-nstring := {
-	content:string,
-	override +: (other:nstring):nstring => ?$ nstring{content:format!("{}{}", self.content, other.content)} ?$,
+array := {
+	base : [int],
+	push: (elem:int) => ?$ self.base.push(elem) ?$,
+	clear: () => ?$ self.base.clear() ?$,
+	override +: (other:array):array => {
+		?$ self.base.extend(other.base); ?$
+		return self;
+    },
 };
 
-concat := (nstring("hello ") + nstring("world!"));
-println: concat.content;
+sum := (l:[int]) => {
+	tmp := 0;
+	for (e in l) tmp += e;
+	return tmp;
+};
+
+l := array([1,2,3]);
+r := array(5..10);
+l.push: 4;
+res := l + r;
+println: (sum: res.base));
+

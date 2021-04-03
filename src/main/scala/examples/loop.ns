@@ -19,3 +19,7 @@ for (x in [1,2,3]){
 for (x in ["1","2","3"]){
 	println: x;
 }
+
+for (x in 4..11){
+	println: (toString: x);
+}

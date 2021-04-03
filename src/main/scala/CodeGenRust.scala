@@ -213,7 +213,7 @@ class CodeGenRust {
 
 				val s0 = "impl std::ops::" + rustString + " for " + objectID + "{\n"
 				val s1 = "type Output = " + retTy + ";\n"
-				val s2 = "fn " + rustString.toLowerCase + "(self, " + other + ":Self) ->" + retTy + "{\n"
+				val s2 = "fn " + rustString.toLowerCase + "(mut self, " + other + ":Self) ->" + retTy + "{\n"
 				val s3 = recurse(body)
 				val s4 = "}\n}\n"
 				s0 + s1 + s2 + s3 + s4

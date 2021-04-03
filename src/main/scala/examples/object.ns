@@ -14,7 +14,7 @@ point := {
 	y:int,
 	sum: ()=>x+y,
 	toString: ():string => {
-		tmp := (ns(toString: self.x) + ns(toString: self.y));
+		var tmp = (ns(toString: self.x) + ns(toString: self.y));
 		return tmp.s;
 	},
 };
