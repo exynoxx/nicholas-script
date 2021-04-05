@@ -1,7 +1,7 @@
 concat := (x:string, y:string):string => ?$ return format!("{}{}", x, y) ?$;
 
-a := () => 1+1;
-b:= a:;
+a := (x:int) => 1+1;
+b:= a: 1;
 poly := (x:int) => 5*x**3 + 3*x**2 + 1*x;
 
 println: (concat: (toString: (poly:5)) (toString: (poly:b)));
@@ -33,3 +33,12 @@ sum := (l:[int]) => {
 };
 
 integer := sum: [1,2,3];
+
+map := (f: (int)=>int, l:[int]) => {
+	var tmp:[int] = [];
+	for (e in l) ?$ tmp.push (f(e)); ?$
+	return tmp;
+};
+
+integer2 := sum: (map: ((x:int) => x**2) [1,2,3]);
+

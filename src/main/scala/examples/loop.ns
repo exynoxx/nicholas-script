@@ -7,6 +7,8 @@ if (a <= a%2){
 } else {
 	b:= a**2/2;
 }
+retBool := () => false;
+
 c:= 10;
 while ( c > 0 ) {
 	c = c-1;
