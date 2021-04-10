@@ -37,7 +37,7 @@ class Parser extends RegexParsers {
 
 
 	// ### BINOP ###
-	def operand: Parser[Tree] = number | arrayAccess | objectinstans | identifier | "(" ~ binop ~ ")" ^^ { case _ ~ b ~ _ => b }
+	def operand: Parser[Tree] = number | arrayAccess | objectinstans | identifier | ("(" ~ binop ~ ")" | "(" ~ funCall ~ ")") ^^ { case _ ~ b ~ _ => b }
 
 	def binop: Parser[Tree] = operand ~ rep(op ~ operand) ^^ {
 		case n ~ List() => n
@@ -70,7 +70,7 @@ class Parser extends RegexParsers {
 	// ### ARRAYS ###
 	def arrays: Parser[Tree] = arrayrange | arraydef
 
-	def arrayElement: Parser[Tree] = strings | funCall | binop |  arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
+	def arrayElement: Parser[Tree] = strings | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 
 	def arraydef: Parser[Tree] = "[" ~ opt(arrayElement) ~ rep("," ~ arrayElement) ~ "]" ^^ {
 		case _ ~ firstopt ~ list ~ _ =>
@@ -82,7 +82,7 @@ class Parser extends RegexParsers {
 			}
 	}
 
-	def arrayrangeNumber: Parser[Tree] = number | arrayAccess | identifier |  ("(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x }
+	def arrayrangeNumber: Parser[Tree] = number | arrayAccess | identifier | ("(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x }
 
 	def arrayrange: Parser[Tree] = arrayrangeNumber ~ ".." ~ arrayrangeNumber ^^ { case a ~ _ ~ b => rangeNode(a, b, arrayType(intType(null))) }
 
@@ -152,7 +152,7 @@ class Parser extends RegexParsers {
 			case valueNode(first, _) ~ list => valueNode(first + list.map { case s ~ valueNode(t, _) => s + t }.mkString, null)
 		}
 
-	def exp: Parser[Tree] = strings |  arrays |  objectinstans | func | funCall |binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
+	def exp: Parser[Tree] = strings | arrays | objectinstans | func | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s }
 
 	def block: Parser[Tree] = "{" ~ rep(statement) ~ "}" ^^ { case _ ~ s ~ _ => blockNode(s, null) }
 
