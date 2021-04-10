@@ -1,6 +1,5 @@
 add float type (f64vsf32)
 bool: a < b < c < d not accepted in rust
-recursion? untested
 add error handling to combintor //| failure("illegal start of value")
 list comprehension
 add std lib wrapping rust vec and hashmap...

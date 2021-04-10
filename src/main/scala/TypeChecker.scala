@@ -22,6 +22,38 @@ class TypeChecker {
 		t
 	}
 
+	//used to infer type of function with recursive return type. used in case functionNode
+	/*def findTypeRecursive(AST: Tree, symbol: HashMap[String, Type]): (Boolean, Type) = {
+		AST match {
+			case returnNode(b, ty) =>
+				b match {
+					case functionNode(_, _, _, _) => return (false, null)
+					case _ => ()
+				}
+				val (typedbody, _) = typerecurse(b, null, symbol)
+				(true, typedbody.ty)
+
+			case ifNode(_, b, eb, _) =>
+				findTypeRecursive(b, symbol) match {
+					case (true, ty) => (true, ty)
+					case (false, _) => eb match {
+						case Some(b) => findTypeRecursive(b, symbol)
+						case _ => (false, null)
+					}
+				}
+			case whileNode(_, b, _) => findTypeRecursive(b, symbol)
+			case forNode(_, _, b, _) => findTypeRecursive(b, symbol)
+			case blockNode(children, _) => {
+				children.foreach(e => {
+					val (t, ty) = findTypeRecursive(e, symbol)
+					if (t) return (true, ty)
+				})
+				(false, null)
+			}
+			case _ => (false, null)
+		}
+	}*/
+
 	def typerecurse(AST: Tree, parent: Tree, symbol: HashMap[String, Type]): (Tree, HashMap[String, Type]) = {
 		AST match {
 			case valueNode(value, ns) =>
@@ -107,7 +139,6 @@ class TypeChecker {
 				var localSymbol = symbol.to(mutable.HashMap)
 				var globalSymbol = symbol.to(mutable.HashMap)
 
-
 				var i = -1
 				args.foreach {
 					case argNode(name: String, ty) =>
@@ -122,14 +153,25 @@ class TypeChecker {
 						globalSymbol += ((id + "::" + i) -> ty)
 				}
 
+				//is ret type defined in syntax? no: find it.
+				/*val retTy = ns match {
+					case null => findTypeRecursive(body)
+					case x => x.ty
+				}*/
+
 				//recurse body
+				val symbolMapType = ns match {
+					case null => functionType(null,intType(null))
+					case x => x
+				}
+				localSymbol += (id -> symbolMapType)
 				val (fbody, _) = typerecurse(body, AST, localSymbol.to(HashMap))
 
-				//if type defined by syntax, use that
 				val retTy = ns match {
 					case null => fbody.ty
 					case x => x.ty
 				}
+
 				val ty = functionType(args.map(e => e.ty), retTy)
 				(functionNode(id, args, fbody, ty), globalSymbol.to(HashMap))
 
@@ -143,7 +185,12 @@ class TypeChecker {
 				}
 				var ns: Type = voidType(null)
 				newkids.foreach {
-					case returnNode(b, ty) => ns = ty
+					case returnNode(b, ty) =>
+						ns = ty match {
+							case voidType(_) => ns
+							case x => x
+						}
+
 					case _ =>
 				}
 				(blockNode(newkids, ns), s)

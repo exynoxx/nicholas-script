@@ -42,3 +42,13 @@ map := (f: (int)=>int, l:[int]) => {
 
 integer2 := sum: (map: ((x:int) => x**2) [1,2,3]);
 
+fac := (x:int):int => {
+	if (x==1) {
+		return 1;
+	}
+
+	tmp := fac: x-1;
+	return tmp*x;
+};
+fac: 5;
+

@@ -40,10 +40,7 @@ class TreeAugmenter {
 
 					case functionNode(id, args, body, ns) =>
 						val fbody = iterateBlock(List(body), objSymbol).head
-						val retbody = fbody match {
-							case x => blockNode(List(returnNode(x, x.ty)), ns)
-						}
-						List(functionNode(id, args, retbody, ns))
+						List(functionNode(id, args, fbody, ns))
 
 					case blockNode(children, ns) =>
 						val newchildren = iterateBlock(children, objSymbol)

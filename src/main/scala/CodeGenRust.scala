@@ -16,11 +16,12 @@ class CodeGenRust {
 			case functionType(args, ret) => "fn(" + args.map(convertType).mkString(",") + ")->" + convertType(ret)
 			case objectType(id, _, _) => id
 			case objectInstansType(id, _, _) => id
+			case null => "nulltypeerror"
 			case x => x.toString
 		}
 	}
 
-	def convertArgType(name:String, ty: Type): String = {
+	def convertArgType(name: String, ty: Type): String = {
 		ty match {
 			case stringType(_) => name + ": &mut String"
 			case arrayType(ty) => name + ": &mut Vec<" + convertType(ty) + ">"
@@ -110,7 +111,7 @@ class CodeGenRust {
 				val s3 = "}\n"
 				s1 + s2 + s3
 
-			case argNode(name, ns) => convertArgType(name,ns)
+			case argNode(name, ns) => convertArgType(name, ns)
 			case specialArgNode(content, ns) => content
 
 			case functionNode(id, args, body, ns) =>
@@ -146,7 +147,7 @@ class CodeGenRust {
 					case false => ret
 				}
 
-			case returnNode(body, ns) => recurse(body) + "\n"
+			case returnNode(body, ns) => "return " + recurse(body) + "\n"
 
 			case lineNode(text, ns) => text + "\n"
 
@@ -196,14 +197,14 @@ class CodeGenRust {
 
 
 				val objectID = ns match {
-					case objectType(id,_,_) => id
+					case objectType(id, _, _) => id
 				}
 
 				val (args, body, retTy) = f match {
 					case functionNode(_, a, b, ty) =>
 						val c = ty.ty match {
 							case voidType(_) | null => ""
-							case objectType(id,_,_) => id
+							case objectType(id, _, _) => id
 						}
 						(a, b, c)
 				}
