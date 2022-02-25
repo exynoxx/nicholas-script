@@ -68,22 +68,33 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	}
 
 
-	// ### CODE BLOCKS / FUNCTION ###
-	def block: Parser[Tree] = "{" ~ rep1(expression ~ (";"|"\n").?) ~ "}" ^^ {
-		case _ ~ expList ~ _ => expList match {
-			case l => blockNode(l.map { case exp ~ option => exp })
-		}
+	// ### CODE BLOCKS ###
+	def block: Parser[Tree] = "{" ~ rep1(expression ~ (";" | "\n").?) ~ "}" ~ rep(expression) ^^ {
+		case _ ~ expList ~ _ ~ args =>
+			val exp = expList match {
+				case l => blockNode(l.map { case exp ~ option => exp })
+			}
+			args match {
+				case List() => exp
+				case args => callNode(exp, args)
+			}
 	}
+
+	// ### FUNCTION CALL ###
+	//TODO: (exp)
+	def call: Parser[Tree] = (word | shortOperatos) ~ rep(array |  on |  binop ) ^^ { case f ~ args => callNode(f, args) }
+
 
 	// ### use f-on-operator ###
 	def shortOperatos = ("+" | "*") ^^ (s => wordNode(s))
-	def on: Parser[Tree] = (shortOperatos|word) ~ "/" ~ expression ^^ {case id ~ slash ~ exp => binopNode(slash,id,exp)}
+
+	def on: Parser[Tree] = (shortOperatos | word | block) ~ "/" ~ expression ^^ { case id ~ slash ~ exp => binopNode(slash, id, exp) }
 
 
 	// ### if else ###
 	//TODO
 
-	def expression: Parser[Tree] = array | assign | on | binop | block
+	def expression: Parser[Tree] = array | assign | on | call | binop | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
 
 	/*def assign: Parser[Tree] = defstatement | assignStatement
 

@@ -14,8 +14,6 @@ class TreePrinter {
 
 	def recursion(t: Tree, depth: Int = 0, increment: Int = 4): String = {
 		t match {
-			/*case valueNode(value, ns) => printMinus("-", depth) +
-				"valueNode(" + value + "," + ns + ")\n"*/
 			case binopNode(op, left, right) => printMinus("-", depth) +
 				"binopNode(" + op + ")\n" +
 				recursion(left, depth + increment) +
@@ -33,6 +31,12 @@ class TreePrinter {
 			case blockNode(children) => printMinus("-", depth) +
 				"blockNode(#children=" + children.length + ")\n" +
 				children.map(x => recursion(x, depth + increment)).mkString("")
+
+			case callNode(f, args) => printMinus("-", depth) +
+				"callNode()\n" +
+				recursion(f, depth + increment) +
+				printMinus("-", depth+ increment) + "ARGs\n" +
+				args.map(e => recursion(e, depth + increment)).mkString("")
 
 			/*
 			case ifNode(c, b, Some(e), ns) => printMinus("-", depth) +

@@ -21,6 +21,8 @@ case class arrayNode(elements: List[Tree]) extends Tree
 
 case class blockNode(children: List[Tree]) extends Tree
 
+case class callNode(f:Tree, args: List[Tree]) extends Tree
+
 /*
 case class returnNode(body: Tree, nstype: String) extends Tree
 case class functionNode(id: String, args: List[Tree], body: Tree, nstype: String) extends Tree
