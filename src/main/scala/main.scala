@@ -1,8 +1,5 @@
 import java.io.{File, PrintWriter}
-
-
 import scala.io.Source
-import sys.process._
 
 object main {
 
@@ -25,31 +22,31 @@ object main {
 	}
 
 	def main(args: Array[String]): Unit = {
-		val printer = new TreePrinter
 		val parser = new Parser
+		val printer = new TreePrinter
+
+		/*val printer = new TreePrinter
 		val typeChecker = new TypeChecker
 		val treeAugmenter = new TreeAugmenter
 		val codeGen = new CodeGenRust
 
 		val inputFile = "src/main/scala/examples/object.ns"
-		val outputFile = "out/output.rs"
+		val outputFile = "out/output.rs"*/
 
-		val in = codeGen.genPreString() + readFile(inputFile)
-		val AST: Tree = parser.parse(parser.start, in) match {
+		//val in = "1+2*3 & (5/2) * (1+2)"
+		//val in = "{a=[1,2^3,1+2*3 & 5/2];b=1+1}"
+		//val in = "{a={1+1}*5;4*{1+1};c=[abc=1,2,3,4]}"
+		val in = "{first=+/[1,2,b=3,+/c];c=1+2;([1])*10}"
+		val AST: Tree = parser.parse(parser.expression, in) match {
 			case parser.Success(t, _) =>
 				println("success")
 				t
-			/*case f: parser.NoSuccess => println("error: " + f.msg)
-				nullLeaf()
-			case parser.Failure(msg1, msg2) => println(s"Error: $msg1, $msg2")
-				nullLeaf()
-			case parser.Error(msg1, msg2) => println(s"Error: $msg1, $msg2")
-				nullLeaf()*/
 			case x => println("Error in .parse: " + x)
 				nullLeaf()
 		}
 		printer.print(AST)
-		val typedTree = typeChecker.typecheck(AST)
+
+		/*val typedTree = typeChecker.typecheck(AST)
 		//printer.print(typedTree)
 		val augmentedTree = treeAugmenter.augment(typedTree)
 		printer.print(augmentedTree)
@@ -57,7 +54,7 @@ object main {
 		writeFile(outputFile, ret)
 
 		val f = ("rustc " + outputFile + " --out-dir out").!
-		println(f)
+		println(f)*/
 
 
 	}

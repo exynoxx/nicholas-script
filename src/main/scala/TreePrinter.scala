@@ -4,23 +4,29 @@ class TreePrinter {
 		spaces
 	}
 
-	def recursion(t: Tree, depth: Int = 0, increment: Int = 6): String = {
+	def recursion(t: Tree, depth: Int = 0, increment: Int = 4): String = {
 		t match {
-			case valueNode(value, ns) => printMinus("-", depth) +
-				"valueNode(" + value + "," + ns + ")\n"
-			case binopNode(numbers, ops, idx, ns) => printMinus("-", depth) +
-				"binopNode(idx=" + idx + ",ns=" + ns + ")\n" +
-				printMinus("-", depth + increment) + numbers + "\n" +
-				printMinus("-", depth + increment) + ops + "\n"
-			case opNode(b, ns) => b
-			case assignNode(id, b, deff, idx, ns) => printMinus("-", depth) +
-				"assignNode(" + id + ", definition=" + deff + ", idx=" + idx + ", ns=" + ns + ")\n" +
+			/*case valueNode(value, ns) => printMinus("-", depth) +
+				"valueNode(" + value + "," + ns + ")\n"*/
+			case binopNode(op, left, right) => printMinus("-", depth) +
+				"binopNode(" + op + ")\n" +
+				recursion(left, depth + increment) +
+				recursion(right, depth + increment)
+
+			/*case opNode(b, ns) => b*/
+			case assignNode(id, b) => printMinus("-", depth) +
+				"assignNode(" + id + ")\n" +
 				recursion(b, depth + increment)
-			case blockNode(children, ns) => {
-				val s = printMinus("-", depth) + "blockNode(" + children.length + ")\n"
-				val pc = children.map(x => recursion(x, depth + increment)).mkString("")
-				s + pc
-			}
+
+			case arrayNode(elem) => printMinus("-", depth) +
+				"arrayNode()\n" +
+				elem.map(e => recursion(e, depth + increment)).mkString
+
+			case blockNode(children) => printMinus("-", depth) +
+				"blockNode(#children=" + children.length + ")\n" +
+				children.map(x => recursion(x, depth + increment)).mkString("")
+
+			/*
 			case ifNode(c, b, Some(e), ns) => printMinus("-", depth) +
 				"ifNode\n" +
 				recursion(c, depth + increment) +
@@ -76,7 +82,7 @@ class TreePrinter {
 				args.map(e => recursion(e, depth + increment)).mkString(",")
 			case objectAssociatedFunctionNode(name, functions, ns) => printMinus("-", depth) +
 				"ObjectAssociatedFunctionNode(" + name + ")\n" +
-				functions.map(e => recursion(e, depth + increment)).mkString(",")
+				functions.map(e => recursion(e, depth + increment)).mkString(",")*/
 
 			case x => printMinus("-", depth) +
 				x.toString + "\n"
