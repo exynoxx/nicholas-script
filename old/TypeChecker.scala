@@ -1,5 +1,6 @@
-import java.util.NoSuchElementException
+package old
 
+import java.util.NoSuchElementException
 import scala.collection.immutable.HashMap
 import scala.collection.{immutable, mutable}
 
