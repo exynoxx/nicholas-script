@@ -1,35 +1,25 @@
-ns := {
-	s:string,
-	override +: (this:ns, other:ns):ns => ?$ ns{s:format!("{}{}", self.s, other.s)} ?$,
+array := {
+	base : [int],
+	push: (elem:int) => ?$ self.base.push(elem) ?$,
+	clear: () => ?$ self.base.clear() ?$,
 };
 
-point := {
-	x:int,
-	y:int,
-	sum: ()=>x+y,
-	toString: ():string => {
-		tmp := ns(x) + ns(y);
-		return tmp.s;
-	},
-};
-
-p:=point(0,1,ns("yo"));
-p.x = 1;
-p.y += 2;
-sum := p.sum:;
-println: sum;
-
-
-
-printlnObj := (inn:ns) => {
-	println: inn.s;
-};
-
-printlnObj: (ns("a") + ns("b"));
-
+arr := array([]);
+arr.push: 5;
+arr.push: 3;
 
 vec2 := {
 	x:int,
 	y:int,
-	override +: (this:vec2, other:vec2):vec2 => ?$ vec2 {x: self.x+other.x , y:self.y+other.y } ?$,
+	cross : (other:vec2) => {
+		tmp := x*other.y + y * other.x;
+		double := (xx:int) => 2*xx;
+		return double: tmp;
+	},
 };
+
+a:= vec2(1,1);
+b:= vec2(2,2);
+c:= a.cross: b;
+
+arr.clear:;

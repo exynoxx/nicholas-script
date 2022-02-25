@@ -7,28 +7,66 @@ import scala.collection.{immutable, mutable}
 class TypeChecker {
 
 
+	def expandObjectVariables(objectID: String, varName: String, symbol: HashMap[String, Type]): HashMap[String, Type] = {
+		val localSymbol = mutable.HashMap[String, Type]()
+		val pattern = (objectID + "::(\\w+)").r
+		symbol.keys.foreach {
+			case k@pattern(variable) =>
+				localSymbol += (varName + "." + variable -> symbol(k))
+			case _ => ()
+		}
+		localSymbol.to(HashMap)
+	}
+
 	def typecheck(AST: Tree): Tree = {
 		val (t, _) = typerecurse(AST, AST, HashMap())
 		t
 	}
 
-	def typerecurse(AST: Tree, parent: Tree, symbol: HashMap[String, String]): (Tree, HashMap[String, String]) = {
+	//used to infer type of function with recursive return type. used in case functionNode
+	/*def findTypeRecursive(AST: Tree, symbol: HashMap[String, Type]): (Boolean, Type) = {
+		AST match {
+			case returnNode(b, ty) =>
+				b match {
+					case functionNode(_, _, _, _) => return (false, null)
+					case _ => ()
+				}
+				val (typedbody, _) = typerecurse(b, null, symbol)
+				(true, typedbody.ty)
+
+			case ifNode(_, b, eb, _) =>
+				findTypeRecursive(b, symbol) match {
+					case (true, ty) => (true, ty)
+					case (false, _) => eb match {
+						case Some(b) => findTypeRecursive(b, symbol)
+						case _ => (false, null)
+					}
+				}
+			case whileNode(_, b, _) => findTypeRecursive(b, symbol)
+			case forNode(_, _, b, _) => findTypeRecursive(b, symbol)
+			case blockNode(children, _) => {
+				children.foreach(e => {
+					val (t, ty) = findTypeRecursive(e, symbol)
+					if (t) return (true, ty)
+				})
+				(false, null)
+			}
+			case _ => (false, null)
+		}
+	}*/
+
+	def typerecurse(AST: Tree, parent: Tree, symbol: HashMap[String, Type]): (Tree, HashMap[String, Type]) = {
 		AST match {
 			case valueNode(value, ns) =>
 
 				val newns = if (value == "true" || value == "false") {
-					"bool"
+					boolType(null)
 				} else {
 					ns match {
 						case null =>
 							symbol.get(value) match {
-								case Some(v) => v match {
-									case "actualstring" => "string"
-									case x => x
-								}
+								case Some(v) => v
 								case None => throw new NoSuchElementException(value + " not found in symbol l25")
-
-
 							}
 						case _ => ns
 					}
@@ -37,33 +75,37 @@ class TypeChecker {
 
 			case binopNode(numbers, ops, idx, ns) =>
 				val newNum: List[Tree] = numbers.map(e => typerecurse(e, AST, symbol)._1)
-				val stringTypeExist = newNum.exists { case e: Tree => e.nstype == "string" | e.nstype == "actualstring" }
-				val boolTypeExist = ops.exists { case opNode(o, t) => t == "bool" }
-				val ty: String =
+				val stringTypeExist = newNum.map(e => e.ty).exists {
+					case stringType(null) => true
+					case _ => false
+				}
+				val boolTypeExist = ops.map(e => e.ty).exists {
+					case boolType(null) => true
+					case _ => false
+				}
+				val ty =
 					if (stringTypeExist) {
-						"string"
+						stringType(null)
 					} else if (boolTypeExist)
-						"bool"
+						boolType(null)
 					else {
-						"int"
+						newNum.head.ty match {
+							case explicitStringType(_) => stringType(null)
+							case x => x
+						}
 					}
 
 				(binopNode(newNum, ops, idx, ty), symbol)
 
 			case assignNode(id, body, deff, idx, ns) =>
 				val (btree, updatedSymbol) = typerecurse(body, AST, symbol)
+
 				val ty = ns match {
-					case null => btree.nstype match {
-						case "actualstring" => "string"
+					case null => btree.ty match {
+						case explicitStringType(_) => stringType(null)
 						case x => x
 					}
 					case x => x
-				}
-				val newbtree = ns match {
-					case Util.arrayTypePattern(arrTy) => btree match {
-						case arrayNode(elem, _) => arrayNode(elem, "array(" + arrTy + ")")
-					}
-					case x => btree
 				}
 
 				val newid = id match {
@@ -77,26 +119,12 @@ class TypeChecker {
 					case x => x.toString
 				}
 
-				val s = btree match {
-					//child is block? extract all variable ID's and add to symbol: textid.[varname]
-
-					//child, "p", is object? make p.x,p.y etc. (local variable types) accessable
-					case objectInstansNode(name, args, oty) =>
-						val objName = ty match {
-							case Util.objectInstansTypePattern(on) => on
-						}
-						val pattern = (objName + "::(\\w+)").r
-						var newGlobalSym = mutable.HashMap[String, String]()
-						symbol.keys.foreach {
-							case k@pattern(variable) =>
-								newGlobalSym += (textid + "." + variable -> symbol(k))
-							case _ => ()
-						}
-						updatedSymbol ++ HashMap(textid -> ty) ++ newGlobalSym.to(HashMap)
+				val s = ty match {
+					case objectInstansType(id, _, _) => expandObjectVariables(id, textid, symbol) ++ updatedSymbol ++ HashMap(textid -> ty)
 					case _ => updatedSymbol ++ HashMap(textid -> ty)
 				}
 
-				(assignNode(newid, newbtree, deff, idx, ty), s)
+				(assignNode(newid, btree, deff, idx, ty), s)
 			case functionNode(originalID, args, body, ns) =>
 				//get id from assign parent
 
@@ -112,42 +140,42 @@ class TypeChecker {
 				var localSymbol = symbol.to(mutable.HashMap)
 				var globalSymbol = symbol.to(mutable.HashMap)
 
-
 				var i = -1
 				args.foreach {
-					case argNode(name: String, ty: String) =>
+					case argNode(name: String, ty) =>
 						i += 1
-						val newTy = ty match {
-							case Util.functionTypePattern(_, t) => t
-							case _ => ty
+						ty match {
+							case objectType(idstring, _, _) =>
+								//if type of arg is object, make object variables visible
+								localSymbol ++= expandObjectVariables(idstring, name, symbol)
+							case _ => ()
 						}
-
-						//if type of arg is object, make object variables visible
-						if (symbol.contains(newTy)) {
-							val pattern = (newTy + "::(\\w+)").r
-							symbol.keys.foreach {
-								case k@pattern(variable) =>
-									localSymbol += (name + "." + variable -> symbol(k))
-								case _ => ()
-							}
-						}
-
-						localSymbol += (name -> newTy)
+						localSymbol += (name -> ty)
 						globalSymbol += ((id + "::" + i) -> ty)
 				}
 
+				//is ret type defined in syntax? no: find it.
+				/*val retTy = ns match {
+					case null => findTypeRecursive(body)
+					case x => x.ty
+				}*/
+
 				//recurse body
+				val symbolMapType = ns match {
+					case null => functionType(null,intType(null))
+					case x => x
+				}
+				localSymbol += (id -> symbolMapType)
 				val (fbody, _) = typerecurse(body, AST, localSymbol.to(HashMap))
 
-				//if type defined by syntax, use that
-				val ty = ns match {
-					case null => "(" + args.map(e => e.nstype).mkString(",") + ")=>" + fbody.nstype
-					case x => "(" + args.map(e => e.nstype).mkString(",") + ")=>" + x
+				val retTy = ns match {
+					case null => fbody.ty
+					case x => x.ty
 				}
 
-
-				//ret
+				val ty = functionType(args.map(e => e.ty), retTy)
 				(functionNode(id, args, fbody, ty), globalSymbol.to(HashMap))
+
 			//case argNode(name, ns) =>
 			case blockNode(children, _) =>
 				var s = symbol
@@ -156,19 +184,25 @@ class TypeChecker {
 					s = s ++ sym
 					t
 				}
-				var ns = "void"
+				var ns: Type = voidType(null)
 				newkids.foreach {
-					case returnNode(b, ty) => ns = ty
+					case returnNode(b, ty) =>
+						ns = ty match {
+							case voidType(_) => ns
+							case x => x
+						}
+
 					case _ =>
 				}
 				(blockNode(newkids, ns), s)
+
 			case ifNode(c, b, Some(els), ns) =>
 				val (ifbody, _) = typerecurse(b, AST, symbol)
 				val (elsbody, _) = typerecurse(els, AST, symbol)
-				(ifNode(c, ifbody, Some(elsbody), ifbody.nstype), symbol)
+				(ifNode(c, ifbody, Some(elsbody), ifbody.ty), symbol)
 			case ifNode(c, b, None, ns) =>
 				val (ifbody, _) = typerecurse(b, AST, symbol)
-				(ifNode(c, ifbody, None, ifbody.nstype), symbol)
+				(ifNode(c, ifbody, None, ifbody.ty), symbol)
 			case whileNode(c, b, ns) =>
 				val (nc, _) = typerecurse(c, AST, symbol)
 				val (nb, _) = typerecurse(b, AST, symbol)
@@ -176,18 +210,18 @@ class TypeChecker {
 			case forNode(valueNode(variable, _), arr, body, ns) =>
 				//val (nvar, _) = typerecurse(variable, AST, symbol)
 				val (narr, _) = typerecurse(arr, AST, symbol)
-				val varTy = narr.nstype match {
-					case Util.arrayTypePattern(ty) => ty
+				val varTy = narr.ty match {
+					case arrayType(t) => t
 				}
 				val (nbody, _) = typerecurse(body, AST, symbol ++ HashMap(variable -> varTy))
 
-				(forNode(valueNode(variable, varTy), narr, nbody, "void"), symbol)
+				(forNode(valueNode(variable, varTy), narr, nbody, voidType(null)), symbol)
 			case callNode(id, args, deff, ns) =>
 				var i = -1
 				val newargs = args.map { e =>
 					val (t, _) = typerecurse(e, AST, symbol)
 					t match {
-						case arrayNode(elem, Util.arrayTypePattern(ty)) =>
+						case arrayNode(elem, _) =>
 							i += 1
 							val newTy = symbol.get(id + "::" + i).get
 							arrayNode(elem, newTy)
@@ -197,7 +231,7 @@ class TypeChecker {
 					}
 				}
 				val ty = symbol.get(id) match {
-					case Some(t) => Util.getReturnType(t)
+					case Some(t) => t.ty
 					case None => println(id + " not found in symbol")
 						throw new NoSuchElementException
 				}
@@ -205,54 +239,31 @@ class TypeChecker {
 				(callNode(id, newargs, deff, ty), symbol)
 			case returnNode(body, ns) =>
 				val (newbody, _) = typerecurse(body, AST, symbol)
-				(returnNode(newbody, newbody.nstype), symbol)
+				(returnNode(newbody, newbody.ty), symbol)
 
 			case arrayNode(elem, ns) =>
 				val newelem = elem.map(e => typerecurse(e, AST, symbol)._1)
-				var types = new mutable.HashMap[String, Int]()
-				newelem.foreach {
-					case x => types.updateWith(x.nstype)({
-						case Some(count) => Some(count + 1)
-						case None => Some(1)
-					})
-				}
-				val newTy = types.size match {
+				val newTy = newelem.size match {
 					case 0 => ns
-					case _ => types.maxBy(_._2)._1 match {
-						case "actualstring" => "array(string)"
-						case x => "array(" + x + ")"
-					}
+					case _ => arrayType(newelem.head.ty)
 				}
 				(arrayNode(newelem, newTy), symbol)
 
 			case accessNode(name, index, ns) =>
 				val arrayName = symbol.get(name).get
 				val newTy = arrayName match {
-					case Util.arrayTypePattern(ty) => ty
+					case arrayType(t) => t
 				}
 				val (idx, _) = typerecurse(index, AST, symbol)
 				(accessNode(name, idx, newTy), symbol)
 
 
 			case anonNode(args, body, ns) =>
-				var localSymbol = symbol.to(mutable.HashMap)
-
-				var i = -1
-				args.foreach {
-					case argNode(name: String, ty: String) =>
-						i += 1
-						localSymbol += (name -> ty)
+				val tmp: Tree = functionNode(null, args, body, ns)
+				val result = typerecurse(tmp, AST, symbol)._1 match {
+					case functionNode(_, newargs, newbody, ty) => anonNode(newargs, newbody, ty)
 				}
-
-				//recurse body
-				val (fbody, _) = typerecurse(body, AST, localSymbol.to(HashMap))
-
-				//if type defined by syntax, use that
-				val ty = ns match {
-					case null => fbody.nstype
-					case x => x
-				}
-				(anonNode(args, fbody, ty), symbol)
+				(result, symbol)
 
 			case objectNode(_, rows, ns) =>
 				val id = parent match {
@@ -260,26 +271,31 @@ class TypeChecker {
 				}
 
 				var globalSymbol = symbol.to(mutable.HashMap)
-				var localSymbol = mutable.HashMap[String, String]()
+				var localSymbol = symbol.to(mutable.HashMap)
 
-				//put struct variables into local scope
+				//put struct variables and object definition into local scope
 				rows.foreach {
-					case objectElementNode(name, ty: String) =>
+					case objectElementNode(name, ty) =>
+						localSymbol += ("self." + name -> ty)
 						localSymbol += (name -> ty)
+						localSymbol += ((id + "::" + name) -> ty)
+					case functionNode(name, _, _, ty) =>
+						localSymbol += ((id + "::" + name) -> ty)
 					case x => ()
 				}
-				localSymbol += (id -> ("object(" + id + ")"))
+				localSymbol += (id -> objectType(id, null, null))
+				localSymbol += ("self" -> objectType(id, null, null))
 
 				//typecheck functions with local var's in scope
 				val newrows = rows.map {
 					case overrideNode(op, f, _) =>
 						val (tyF, _) = typerecurse(f, AST, localSymbol.to(HashMap))
-						overrideNode(op, tyF, id)
-					case x =>
-						typerecurse(x, AST, localSymbol.to(HashMap))._1
+						overrideNode(op, tyF, objectType(id, null, null))
+					case x => typerecurse(x, AST, localSymbol.to(HashMap))._1
 				}
+
+				//put type of vars and funcs in global scope
 				newrows.foreach {
-					//put type of vars and funcs in global scope
 					case objectElementNode(name, ty) =>
 						globalSymbol += ((id + "::" + name) -> ty)
 					case functionNode(name, _, _, ty) =>
@@ -287,10 +303,11 @@ class TypeChecker {
 					case _ => ()
 				}
 
-				val ty = "object(" + id + "," + newrows.map(t => t.nstype).mkString(",") + ")"
+				val ty = objectType(id, newrows.map(t => t.ty), null)
 				(objectNode(id, newrows, ty), globalSymbol.to(HashMap))
-			case objectInstansNode(id, args, ns) =>
 
+
+			case objectInstansNode(id, args, ns) =>
 				//get all variables in object type
 				var s = symbol.to(mutable.HashMap)
 				val pattern = (id + "::(\\w+)").r
@@ -303,7 +320,7 @@ class TypeChecker {
 					typerecurse(_, AST, localSym)._1
 				}
 
-				val ty = "objectInstans(" + id + "," + newargs.map(t => t.nstype) + ")"
+				val ty = objectInstansType(id, newargs.map(t => t.ty), null)
 				(objectInstansNode(id, newargs, ty), symbol)
 
 
@@ -312,7 +329,7 @@ class TypeChecker {
 				(overrideNode(op, f, ns), symbol)
 
 
-			case lineNode(t, ns) => (lineNode(t, "void"), symbol)
+			case lineNode(t, ns) => (lineNode(t, voidType(null)), symbol)
 			case x => (x, symbol)
 		}
 	}

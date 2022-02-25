@@ -6,10 +6,9 @@ import scala.collection.mutable.ListBuffer
 
 class TreeAugmenter {
 
-	var functionArgumentTypes = mutable.HashMap[String, List[String]]()
 	var globalFunctionExtracts = ListBuffer[Tree]()
 
-	def iterateBlock(blockBody: List[Tree], objSymbol: HashMap[String, String]): List[Tree] = {
+	def iterateBlock(blockBody: List[Tree], objSymbol: HashMap[String, Type]): List[Tree] = {
 		blockBody match {
 			case x :: xs => {
 				val ret: List[Tree] = x match {
@@ -42,49 +41,24 @@ class TreeAugmenter {
 						}
 
 					case functionNode(id, args, body, ns) =>
+						val fbody = iterateBlock(List(body), objSymbol).head
+						List(functionNode(id, args, fbody, ns))
 
-						//update hashmap with a list: [type of each elem]
-						val argTypes = args.filter {
-							case specialArgNode(_, _) => false
-							case _ => true
-						}.map {
-							case argNode(name, Util.functionTypePattern(_, _)) => "void"
-							case argNode(name, ty) => ty
-						}
-						functionArgumentTypes += (id -> argTypes)
-
-
-						args.foreach {
-							case argNode(fid, ty) => {
-								if (Util.functionTypePattern.matches(ty)) {
-									val list = Util.functionTypePattern.findAllIn(ty).group(1).split(",")
-									functionArgumentTypes += (fid -> list.toList)
-								}
-							}
-							case _ =>
-						}
-
-						val fbody = iterateBlock(List(body), objSymbol)(0)
-						val retbody = fbody match {
-							case x =>
-								val tmp = returnNode(x, x.nstype)
-								blockNode(List(tmp), ns)
-
-						}
-						List(functionNode(id, args, retbody, ns))
 					case blockNode(children, ns) =>
 						val newchildren = iterateBlock(children, objSymbol)
 						List(blockNode(newchildren, ns))
 
 					case ifNode(c, b, els, ns) =>
-						val ifbody = iterateBlock(List(b), objSymbol)(0)
+						val ifbody = iterateBlock(List(b), objSymbol).head
 						val elsbody = els match {
-							case Some(els) => Some(iterateBlock(List(els), objSymbol)(0))
+							case Some(els) => Some(iterateBlock(List(els), objSymbol).head)
 							case None => None
 						}
-						List(ifNode(c, ifbody, elsbody, b.nstype))
+						List(ifNode(c, ifbody, elsbody, b.ty))
+
 					case whileNode(c, b, ns) =>
-						List(whileNode(c, iterateBlock(List(b), objSymbol)(0), ns))
+						List(whileNode(c, iterateBlock(List(b), objSymbol).head, ns))
+
 					case forNode(v, a, b, ns) =>
 						val tmpList = ListBuffer[Tree]()
 						val arrList = iterateBlock(List(a), objSymbol)
@@ -92,15 +66,15 @@ class TreeAugmenter {
 							case x :: xs =>
 								tmpList ++= xs
 								x match {
-									case arrayNode(elem, Util.arrayTypePattern(ty)) =>
+									case arrayNode(elem, ty) =>
 										val newname = Util.genRandomName()
-										tmpList += assignNode(valueNode(newname, ty), arrayNode(elem, ty), true, 0, "array(" + ty + ")")
+										tmpList += assignNode(valueNode(newname, ty), arrayNode(elem, ty), true, 0, ty)
 										valueNode(newname, ty)
 									case x => x
 								}
 						}
 
-						tmpList ++= List(forNode(v, newa, iterateBlock(List(b), objSymbol)(0), ns))
+						tmpList ++= List(forNode(v, newa, iterateBlock(List(b), objSymbol).head, ns))
 						tmpList.toList
 
 					case callNode(id, args, deff, ns) =>
@@ -124,7 +98,7 @@ class TreeAugmenter {
 						globalFunctionExtracts += functionNode(id, args, body, ty)
 						List(returnNode(valueNode(id, ty), ty))
 
-					case arrayNode(elem, Util.arrayTypePattern(ns)) =>
+					case arrayNode(elem, ns) =>
 						val tmpList = ListBuffer[Tree]()
 						val newelem = elem.map { x =>
 							val retList: List[Tree] = iterateBlock(List(x), objSymbol)
@@ -135,7 +109,7 @@ class TreeAugmenter {
 							}
 							retElement
 						}
-						tmpList += arrayNode(newelem, "array(" + ns + ")")
+						tmpList += arrayNode(newelem, ns)
 						tmpList.toList
 					case rangeNode(from, to, ns) =>
 						val tmpList = ListBuffer[Tree]()
@@ -145,8 +119,8 @@ class TreeAugmenter {
 									valueNode(v, vns)
 								case y =>
 									val id = Util.genRandomName()
-									val assign = assignNode(valueNode(id, ns), y, true, 0, "int")
-									val valn = valueNode(id, "int")
+									val assign = assignNode(valueNode(id, ns), y, true, 0, intType(null))
+									val valn = valueNode(id, intType(null))
 									tmpList += assign
 									valn
 							}
@@ -155,6 +129,7 @@ class TreeAugmenter {
 						val newto = extract(to)
 						tmpList += rangeNode(newfrom, newto, ns)
 						tmpList.toList
+
 					case accessNode(id, index, ns) =>
 						var preList: ListBuffer[Tree] = ListBuffer()
 						val list = iterateBlock(List(index), objSymbol).reverse
@@ -173,7 +148,7 @@ class TreeAugmenter {
 						val replacement = functionNode(randomName, args, body, ns)
 
 						var retList: ListBuffer[Tree] = ListBuffer()
-						retList += iterateBlock(List(replacement), objSymbol)(0)
+						retList += iterateBlock(List(replacement), objSymbol).head
 						retList += valueNode(randomName, ns)
 						retList.toList
 
@@ -182,14 +157,14 @@ class TreeAugmenter {
 						var funcs: ListBuffer[Tree] = ListBuffer()
 						var overrides: ListBuffer[Tree] = ListBuffer()
 
-						var newObjSymb = mutable.HashMap[String, String]()
+						var newObjSymb = mutable.HashMap[String,Type]()
 
 						val newrows = rows.filter {
 							case functionNode(name, args, body, ty) =>
 								funcs += functionNode(name, List(specialArgNode("&mut self", null)) ++ args, body, ty)
 								false
 							case overrideNode(op, f, ns) =>
-								val augmentedF = iterateBlock(List(f), newObjSymb.to(HashMap))(0)
+								val augmentedF = iterateBlock(List(f), newObjSymb.to(HashMap)).head
 								overrides += overrideNode(op, augmentedF, ns)
 								false
 							case objectElementNode(name, ty) =>

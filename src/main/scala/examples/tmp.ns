@@ -1,0 +1,148 @@
+array := {
+	base : [int],
+	push: (elem:int) => ?$ self.base.push(elem) ?$,
+	clear: () => ?$ self.base.clear() ?$,
+	override +: (other:array):array => {
+		?$ self.base.extend(other.base); ?$
+		return self;
+    },
+};
+
+sum := (l:[int]) => {
+	tmp := 0;
+	for (e in l) tmp += e;
+	return tmp;
+};
+
+l := array([1,2,3]);
+r := array(5..10);
+l.push: 4;
+res := l + r;
+println: (sum: res.base));
+
+
+
+
+
+
+
+println: (toString: a[0]);
+b := a[a[a[0]]+1];
+arr2 := a[1+1]+a[b%5]+a[((1+b)*5)%2];
+a[0] += b;
+println: (toString: a[0]);
+
+printArrS := (x:[string]) => {
+	for ( e in x ){
+		print: e;
+	}
+	println: "";
+};
+
+printArrI := (x:[int]) => {
+	for ( e in x ){
+		print: (toString: e);
+	}
+	println: "";
+};
+
+
+var c:[string] = ["1","2","3"];
+printArrI: [1,2,3];
+printArrS: c;
+
+add:=(a:int,b:int) => a+b;
+retString := () => "6";
+stringarray := ["7","8"];
+
+var aaa:[int] = [a[0],a[1],a[2]];
+bbb := [1,2,add: 1 2,a[4%5],5,toInt: "6",toInt: (stringarray[0])];
+
+printArrI: aaa;
+printArrI: bbb;
+printArrI: [a[0],a[1],a[2]];
+
+range := (x:int) => {
+	var tmp:[int] = [];
+	i:=0;
+
+	while (i < x) {
+		?$ tmp.push(i); ?$
+		i+=1;
+	}
+
+	return tmp;
+};
+
+printArrI: (range: 10);
+rangee := (x:int) => 1..x;
+for (i in 1..11) print: (toString: i);
+println: "";
+
+map := (f: (int)=>int, l:[int]) => {
+	var tmp:[int] = [];
+	for (e in l) ?$ tmp.push (f(e)); ?$
+	return tmp;
+};
+
+sum := (l:[int]) => {
+	tmp := 0;
+	for (e in l) tmp += e;
+	return tmp;
+};
+
+printArrI: (map: ((x:int) => x*2) 1..5);
+println: (toString: (sum: [1,2,3,4]));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ns := {
+	s:string,
+	override +: (other:ns):ns => ?$ ns{s:format!("{}{}", self.s, other.s)} ?$,
+};
+printlnObj := (inn:ns) => {
+	println: inn.s;
+};
+
+printlnObj: ns("a") + ns("b");
+
+point := {
+	x:int,
+	y:int,
+	sum: ()=>x+y,
+	toString: ():string => {
+		var tmp = ns(toString: self.x) + ns(toString: self.y);
+		return tmp.s;
+	},
+};
+
+p := point(0,1);
+p.x = 1;
+p.y += 2;
+sum := p.sum:;
+println: (toString: sum);
+println: (p.toString:);
+
+
+vec2 := {
+	x:int,
+	y:int,
+	override +: (other:vec2):vec2 =>  vec2(self.x+other.x , self.y+other.y),
+	override -: (other:vec2):vec2 =>  vec2(self.x-other.x , self.y-other.y),
+	override *: (other:vec2):vec2 =>  vec2(0, 0),
+	override /: (other:vec2):vec2 =>  vec2(1, 1),
+};
