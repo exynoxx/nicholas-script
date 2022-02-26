@@ -28,6 +28,11 @@ class TreePrinter {
 				"arrayNode()\n" +
 				elem.map(e => recursion(e, depth + increment)).mkString
 
+			case accessNode(array,idx) => printMinus("-", depth) +
+				"accessNode()\n" +
+				recursion(array, depth + increment)+
+				recursion(idx, depth + increment)
+
 			case blockNode(children) => printMinus("-", depth) +
 				"blockNode(#children=" + children.length + ")\n" +
 				children.map(x => recursion(x, depth + increment)).mkString("")
