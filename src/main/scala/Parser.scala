@@ -19,6 +19,8 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	def bool: Parser[Tree] = ("true" | "false") ^^ (s => boolNode(s == "true"))
 
+	val boolOp = "&" | "|" | "^" | ">" | ">=" | "<" | "<=" | "==" | "!="
+
 
 	// ### BINARY OPERATION ###
 	def binopList2Tree(left: Tree, list: List[String ~ Tree]): Tree = {
@@ -32,9 +34,11 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	}
 
 
-	def binop: Parser[Tree] = number ~ rep(("&" | "|" | "^") ~ number) ^^ {
-		case n ~ List() => n
-		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
+	def binop: Parser[Tree] = {
+		number ~ rep(boolOp ~ number) ^^ {
+			case n ~ List() => n
+			case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
+		}
 	}
 
 	def number: Parser[Tree] = term ~ rep(("+" | "-") ~ term) ^^ {
@@ -43,7 +47,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	}
 
-	def term: Parser[Tree] = factor ~ rep(("**" | "//" | "*" | "/") ~ factor) ^^ {
+	def term: Parser[Tree] = factor ~ rep(("**" | "//" | "*" | "/" | "%") ~ factor) ^^ {
 		case n ~ List() => n
 		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
 	}
@@ -67,10 +71,13 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 			}
 	}
 
+	def access: Parser[Tree] = (word | array) ~ "$" ~ expression ^^ { case array ~ _ ~ idx => accessNode(array, idx) }
+
 
 	// ### CODE BLOCKS ###
 	def block: Parser[Tree] = "{" ~ rep1(expression ~ (";" | "\n").?) ~ "}" ~ rep(expression) ^^ {
 		case _ ~ expList ~ _ ~ args =>
+
 			val exp = expList match {
 				case l => blockNode(l.map { case exp ~ option => exp })
 			}
@@ -82,7 +89,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	// ### FUNCTION CALL ###
 	//TODO: (exp)
-	def call: Parser[Tree] = (word | shortOperatos) ~ rep(array |  on |  binop ) ^^ { case f ~ args => callNode(f, args) }
+	def call: Parser[Tree] = (word | shortOperatos) ~ rep1(array | on | binop) ^^ { case f ~ args => callNode(f, args) }
 
 
 	// ### use f-on-operator ###
@@ -94,7 +101,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	// ### if else ###
 	//TODO
 
-	def expression: Parser[Tree] = array | assign | on | call | binop | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
+	def expression: Parser[Tree] = access | array | assign | on | call | binop | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
 
 	/*def assign: Parser[Tree] = defstatement | assignStatement
 
