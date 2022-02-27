@@ -53,10 +53,11 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	}
 
 	//(exp)|block | a.x
-	def factor: Parser[Tree] = integer | bool | word | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
+	def factor: Parser[Tree] = integer | bool | word | unary | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
 
 
 	// ### ASSIGN ###
+	//TODO: array access assign
 	def assign: Parser[Tree] = word ~ "=" ~ expression ^^ { case id ~ _ ~ b => assignNode(id, b) }
 
 
@@ -100,8 +101,11 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	// ### if else ###
 	//TODO
+	def notOpeator: Parser[Tree] = "!" ~ expression ^^{case not ~ exp => unopNode(not,exp)}
 
-	def expression: Parser[Tree] = access | array | assign | on | call | binop | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
+	def unary = notOpeator
+
+	def expression: Parser[Tree] = access | array | assign | on | call | binop | unary | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
 
 	/*def assign: Parser[Tree] = defstatement | assignStatement
 

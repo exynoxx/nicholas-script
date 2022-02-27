@@ -19,6 +19,10 @@ class TreePrinter {
 				recursion(left, depth + increment) +
 				recursion(right, depth + increment)
 
+			case unopNode(op, exp) => printMinus("-", depth) +
+				"binopNode(" + op + ")\n" +
+				recursion(exp, depth + increment)
+
 			/*case opNode(b, ns) => b*/
 			case assignNode(id, b) => printMinus("-", depth) +
 				"assignNode(" + id + ")\n" +
