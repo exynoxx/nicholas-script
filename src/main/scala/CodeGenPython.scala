@@ -9,5 +9,7 @@ class CodeGenPython {
 		case assignNode(id, b) => recurse(id) + "=" + recurse(b)
 		case arrayNode(elements) => "[" + elements.map(recurse).mkString(",") + "]"
 		case accessNode(array, idx) => recurse(array) + "[" + recurse(idx) + "]"
+		case functionNode(args, blockNode(elements)) => ""
+
 	}
 }
