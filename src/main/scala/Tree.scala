@@ -7,6 +7,8 @@ case class nullLeaf() extends Tree
 
 case class binopNode(op: String, left: Tree, right: Tree) extends Tree
 
+case class unopNode(op: String, exp: Tree) extends Tree
+
 case class integerNode(value: Int) extends Tree
 
 case class boolNode(value: Boolean) extends Tree
@@ -21,10 +23,17 @@ case class arrayNode(elements: List[Tree]) extends Tree
 
 case class blockNode(children: List[Tree]) extends Tree
 
-case class callNode(f:Tree, args: List[Tree]) extends Tree
+case class functionNode(args: List[Tree], body: Tree) extends Tree
 
-case class accessNode(array:Tree,index:Tree) extends Tree
+case class callNode(f: Tree, args: List[Tree]) extends Tree
 
+case class accessNode(array: Tree, index: Tree) extends Tree
+
+case class loopNode(variable: Tree, from: Tree, to: Tree, step: Tree, body: Tree)
+
+case class castNode(from: Tree, to: Tree, toTyp: Type) extends Tree
+
+case class arrayMultNode(element: Tree, amount: Tree) extends Tree
 
 
 /*
