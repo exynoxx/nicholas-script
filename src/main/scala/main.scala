@@ -51,7 +51,7 @@ object main {
 		//val in = "{1+1}/a;+/a;f/a; {1} 1 1"
 		//val in = "a;f;f/a; {f} 1 1;{x}/[1,2,3];f 1 1 + 1; + 1 a 3 4"
 		//val in = "a=[1,2,b=3];c=a$2;[0]$0; d=[e=[1,2],[3,4]]$0"
-		val in = "+/l10+2; !10; !true; 1+!10"
+		val in = "+/l10+2; !10; !true; 1+!10; ({x+5}[1,2,3]);"
 		printer.print(parseString(parser, in))
 
 		/*val typedTree = typeChecker.typecheck(AST)
