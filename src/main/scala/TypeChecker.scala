@@ -1,21 +1,39 @@
 import scala.collection.immutable.HashMap
+import scala.util.control.Exception
 
 class TypeChecker {
 
 	def typecheck(AST: Tree): Tree = {
-		val (t, _,_) = typerecurse(AST, AST, HashMap())
+		val (t, _,_) = typerecurse(AST, AST, HashMap("+"->intType()))
 		t
 	}
 
 	def typerecurse(AST: Tree, parent: Tree, symbol: HashMap[String, Type]): (Tree, Type, HashMap[String, Type]) = {
 		AST match {
-			case wordNode(x) => (wordNode(x), symbol(x), symbol)
+			case wordNode(x) =>
+				try {
+					(wordNode(x), symbol(x), symbol)
+				} catch {
+					case _ => (wordNode(x), intType(), symbol)
+				}
 
 			case integerNode(x) => (integerNode(x), intType(), symbol)
 
 			case boolNode(x) => (boolNode(x), boolType(), symbol)
 
 			case stringNode(x) => (stringNode(x), stringType(), symbol)
+
+			case unopNode(op,exp) =>
+
+				val (body,typ,nsymbol) = typerecurse(exp,AST,symbol)
+				op match {
+					case "!" =>
+						val fname = typ match {
+							case intType() => "_NSfac"
+							case boolType() => "_NSboolinv"
+						}
+						(libraryCallNode(fname,body),typ,nsymbol)
+				}
 
 			case binopNode(op, l, r) =>
 				val (left, ltyp, _) = typerecurse(l, AST, symbol)

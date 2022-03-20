@@ -1,12 +1,16 @@
-add float type (f64vsf32)
-bool: a < b < c < d not accepted in rust
-add error handling to combintor //| failure("illegal start of value")
-list comprehension
-add std lib wrapping rust vec and hashmap...
-i32 -> i64? maybe configurable.
-overload binop operators recursivly fix binop traversal
-bug: if return is not last element in block no return is printed
-add: x := [int]; short empty array notation
-pass by ref vs value
-generics
-2D arrays
+int + int = int
+int + list = elementwise add
+int ++ list = add to front of list
+list ++ int = add to back of list
+int + bool = int
+int + string = string
+list + list = concat
+list + X = elementwise +
+list ++ X = append
+list * int = list multiplication and concat
+int * string = ---||---
+{} * int = for loop
+{} a b c = func 3 args
+{} / [a,b,c] = apply func to each element in list = list
+f / list = list
++/ list = int

@@ -36,10 +36,12 @@ object main {
 		val parser = new Parser
 		val printer = new TreePrinter
 
-		/*val printer = new TreePrinter
 		val typeChecker = new TypeChecker
+		val codeGen = new CodeGenCpp
+
+
+		/*val printer = new TreePrinter
 		val treeAugmenter = new TreeAugmenter
-		val codeGen = new CodeGenRust
 
 		val inputFile = "src/main/scala/examples/object.ns"
 		val outputFile = "out/output.rs"*/
@@ -52,7 +54,10 @@ object main {
 		//val in = "a;f;f/a; {f} 1 1;{x}/[1,2,3];f 1 1 + 1; + 1 a 3 4"
 		//val in = "a=[1,2,b=3];c=a$2;[0]$0; d=[e=[1,2],[3,4]]$0"
 		val in = "+/l10+2; !10; !true; 1+!10; ({x+5}[1,2,3]);"
-		printer.print(parseString(parser, in))
+		val ast = parseString(parser, in)
+		printer.print(ast)
+		println("txt source:")
+		println(codeGen.recurse(typeChecker.typecheck(ast)))
 
 		/*val typedTree = typeChecker.typecheck(AST)
 		//printer.print(typedTree)
