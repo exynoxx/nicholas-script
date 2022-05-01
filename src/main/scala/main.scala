@@ -56,7 +56,7 @@ object main {
 		//val in = "a=[1,2,b=3];c=a$2;[0]$0; d=[e=[1,2],[3,4]]$0"
 		//val in = "+/l10+2; !10; !true; 1+!10; ({x+5}[1,2,3]);"
 		//val in = "{a+b*c} 1 2 3; !true; !5; {x*2}/[1,2,3]"
-		val in = "x=5;x=[1,2,3];x=1+1;"
+		val in = "x=5;x=[1,\"2\",3];x=1+1;"
 		val ast = parseString(parser, in)
 		printer.print(ast)
 		println("txt source:")

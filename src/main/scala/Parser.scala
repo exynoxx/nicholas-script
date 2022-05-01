@@ -51,7 +51,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	})("term")
 
 	//(exp)|block | a.x
-	def factor: Parser[Tree] = log(integer | bool | word | unary | block | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
+	def factor: Parser[Tree] = log(integer | strings | bool | word | unary | block | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
 
 
 	// ### ASSIGN ###

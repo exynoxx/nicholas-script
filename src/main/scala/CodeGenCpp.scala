@@ -2,7 +2,7 @@ class CodeGenCpp {
 	def recurse(t: Tree): String = t match {
 		case integerNode(x) => "NSvar("+x+")"
 		case boolNode(x) => "NSvar("+x+")"
-		case stringNode(x) => x
+		case stringNode(x) => "NSvar("+x+")"
 		case wordNode(x) => x
 		case binopNode(op, left, right) => recurse(left) + op + recurse(right)
 		case assignNode(id, b) => "auto " + recurse(id) + "=" + recurse(b)
