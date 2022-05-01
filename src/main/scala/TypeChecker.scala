@@ -110,7 +110,11 @@ class TypeChecker {
 				//TODO register arg variables x;y;z;
 				//TODO convert to function type
 				val (_, unusedVariables) = findUnusedVariables(blockNode(children), HashSet())
-				val nChildren = children.map(x => typerecurse(x, AST, symbol)._1)
+				val recursedChildren = children.map(x => typerecurse(x, AST, symbol)._1)
+				val nChildren = recursedChildren.flatMap{
+					case sequenceNode(l)=> l
+					case x => List(x)
+				}
 				(functionNode(unusedVariables.toList.map(wordNode), blockNode(nChildren)), functionType(), symbol)
 
 			case callNode(f, args) =>
@@ -119,7 +123,7 @@ class TypeChecker {
 				val (func, ftyp, sym) = typerecurse(f, AST, symbol)
 
 				ftyp match {
-					case functionType =>
+					case functionType() =>
 						val id = wordNode(Util.genRandomName())
 						val assign = assignNode(id,func)
 						val call = callNode(id,nargs)

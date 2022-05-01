@@ -12,7 +12,7 @@ class CodeGenCpp {
 		case functionNode(args, body) => "NSvar([=]("+args.map(recurse).mkString(",")+")"+recurse(body)+")"
 		case libraryCallNode(fname, expr) => fname+"("+expr.map(recurse).mkString(",")+")"
 		case callNode(wordNode(f),args) => f+"("+args.map(recurse).mkString(",") +")"
-		case sequenceNode(l) => l.map(recurse).mkString(";\n")
+		//case sequenceNode(l) => l.map(recurse).mkString(";\n")
 		case x => x.toString
 	}
 
