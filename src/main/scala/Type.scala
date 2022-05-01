@@ -11,6 +11,6 @@ case class stringType() extends Type
 
 case class blockType() extends Type
 
-case class functionType(args: List[Type], output: Type) extends Type
+case class functionType() extends Type
 
-case class arrayType(typ:Type) extends Type
+case class arrayType() extends Type

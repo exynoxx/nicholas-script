@@ -14,3 +14,7 @@ int * string = ---||---
 {} / [a,b,c] = apply func to each element in list = list
 f / list = list
 +/ list = int
+
+
+//copy by value capture
+lambda = [=] (x) mutable {x+1}
