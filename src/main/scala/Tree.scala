@@ -19,6 +19,8 @@ case class wordNode(value: String) extends Tree
 
 case class assignNode(id: Tree, body: Tree) extends Tree
 
+case class reassignNode(id: Tree, body: Tree) extends Tree
+
 case class arrayNode(elements: List[Tree]) extends Tree
 
 case class blockNode(children: List[Tree]) extends Tree

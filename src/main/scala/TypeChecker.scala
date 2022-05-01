@@ -103,14 +103,27 @@ class TypeChecker {
 
 			case assignNode(wordNode(id), b) =>
 				val (body, btyp, sym) = typerecurse(b, AST, symbol)
+
 				val newsym = symbol ++ HashMap(id -> btyp)
-				(assignNode(wordNode(id), body), btyp, newsym)
+				if (symbol.contains(id)) {
+					(reassignNode(wordNode(id), body), btyp, newsym)
+				} else {
+					(assignNode(wordNode(id), body), btyp, newsym)
+				}
+
 
 			case blockNode(children) =>
 				//TODO register arg variables x;y;z;
 				//TODO convert to function type
 				val (_, unusedVariables) = findUnusedVariables(blockNode(children), HashSet())
-				val recursedChildren = children.map(x => typerecurse(x, AST, symbol)._1)
+
+				var culSymTable = symbol.to(collection.mutable.HashMap)
+
+				val recursedChildren = children.map(x => {
+					val (exp,typ,localSym) = typerecurse(x, AST, culSymTable.to(HashMap))
+					culSymTable ++= localSym
+					exp
+				})
 				val nChildren = recursedChildren.flatMap{
 					case sequenceNode(l)=> l
 					case x => List(x)

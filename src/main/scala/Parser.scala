@@ -68,8 +68,8 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 
 	// ### CODE BLOCKS ###
-	def block: Parser[Tree] = log("{" ~ rep1sep(expression,";" | "\n") ~ "}"^^ {
-		case _ ~ expList ~ _ => blockNode(expList)
+	def block: Parser[Tree] = log("{" ~ rep1sep(expression,";" | "\n") ~ (";" | "\n").? ~ "}"^^ {
+		case _ ~ expList ~ _ ~ _ => blockNode(expList)
 	})("block")
 
 	// ### FUNCTION CALL ###

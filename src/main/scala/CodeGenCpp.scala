@@ -6,6 +6,7 @@ class CodeGenCpp {
 		case wordNode(x) => x
 		case binopNode(op, left, right) => recurse(left) + op + recurse(right)
 		case assignNode(id, b) => "auto " + recurse(id) + "=" + recurse(b)
+		case reassignNode(id, b) => recurse(id) + "=" + recurse(b)
 		case arrayNode(elements) => "NSvar({" + elements.map(recurse).mkString(",") + "})"
 		case accessNode(array, idx) => recurse(array) + "[" + recurse(idx) + "]"
 		case blockNode(elem) => "\n{\n" + elem.map(recurse).mkString(";\n") + "\n}"
@@ -17,6 +18,6 @@ class CodeGenCpp {
 	}
 
 	def stringiFy(t:Tree):String=t match {
-		case functionNode(_,blockNode(elem)) => "int main () {\n" + elem.map(recurse).mkString(";\n") + "\n}"
+		case functionNode(_,blockNode(elem)) => "int main () {\n" + elem.map(recurse).mkString("",";\n",";\n") + "\n}"
 	}
 }
