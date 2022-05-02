@@ -6,7 +6,11 @@
 typedef struct NSvar _NSvar;
 enum NStype {VOID, INT,STRING,BOOL,ARRAY,FUNCTION0,FUNCTION1,FUNCTION2};
 
-typedef union NSvalue{
+typedef _NSvar (*_NSbinfunc)(_NSvar x, _NSvar y);
+typedef _NSvar (*_NSunifunc)(_NSvar x);
+typedef _NSvar (*_NSfunc)();
+
+union NSvalue{
     int i;
     std::string *s;
     bool b;
@@ -19,6 +23,10 @@ typedef union NSvalue{
 struct NSvar{
     NStype type;
     NSvalue value;
+
+    NSvar(){
+        
+    }
 
     NSvar(int i){
         auto val = NSvalue();
@@ -52,19 +60,19 @@ struct NSvar{
         value = val;
     }
 
-    NSvar(_NSvar (*f)()){
+    NSvar(_NSfunc f){
         auto val = NSvalue();
         val.f0 = f;
         type = FUNCTION0;
         value = val;
     }
-    NSvar(_NSvar (*f)(_NSvar)){
+    NSvar(_NSunifunc f){
         auto val = NSvalue();
         val.f1 = f;
         type = FUNCTION1;
         value = val;
     }
-    NSvar(_NSvar (*f)(_NSvar,_NSvar)){
+    NSvar(_NSbinfunc f){
         auto val = NSvalue();
         val.f2 = f;
         type = FUNCTION2;
@@ -73,8 +81,6 @@ struct NSvar{
 
     ~NSvar(){delete value.array;};
 };
-
-typedef _NSvar (*_NSbinfunc)(_NSvar x, _NSvar y);
 auto adders = new _NSbinfunc[8*8+8];
 
 _NSvar _NSadd(_NSvar x, _NSvar y){
@@ -86,9 +92,12 @@ _NSvar _NSadd(_NSvar x, _NSvar y){
 
 _NSvar _NSmap(_NSvar f, _NSvar array, _NSvar x)
 {
-    std::vector<NSvar> *tmp = new std::vector<NSvar>();
-    tmp->resize(array.value.array->size());
-    std::transform(array.value.array->begin(), array.value.array->end(),x, tmp->begin(), f.value.f2);
+    std::vector<NSvar> *tmp = new std::vector<NSvar>(array.value.array->size());
+    for (size_t i = 0; i < array.value.array->size(); i++)
+    {
+        tmp->at(i) = f.value.f2(x,array.value.array->at(i));
+    }
+    //std::transform(array.value.array->begin(), array.value.array->end(),x, tmp->begin(), f.value.f2);
     return _NSvar(tmp);
 }
 
@@ -96,9 +105,10 @@ _NSvar stdadder (_NSvar x, _NSvar y){
     return _NSvar(x.value.i+y.value.i);
 }
 _NSvar intlistadder(_NSvar x, _NSvar y){
-    return _NSmap(_NSvar(&_NSadd), y, x);
+    _NSbinfunc f = &_NSadd;
+    return _NSmap(_NSvar(5), y, x);
 }
-
+    
 int main(){
 
     adders[8*1+1] = &stdadder;
