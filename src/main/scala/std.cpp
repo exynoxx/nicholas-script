@@ -1,5 +1,6 @@
-#include <stdio>
+#include <iostream>
 #include <string>
+#include <algorithm>
 #include <vector>
 
 typedef struct NSvar _NSvar;
@@ -50,24 +51,28 @@ struct NSvar{
         type = ARRAY;
         value = val;
     }
+
+    NSvar(_NSvar (*f)()){
+        auto val = NSvalue();
+        val.f0 = f;
+        type = FUNCTION0;
+        value = val;
+    }
+    NSvar(_NSvar (*f)(_NSvar)){
+        auto val = NSvalue();
+        val.f1 = f;
+        type = FUNCTION1;
+        value = val;
+    }
+    NSvar(_NSvar (*f)(_NSvar,_NSvar)){
+        auto val = NSvalue();
+        val.f2 = f;
+        type = FUNCTION2;
+        value = val;
+    }
+
     ~NSvar(){delete value.array;};
 };
-
-template<_NSvar, _NSvar>
-auto _NSmap(_NSvar f, _NSvar array)
-{
-    std::vector<NSvar> tmp;
-    tmp.resize(array.value.array.size());
-    transform(array.value.array.begin(), array.value.array.end(), tmp.begin(), f.value.f1);
-    return tmp;
-}
-
-_NSvar stdadder (_NSvar x, _NSvar y){
-    return _NSvar(x.value.i+y.value.i);
-}
-_NSvar intlistadder(_NSvar x, _NSvar y){
-    return _NSmap(_NSvar(&_NSadd), y);
-}
 
 typedef _NSvar (*_NSbinfunc)(_NSvar x, _NSvar y);
 auto adders = new _NSbinfunc[8*8+8];
@@ -77,6 +82,21 @@ _NSvar _NSadd(_NSvar x, _NSvar y){
     //_NSvar (* adder)(_NSvar x, _NSvar y) = nullptr;
     auto adder = adders[x.type*8+y.type];
     return adder(x,y);
+}
+
+_NSvar _NSmap(_NSvar f, _NSvar array, _NSvar x)
+{
+    std::vector<NSvar> *tmp = new std::vector<NSvar>();
+    tmp->resize(array.value.array->size());
+    std::transform(array.value.array->begin(), array.value.array->end(),x, tmp->begin(), f.value.f2);
+    return _NSvar(tmp);
+}
+
+_NSvar stdadder (_NSvar x, _NSvar y){
+    return _NSvar(x.value.i+y.value.i);
+}
+_NSvar intlistadder(_NSvar x, _NSvar y){
+    return _NSmap(_NSvar(&_NSadd), y, x);
 }
 
 int main(){
