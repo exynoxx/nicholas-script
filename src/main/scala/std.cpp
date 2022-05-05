@@ -4,39 +4,39 @@
 #include <vector>
 #include <cstring>
 
-typedef struct NSvar _NSvar;
-enum NStype {VOID, INT,STRING,BOOL,ARRAY,FUNCTION0,FUNCTION1,FUNCTION2};
+struct _NS_var;
+enum _NS_enum {VOID, INT,STRING,BOOL,ARRAY,FUNCTION0,FUNCTION1,FUNCTION2};
 
-typedef _NSvar* var;
-typedef var (*_NSbinfunc)(var x, var y);
-typedef var (*_NSunifunc)(var x);
-typedef var (*_NSfunc)();
+typedef _NS_var* var;
+typedef var (*_NSfunc2)(var x, var y);
+typedef var (*_NSfunc1)(var x);
+typedef var (*_NSfunc0)();
 
 
-typedef union NSvalue{
+union _NS_value{
     int i;
     std::string *s;
     bool b;
     std::vector<var> *array;
-    _NSfunc f0;
-    _NSunifunc f1;
-    _NSbinfunc f2;
+    _NSfunc0 f0;
+    _NSfunc1 f1;
+    _NSfunc2 f2;
 
-    ~NSvalue(){
+    ~_NS_value(){
         std::cout<<"onion destructing:"<<i<<std::endl;
     }   
 
-}_NSvalue;
+};
 
-struct NSvar{
-    NStype type;
-    _NSvalue* value;
+struct _NS_var{
+    _NS_enum type;
+    _NS_value* value;
 
-    NSvar(NStype t,_NSvalue* v){
+    _NS_var(_NS_enum t,_NS_value* v){
         type=t;
         value=v;
     }
-    ~NSvar(){
+    ~_NS_var(){
         std::cout<<"destructing:"<<value->i<<std::endl;
         if (type == ARRAY) delete value->array;
         delete value;
@@ -44,36 +44,36 @@ struct NSvar{
 };
 
 var create_var(int i){
-    return new _NSvar(INT,new _NSvalue{.i=i});
+    return new _NS_var(INT,new _NS_value{.i=i});
 }
 var create_var(std::vector<var> *a){
-    auto value = new _NSvalue; 
+    auto value = new _NS_value; 
     value->array = a;
-    return new _NSvar(ARRAY,value);
+    return new _NS_var(ARRAY,value);
 }
 var create_var(std::initializer_list<var> init){
-    auto value = new _NSvalue; 
+    auto value = new _NS_value; 
     value->array = new std::vector<var>(init.begin(),init.end());
-    return new _NSvar(ARRAY,value);
+    return new _NS_var(ARRAY,value);
 }
-var create_var(_NSfunc f){
-    auto value = new _NSvalue; 
+var create_var(_NSfunc0 f){
+    auto value = new _NS_value; 
     value->f0 = f;
-    return new _NSvar(FUNCTION0,value);
+    return new _NS_var(FUNCTION0,value);
 }
-var create_var(_NSunifunc f){
-    auto value = new _NSvalue; 
+var create_var(_NSfunc1 f){
+    auto value = new _NS_value; 
     value->f1 = f;
-    return new _NSvar(FUNCTION1,value);
+    return new _NS_var(FUNCTION1,value);
 }
-var create_var(_NSbinfunc f){
-    auto value = new _NSvalue; 
+var create_var(_NSfunc2 f){
+    auto value = new _NS_value; 
     value->f2 = f;
-    return new _NSvar(FUNCTION2,value);
+    return new _NS_var(FUNCTION2,value);
 }
 
 
-auto adders = new _NSbinfunc[8*8+8];
+auto adders = new _NSfunc2[8*8+8];
 
 
 
@@ -97,7 +97,7 @@ var _NSadd(var x, var y){
 
 
 var intlistadder(var x, var y){
-    _NSbinfunc f = &_NSadd;
+    _NSfunc2 f = &_NSadd;
     return _NSmap(create_var(f), y, x);
 }
 
@@ -120,7 +120,7 @@ int main(){
     std::cout << x->value->i << "\n";
     
     // std::cout<<"four"<<"\n";
-    // auto four = _NSvar(4);
+    // auto four = _NS_var(4);
 
     std::cout<<"v"<<"\n";
     auto four = create_var(4);
@@ -151,48 +151,48 @@ int main(){
 
 // NSvar(int i){
 //         type = INT;
-//         value = new _NSvalue{};
+//         value = new _NS_value{};
 //         value->i=i;
 //     }
 //     NSvar(std::string *s){
-//         auto val = new _NSvalue{};
+//         auto val = new _NS_value{};
 //         val->s=s;
 //         type = STRING;
 //         value = val;
 //     }
 //     NSvar(bool b){
-//         auto val = new _NSvalue{};
+//         auto val = new _NS_value{};
 //         val->b=b;
 //         type = BOOL;
 //         value = val;
 //     }
 //     NSvar(std::vector<NSvar> *array){
-//         auto val = new _NSvalue{};
+//         auto val = new _NS_value{};
 //         val->array=array;
 //         type = ARRAY;
 //         value = val;
 //     }
 //     NSvar(std::initializer_list<NSvar> init){
-//         auto val = new _NSvalue{};
+//         auto val = new _NS_value{};
 //         val->array=new std::vector<NSvar>(init.begin(),init.end());
 //         type = ARRAY;
 //         value = val;
 //     }
 
 //     NSvar(_NSfunc f){
-//         auto val = new _NSvalue{};
+//         auto val = new _NS_value{};
 //         val->f0 = f;
 //         type = FUNCTION0;
 //         value = val;
 //     }
 //     NSvar(_NSunifunc f){
-//         auto val = new _NSvalue{};
+//         auto val = new _NS_value{};
 //         val->f1 = f;
 //         type = FUNCTION1;
 //         value = val;
 //     }
 //     NSvar(_NSbinfunc f){
-//         auto val = new _NSvalue{};
+//         auto val = new _NS_value{};
 //         val->f2 = f;
 //         type = FUNCTION2;
 //         value = val;
