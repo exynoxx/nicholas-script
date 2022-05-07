@@ -78,12 +78,11 @@ class TypeChecker {
 			case binopNode(op, l, r) =>
 				val (left, ltyp, _) = typerecurse(l, AST, symbol)
 				val (right, rtyp, _) = typerecurse(r, AST, symbol)
-				val variable = wordNode(Util.genRandomName())
 				val (ret: Tree, typ: Type) = (op, ltyp, rtyp) match {
-					case ("*", functionType(), intType()) => (loopNode(variable, integerNode(0), right, integerNode(1), left), voidType)
-					case ("*", functionType(), boolType()) => (loopNode(variable, integerNode(0), right, integerNode(1), left), voidType)
-					case ("*", intType(), functionType()) => (loopNode(variable, integerNode(0), left, integerNode(1), right), voidType)
-					case ("*", boolType(), functionType()) => (loopNode(variable, integerNode(0), left, integerNode(1), right), voidType)
+					case ("*", functionType(), intType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
+					case ("*", functionType(), boolType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
+					case ("*", intType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
+					case ("*", boolType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
 					case ("*", arrayType(), intType()) => (arrayMultNode(left.asInstanceOf[arrayNode].elements.head, right), arrayType())
 					case ("*", intType(), arrayType()) => (arrayMultNode(right.asInstanceOf[arrayNode].elements.head, left), arrayType())
 
