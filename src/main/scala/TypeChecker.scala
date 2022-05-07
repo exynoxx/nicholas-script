@@ -83,19 +83,8 @@ class TypeChecker {
 					case ("*", functionType(), boolType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
 					case ("*", intType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
 					case ("*", boolType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
-					case ("*", arrayType(), intType()) => (arrayMultNode(left.asInstanceOf[arrayNode].elements.head, right), arrayType())
-					case ("*", intType(), arrayType()) => (arrayMultNode(right.asInstanceOf[arrayNode].elements.head, left), arrayType())
-
 					case ("/", functionType(), arrayType()) => (libraryCallNode("_NS_map1", List(left,right)), arrayType())
-
-					//case (_, intType, intType) => binopNode(op, left, right)
 					case (_, _, _) => (binopNode(op, left, right), ltyp)
-
-
-					//case (intType, stringType) => //
-					//case (intType, boolType) => //true=1
-					//case (boolType, intType) => //true=1
-					//case (boolType, functionType(_, _)) => if (left==)
 				}
 				(ret, typ, symbol)
 
@@ -138,6 +127,7 @@ class TypeChecker {
 				val nargs = args.map(x => typerecurse(x, AST, symbol)._1)
 				val (func, ftyp, sym) = typerecurse(f, AST, symbol)
 				(callNode(func, nargs), ftyp, sym)
+
 
 
 			case arrayNode(elements) =>

@@ -113,6 +113,20 @@ _NS_var _NS_boolinv(_NS_var x)
     return _NS_create_var(!x->value->b);
 }
 
+_NS_var _NS_print(_NS_var x){
+
+	switch(x) {
+      case x:
+        // code block
+        break;
+      case y:
+        // code block
+        break;
+      default:
+        // code block
+    }
+}
+
 
 
 /*   EVERY OPERATOR   */
@@ -177,6 +191,11 @@ _NS_var _NS_std_mult (_NS_var x, _NS_var y){
     return _NS_create_var(x->value->i*y->value->i);
 }
 
+_NS_var _NS_int_list_mult (_NS_var x, _NS_var y){
+    //reserve to optimize performance
+    //auto tmp = new std::vector<_NS_var>(x->value->)
+    //v.insert(v.end(),v_prime.begin(),v_prime.end());
+}
 
 
 

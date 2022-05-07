@@ -87,7 +87,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	def unary: Parser[Tree] = log(notOpeator)("unary")
 
-	def expression: Parser[Tree] = log(access | array | assign | call | binop | unary | block |  "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
+	def expression: Parser[Tree] = log(access |  assign | call | binop | unary | array | block |  "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
 
 	/*def assign: Parser[Tree] = log(defstatement | assignStatement
 
