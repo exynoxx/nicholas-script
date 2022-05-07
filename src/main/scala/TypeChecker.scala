@@ -86,7 +86,7 @@ class TypeChecker {
 					case ("*", arrayType(), intType()) => (arrayMultNode(left.asInstanceOf[arrayNode].elements.head, right), arrayType())
 					case ("*", intType(), arrayType()) => (arrayMultNode(right.asInstanceOf[arrayNode].elements.head, left), arrayType())
 
-					case ("/", functionType(), arrayType()) => (libraryCallNode("_NSmap", List(left,right)), arrayType())
+					case ("/", functionType(), arrayType()) => (libraryCallNode("_NS_map1", List(left,right)), arrayType())
 
 					//case (_, intType, intType) => binopNode(op, left, right)
 					case (_, _, _) => (binopNode(op, left, right), ltyp)

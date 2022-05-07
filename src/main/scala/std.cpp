@@ -46,6 +46,9 @@ struct _NS_var_struct{
     }
 };
 
+_NS_var _NS_create_var(){
+    return new _NS_var_struct(VOID,NULL);
+}
 _NS_var _NS_create_var(int i){
     return new _NS_var_struct(INT,new _NS_value{.i=i});
 }
@@ -77,6 +80,14 @@ _NS_var _NS_create_var(_NSfunc2 f){
 
 
 /*   MISC   */
+_NS_var _NS_map1(_NS_var f,_NS_var array)
+{
+    std::vector<_NS_var> *tmp = new std::vector<_NS_var>(array->value->array->size());
+    for (size_t i = 0; i < array->value->array->size(); i++)
+        tmp->at(i) = f->value->f1(array->value->array->at(i));
+    return _NS_create_var(tmp);
+}
+
 _NS_var _NS_map2(_NS_var f,_NS_var array,_NS_var x)
 {
     std::vector<_NS_var> *tmp = new std::vector<_NS_var>(array->value->array->size());
