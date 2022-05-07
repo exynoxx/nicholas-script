@@ -135,16 +135,7 @@ class TypeChecker {
 				//TODO symbol register each arg if contain assign
 				val nargs = args.map(x => typerecurse(x, AST, symbol)._1)
 				val (func, ftyp, sym) = typerecurse(f, AST, symbol)
-
-				ftyp match {
-					case functionType() =>
-						val id = wordNode(Util.genRandomName())
-						val assign = assignNode(id,func)
-						val call = callNode(id,nargs)
-						(sequenceNode(List(assign,call)),ftyp,sym)
-					case _ =>
-						(callNode(func, nargs), ftyp, sym)
-				}
+				(callNode(func, nargs), ftyp, sym)
 
 
 			case arrayNode(elements) =>

@@ -31,6 +31,12 @@ class CodeGenCpp {
 		case returnNode(exp) => "return " + recurse(exp)
 		case libraryCallNode(fname, expr) => fname+"("+expr.map(recurse).mkString(",")+")"
 		case callNode(wordNode(f),args) => f+"("+args.map(recurse).mkString(",") +")"
+		case callNode(functionNode(fargs,body),args) =>
+			val id = Util.genRandomName()
+			preMainFunctions += "_NS_var " + id
+			preMainFunctions += "("+fargs.map(x=>"_NS_var "+recurse(x)).mkString(",")+")"
+			preMainFunctions += recurse(body)
+			id+"("+args.map(recurse).mkString(",") +")"
 		//case sequenceNode(l) => l.map(recurse).mkString(";\n")
 		case x => x.toString
 	}
