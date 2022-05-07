@@ -82,10 +82,7 @@ _NS_var _NSmap(_NS_var f,_NS_var array,_NS_var x)
 {
     std::vector<_NS_var> *tmp = new std::vector<_NS_var>(array->value->array->size());
     for (size_t i = 0; i < array->value->array->size(); i++)
-    {
         tmp->at(i) = f->value->f2(x,array->value->array->at(i));
-    }
-    //std::transform(array.value.array->begin(), array.value.array->end(),x, tmp->begin(), f.value.f2);
     return _NS_create_var(tmp);
 }
 
@@ -94,12 +91,21 @@ _NS_var _NSmap(_NS_var f,_NS_var array,_NS_var x)
 
 
 /*   EVERY OPERATOR   */
-auto _NS_binary_ops = new _NSfunc2[8*8+8];
-
+auto _NS_addition_ops = new _NSfunc2[8*8+8];
+auto _NS_minus_ops = new _NSfunc2[8*8+8];
+auto _NS_mult_ops = new _NSfunc2[8*8+8];
 
 _NS_var _NSadd(_NS_var x, _NS_var y){
-    auto adder = _NS_binary_ops[x->type*8+y->type];
+    auto adder = _NS_addition_ops[x->type*8+y->type];
     return adder(x,y);
+}
+_NS_var _NSminus(_NS_var x, _NS_var y){
+    auto minus = _NS_minus_ops[x->type*8+y->type];
+    return minus(x,y);
+}
+_NS_var _NSmult(_NS_var x, _NS_var y){
+    auto mult = _NS_mult_ops[x->type*8+y->type];
+    return mult(x,y);
 }
 
 
@@ -108,14 +114,42 @@ _NS_var _NSadd(_NS_var x, _NS_var y){
 
 
 /*  BINARY OPERATIONS (EACH COMBINATION)  */
-
+//+
 _NS_var _NS_int_list_adder(_NS_var x, _NS_var y){
     _NSfunc2 f = &_NSadd;
     return _NSmap(_NS_create_var(f), y, x);
 }
 
+_NS_var _NS_list_int_adder(_NS_var x, _NS_var y){
+    _NSfunc2 f = &_NSadd;
+    return _NSmap(_NS_create_var(f), x, y);
+}
+
 _NS_var _NS_std_adder (_NS_var x, _NS_var y){
     return _NS_create_var(x->value->i+y->value->i);
+}
+
+
+//-
+_NS_var _NS_int_list_minus(_NS_var x, _NS_var y){
+    _NSfunc2 f = &_NSminus;
+    return _NSmap(_NS_create_var(f), y, x);
+}
+
+_NS_var _NS_list_int_minus(_NS_var x, _NS_var y){
+    _NSfunc2 f = &_NSminus;
+    return _NSmap(_NS_create_var(f), x, y);
+}
+
+_NS_var _NS_std_minus (_NS_var x, _NS_var y){
+    return _NS_create_var(x->value->i-y->value->i);
+}
+
+
+
+//*
+_NS_var _NS_std_mult (_NS_var x, _NS_var y){
+    return _NS_create_var(x->value->i*y->value->i);
 }
 
 
@@ -124,8 +158,15 @@ _NS_var _NS_std_adder (_NS_var x, _NS_var y){
 
     
 int main(){
-    _NS_binary_ops[8*1+1] = &_NS_std_adder;
-    _NS_binary_ops[8*1+4] = &_NS_int_list_adder;
+    //adder
+    _NS_addition_ops[8*1+1] = &_NS_std_adder;
+    _NS_addition_ops[8*1+4] = &_NS_int_list_adder;
+    _NS_addition_ops[8*4+1] = &_NS_list_int_adder;
+
+    //minus
+
+
+    //mult
     
     std::cout<<"x"<<"\n";
 
@@ -137,14 +178,27 @@ int main(){
     std::cout << x->value->i << "\n";
     
     auto four = _NS_create_var(4);
+
     x = four;
     std::cout << x->value->i << "\n";
+
     x = _NS_create_var({four,four,four});
     std::cout << x->value->array->at(1)->value->i << "\n";
+
     x = _NSadd(one,x);
     std::cout << x->value->array->at(1)->value->i << "\n";
+
     x = _NSadd(two,x);
     std::cout << x->value->array->at(1)->value->i << "\n";
+
+
+    auto f = [=](_NS_var x) {
+        return [=](_NS_var y) {return _NS_std_mult(x,y);};
+    };
+
+    auto newf = f(_NS_create_var(10));
+    auto hundred = newf(_NS_create_var(10));
+    std::cout << hundred->value->i << "\n";
 } 
 
 
