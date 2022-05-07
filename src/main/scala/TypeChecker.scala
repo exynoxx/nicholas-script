@@ -128,7 +128,8 @@ class TypeChecker {
 					case sequenceNode(l)=> l
 					case x => List(x)
 				}
-				(functionNode(unusedVariables.toList.map(wordNode), blockNode(nChildren)), functionType(), symbol)
+				val childrenWithReturn = nChildren.init:+returnNode(nChildren.last)
+				(functionNode(unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn)), functionType(), symbol)
 
 			case callNode(f, args) =>
 				//TODO symbol register each arg if contain assign
