@@ -69,8 +69,8 @@ class TypeChecker {
 				op match {
 					case "!" =>
 						val fname = typ match {
-							case intType() => "_NSfac"
-							case boolType() => "_NSboolinv"
+							case intType() => "_NS_fac"
+							case boolType() => "_NS_boolinv"
 						}
 						(libraryCallNode(fname, List(body)), typ, nsymbol)
 				}

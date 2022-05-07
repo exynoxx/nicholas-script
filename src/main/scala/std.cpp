@@ -78,7 +78,7 @@ _NS_var _NS_create_var(_NSfunc2 f){
 
 /*   MISC   */
 
-_NS_var _NSmap(_NS_var f,_NS_var array,_NS_var x)
+_NS_var _NS_map2(_NS_var f,_NS_var array,_NS_var x)
 {
     std::vector<_NS_var> *tmp = new std::vector<_NS_var>(array->value->array->size());
     for (size_t i = 0; i < array->value->array->size(); i++)
@@ -117,12 +117,12 @@ _NS_var _NSmult(_NS_var x, _NS_var y){
 //+
 _NS_var _NS_int_list_adder(_NS_var x, _NS_var y){
     _NSfunc2 f = &_NSadd;
-    return _NSmap(_NS_create_var(f), y, x);
+    return _NS_map2(_NS_create_var(f), y, x);
 }
 
 _NS_var _NS_list_int_adder(_NS_var x, _NS_var y){
     _NSfunc2 f = &_NSadd;
-    return _NSmap(_NS_create_var(f), x, y);
+    return _NS_map2(_NS_create_var(f), x, y);
 }
 
 _NS_var _NS_std_adder (_NS_var x, _NS_var y){
@@ -133,12 +133,12 @@ _NS_var _NS_std_adder (_NS_var x, _NS_var y){
 //-
 _NS_var _NS_int_list_minus(_NS_var x, _NS_var y){
     _NSfunc2 f = &_NSminus;
-    return _NSmap(_NS_create_var(f), y, x);
+    return _NS_map2(_NS_create_var(f), y, x);
 }
 
 _NS_var _NS_list_int_minus(_NS_var x, _NS_var y){
     _NSfunc2 f = &_NSminus;
-    return _NSmap(_NS_create_var(f), x, y);
+    return _NS_map2(_NS_create_var(f), x, y);
 }
 
 _NS_var _NS_std_minus (_NS_var x, _NS_var y){

@@ -59,7 +59,7 @@ object main {
 		//val in = "x=5;x=[1,\"2\",3];x=1+1;"
 		val ast = parseString(parser, in)
 		printer.print(ast)
-		println("txt source:")
+		println("-----------txt source:---------------------")
 		println(codeGen.stringiFy(typeChecker.typecheck(ast)))
 
 		/*val typedTree = typeChecker.typecheck(AST)
