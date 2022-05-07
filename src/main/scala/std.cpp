@@ -77,7 +77,6 @@ _NS_var _NS_create_var(_NSfunc2 f){
 
 
 /*   MISC   */
-
 _NS_var _NS_map2(_NS_var f,_NS_var array,_NS_var x)
 {
     std::vector<_NS_var> *tmp = new std::vector<_NS_var>(array->value->array->size());
@@ -86,7 +85,22 @@ _NS_var _NS_map2(_NS_var f,_NS_var array,_NS_var x)
     return _NS_create_var(tmp);
 }
 
+int factorial(int n) {
+	if(n > 1)
+		return n * factorial(n - 1);
+	else
+		return 1;
+}
 
+_NS_var _NS_fac(_NS_var x)
+{
+    return _NS_create_var(factorial(x->value->i));
+}
+
+_NS_var _NS_boolinv(_NS_var x)
+{
+    return _NS_create_var(!x->value->b);
+}
 
 
 
