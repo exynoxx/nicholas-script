@@ -127,7 +127,10 @@ class TypeChecker {
 					case sequenceNode(l)=> l
 					case x => List(x)
 				}
-				val childrenWithReturn = nChildren.init:+returnNode(nChildren.last)
+				val childrenWithReturn = nChildren.last match {
+					case assignNode(_,_) => nChildren ++ List(returnNode(stringNode("")))
+					case _ => nChildren.init:+returnNode(nChildren.last)
+				}
 				(functionNode(unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn)), functionType(), symbol)
 
 			case callNode(f, args) =>
