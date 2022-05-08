@@ -10,3 +10,5 @@ out/
 src/main/scala/a.out
 src/main/scala/.vscode/
 src/main/scala/std
+
+*.exe
