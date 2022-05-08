@@ -113,19 +113,39 @@ _NS_var _NS_boolinv(_NS_var x)
     return _NS_create_var(!x->value->b);
 }
 
-_NS_var _NS_print(_NS_var x){
+void _NS_print(_NS_var x){
+	switch(x->type) {
+        case INT:
+            std::cout << x->value->i;
+            break;
 
-	switch(x) {
-      case x:
-        // code block
-        break;
-      case y:
-        // code block
-        break;
-      default:
-        // code block
+        case BOOL:
+            std::cout << x->value->b;
+            break;
+
+        case STRING:
+            std::cout << x->value->s;
+            break;
+
+        case ARRAY:
+            std::cout << "[";
+            for (size_t i = 0; i < x->value->array->size(); i++)
+            {
+                _NS_print(x->value->array->at(i));
+                std::cout << ",";
+            }   
+            std::cout << "]";
+            break;
+            
+        default:
+            std::cout <<  "not printable: "<< x->type;
     }
 }
+void _NS_println(_NS_var x){
+    _NS_print(x);
+    std::cout << std::endl;
+}
+
 
 
 
@@ -193,11 +213,18 @@ _NS_var _NS_std_mult (_NS_var x, _NS_var y){
 
 _NS_var _NS_int_list_mult (_NS_var x, _NS_var y){
     //reserve to optimize performance
-    //auto tmp = new std::vector<_NS_var>(x->value->)
-    //v.insert(v.end(),v_prime.begin(),v_prime.end());
+    auto tmp = new std::vector<_NS_var>(x->value->i*y->value->array->size());
+    for (size_t i = 0; i < x->value->i; i++)
+        tmp->insert(tmp->end(),y->value->array->begin(),y->value->array->end());
+    return _NS_create_var(tmp);
 }
-
-
+_NS_var _NS_list_int_mult (_NS_var x, _NS_var y){
+    //reserve to optimize performance
+    auto tmp = new std::vector<_NS_var>(y->value->i*x->value->array->size());
+    for (size_t i = 0; i < y->value->i; i++)
+        tmp->insert(tmp->end(),x->value->array->begin(),x->value->array->end());
+    return _NS_create_var(tmp);
+}
 
 
     
@@ -208,32 +235,38 @@ int main(){
     _NS_addition_ops[8*4+1] = &_NS_list_int_adder;
 
     //minus
-
+    _NS_minus_ops[8*1+1] = &_NS_std_minus;
+    _NS_minus_ops[8*1+4] = &_NS_int_list_minus;
+    _NS_minus_ops[8*4+1] = &_NS_list_int_minus;
 
     //mult
+    _NS_mult_ops[8*1+1] = &_NS_std_mult;
+    _NS_mult_ops[8*4+1] = &_NS_list_int_mult;
+    _NS_mult_ops[8*1+4] = &_NS_int_list_mult;
     
     std::cout<<"x"<<"\n";
 
     auto one = _NS_create_var(1);
-    std::cout << one->value->i << "\n";
+    _NS_println(one);
     auto two = _NS_create_var(2);
+    
 
     auto x = _NSadd(one,two);
-    std::cout << x->value->i << "\n";
+    _NS_println(x);
     
     auto four = _NS_create_var(4);
 
     x = four;
-    std::cout << x->value->i << "\n";
+    _NS_println(x);
 
     x = _NS_create_var({four,four,four});
-    std::cout << x->value->array->at(1)->value->i << "\n";
+    _NS_println(x);
 
     x = _NSadd(one,x);
-    std::cout << x->value->array->at(1)->value->i << "\n";
+    _NS_println(x);
 
     x = _NSadd(two,x);
-    std::cout << x->value->array->at(1)->value->i << "\n";
+    _NS_println(x);
 
 
     auto f = [=](_NS_var x) {
@@ -242,7 +275,8 @@ int main(){
 
     auto newf = f(_NS_create_var(10));
     auto hundred = newf(_NS_create_var(10));
-    std::cout << hundred->value->i << "\n";
+    _NS_println(hundred);
+
 } 
 
 
