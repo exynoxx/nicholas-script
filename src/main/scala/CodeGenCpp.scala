@@ -30,7 +30,14 @@ class CodeGenCpp {
 			"_NS_create_var(&"+id+")"
 		case returnNode(exp) => "return " + recurse(exp)
 		case libraryCallNode(fname, expr) => fname+"("+expr.map(recurse).mkString(",")+")"
-		case callNode(wordNode(f),args) => f+"("+args.map(recurse).mkString(",") +")"
+		case callNode(wordNode(f),args) =>
+			val fname = args.length match {
+				case 0 => "f0"
+				case 1 => "f1"
+				case 2 => "f2"
+			}
+			f+"->value->"+fname+"("+args.map(recurse).mkString(",") +")"
+
 		case callNode(functionNode(fargs,body),args) =>
 			val id = Util.genRandomName()
 			preMainFunctions += "_NS_var " + id

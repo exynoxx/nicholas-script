@@ -310,7 +310,11 @@ int main()
     _NS_mult_ops[8 * 1 + 4] = &_NS_int_list_mult;
 
 
+<<<<<<< HEAD
 	auto println=_NS_create_var((_NSfunc1)&_NS_println);
+=======
+	auto println=_NS_create_var(&_NS_println);
+>>>>>>> master
     auto mult2=_NS_create_var(&_NSran0);
     auto x=_NS_boolinv(_NS_create_var(false));
     println->value->f1(x);
@@ -321,4 +325,11 @@ int main()
     x=_NSadd(x,_NS_create_var(1));
     println->value->f1(x);
     return 0;
+<<<<<<< HEAD
 }
+=======
+}
+
+
+
+>>>>>>> master
