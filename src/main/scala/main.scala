@@ -56,7 +56,7 @@ object main {
 		//val in = "a=[1,2,b=3];c=a$2;[0]$0; d=[e=[1,2],[3,4]]$0"
 		//val in = "+/l10+2; !10; !true; 1+!10; ({x+5}[1,2,3]);"
 		//val in = "print=_NS_print;six = {a+b*c} 1 2 3; false = !true; fac = !5; list = {x*2}/[1,2,3]; a = ([1]*10)+1; print a"
-		val in = "println=_NS_println; double = {x*2}; x = !false; println x; x = 5*5; println x; x = double [1,1]; println x; x = x+1"
+		val in = "println=_NS_println; mult2 = {x*2}; x = !false; println x; x = mult2 5; println x; x = mult2 [1,1]; println x; x = x+1; println x"
 		//val in = "x=5;x=[1,\"2\",3];x=1+1;"
 		val ast = parseString(parser, in)
 		printer.print(ast)

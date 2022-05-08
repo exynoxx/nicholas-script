@@ -286,6 +286,7 @@ _NS_var _NS_int_list_mult(_NS_var x, _NS_var y)
     return _NS_list_int_mult(y, x);
 }
 
+
 _NS_var _NSran0(_NS_var x){
 return _NSmult(x,_NS_create_var(2));
 
@@ -308,30 +309,19 @@ int main()
     _NS_mult_ops[8 * 4 + 1] = &_NS_list_int_mult;
     _NS_mult_ops[8 * 1 + 4] = &_NS_int_list_mult;
 
-    auto println=_NS_println;
-    auto double=_NS_create_var(&_NSran0);
+
+	auto println=_NS_create_var(&_NS_println);
+    auto mult2=_NS_create_var(&_NSran0);
     auto x=_NS_boolinv(_NS_create_var(false));
-    println(x);
-    x=_NSmult(_NS_create_var(5),_NS_create_var(5));
-    println(x);
-    x=double(_NS_create_var({_NS_create_var(1),_NS_create_var(1)}));
-    println(x);
-    return x=_NSadd(x,_NS_create_var(1));
+    println->value->f1(x);
+    x=mult2->value->f1(_NS_create_var(5));
+    println->value->f1(x);
+    x=mult2->value->f1(_NS_create_var({_NS_create_var(1),_NS_create_var(1)}));
+    println->value->f1(x);
+    x=_NSadd(x,_NS_create_var(1));
+    println->value->f1(x);
     return 0;
 }
 
 
 
-int main (){
-auto println=_NS_println;
-auto doublee=_NS_create_var(&_NSran0);
-auto x=_NS_boolinv(_NS_create_var(false));
-println(x);
-x=_NSmult(_NS_create_var(5),_NS_create_var(5));
-println(x);
-x=doublee(_NS_create_var({_NS_create_var(1),_NS_create_var(1)}));
-println(x);
-x=_NSadd(x,_NS_create_var(1));
-return 0;
-
-}

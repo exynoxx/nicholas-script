@@ -83,7 +83,7 @@ class TypeChecker {
 					case ("*", functionType(), boolType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
 					case ("*", intType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
 					case ("*", boolType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
-					case ("/", functionType(), arrayType()) => (libraryCallNode("_NS_map1", List(left,right)), arrayType())
+					case ("/", functionType(), arrayType()) => (libraryCallNode("_NS_map1", List(left, right)), arrayType())
 					case (_, _, _) => (binopNode(op, left, right), ltyp)
 				}
 				(ret, typ, symbol)
@@ -93,10 +93,22 @@ class TypeChecker {
 				val (body, btyp, sym) = typerecurse(b, AST, symbol)
 
 				val newsym = symbol ++ HashMap(id -> btyp)
+
+				//TODO: prettify (usage: println=_NS_println)
+				val newbody = body match {
+					case wordNode(s) =>
+						if (s.startsWith("_NS"))
+							stringNode("&" + s)
+						else {
+							wordNode(s)
+						}
+					case _ => body
+				}
+
 				if (symbol.contains(id)) {
-					(reassignNode(wordNode(id), body), btyp, newsym)
+					(reassignNode(wordNode(id), newbody), btyp, newsym)
 				} else {
-					(assignNode(wordNode(id), body), btyp, newsym)
+					(assignNode(wordNode(id), newbody), btyp, newsym)
 				}
 
 
@@ -108,17 +120,17 @@ class TypeChecker {
 				var culSymTable = symbol.to(collection.mutable.HashMap)
 
 				val recursedChildren = children.map(x => {
-					val (exp,typ,localSym) = typerecurse(x, AST, culSymTable.to(HashMap))
+					val (exp, typ, localSym) = typerecurse(x, AST, culSymTable.to(HashMap))
 					culSymTable ++= localSym
 					exp
 				})
-				val nChildren = recursedChildren.flatMap{
-					case sequenceNode(l)=> l
+				val nChildren = recursedChildren.flatMap {
+					case sequenceNode(l) => l
 					case x => List(x)
 				}
 				val childrenWithReturn = nChildren.last match {
-					case assignNode(_,_) => nChildren ++ List(returnNode(stringNode("")))
-					case _ => nChildren.init:+returnNode(nChildren.last)
+					case assignNode(_, _) => nChildren ++ List(returnNode(stringNode("")))
+					case _ => nChildren.init :+ returnNode(nChildren.last)
 				}
 				(functionNode(unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn)), functionType(), symbol)
 
@@ -127,7 +139,6 @@ class TypeChecker {
 				val nargs = args.map(x => typerecurse(x, AST, symbol)._1)
 				val (func, ftyp, sym) = typerecurse(f, AST, symbol)
 				(callNode(func, nargs), ftyp, sym)
-
 
 
 			case arrayNode(elements) =>
