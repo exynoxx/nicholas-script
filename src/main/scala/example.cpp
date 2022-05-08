@@ -286,13 +286,9 @@ _NS_var _NS_int_list_mult(_NS_var x, _NS_var y)
     return _NS_list_int_mult(y, x);
 }
 
-_NS_var _NSran0(_NS_var a, _NS_var b, _NS_var c)
-{
-    return _NSadd(a, _NSmult(b, c));
-}
-_NS_var _NSran1(_NS_var x)
-{
-    return _NSmult(x, _NS_create_var(2));
+_NS_var _NSran0(_NS_var x){
+return _NSmult(x,_NS_create_var(2));
+
 }
 
 int main()
@@ -312,72 +308,30 @@ int main()
     _NS_mult_ops[8 * 4 + 1] = &_NS_list_int_mult;
     _NS_mult_ops[8 * 1 + 4] = &_NS_int_list_mult;
 
-    auto print = &_NS_print;
-    auto six = _NSran0(_NS_create_var(1), _NS_create_var(2), _NS_create_var(3));
-    _NS_println(six);
-    auto falsee = _NS_boolinv(_NS_create_var(true));
-    auto fac = _NS_fac(_NS_create_var(5));
-    _NS_println(fac);
-    auto list = _NS_map1(_NS_create_var(&_NSran1), _NS_create_var({_NS_create_var(1), _NS_create_var(2), _NS_create_var(3)}));
-    auto multt = _NSmult(_NS_create_var({_NS_create_var(1)}), _NS_create_var(10));
-    auto a = _NSadd(multt, _NS_create_var(1));
-    _NS_println(a);
+    auto println=_NS_println;
+    auto double=_NS_create_var(&_NSran0);
+    auto x=_NS_boolinv(_NS_create_var(false));
+    println(x);
+    x=_NSmult(_NS_create_var(5),_NS_create_var(5));
+    println(x);
+    x=double(_NS_create_var({_NS_create_var(1),_NS_create_var(1)}));
+    println(x);
+    return x=_NSadd(x,_NS_create_var(1));
     return 0;
 }
 
-// NSvar(int i){
-//         type = INT;
-//         value = new _NS_value{};
-//         value->i=i;
-//     }
-//     NSvar(std::string *s){
-//         auto val = new _NS_value{};
-//         val->s=s;
-//         type = STRING;
-//         value = val;
-//     }
-//     NSvar(bool b){
-//         auto val = new _NS_value{};
-//         val->b=b;
-//         type = BOOL;
-//         value = val;
-//     }
-//     NSvar(std::vector<NSvar> *array){
-//         auto val = new _NS_value{};
-//         val->array=array;
-//         type = ARRAY;
-//         value = val;
-//     }
-//     NSvar(std::initializer_list<NSvar> init){
-//         auto val = new _NS_value{};
-//         val->array=new std::vector<NSvar>(init.begin(),init.end());
-//         type = ARRAY;
-//         value = val;
-//     }
 
-//     NSvar(_NSfunc f){
-//         auto val = new _NS_value{};
-//         val->f0 = f;
-//         type = FUNCTION0;
-//         value = val;
-//     }
-//     NSvar(_NSunifunc f){
-//         auto val = new _NS_value{};
-//         val->f1 = f;
-//         type = FUNCTION1;
-//         value = val;
-//     }
-//     NSvar(_NSbinfunc f){
-//         auto val = new _NS_value{};
-//         val->f2 = f;
-//         type = FUNCTION2;
-//         value = val;
-//     }
 
-//     ~NSvar(){
-//         std::cout << "destructing: ";
-//         std::cout << value->i << std::endl;
+int main (){
+auto println=_NS_println;
+auto doublee=_NS_create_var(&_NSran0);
+auto x=_NS_boolinv(_NS_create_var(false));
+println(x);
+x=_NSmult(_NS_create_var(5),_NS_create_var(5));
+println(x);
+x=doublee(_NS_create_var({_NS_create_var(1),_NS_create_var(1)}));
+println(x);
+x=_NSadd(x,_NS_create_var(1));
+return 0;
 
-//         if (type == ARRAY) delete value->array;
-//         delete value;
-//     };
+}
