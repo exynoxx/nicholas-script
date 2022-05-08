@@ -69,11 +69,15 @@ _NS_var _NS_create_var(int i)
 }
 _NS_var _NS_create_var(bool b)
 {
-    return new _NS_var_struct(INT, new _NS_value{.b = b});
+    auto value = new _NS_value;
+    value->b = b;
+    return new _NS_var_struct(BOOL, value);
 }
 _NS_var _NS_create_var(std::string *s)
 {
-    return new _NS_var_struct(INT, new _NS_value{.s = s});
+    auto value = new _NS_value;
+    value->s = s;
+    return new _NS_var_struct(STRING, value);
 }
 _NS_var _NS_create_var(std::vector<_NS_var> *a)
 {
@@ -244,37 +248,37 @@ _NS_var _NS_std_mult(_NS_var x, _NS_var y)
 _NS_var _NS_list_int_mult(_NS_var x, _NS_var y)
 {
     // reserve to optimize performance
-    auto tmp = new std::vector<_NS_var>(y->value->i * x->value->array->size());
+    //y->value->i * x->value->array->size()
+    auto tmp = new std::vector<_NS_var>();
     for (size_t k = 0; k < y->value->i; k++)
     {
         for (size_t i = 0; i < x->value->array->size(); i++)
         {
-            _NS_var elem = x->value->array->at(i);
+            auto elem = x->value->array->at(i);
             switch (elem->type)
             {
                 case INT:
-                    tmp->push_back(_NS_create_var(elem->value->i));
+                    tmp->push_back(_NS_create_var( elem->value->i));
                     break;
                 case BOOL:
-                    tmp->push_back(_NS_create_var(elem->value->b));
+                    tmp->push_back(_NS_create_var( elem->value->b));
                     break;
                 case STRING:
-                    tmp->push_back(_NS_create_var(elem->value->s));
+                    tmp->push_back(_NS_create_var( elem->value->s));
                     break;
-                case ARRAY:
-                    {
-                        auto copy = *elem->value->array;
-                        auto heap_copy = new std::vector<_NS_var>(copy);
-                        tmp->push_back(_NS_create_var(heap_copy));
-                    }
-                    break;
+                // case ARRAY:
+                //     {
+                //         auto copy = *elem->value->array;
+                //         auto heap_copy = new std::vector<_NS_var>(copy);
+                //         tmp->push_back(_NS_create_var(heap_copy));
+                //     }
+                //     break;
                 default:
                     break;
                     // TODO: f0,f1,f2
             }
         }
     }
-
     return _NS_create_var(tmp);
 }
 _NS_var _NS_int_list_mult(_NS_var x, _NS_var y)
@@ -315,7 +319,8 @@ int main()
     auto fac = _NS_fac(_NS_create_var(5));
     _NS_println(fac);
     auto list = _NS_map1(_NS_create_var(&_NSran1), _NS_create_var({_NS_create_var(1), _NS_create_var(2), _NS_create_var(3)}));
-    auto a = _NSadd(_NSmult(_NS_create_var({_NS_create_var(1)}), _NS_create_var(10)), _NS_create_var(1));
+    auto multt = _NSmult(_NS_create_var({_NS_create_var(1)}), _NS_create_var(10));
+    auto a = _NSadd(multt, _NS_create_var(1));
     _NS_println(a);
     return 0;
 }
