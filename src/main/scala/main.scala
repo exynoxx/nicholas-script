@@ -73,7 +73,7 @@ object main {
 		val ret = codeGen.gen(augmentedTree)
 		writeFile(outputFile, ret)
 		*/
-		val f = ("g++ " + outputFile + " out/output").!
+		val f = ("g++ " + outputFile + " -o out/output").!
 		println(f)
 
 
