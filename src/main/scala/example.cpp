@@ -288,8 +288,7 @@ _NS_var _NS_int_list_mult(_NS_var x, _NS_var y)
 
 
 _NS_var _NSran0(_NS_var x){
-return _NSmult(x,_NS_create_var(2));
-
+    return _NSmult(x,_NS_create_var(1));
 }
 
 int main()
@@ -318,7 +317,7 @@ int main()
     println->value->f1(x);
     x=mult2->value->f1(_NS_create_var({_NS_create_var(1),_NS_create_var(1)}));
     println->value->f1(x);
-    x=_NSadd(x,_NS_create_var(1));
+    x=_NSadd(x,_NS_create_var(4));
     println->value->f1(x);
     return 0;
 }

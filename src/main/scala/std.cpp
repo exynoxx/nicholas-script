@@ -113,7 +113,7 @@ _NS_var _NS_boolinv(_NS_var x)
     return _NS_create_var(!x->value->b);
 }
 
-void _NS_print(_NS_var x){
+_NS_var _NS_print(_NS_var x){
 	switch(x->type) {
         case INT:
             std::cout << x->value->i;
@@ -140,10 +140,12 @@ void _NS_print(_NS_var x){
         default:
             std::cout <<  "not printable: "<< x->type;
     }
+	return _NS_create_var();
 }
-void _NS_println(_NS_var x){
+_NS_var _NS_println(_NS_var x){
     _NS_print(x);
     std::cout << std::endl;
+    return _NS_create_var();
 }
 
 
@@ -225,123 +227,3 @@ _NS_var _NS_list_int_mult (_NS_var x, _NS_var y){
         tmp->insert(tmp->end(),x->value->array->begin(),x->value->array->end());
     return _NS_create_var(tmp);
 }
-
-
-    
-int main(){
-    //adder
-    _NS_addition_ops[8*1+1] = &_NS_std_adder;
-    _NS_addition_ops[8*1+4] = &_NS_int_list_adder;
-    _NS_addition_ops[8*4+1] = &_NS_list_int_adder;
-
-    //minus
-    _NS_minus_ops[8*1+1] = &_NS_std_minus;
-    _NS_minus_ops[8*1+4] = &_NS_int_list_minus;
-    _NS_minus_ops[8*4+1] = &_NS_list_int_minus;
-
-    //mult
-    _NS_mult_ops[8*1+1] = &_NS_std_mult;
-    _NS_mult_ops[8*4+1] = &_NS_list_int_mult;
-    _NS_mult_ops[8*1+4] = &_NS_int_list_mult;
-    
-    std::cout<<"x"<<"\n";
-
-    auto one = _NS_create_var(1);
-    _NS_println(one);
-    auto two = _NS_create_var(2);
-    
-
-    auto x = _NSadd(one,two);
-    _NS_println(x);
-    
-    auto four = _NS_create_var(4);
-
-    x = four;
-    _NS_println(x);
-
-    x = _NS_create_var({four,four,four});
-    _NS_println(x);
-
-    x = _NSadd(one,x);
-    _NS_println(x);
-
-    x = _NSadd(two,x);
-    _NS_println(x);
-
-
-    auto f = [=](_NS_var x) {
-        return [=](_NS_var y) {return _NS_std_mult(x,y);};
-    };
-
-    auto newf = f(_NS_create_var(10));
-    auto hundred = newf(_NS_create_var(10));
-    _NS_println(hundred);
-
-} 
-
-
-
-
-
-
-
-
-
-
-
-// NSvar(int i){
-//         type = INT;
-//         value = new _NS_value{};
-//         value->i=i;
-//     }
-//     NSvar(std::string *s){
-//         auto val = new _NS_value{};
-//         val->s=s;
-//         type = STRING;
-//         value = val;
-//     }
-//     NSvar(bool b){
-//         auto val = new _NS_value{};
-//         val->b=b;
-//         type = BOOL;
-//         value = val;
-//     }
-//     NSvar(std::vector<NSvar> *array){
-//         auto val = new _NS_value{};
-//         val->array=array;
-//         type = ARRAY;
-//         value = val;
-//     }
-//     NSvar(std::initializer_list<NSvar> init){
-//         auto val = new _NS_value{};
-//         val->array=new std::vector<NSvar>(init.begin(),init.end());
-//         type = ARRAY;
-//         value = val;
-//     }
-
-//     NSvar(_NSfunc f){
-//         auto val = new _NS_value{};
-//         val->f0 = f;
-//         type = FUNCTION0;
-//         value = val;
-//     }
-//     NSvar(_NSunifunc f){
-//         auto val = new _NS_value{};
-//         val->f1 = f;
-//         type = FUNCTION1;
-//         value = val;
-//     }
-//     NSvar(_NSbinfunc f){
-//         auto val = new _NS_value{};
-//         val->f2 = f;
-//         type = FUNCTION2;
-//         value = val;
-//     }
-
-//     ~NSvar(){
-//         std::cout << "destructing: ";
-//         std::cout << value->i << std::endl;
-
-//         if (type == ARRAY) delete value->array;
-//         delete value;
-//     };

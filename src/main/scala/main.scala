@@ -1,11 +1,12 @@
 import java.io.{File, PrintWriter}
 import scala.io.Source
+import sys.process._
 
 object main {
 
 	def readFile(filename: String): String = {
 		val bufferedSource = Source.fromFile(filename)
-		val alltext = bufferedSource.getLines().mkString
+		val alltext = bufferedSource.getLines().mkString("\n")
 		bufferedSource.close
 		alltext
 	}
@@ -39,12 +40,11 @@ object main {
 		val typeChecker = new TypeChecker
 		val codeGen = new CodeGenCpp
 
-
 		/*val printer = new TreePrinter
 		val treeAugmenter = new TreeAugmenter
-
-		val inputFile = "src/main/scala/examples/object.ns"
-		val outputFile = "out/output.rs"*/
+		*/
+		//val inputFile = "src/main/scala/examples/object.ns"
+		val outputFile = "out/output.cpp"
 
 		//val in = "1+2*3 & (5/2) * (1+2)"
 		//val in = "a=[1,2^3,1+2*3 & 5/2];b=1+1"
@@ -61,7 +61,10 @@ object main {
 		val ast = parseString(parser, in)
 		printer.print(ast)
 		println("-----------txt source:---------------------")
-		println(codeGen.stringiFy(typeChecker.typecheck(ast)))
+		val outputString = codeGen.stringiFy(typeChecker.typecheck(ast))
+		println(outputString);
+		writeFile("out/std.cpp", readFile("src/main/scala/std.cpp"))
+		writeFile(outputFile, outputString)
 
 		/*val typedTree = typeChecker.typecheck(AST)
 		//printer.print(typedTree)
@@ -69,9 +72,9 @@ object main {
 		printer.print(augmentedTree)
 		val ret = codeGen.gen(augmentedTree)
 		writeFile(outputFile, ret)
-
-		val f = ("rustc " + outputFile + " --out-dir out").!
-		println(f)*/
+		*/
+		val f = ("g++ " + outputFile + " out/output").!
+		println(f)
 
 
 	}
