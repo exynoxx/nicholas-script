@@ -39,9 +39,11 @@ case class castNode(from: Tree, to: Tree, toTyp: Type) extends Tree
 
 case class arrayMultNode(element: Tree, amount: Tree) extends Tree
 
-case class libraryCallNode(fname:String, expr: List[Tree]) extends Tree
+case class libraryCallNode(fname: String, expr: List[Tree]) extends Tree
 
-case class sequenceNode(list:List[Tree]) extends Tree
+case class sequenceNode(list: List[Tree]) extends Tree
+
+case class ifNode(condition: Tree, body: Tree, elseBody: Option[Tree]) extends Tree
 
 
 /*

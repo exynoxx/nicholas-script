@@ -45,6 +45,7 @@ class Tests {
 		x
 	}
 
+	//TODO: access
 	def arrays(): String = {
 		val x = "[]"
 		compile(x)
@@ -52,12 +53,16 @@ class Tests {
 	}
 
 	def function(): String = {
-		val x = "{};{x};{x=1};{a+b+c};{c;b;a;a+b+c};f1={x*10};"
+		val x = "{};{x};{x=1};{a*b+c};{c;b;a;a*b+c};f1={x*10};"
 		compile(x)
 		x
 	}
 
 	def strings(): String = {
+		return ""
+	}
+
+	def ifs(): String = {
 		return ""
 	}
 

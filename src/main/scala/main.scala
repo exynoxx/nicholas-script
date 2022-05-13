@@ -40,8 +40,9 @@ object main {
 		val codeGen = new CodeGenCpp
 
 		//val inputFile = "src/main/scala/examples/object.ns"
-		/*val outputFile = "out/output.cpp"
+		val outputFile = "out/output.cpp"
 
+		val in = "even = {(x%2==0)?true:false};println 5;println 6;"
 
 		val ast = parseString(parser, in)
 		printer.print(ast)
@@ -53,10 +54,9 @@ object main {
 
 		val f = ("g++ " + outputFile + " -o out/output").!
 		println(f)
-		*/
 
-		val tests = new Tests
-		tests.run()
+		//val tests = new Tests
+		//tests.run()
 
 
 	}

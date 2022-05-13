@@ -97,12 +97,19 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 
 	// ### if else ###
-	//TODO
+	def ifStatement: Parser[Tree] = debug(
+		"(" ~ expression ~ ")" ~ "?" ~ expression ~ (":" ~ expression).? ^^ {
+			case _ ~ cond ~ _ ~ _ ~ body ~ None => ifNode(cond,body,None)
+			case _ ~ cond ~ _ ~ _ ~ body ~ Some(_ ~ elsBody) => ifNode(cond,body,Some(elsBody))
+		}
+	)("if")
+	//def ifCondition: Parser[Tree] = expression | ("(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })
+
 	def notOpeator: Parser[Tree] = debug("!" ~ expression ^^ { case not ~ exp => unopNode(not, exp) })("notOpeator")
 
 	def unary: Parser[Tree] = debug(notOpeator)("unary")
 
-	def expression: Parser[Tree] = debug(access | assign | call | binop | unary | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
+	def expression: Parser[Tree] = debug(ifStatement | access | assign | call | binop | unary | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
 
 	/*def assign: Parser[Tree] = debug(defstatement | assignStatement
 

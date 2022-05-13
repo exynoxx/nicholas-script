@@ -80,10 +80,10 @@ class TypeChecker {
 				val (left, ltyp, _) = typerecurse(l, AST, symbol)
 				val (right, rtyp, _) = typerecurse(r, AST, symbol)
 				val (ret: Tree, typ: Type) = (op, ltyp, rtyp) match {
-					case ("*", functionType(), intType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
-					case ("*", functionType(), boolType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
-					case ("*", intType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
-					case ("*", boolType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
+					//case ("*", functionType(), intType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
+					//case ("*", functionType(), boolType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
+					//case ("*", intType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
+					//case ("*", boolType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
 					case ("/", functionType(), arrayType()) => (libraryCallNode("_NS_map1", List(left, right)), arrayType())
 					case (_, _, _) => (binopNode(op, left, right), ltyp)
 				}
@@ -164,8 +164,37 @@ class TypeChecker {
 					case wordNode(id) => symbol(id).asInstanceOf[arrayType]
 				}
 				//TODO: recurse idx
-
 				(accessNode(arrayId, idx), intType(), symbol)
+
+			case ifNode(cond,body,elseBody) =>
+				//TODO: impl returns as "#=1+1"
+				val id = Util.genRandomName()
+				val (newCond,_,_) = typerecurse(cond,AST,symbol)
+				val newbody = body match {
+					case blockNode(elem) =>
+						val (blockNode(elems),_,_) = typerecurse(blockNode(elem), AST, symbol)
+						blockNode(elems.init :+ reassignNode(wordNode(id),elems.last))
+
+					case exp =>
+						val (b,_,_) = typerecurse(exp,AST,symbol)
+						//TODO: block?
+						blockNode(List(reassignNode(wordNode(id),b)))
+				}
+				val nels = elseBody match {
+					case None => None
+					case Some(x) => typerecurse(x,AST,symbol)._1 match {
+						case blockNode(elem) =>
+							val (blockNode(elems),_,_) = typerecurse(blockNode(elem), AST, symbol)
+							Some(blockNode(elems.init :+ reassignNode(wordNode(id),elems.last)))
+						case exp =>
+							val (b,_,_) = typerecurse(exp,AST,symbol)
+							Some(blockNode(List(reassignNode(wordNode(id),b))))
+					}
+				}
+
+				val result = wordNode(id)
+				val resultInit = assignNode(result, wordNode("(_NS_var)NULL"))
+				(sequenceNode(List(resultInit,ifNode(newCond,newbody,nels),result)),voidType(),symbol)
 
 			case x => (x, voidType(), symbol)
 		}

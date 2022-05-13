@@ -14,10 +14,11 @@ class CodeGenCpp {
 				case "-" => "_NSminus"
 				case "*" => "_NSmult"
 				case "/" => "_NSdiv"
-				case "%" => "_NS"
-				case "&" | "&&" => "_NS"
-				case "|" | "||" => "_NS"
-				case "**" | "^" => "_NS"
+				//case "%" => "_NS"
+				//case "&" | "&&" => "_NS"
+				//case "|" | "||" => "_NS"
+				//case "**" | "^" => "_NS"
+				case _ => "_NS"
 			}
 			nativeFunction + "(" + recurse(left) + "," + recurse(right) + ")"
 		}
@@ -25,7 +26,11 @@ class CodeGenCpp {
 		case reassignNode(id, b) => recurse(id) + "=" + recurse(b)
 		case arrayNode(elements) => "_NS_create_var({" + elements.map(recurse).mkString(",") + "})"
 		case accessNode(array, idx) => recurse(array) + "[" + recurse(idx) + "]"
-		case blockNode(elem) => "{\n" + elem.map(recurse).mkString("", ";\n", ";\n") + "\n}\n"
+		case blockNode(elem) => //"{\n" + elem.map(recurse).mkString("",";\n",";\n") + "\n}\n"
+			elem.map{
+				case ifNode(a,b,c) => recurse(ifNode(a,b,c))
+				case x => recurse(x)+";\n"
+			}.mkString("{\n","","}\n")
 		case functionNode(args, body) =>
 			val id = Util.genRandomName()
 			preMainFunctions += "_NS_var " + id
@@ -48,6 +53,17 @@ class CodeGenCpp {
 			preMainFunctions += "(" + fargs.map(x => "_NS_var " + recurse(x)).mkString(",") + ")"
 			preMainFunctions += recurse(body)
 			id + "(" + args.map(recurse).mkString(",") + ")"
+
+		case ifNode(cond,body,els) =>
+			val id = Util.genRandomName()
+			val result = "_NS_var " + id + " = NULL;\n"
+
+			val elsString = els match {
+				case None => ""
+				case Some(x) => "\nelse\n" + recurse(x)
+			}
+
+			"if ("+recurse(cond)+")\n" + recurse(body) + elsString
 
 		case nullLeaf() => ""
 		//case sequenceNode(l) => l.map(recurse).mkString(";\n")
