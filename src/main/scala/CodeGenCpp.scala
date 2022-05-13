@@ -64,7 +64,7 @@ class CodeGenCpp {
 				case Some(x) => "\nelse\n" + recurse(x)
 			}
 
-			"if ("+recurse(cond)+")\n" + recurse(body) + elsString
+			"if ("+recurse(cond)+"->value->b)\n" + recurse(body) + elsString
 
 		case nullLeaf() => ""
 		//case sequenceNode(l) => l.map(recurse).mkString(";\n")

@@ -132,7 +132,7 @@ _NS_var _NS_print(_NS_var x){
             break;
 
         case BOOL:
-            std::cout << x->value->b?"true":"false";
+            x->value->b ? std::cout << "true": std::cout << "false";
             break;
 
         case STRING:
