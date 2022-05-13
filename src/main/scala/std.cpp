@@ -132,7 +132,7 @@ _NS_var _NS_print(_NS_var x){
             break;
 
         case BOOL:
-            std::cout << x->value->b;
+            std::cout << x->value->b?"true":"false";
             break;
 
         case STRING:
@@ -185,19 +185,9 @@ _NS_var _NSdiv(_NS_var x, _NS_var y){
     auto div = _NS_mult_ops[x->type*8+y->type];
     return div(x,y);
 }
-
-_NS_var _NS_equal(_NS_var x, _NS_var y){
-    if (x->type!=y->type || x->type > 3) return _NS_create_var(false);
-    switch (x->type) {
-        case INT: return _NS_create_var(x->value.i==y->value->i);
-        case BOOL: return _NS_create_var(x->value.b==y->value->b);
-        case STRING: return _NS_create_var(x->value.s==y->value->s);
-        case ARRAY: return _NS_create_var(x->value->array==y->value->array);
-    }
-    return _NS_create_var(false)
+_NS_var _NSmod(_NS_var x, _NS_var y){
+    return _NS_create_var(x->value->i%y->value->i);
 }
-
-
 
 
 
@@ -286,3 +276,17 @@ _NS_var _NS_int_list_mult(_NS_var x, _NS_var y)
 _NS_var _NS_std_div (_NS_var x, _NS_var y){
     return _NS_create_var((int)x->value->i/y->value->i);
 }
+
+//==
+_NS_var _NS_equal(_NS_var x, _NS_var y){
+    if (x->type!=y->type) return _NS_create_var(false);
+    switch (x->type) {
+        case INT: return _NS_create_var(x->value->i==y->value->i);
+        case BOOL: return _NS_create_var(x->value->b==y->value->b);
+        case STRING: return _NS_create_var(x->value->s==y->value->s);
+        case ARRAY: return _NS_create_var(x->value->array==y->value->array);
+        default: return _NS_create_var(false);
+    }
+    return _NS_create_var(false);
+}
+

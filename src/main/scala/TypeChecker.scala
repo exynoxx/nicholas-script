@@ -46,6 +46,15 @@ class TypeChecker {
 				unused ++= unu
 			}
 			(used, unused)
+		case ifNode(cond,body,elseBody) =>
+			val (u1, unu1) = findUnusedVariables(cond, symbol)
+			val (u2, unu2) = findUnusedVariables(body, symbol)
+			val (u3, unu3) = elseBody match {
+				case Some(els) => findUnusedVariables(els, symbol)
+				case None => (HashSet(),mutable.LinkedHashSet())
+			}
+			(u1++u2++u3,unu1++unu2++unu3)
+
 		case _ => (HashSet[String](), mutable.LinkedHashSet[String]())
 	}
 

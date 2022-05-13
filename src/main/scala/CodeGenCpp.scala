@@ -15,7 +15,7 @@ class CodeGenCpp {
 				case "*" => "_NSmult"
 				case "/" => "_NSdiv"
 				case "==" => "_NS_equal"
-				//case "%" => "_NS"
+				case "%" => "_NSmod"
 				//case "&" | "&&" => "_NS"
 				//case "|" | "||" => "_NS"
 				//case "**" | "^" => "_NS"
