@@ -1,4 +1,5 @@
 import main.{parseString, readFile, writeFile}
+import sys.process._
 
 class Tests {
 	val parser = new Parser
@@ -26,13 +27,14 @@ class Tests {
 	}
 
 	def basic(): String = {
-		val x = "1+1;2*3;5-5;1/2;false & true; 5 & 2; false | false; 2*3 & 5+2/1;"
+		//val x = "1+1;2*3;5-5;1/2;false & true; 5 & 2; false | false; 2*3 & 5+2/1;"
+		val x = "1+1;1+2*3;5-5;1/2; b = 2*(3+1) + 5+2/1 - 10;"
 		compile(x)
 		x
 	}
 
 	def assign(): String = {
-		val x = "a1=1;a2=1+1;a3=a1;a4=println;a5={x};a6=a5 1;" //a1+=1;a2++;a3*=3;a4=true;a7=a8=a9=3;
+		val x = "a1=1;a2=1+1;a3=a1;a4=println;a5={x};a6=a5 1;a=a6;" //a1+=1;a2++;a3*=3;a4=true;a7=a8=a9=3;
 		compile(x)
 		x
 	}
@@ -53,12 +55,25 @@ class Tests {
 		return ""
 	}
 
+	def combine():String = {
+		val x = "result = b + a + f1 b;println result"
+		x
+	}
+
 
 	def run() = {
 		var s = ""
 		s += basic()
 		s += assign()
 		s += function()
+		s += combine()
+
+		writeFile("out/std.cpp", readFile("src/main/scala/std.cpp"))
+		writeFile("out/output.cpp", compile(s))
+		val f = ("g++ out/output.cpp -o out/output").!
+		println(f)
+
+
 	}
 
 }

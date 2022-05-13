@@ -167,6 +167,7 @@ _NS_var _NS_println(_NS_var x){
 auto _NS_addition_ops = new _NSfunc2[8*8+8];
 auto _NS_minus_ops = new _NSfunc2[8*8+8];
 auto _NS_mult_ops = new _NSfunc2[8*8+8];
+auto _NS_div_ops = new _NSfunc2[8*8+8];
 
 _NS_var _NSadd(_NS_var x, _NS_var y){
     auto adder = _NS_addition_ops[x->type*8+y->type];
@@ -179,6 +180,10 @@ _NS_var _NSminus(_NS_var x, _NS_var y){
 _NS_var _NSmult(_NS_var x, _NS_var y){
     auto mult = _NS_mult_ops[x->type*8+y->type];
     return mult(x,y);
+}
+_NS_var _NSdiv(_NS_var x, _NS_var y){
+    auto div = _NS_mult_ops[x->type*8+y->type];
+    return div(x,y);
 }
 
 
@@ -264,4 +269,10 @@ _NS_var _NS_list_int_mult(_NS_var x, _NS_var y)
 _NS_var _NS_int_list_mult(_NS_var x, _NS_var y)
 {
     return _NS_list_int_mult(y, x);
+}
+
+
+// (/)
+_NS_var _NS_std_div (_NS_var x, _NS_var y){
+    return _NS_create_var((int)x->value->i/y->value->i);
 }

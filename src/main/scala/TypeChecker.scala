@@ -116,7 +116,8 @@ class TypeChecker {
 				//TODO register arg variables x;y;z;
 				//TODO convert to function type
 
-				if (children.isEmpty) return (functionNode(List(),nullLeaf()),functionType(),symbol)
+				//TODO: improve + construct empty node possibly
+				if (children.isEmpty) return (functionNode(List(),blockNode(List(returnNode(stringNode(""))))),functionType(),symbol)
 
 				val (_, unusedVariables) = findUnusedVariables(blockNode(children), HashSet())
 

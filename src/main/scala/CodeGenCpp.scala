@@ -13,7 +13,7 @@ class CodeGenCpp {
 				case "+" => "_NSadd"
 				case "-" => "_NSminus"
 				case "*" => "_NSmult"
-				case "/" => "_NS"
+				case "/" => "_NSdiv"
 				case "%" => "_NS"
 				case "&" | "&&" => "_NS"
 				case "|" | "||" => "_NS"
@@ -48,12 +48,30 @@ class CodeGenCpp {
 			preMainFunctions += "(" + fargs.map(x => "_NS_var " + recurse(x)).mkString(",") + ")"
 			preMainFunctions += recurse(body)
 			id + "(" + args.map(recurse).mkString(",") + ")"
+
+		case nullLeaf() => ""
 		//case sequenceNode(l) => l.map(recurse).mkString(";\n")
 		case x => x.toString
 	}
 
 	def stringiFy(t: Tree): String = {
-		val insideMainIncludes = "_NS_addition_ops[8 * 1 + 1] = &_NS_std_adder;_NS_addition_ops[8 * 1 + 4] = &_NS_int_list_adder;_NS_addition_ops[8 * 4 + 1] = &_NS_list_int_adder;_NS_minus_ops[8 * 1 + 1] = &_NS_std_minus;_NS_minus_ops[8 * 1 + 4] = &_NS_int_list_minus;_NS_minus_ops[8 * 4 + 1] = &_NS_list_int_minus;_NS_mult_ops[8 * 1 + 1] = &_NS_std_mult;_NS_mult_ops[8 * 4 + 1] = &_NS_list_int_mult;_NS_mult_ops[8 * 1 + 4] = &_NS_int_list_mult;"
+
+
+		val insideMainIncludes =
+		"""_NS_addition_ops[8 * 1 + 1] = &_NS_std_adder;
+			|_NS_addition_ops[8 * 1 + 4] = &_NS_int_list_adder;
+			|_NS_addition_ops[8 * 4 + 1] = &_NS_list_int_adder;
+			|_NS_minus_ops[8 * 1 + 1] = &_NS_std_minus;
+			|_NS_minus_ops[8 * 1 + 4] = &_NS_int_list_minus;
+			|_NS_minus_ops[8 * 4 + 1] = &_NS_list_int_minus;
+			|_NS_mult_ops[8 * 1 + 1] = &_NS_std_mult;
+			|_NS_mult_ops[8 * 4 + 1] = &_NS_list_int_mult;
+			|_NS_mult_ops[8 * 1 + 4] = &_NS_int_list_mult;
+			|_NS_div_ops[8 * 1 + 1] = &_NS_std_div;
+			|auto println = _NS_create_var(&_NS_println);""".stripMargin
+
+
+		//val insideMainIncludes = "_NS_addition_ops[8 * 1 + 1] = &_NS_std_adder;_NS_addition_ops[8 * 1 + 4] = &_NS_int_list_adder;_NS_addition_ops[8 * 4 + 1] = &_NS_list_int_adder;_NS_minus_ops[8 * 1 + 1] = &_NS_std_minus;_NS_minus_ops[8 * 1 + 4] = &_NS_int_list_minus;_NS_minus_ops[8 * 4 + 1] = &_NS_list_int_minus;_NS_mult_ops[8 * 1 + 1] = &_NS_std_mult;_NS_mult_ops[8 * 4 + 1] = &_NS_list_int_mult;_NS_mult_ops[8 * 1 + 4] = &_NS_int_list_mult;"
 		val mainBody = t match {
 			case functionNode(_, blockNode(elem)) =>
 				val elemNoReturn = elem.map {
