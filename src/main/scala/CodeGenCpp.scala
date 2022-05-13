@@ -13,7 +13,11 @@ class CodeGenCpp {
 				case "+" => "_NSadd"
 				case "-" => "_NSminus"
 				case "*" => "_NSmult"
-				case "/" => "_NSdiv"
+				case "/" => "_NS"
+				case "%" => "_NS"
+				case "&" | "&&" => "_NS"
+				case "|" | "||" => "_NS"
+				case "**" | "^" => "_NS"
 			}
 			nativeFunction + "(" + recurse(left) + "," + recurse(right) + ")"
 		}

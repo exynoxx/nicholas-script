@@ -32,7 +32,13 @@ class Tests {
 	}
 
 	def assign(): String = {
-		val x = "a1=1;a2=1+1;a3=a1;a4=println;a5={x};a6=a5 1;a1+=1;a2++;a3*=3;a4=true;"
+		val x = "a1=1;a2=1+1;a3=a1;a4=println;a5={x};a6=a5 1;" //a1+=1;a2++;a3*=3;a4=true;a7=a8=a9=3;
+		compile(x)
+		x
+	}
+
+	def arrays(): String = {
+		val x = "[]"
 		compile(x)
 		x
 	}

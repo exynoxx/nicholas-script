@@ -115,6 +115,9 @@ class TypeChecker {
 			case blockNode(children) =>
 				//TODO register arg variables x;y;z;
 				//TODO convert to function type
+
+				if (children.isEmpty) return (functionNode(List(),nullLeaf()),functionType(),symbol)
+
 				val (_, unusedVariables) = findUnusedVariables(blockNode(children), HashSet())
 
 				var culSymTable = symbol.to(collection.mutable.HashMap)

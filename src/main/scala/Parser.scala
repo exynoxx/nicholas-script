@@ -45,7 +45,12 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	})("number")
 
-	def term: Parser[Tree] = log(factor ~ rep(("**" | "//" | "*" | "/" | "%")~factor) ^^ {
+	def term: Parser[Tree] = log(boolean ~ rep(("**" | "^" | "*" | "/" | "%") ~ boolean) ^^ {
+		case n ~ List() => n
+		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
+	})("term")
+
+	def boolean: Parser[Tree] = log(factor ~ rep(("&&" | "&" | "||" | "|" | "!=" | "==" | ">=" | "<=" | ">" | "<") ~ factor) ^^ {
 		case n ~ List() => n
 		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
 	})("term")
@@ -60,7 +65,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 
 	// ### ARRAY ###
-	def array: Parser[Tree] = log("[" ~ repsep(expression,",") ~ "]" ^^ {
+	def array: Parser[Tree] = log("[" ~ repsep(expression, ",") ~ "]" ^^ {
 		case _ ~ list ~ _ => arrayNode(list)
 	})("array")
 
@@ -68,13 +73,13 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 
 	// ### CODE BLOCKS ###
-	def block: Parser[Tree] = log("{" ~ rep1sep(expression,";" | "\n") ~ (";" | "\n").? ~ "}"^^ {
+	def block: Parser[Tree] = log("{" ~ repsep(expression, ";" | "\n") ~ (";" | "\n").? ~ "}" ^^ {
 		case _ ~ expList ~ _ ~ _ => blockNode(expList)
 	})("block")
 
 	// ### FUNCTION CALL ###
 	//TODO: (exp)
-	def call: Parser[Tree] = log((word|block) ~ rep1(array | binop) ^^ { case f ~ args => callNode(f, args) })("call")
+	def call: Parser[Tree] = log((word | block) ~ rep1(array | binop) ^^ { case f ~ args => callNode(f, args) })("call")
 
 
 	// ### use f-on-operator ###
@@ -83,11 +88,11 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	// ### if else ###
 	//TODO
-	def notOpeator: Parser[Tree] = log("!" ~ expression ^^{case not ~ exp => unopNode(not,exp)})("notOpeator")
+	def notOpeator: Parser[Tree] = log("!" ~ expression ^^ { case not ~ exp => unopNode(not, exp) })("notOpeator")
 
 	def unary: Parser[Tree] = log(notOpeator)("unary")
 
-	def expression: Parser[Tree] = log(access |  assign | call | binop | unary | array | block |  "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
+	def expression: Parser[Tree] = log(access | assign | call | binop | unary | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
 
 	/*def assign: Parser[Tree] = log(defstatement | assignStatement
 
