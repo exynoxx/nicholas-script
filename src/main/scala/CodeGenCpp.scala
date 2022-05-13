@@ -58,7 +58,7 @@ class CodeGenCpp {
 
 
 		val insideMainIncludes =
-		"""_NS_addition_ops[8 * 1 + 1] = &_NS_std_adder;
+		"""  _NS_addition_ops[8 * 1 + 1] = &_NS_std_adder;
 			|_NS_addition_ops[8 * 1 + 4] = &_NS_int_list_adder;
 			|_NS_addition_ops[8 * 4 + 1] = &_NS_list_int_adder;
 			|_NS_minus_ops[8 * 1 + 1] = &_NS_std_minus;

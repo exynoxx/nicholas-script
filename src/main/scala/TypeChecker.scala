@@ -1,4 +1,5 @@
 import scala.collection.immutable.{HashMap, HashSet}
+import scala.collection.mutable
 import scala.util.control.Exception
 
 class TypeChecker {
@@ -9,12 +10,12 @@ class TypeChecker {
 	}
 
 	//returns (used variables, unused variables)
-	def findUnusedVariables(AST: Tree, symbol: HashSet[String]): (HashSet[String], HashSet[String]) = AST match {
+	def findUnusedVariables(AST: Tree, symbol: HashSet[String]): (HashSet[String], mutable.LinkedHashSet[String]) = AST match {
 		case wordNode(x) =>
 			if (symbol.contains(x)) {
-				(HashSet(), HashSet())
+				(HashSet(), mutable.LinkedHashSet())
 			} else {
-				(HashSet(), HashSet(x))
+				(HashSet(), mutable.LinkedHashSet(x))
 			}
 		case unopNode(op, exp) =>
 			findUnusedVariables(exp, symbol)
@@ -38,14 +39,14 @@ class TypeChecker {
 			val (u_id, unu_id) = findUnusedVariables(id, symbol)
 			(u ++ u_id, unu ++ unu_id)
 		case blockNode(elems) =>
-			var (used, unused) = (symbol, HashSet[String]())
+			var (used, unused) = (symbol, mutable.LinkedHashSet[String]())
 			for (x <- elems) {
 				val (u, unu) = findUnusedVariables(x, used)
 				used ++= u
 				unused ++= unu
 			}
 			(used, unused)
-		case _ => (HashSet[String](), HashSet[String]())
+		case _ => (HashSet[String](), mutable.LinkedHashSet[String]())
 	}
 
 	def typerecurse(AST: Tree, parent: Tree, symbol: HashMap[String, Type]): (Tree, Type, HashMap[String, Type]) = {
