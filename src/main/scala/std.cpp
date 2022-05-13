@@ -186,6 +186,16 @@ _NS_var _NSdiv(_NS_var x, _NS_var y){
     return div(x,y);
 }
 
+_NS_var _NS_equal(_NS_var x, _NS_var y){
+    if (x->type!=y->type || x->type > 3) return _NS_create_var(false);
+    switch (x->type) {
+        case INT: return _NS_create_var(x->value.i==y->value->i);
+        case BOOL: return _NS_create_var(x->value.b==y->value->b);
+        case STRING: return _NS_create_var(x->value.s==y->value->s);
+        case ARRAY: return _NS_create_var(x->value->array==y->value->array);
+    }
+    return _NS_create_var(false)
+}
 
 
 
