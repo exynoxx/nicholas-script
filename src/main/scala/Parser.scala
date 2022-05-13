@@ -4,6 +4,16 @@ import scala.util.parsing.combinator.RegexParsers
 
 class Parser extends RegexParsers {
 
+	def debug(x:Parser[Tree])(out:String):Parser[Tree] = {
+		val shouldLog = false
+
+		if (shouldLog){
+			log(x)(out)
+		} else {
+			x
+		}
+	}
+
 	/*
 	* expression ::= number (("|" | "&" | "^" | "!") number)*
 number ::= term ((+|-) term)*
@@ -19,7 +29,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	def bool: Parser[Tree] = ("true" | "false") ^^ (s => boolNode(s == "true"))
 
-	val boolOp = "&" | "|" | "^" | ">" | ">=" | "<" | "<=" | "==" | "!="
+	val boolOp = "&&" | "||" | "&" | "|" | "^" | ">" | ">=" | "<" | "<=" | "==" | "!="
 
 
 	// ### BINARY OPERATION ###
@@ -34,52 +44,52 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	}
 
 
-	def binop: Parser[Tree] = log(number ~ rep(boolOp ~ number) ^^ {
+	def binop: Parser[Tree] = debug(number ~ rep(boolOp ~ number) ^^ {
 		case n ~ List() => n
 		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
 	})("binop")
 
-	def number: Parser[Tree] = log(term ~ rep(("+" | "-") ~ term) ^^ {
+	def number: Parser[Tree] = debug(term ~ rep(("+" | "-") ~ term) ^^ {
 		case n ~ List() => n
 		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
 
 	})("number")
 
-	def term: Parser[Tree] = log(boolean ~ rep(("**" | "^" | "*" | "/" | "%") ~ boolean) ^^ {
+	def term: Parser[Tree] = debug(factor ~ rep(("**" | "^" | "*" | "/" | "%") ~ factor) ^^ {
 		case n ~ List() => n
 		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
 	})("term")
 
-	def boolean: Parser[Tree] = log(factor ~ rep(("&&" | "&" | "||" | "|" | "!=" | "==" | ">=" | "<=" | ">" | "<") ~ factor) ^^ {
+	/*def boolean: Parser[Tree] = debug(factor ~ rep(("&&" | "&" | "||" | "|" | "!=" | "==" | ">=" | "<=" | ">" | "<") ~ factor) ^^ {
 		case n ~ List() => n
 		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
-	})("term")
+	})("term")*/
 
 	//(exp)|block | a.x
-	def factor: Parser[Tree] = log(integer | strings | bool | call | word | unary | block | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
+	def factor: Parser[Tree] = debug(integer | strings | bool | call | word | unary | block | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
 
 
 	// ### ASSIGN ###
 	//TODO: array access assign
-	def assign: Parser[Tree] = log(word ~ "=" ~ expression ^^ { case id ~ _ ~ b => assignNode(id, b) })("assign")
+	def assign: Parser[Tree] = debug(word ~ "=" ~ expression ^^ { case id ~ _ ~ b => assignNode(id, b) })("assign")
 
 
 	// ### ARRAY ###
-	def array: Parser[Tree] = log("[" ~ repsep(expression, ",") ~ "]" ^^ {
+	def array: Parser[Tree] = debug("[" ~ repsep(expression, ",") ~ "]" ^^ {
 		case _ ~ list ~ _ => arrayNode(list)
 	})("array")
 
-	def access: Parser[Tree] = log((word | array) ~ "$" ~ expression ^^ { case array ~ _ ~ idx => accessNode(array, idx) })("access")
+	def access: Parser[Tree] = debug((word | array) ~ "$" ~ expression ^^ { case array ~ _ ~ idx => accessNode(array, idx) })("access")
 
 
 	// ### CODE BLOCKS ###
-	def block: Parser[Tree] = log("{" ~ repsep(expression, ";" | "\n") ~ (";" | "\n").? ~ "}" ^^ {
+	def block: Parser[Tree] = debug("{" ~ repsep(expression, ";" | "\n") ~ (";" | "\n").? ~ "}" ^^ {
 		case _ ~ expList ~ _ ~ _ => blockNode(expList)
 	})("block")
 
 	// ### FUNCTION CALL ###
 	//TODO: (exp)
-	def call: Parser[Tree] = log((word | block) ~ rep1(array | binop) ^^ { case f ~ args => callNode(f, args) })("call")
+	def call: Parser[Tree] = debug((word | block) ~ rep1(array | binop) ^^ { case f ~ args => callNode(f, args) })("call")
 
 
 	// ### use f-on-operator ###
@@ -88,13 +98,13 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	// ### if else ###
 	//TODO
-	def notOpeator: Parser[Tree] = log("!" ~ expression ^^ { case not ~ exp => unopNode(not, exp) })("notOpeator")
+	def notOpeator: Parser[Tree] = debug("!" ~ expression ^^ { case not ~ exp => unopNode(not, exp) })("notOpeator")
 
-	def unary: Parser[Tree] = log(notOpeator)("unary")
+	def unary: Parser[Tree] = debug(notOpeator)("unary")
 
-	def expression: Parser[Tree] = log(access | assign | call | binop | unary | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
+	def expression: Parser[Tree] = debug(access | assign | call | binop | unary | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
 
-	/*def assign: Parser[Tree] = log(defstatement | assignStatement
+	/*def assign: Parser[Tree] = debug(defstatement | assignStatement
 
 	def vartype: Parser[Tree] = "[" ~ word ~ "]" ^^ { case _ ~ valueNode(w, ns) ~ _ => valueNode("array(" + w + ")", ns) })("assign") |
 		"(" ~ opt(word) ~ rep("," ~ word) ~ ")" ~ "=>" ~ word ^^ {
@@ -105,16 +115,16 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 			}
 		} | word
 
-	def defstatement: Parser[Tree] = log("var" ~ word ~ opt(":" ~ vartype) ~ "=" ~ (objectdef | exp | block | ignoreStatement) ~ ";" ^^ {
+	def defstatement: Parser[Tree] = debug("var" ~ word ~ opt(":" ~ vartype) ~ "=" ~ (objectdef | exp | block | ignoreStatement) ~ ";" ^^ {
 		case _ ~ valueNode(id, _) ~ Some(_ ~ valueNode(ty, _)) ~ _ ~ t ~ _ => assignNode(valueNode(id, ty), t, true, 0, ty)
 		case _ ~ s1 ~ None ~ _ ~ t ~ _ => assignNode(s1, t, true, 0, null)
 	})("defstatement") | word ~ ":=" ~ (objectdef | exp | block | ignoreStatement) ~ ";" ^^ { case s1 ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) }
 
-	def shortdefstatement: Parser[Tree] = log(word ~ ":=" ~ (objectdef | exp | ignoreStatement) ~ ";" ^^ { case s1 ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) })("shortdefstatement")
+	def shortdefstatement: Parser[Tree] = debug(word ~ ":=" ~ (objectdef | exp | ignoreStatement) ~ ";" ^^ { case s1 ~ s2 ~ t ~ s3 => assignNode(s1, t, true, 0, null) })("shortdefstatement")
 
-	def assignStatement: Parser[Tree] = log((arrayAccess | identifier) ~ "=" ~ (exp | ignoreStatement) ~ ";" ^^ { case id ~ _ ~ b ~ _ => assignNode(id, b, false, 0, null) })("assignStatement")
+	def assignStatement: Parser[Tree] = debug((arrayAccess | identifier) ~ "=" ~ (exp | ignoreStatement) ~ ";" ^^ { case id ~ _ ~ b ~ _ => assignNode(id, b, false, 0, null) })("assignStatement")
 
-	def incrementStatement: Parser[Tree] = log((arrayAccess | identifier) ~ ("+=" | "-=" | "*=" | "/=" | "%=") ~ exp ~ ";" ^^ {
+	def incrementStatement: Parser[Tree] = debug((arrayAccess | identifier) ~ ("+=" | "-=" | "*=" | "/=" | "%=") ~ exp ~ ";" ^^ {
 		case id ~ op ~ b ~ _ =>
 			val newBody = binopNode(List(id, b), List(opNode(op.charAt(0).toString, null)), 0, null)
 			assignNode(id, newBody, false, 0, null)
@@ -122,11 +132,11 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 
 	// ### ARRAYS ###
-	def arrays: Parser[Tree] = log(arrayrange | arraydef
+	def arrays: Parser[Tree] = debug(arrayrange | arraydef
 
 	def arrayElement: Parser[Tree] = strings | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s })("arrays")
 
-	def arraydef: Parser[Tree] = log("[" ~ opt(arrayElement) ~ rep("," ~ arrayElement) ~ "]" ^^ {
+	def arraydef: Parser[Tree] = debug("[" ~ opt(arrayElement) ~ rep("," ~ arrayElement) ~ "]" ^^ {
 		case _ ~ firstopt ~ list ~ _ =>
 			firstopt match {
 				case None => arrayNode(List(), null)
@@ -136,17 +146,17 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 			}
 	}
 
-	def arrayrangeNumber: Parser[Tree] = log(integer | identifier | arrayAccess | ("(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x })("arrayrangeNumber")
+	def arrayrangeNumber: Parser[Tree] = debug(integer | identifier | arrayAccess | ("(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x })("arrayrangeNumber")
 
-	def arrayrange: Parser[Tree] = log(arrayrangeNumber ~ ".." ~ arrayrangeNumber ^^ { case a ~ _ ~ b => rangeNode(a, b, arrayType(intType(null))) })("arrayrange")
+	def arrayrange: Parser[Tree] = debug(arrayrangeNumber ~ ".." ~ arrayrangeNumber ^^ { case a ~ _ ~ b => rangeNode(a, b, arrayType(intType(null))) })("arrayrange")
 
-	def arrayAccess: Parser[Tree] = log(identifier ~ "[" ~ arrayElement ~ "]" ^^ { case valueNode(name, _) ~ _ ~ b ~ _ => accessNode(name, b, null) })("arrayAccess")
+	def arrayAccess: Parser[Tree] = debug(identifier ~ "[" ~ arrayElement ~ "]" ^^ { case valueNode(name, _) ~ _ ~ b ~ _ => accessNode(name, b, null) })("arrayAccess")
 
 
 	// ### FUNCTION ###
-	def arg: Parser[Tree] = log(word ~ ":" ~ vartype ^^ { case valueNode(name, _) ~ s ~ ty => argNode(name, ty) })("arg")
+	def arg: Parser[Tree] = debug(word ~ ":" ~ vartype ^^ { case valueNode(name, _) ~ s ~ ty => argNode(name, ty) })("arg")
 
-	def func: Parser[Tree] = log("(" ~ opt(arg) ~ rep("," ~ arg) ~ ")" ~ opt(":" ~ vartype) ~ "=>" ~ (exp | block | ignoreStatement) ^^ {
+	def func: Parser[Tree] = debug("(" ~ opt(arg) ~ rep("," ~ arg) ~ ")" ~ opt(":" ~ vartype) ~ "=>" ~ (exp | block | ignoreStatement) ^^ {
 		case _ ~ Some(arg1) ~ l ~ _ ~ Some(_ ~ ty) ~ _ ~ b =>
 			val x = l.map { case s ~ t => t })("func")
 			functionNode(null, arg1 :: x, b, functionType(List(), ty))
@@ -166,35 +176,35 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 			("(" ~ funCall ~ ")" | "(" ~ binop ~ ")") ^^ { case _ ~ x ~ _ => x } |
 			strings | arrayAccess | arrays | binop
 
-	def funCall: Parser[Tree] = log(identifier ~ ":" ~ rep(funArgExp) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, null) })("funCall")
+	def funCall: Parser[Tree] = debug(identifier ~ ":" ~ rep(funArgExp) ^^ { case valueNode(name, _) ~ _ ~ listargs => callNode(name, listargs, false, null) })("funCall")
 
-	def callStatement: Parser[Tree] = log(funCall ~ ";" ^^ { case callNode(id, args, _, ns) ~ _ => callNode(id, args, true, ns) })("callStatement")
+	def callStatement: Parser[Tree] = debug(funCall ~ ";" ^^ { case callNode(id, args, _, ns) ~ _ => callNode(id, args, true, ns) })("callStatement")
 
 
 	// ### CONTROL FLOW ###
-	def guard: Parser[Tree] = log(binop | arrayAccess | funCall
+	def guard: Parser[Tree] = debug(binop | arrayAccess | funCall
 
 	def ifstatement: Parser[Tree] = "if" ~ "(" ~ guard ~ ")" ~ (statement | block) ~ opt("else" ~ (statement | block)) ^^ {
 		case _ ~ _ ~ b ~ _ ~ e1 ~ Some(_ ~ e2) => ifNode(b, e1, Some(e2), null)
 		case _ ~ _ ~ b ~ _ ~ e1 ~ None => ifNode(b, e1, None, null)
 	})("guard")
 
-	def whilestatement: Parser[Tree] = log("while" ~ "(" ~ guard ~ ")" ~ (statement | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) })("whilestatement")
+	def whilestatement: Parser[Tree] = debug("while" ~ "(" ~ guard ~ ")" ~ (statement | block) ^^ { case s1 ~ s2 ~ b ~ s3 ~ e => whileNode(b, e, null) })("whilestatement")
 
-	def forstatement: Parser[Tree] = log("for" ~ "(" ~ word ~ "in" ~ (arrays | guard) ~ ")" ~ (statement | block) ^^ { case _ ~ _ ~ id ~ _ ~ arr ~ _ ~ body => forNode(id, arr, body, null) })("forstatement")
+	def forstatement: Parser[Tree] = debug("for" ~ "(" ~ word ~ "in" ~ (arrays | guard) ~ ")" ~ (statement | block) ^^ { case _ ~ _ ~ id ~ _ ~ arr ~ _ ~ body => forNode(id, arr, body, null) })("forstatement")
 
 
 	// ### OBJECTS ###
-	def objectdef: Parser[Tree] = log("{" ~ rep(objectrow ~ ",") ~ "})("objectdef")" ^^ { case _ ~ args ~ _ => objectNode(null, args.map(_._1), null) }
+	def objectdef: Parser[Tree] = debug("{" ~ rep(objectrow ~ ",") ~ "})("objectdef")" ^^ { case _ ~ args ~ _ => objectNode(null, args.map(_._1), null) }
 
 	def objectrow: Parser[Tree] =
 		word ~ ":" ~ func ^^ { case valueNode(name, _) ~ _ ~ functionNode(_, args, body, ns) => functionNode(name, args, body, ns) } |
 			word ~ ":" ~ vartype ^^ { case valueNode(name, _) ~ _ ~ valueNode(ty, _) => objectElementNode(name, ty) } |
 			"override" ~ op ~ ":" ~ func ^^ { case _ ~ op ~ _ ~ f => overrideNode(op, f, null) }
 
-	def objectinstansarg: Parser[Tree] = log(binop | objectinstans | arrays | funCall | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s })("objectinstansarg")
+	def objectinstansarg: Parser[Tree] = debug(binop | objectinstans | arrays | funCall | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s })("objectinstansarg")
 
-	def objectinstans: Parser[Tree] = log(identifier ~ "(" ~ opt(objectinstansarg) ~ rep("," ~ objectinstansarg) ~ ")" ^^ {
+	def objectinstans: Parser[Tree] = debug(identifier ~ "(" ~ opt(objectinstansarg) ~ rep("," ~ objectinstansarg) ~ ")" ^^ {
 		case valueNode(name, _) ~ _ ~ None ~ _ ~ _ => objectInstansNode(name, List(), null)
 		case valueNode(name, _) ~ _ ~ Some(exp1) ~ list ~ _ => objectInstansNode(name, List(exp1) ++ list.map(_._2), null)
 	})("objectinstans")
@@ -206,19 +216,19 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 			case valueNode(first, _) ~ list => valueNode(first + list.map { case s ~ valueNode(t, _) => s + t }.mkString, null)
 		}
 
-	def exp: Parser[Tree] = log(strings | arrays | objectinstans | func | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s })("exp")
+	def exp: Parser[Tree] = debug(strings | arrays | objectinstans | func | funCall | binop | arrayAccess | "(" ~ binop ~ ")" ^^ { case _ ~ s ~ _ => s })("exp")
 
-	def block: Parser[Tree] = log("{" ~ rep(statement) ~ "})("block")" ^^ { case _ ~ s ~ _ => blockNode(s, null) }
+	def block: Parser[Tree] = debug("{" ~ rep(statement) ~ "})("block")" ^^ { case _ ~ s ~ _ => blockNode(s, null) }
 
-	def retStatement: Parser[Tree] = log("return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, null) })("retStatement")
+	def retStatement: Parser[Tree] = debug("return" ~ exp ~ ";" ^^ { case _ ~ e ~ _ => returnNode(e, null) })("retStatement")
 
-	def statement: Parser[Tree] = log(ifstatement | forstatement | whilestatement | incrementStatement | assign | retStatement | callStatement | ignoreStatement | exp ^^ { case s => s })("statement")
+	def statement: Parser[Tree] = debug(ifstatement | forstatement | whilestatement | incrementStatement | assign | retStatement | callStatement | ignoreStatement | exp ^^ { case s => s })("statement")
 
 	// ### MISC ###
-	def ignoreStatement: Parser[Tree] = log("\\?\\$[^\\?]*\\?\\$".r ^^ { case s => lineNode(s.substring(2, s.length - 2), null) })("ignoreStatement")
+	def ignoreStatement: Parser[Tree] = debug("\\?\\$[^\\?]*\\?\\$".r ^^ { case s => lineNode(s.substring(2, s.length - 2), null) })("ignoreStatement")
 
-	//def inlineComment: Parser[Tree] = log("#^[;]*".r ^^ { case s => lineNode("//"+s.substring(1, s.length - 1), "") })("inlineComment")
+	//def inlineComment: Parser[Tree] = debug("#^[;]*".r ^^ { case s => lineNode("//"+s.substring(1, s.length - 1), "") })("inlineComment")
 
 	// ### PARSING START HERE ###
-	def start: Parser[Tree] = log(rep(statement) ^^ { case s => blockNode(s, "") })("start")*/
+	def start: Parser[Tree] = debug(rep(statement) ^^ { case s => blockNode(s, "") })("start")*/
 }
