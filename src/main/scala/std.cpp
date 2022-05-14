@@ -319,4 +319,16 @@ _NS_var _NS_gt(_NS_var x, _NS_var y){
 }
 
 
+struct slab{
+    int free_stack_head;
+    int *free_stack;
+    _NS_struct *memory_base;
+}
 
+_NS_var alloc(){
+    //TODO: if full alloc new slab. if partial slab exist. take from that.
+    return memory_base + free_list_stack[free_stack_head--];
+}
+void free(_NS_var block) {
+    free_list_stack[++free_stack_head] = block - memory_base;
+}
