@@ -29,7 +29,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	def bool: Parser[Tree] = ("true" | "false") ^^ (s => boolNode(s == "true"))
 
-	val boolOp = "&&" | "||" | "&" | "|" | "^" | ">" | ">=" | "<" | "<=" | "==" | "!="
+	val boolOp = "&&" | "||" | "&" | "|" | "^" | ">" | ">="  | "<=" | "<" | "==" | "!="
 
 
 	// ### BINARY OPERATION ###
