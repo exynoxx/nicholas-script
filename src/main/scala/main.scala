@@ -47,8 +47,10 @@ object main {
 
 		val ast = parseString(parser, in)
 		printer.print(ast)
+		val typed = typeChecker.typecheck(ast)
+		printer.print(typed)
 		println("-----------txt source:---------------------")
-		val outputString = codeGen.stringiFy(typeChecker.typecheck(ast))
+		val outputString = codeGen.stringiFy(typed)
 		println(outputString);
 		writeFile("out/std.cpp", readFile("src/main/scala/std.cpp"))
 		writeFile(outputFile, outputString)

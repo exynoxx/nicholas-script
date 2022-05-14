@@ -24,7 +24,7 @@ class TypeChecker {
 			val (rused, runused) = findUnusedVariables(r, symbol)
 			(lused ++ rused, lunused ++ runused)
 		case assignNode(wordNode(id), body) =>
-			val (used, unsued) = findUnusedVariables(body, symbol)
+			val (used, unsued) = findUnusedVariables(body, symbol+id)
 			(used ++ HashSet[String](id), unsued)
 		//TODO: assign in one cell used in next
 		case arrayNode(elem) =>
@@ -100,7 +100,7 @@ class TypeChecker {
 
 
 			case assignNode(wordNode(id), b) =>
-				val (body, btyp, sym) = typerecurse(b, AST, symbol)
+				val (body, btyp, sym) = typerecurse(b, AST, symbol++ HashMap(id -> voidType()))
 
 				val newsym = symbol ++ HashMap(id -> btyp)
 
@@ -112,6 +112,7 @@ class TypeChecker {
 						else {
 							wordNode(s)
 						}
+					case functionNode(_, args, fbody) => functionNode(id, args,fbody)
 					case _ => body
 				}
 
@@ -127,7 +128,7 @@ class TypeChecker {
 				//TODO convert to function type
 
 				//TODO: improve + construct empty node possibly
-				if (children.isEmpty) return (functionNode(List(), blockNode(List(returnNode(stringNode(""))))), functionType(), symbol)
+				if (children.isEmpty) return (functionNode(null,List(), blockNode(List(returnNode(stringNode(""))))), functionType(), symbol)
 
 				val (_, unusedVariables) = findUnusedVariables(blockNode(children), HashSet())
 
@@ -146,7 +147,7 @@ class TypeChecker {
 					case assignNode(_, _) => nChildren ++ List(returnNode(stringNode("")))
 					case _ => nChildren.init :+ returnNode(nChildren.last)
 				}
-				(functionNode(unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn)), functionType(), symbol)
+				(functionNode(null,unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn)), functionType(), symbol)
 
 			case callNode(f, args) =>
 				//TODO symbol register each arg if contain assign

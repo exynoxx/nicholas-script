@@ -1,3 +1,5 @@
+import scala.+:
+
 class CodeGenCpp {
 
 	var preMainFunctions = ""
@@ -37,11 +39,16 @@ class CodeGenCpp {
 				case ifNode(a,b,c) => recurse(ifNode(a,b,c))
 				case x => recurse(x)+";\n"
 			}.mkString("{\n","","}\n")
-		case functionNode(args, body) =>
+		case functionNode(name, args, body) =>
 			val id = Util.genRandomName()
 			preMainFunctions += "_NS_var " + id
-			preMainFunctions += "(" + args.map(x => "_NS_var " + recurse(x)).mkString(",") + ")"
-			preMainFunctions += recurse(body)
+			preMainFunctions += "(" + args.map("_NS_var " + recurse(_)).mkString(",") + ")"
+			val newBody = body match {
+				case blockNode(children) => recurse(blockNode(assignNode(wordNode(name),stringNode("&"+id))::children))
+				case x => recurse(blockNode(List(assignNode(wordNode(name),stringNode("&"+id)),x)))
+
+			}
+			preMainFunctions += newBody
 			"_NS_create_var(&" + id + ")"
 		case returnNode(exp) => "return " + recurse(exp)
 		case libraryCallNode(fname, expr) => fname + "(" + expr.map(recurse).mkString(",") + ")"
@@ -53,7 +60,7 @@ class CodeGenCpp {
 			}
 			f + "->value->" + fname + "(" + args.map(recurse).mkString(",") + ")"
 
-		case callNode(functionNode(fargs, body), args) =>
+		case callNode(functionNode(_,fargs, body), args) =>
 			val id = Util.genRandomName()
 			preMainFunctions += "_NS_var " + id
 			preMainFunctions += "(" + fargs.map(x => "_NS_var " + recurse(x)).mkString(",") + ")"
@@ -95,7 +102,7 @@ class CodeGenCpp {
 
 		//val insideMainIncludes = "_NS_addition_ops[8 * 1 + 1] = &_NS_std_adder;_NS_addition_ops[8 * 1 + 4] = &_NS_int_list_adder;_NS_addition_ops[8 * 4 + 1] = &_NS_list_int_adder;_NS_minus_ops[8 * 1 + 1] = &_NS_std_minus;_NS_minus_ops[8 * 1 + 4] = &_NS_int_list_minus;_NS_minus_ops[8 * 4 + 1] = &_NS_list_int_minus;_NS_mult_ops[8 * 1 + 1] = &_NS_std_mult;_NS_mult_ops[8 * 4 + 1] = &_NS_list_int_mult;_NS_mult_ops[8 * 1 + 4] = &_NS_int_list_mult;"
 		val mainBody = t match {
-			case functionNode(_, blockNode(elem)) =>
+			case functionNode(_,_, blockNode(elem)) =>
 				val elemNoReturn = elem.map {
 					case returnNode(x) => x
 					case x => x
