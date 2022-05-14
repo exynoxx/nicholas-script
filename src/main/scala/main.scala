@@ -43,7 +43,7 @@ object main {
 		val outputFile = "out/output.cpp"
 
 		//val in = "even = {(x%2==0)?true:false};println even 5;println even 6;println even 7;"
-		val in = "fib = {(n <= 1) ? 1 : (fib n-1) + (fib n-2)}; println fib 50;"
+		val in = "fib = { (n <= 1) ? 1 : (fib n-1) + (fib n-2)}; println fib 10;"
 
 		val ast = parseString(parser, in)
 		printer.print(ast)

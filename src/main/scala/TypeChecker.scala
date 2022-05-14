@@ -46,14 +46,14 @@ class TypeChecker {
 				unused ++= unu
 			}
 			(used, unused)
-		case ifNode(cond,body,elseBody) =>
+		case ifNode(cond, body, elseBody) =>
 			val (u1, unu1) = findUnusedVariables(cond, symbol)
 			val (u2, unu2) = findUnusedVariables(body, symbol)
 			val (u3, unu3) = elseBody match {
 				case Some(els) => findUnusedVariables(els, symbol)
-				case None => (HashSet(),mutable.LinkedHashSet())
+				case None => (HashSet(), mutable.LinkedHashSet())
 			}
-			(u1++u2++u3,unu1++unu2++unu3)
+			(u1 ++ u2 ++ u3, unu1 ++ unu2 ++ unu3)
 
 		case _ => (HashSet[String](), mutable.LinkedHashSet[String]())
 	}
@@ -127,7 +127,7 @@ class TypeChecker {
 				//TODO convert to function type
 
 				//TODO: improve + construct empty node possibly
-				if (children.isEmpty) return (functionNode(List(),blockNode(List(returnNode(stringNode(""))))),functionType(),symbol)
+				if (children.isEmpty) return (functionNode(List(), blockNode(List(returnNode(stringNode(""))))), functionType(), symbol)
 
 				val (_, unusedVariables) = findUnusedVariables(blockNode(children), HashSet())
 
@@ -175,37 +175,68 @@ class TypeChecker {
 				//TODO: recurse idx
 				(accessNode(arrayId, idx), intType(), symbol)
 
-			case ifNode(cond,body,elseBody) =>
+			case ifNode(cond, body, elseBody) =>
 				//TODO: impl returns as "#=1+1"
 				val id = Util.genRandomName()
-				val (newCond,_,_) = typerecurse(cond,AST,symbol)
+				val (newCond, _, _) = typerecurse(cond, AST, symbol)
 				val newbody = body match {
 					case blockNode(elem) =>
-						val (blockNode(elems),_,_) = typerecurse(blockNode(elem), AST, symbol)
-						blockNode(elems.init :+ reassignNode(wordNode(id),elems.last))
+						val (blockNode(elems), _, _) = typerecurse(blockNode(elem), AST, symbol)
+						blockNode(elems.init :+ reassignNode(wordNode(id), elems.last))
 
 					case exp =>
-						val (b,_,_) = typerecurse(exp,AST,symbol)
+						val (b, _, _) = typerecurse(exp, AST, symbol)
 						//TODO: block?
-						blockNode(List(reassignNode(wordNode(id),b)))
+						blockNode(List(reassignNode(wordNode(id), b)))
 				}
 				val nels = elseBody match {
 					case None => None
-					case Some(x) => typerecurse(x,AST,symbol)._1 match {
+					case Some(x) => typerecurse(x, AST, symbol)._1 match {
 						case blockNode(elem) =>
-							val (blockNode(elems),_,_) = typerecurse(blockNode(elem), AST, symbol)
-							Some(blockNode(elems.init :+ reassignNode(wordNode(id),elems.last)))
+							val (blockNode(elems), _, _) = typerecurse(blockNode(elem), AST, symbol)
+							Some(blockNode(elems.init :+ reassignNode(wordNode(id), elems.last)))
 						case exp =>
-							val (b,_,_) = typerecurse(exp,AST,symbol)
-							Some(blockNode(List(reassignNode(wordNode(id),b))))
+							val (b, _, _) = typerecurse(exp, AST, symbol)
+							Some(blockNode(List(reassignNode(wordNode(id), b))))
 					}
 				}
 
 				val result = wordNode(id)
 				val resultInit = assignNode(result, wordNode("(_NS_var)NULL"))
-				(sequenceNode(List(resultInit,ifNode(newCond,newbody,nels),result)),voidType(),symbol)
+				(sequenceNode(List(resultInit, ifNode(newCond, newbody, nels), result)), voidType(), symbol)
 
 			case x => (x, voidType(), symbol)
 		}
 	}
+
+	/*def replaceId(tree: Tree, target: String, replacement: String): Tree = tree match {
+		case wordNode(x) =>
+			if (x == target) wordNode(replacement)
+			else wordNode(x)
+
+		case binopNode(op, l, r) =>
+			binopNode(op, replaceId(l, target, replacement), replaceId(r, target, replacement))
+
+		case unopNode(op, exp) =>
+			unopNode(op, replaceId(exp, target, replacement))
+
+		case assignNode(id, body) =>
+			assignNode(replaceId(id, target, replacement), replaceId(body, target, replacement))
+
+		case blockNode(elems) =>
+			blockNode(elems.map(replaceId(_, target, replacement)))
+
+		case callNode(f, args) =>
+			callNode(replaceId(f, target, replacement), args.map(replaceId(_, target, replacement)))
+
+		case arrayNode(elems) =>
+			arrayNode(elems.map(replaceId(_, target, replacement)))
+
+		case ifNode(c,b,els) =>
+			val e = els match {
+				case None => None
+				case Some(x) => Some(replaceId(x, target, replacement))
+			}
+			ifNode(replaceId(c, target, replacement),replaceId(b, target, replacement),e)
+	}*/
 }

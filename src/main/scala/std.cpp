@@ -278,7 +278,7 @@ _NS_var _NS_std_div (_NS_var x, _NS_var y){
 }
 
 //==
-_NS_var _NS_equal(_NS_var x, _NS_var y){
+_NS_var _NS_eq(_NS_var x, _NS_var y){
     if (x->type!=y->type) return _NS_create_var(false);
     switch (x->type) {
         case INT: return _NS_create_var(x->value->i==y->value->i);
@@ -289,4 +289,34 @@ _NS_var _NS_equal(_NS_var x, _NS_var y){
     }
     return _NS_create_var(false);
 }
+//!=
+_NS_var _NS_neq(_NS_var x, _NS_var y){
+    if (x->type!=y->type) return _NS_create_var(true);
+    switch (x->type) {
+        case INT: return _NS_create_var(x->value->i!=y->value->i);
+        case BOOL: return _NS_create_var(x->value->b!=y->value->b);
+        case STRING: return _NS_create_var(x->value->s!=y->value->s);
+        case ARRAY: return _NS_create_var(x->value->array!=y->value->array);
+        default: return _NS_create_var(true);
+    }
+    return _NS_create_var(true);
+}
+//<=
+_NS_var _NS_le(_NS_var x, _NS_var y){
+    return _NS_create_var(x->value->i <= y->value->i);
+}
+//>=
+_NS_var _NS_ge(_NS_var x, _NS_var y){
+    return _NS_create_var(x->value->i >= y->value->i);
+}
+//<
+_NS_var _NS_lt(_NS_var x, _NS_var y){
+    return _NS_create_var(x->value->i < y->value->i);
+}
+//>
+_NS_var _NS_gt(_NS_var x, _NS_var y){
+    return _NS_create_var(x->value->i > y->value->i);
+}
+
+
 
