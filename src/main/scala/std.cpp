@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <vector>
 #include <cstring>
+#include <memory>
 
 
 /*   FUNDAMENTAL ENTITIES   */
@@ -10,7 +11,7 @@
 struct _NS_var_struct;
 enum _NS_enum {VOID, INT,STRING,BOOL,ARRAY,FUNCTION0,FUNCTION1,FUNCTION2};
 
-typedef _NS_var_struct* _NS_var;
+typedef std::shared_ptr<_NS_var_struct> _NS_var;
 typedef _NS_var (*_NSfunc2)(_NS_var x, _NS_var y);
 typedef _NS_var (*_NSfunc1)(_NS_var x);
 typedef _NS_var (*_NSfunc0)();
@@ -26,7 +27,7 @@ union _NS_value{
     _NSfunc2 f2;
 
     ~_NS_value(){
-        std::cout<<"onion destructing:"<<i<<std::endl;
+        //std::cout<<"onion destructing:"<<i<<std::endl;
     }   
 
 };
@@ -40,54 +41,54 @@ struct _NS_var_struct{
         value=v;
     }
     ~_NS_var_struct(){
-        std::cout<<"destructing:"<<value->i<<std::endl;
+        //std::cout<<"destructing:"<<value->i<<std::endl;
         if (type == ARRAY) delete value->array;
         delete value;
     }
 };
 
 _NS_var _NS_create_var(){
-    return new _NS_var_struct(VOID,NULL);
+    return std::make_shared<_NS_var_struct>(_NS_var_struct(VOID,NULL));
 }
 _NS_var _NS_create_var(int i){
-    return new _NS_var_struct(INT,new _NS_value{.i=i});
+    return std::make_shared<_NS_var_struct>(_NS_var_struct(INT,new _NS_value{i}));
 }
 _NS_var _NS_create_var(bool b)
 {
     auto value = new _NS_value;
     value->b = b;
-    return new _NS_var_struct(BOOL, value);
+    return std::make_shared<_NS_var_struct>(_NS_var_struct(BOOL, value));
 }
 _NS_var _NS_create_var(std::string *s)
 {
     auto value = new _NS_value;
     value->s = s;
-    return new _NS_var_struct(STRING, value);
+    return std::make_shared<_NS_var_struct>(_NS_var_struct(STRING, value));
 }
 _NS_var _NS_create_var(std::vector<_NS_var> *a){
     auto value = new _NS_value; 
     value->array = a;
-    return new _NS_var_struct(ARRAY,value);
+    return std::make_shared<_NS_var_struct>(_NS_var_struct(ARRAY,value));
 }
 _NS_var _NS_create_var(std::initializer_list<_NS_var> init){
     auto value = new _NS_value; 
     value->array = new std::vector<_NS_var>(init.begin(),init.end());
-    return new _NS_var_struct(ARRAY,value);
+    return std::make_shared<_NS_var_struct>(_NS_var_struct(ARRAY,value));
 }
 _NS_var _NS_create_var(_NSfunc0 f){
     auto value = new _NS_value; 
     value->f0 = f;
-    return new _NS_var_struct(FUNCTION0,value);
+    return std::make_shared<_NS_var_struct>(_NS_var_struct(FUNCTION0,value));
 }
 _NS_var _NS_create_var(_NSfunc1 f){
     auto value = new _NS_value; 
     value->f1 = f;
-    return new _NS_var_struct(FUNCTION1,value);
+    return std::make_shared<_NS_var_struct>(_NS_var_struct(FUNCTION1,value));
 }
 _NS_var _NS_create_var(_NSfunc2 f){
     auto value = new _NS_value; 
     value->f2 = f;
-    return new _NS_var_struct(FUNCTION2,value);
+    return std::make_shared<_NS_var_struct>(_NS_var_struct(FUNCTION2,value));
 }
 
 
