@@ -47,16 +47,17 @@ class TreePrinter {
 				printMinus("-", depth+ increment) + "ARGs\n" +
 				args.map(e => recursion(e, depth + increment)).mkString("")
 
-			/*
-			case ifNode(c, b, Some(e), ns) => printMinus("-", depth) +
+			case ifNode(c, b, Some(e)) => printMinus("-", depth) +
 				"ifNode\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment) +
 				recursion(e, depth + increment)
-			case ifNode(c, b, None, ns) => printMinus("-", depth) +
+			case ifNode(c, b, _) => printMinus("-", depth) +
 				"ifNode\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment)
+
+			/*
 			case whileNode(c, b, ns) => printMinus("-", depth) +
 				"whileNode\n" +
 				recursion(c, depth + increment) +
