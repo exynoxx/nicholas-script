@@ -16,96 +16,100 @@ typedef _NS_var (*_NSfunc2)(_NS_var x, _NS_var y);
 typedef _NS_var (*_NSfunc1)(_NS_var x);
 typedef _NS_var (*_NSfunc0)();
 
-
-union _NS_value{
-    int i;
-    std::string *s;
-    bool b;
-    std::vector<_NS_var> *array;
-    _NSfunc0 f0;
-    _NSfunc1 f1;
-    _NSfunc2 f2;
-
-    ~_NS_value(){
-        //std::cout<<"onion destructing:"<<i<<std::endl;
-    }   
-
-};
-
 struct _NS_var_struct{
     _NS_enum type;
-    _NS_value* value;
 
-    _NS_var_struct(_NS_enum t,_NS_value* v){
+    union {
+        int i;
+        std::string *s;
+        bool b;
+        std::vector<_NS_var> *array;
+        _NSfunc0 f0;
+        _NSfunc1 f1;
+        _NSfunc2 f2;
+    };
+
+    _NS_var_struct(_NS_enum t, int i){
         type=t;
-        value=v;
+        this->i = i;
     }
+
+    _NS_var_struct(_NS_enum t, bool b){
+        type=t;
+        this->b = b;
+    }
+    _NS_var_struct(_NS_enum t, std::string *s){
+        type=t;
+        this->s = s;
+    }
+    _NS_var_struct(_NS_enum t, std::vector<_NS_var> *a){
+        type=t;
+        this->array = a;
+    }
+    _NS_var_struct(_NS_enum t, _NSfunc0 f){
+        type=t;
+        this->f0 = f;
+    }
+    _NS_var_struct(_NS_enum t, _NSfunc1 f){
+        type=t;
+        this->f1 = f;
+    }
+    _NS_var_struct(_NS_enum t, _NSfunc2 f){
+        type=t;
+        this->f2 = f;
+    }
+    
     ~_NS_var_struct(){
-        //std::cout<<"destructing:"<<value->i<<std::endl;
-        if (type == ARRAY) delete value->array;
-        delete value;
+        //std::cout<<"destructing:"<<i<<std::endl;
+        //if (type == ARRAY) delete array;
     }
 };
 
 _NS_var _NS_create_var(){
-    return std::make_shared<_NS_var_struct>(_NS_var_struct(VOID,NULL));
+    return std::make_shared<_NS_var_struct>(VOID,0);
 }
 _NS_var _NS_create_var(int i){
-    return std::make_shared<_NS_var_struct>(_NS_var_struct(INT,new _NS_value{i}));
+    return std::make_shared<_NS_var_struct>(INT,i);
 }
 _NS_var _NS_create_var(bool b)
 {
-    auto value = new _NS_value;
-    value->b = b;
-    return std::make_shared<_NS_var_struct>(_NS_var_struct(BOOL, value));
+    return std::make_shared<_NS_var_struct>(BOOL,b);
 }
 _NS_var _NS_create_var(std::string *s)
 {
-    auto value = new _NS_value;
-    value->s = s;
-    return std::make_shared<_NS_var_struct>(_NS_var_struct(STRING, value));
+    return std::make_shared<_NS_var_struct>(STRING, s);
 }
 _NS_var _NS_create_var(std::vector<_NS_var> *a){
-    auto value = new _NS_value; 
-    value->array = a;
-    return std::make_shared<_NS_var_struct>(_NS_var_struct(ARRAY,value));
+    return std::make_shared<_NS_var_struct>(ARRAY,a);
 }
 _NS_var _NS_create_var(std::initializer_list<_NS_var> init){
-    auto value = new _NS_value; 
-    value->array = new std::vector<_NS_var>(init.begin(),init.end());
-    return std::make_shared<_NS_var_struct>(_NS_var_struct(ARRAY,value));
+    return std::make_shared<_NS_var_struct>(ARRAY,new std::vector<_NS_var>(init.begin(),init.end()));
 }
 _NS_var _NS_create_var(_NSfunc0 f){
-    auto value = new _NS_value; 
-    value->f0 = f;
-    return std::make_shared<_NS_var_struct>(_NS_var_struct(FUNCTION0,value));
+    return std::make_shared<_NS_var_struct>(FUNCTION0,f);
 }
 _NS_var _NS_create_var(_NSfunc1 f){
-    auto value = new _NS_value; 
-    value->f1 = f;
-    return std::make_shared<_NS_var_struct>(_NS_var_struct(FUNCTION1,value));
+    return std::make_shared<_NS_var_struct>(FUNCTION1,f);
 }
 _NS_var _NS_create_var(_NSfunc2 f){
-    auto value = new _NS_value; 
-    value->f2 = f;
-    return std::make_shared<_NS_var_struct>(_NS_var_struct(FUNCTION2,value));
+    return std::make_shared<_NS_var_struct>(FUNCTION2,f);
 }
 
 
 /*   MISC   */
 _NS_var _NS_map1(_NS_var f,_NS_var array)
 {
-    std::vector<_NS_var> *tmp = new std::vector<_NS_var>(array->value->array->size());
-    for (size_t i = 0; i < array->value->array->size(); i++)
-        tmp->at(i) = f->value->f1(array->value->array->at(i));
+    std::vector<_NS_var> *tmp = new std::vector<_NS_var>(array->array->size());
+    for (size_t i = 0; i < array->array->size(); i++)
+        tmp->at(i) = f->f1(array->array->at(i));
     return _NS_create_var(tmp);
 }
 
 _NS_var _NS_map2(_NS_var f,_NS_var array,_NS_var x)
 {
-    std::vector<_NS_var> *tmp = new std::vector<_NS_var>(array->value->array->size());
-    for (size_t i = 0; i < array->value->array->size(); i++)
-        tmp->at(i) = f->value->f2(x,array->value->array->at(i));
+    std::vector<_NS_var> *tmp = new std::vector<_NS_var>(array->array->size());
+    for (size_t i = 0; i < array->array->size(); i++)
+        tmp->at(i) = f->f2(x,array->array->at(i));
     return _NS_create_var(tmp);
 }
 
@@ -118,33 +122,33 @@ int factorial(int n) {
 
 _NS_var _NS_fac(_NS_var x)
 {
-    return _NS_create_var(factorial(x->value->i));
+    return _NS_create_var(factorial(x->i));
 }
 
 _NS_var _NS_boolinv(_NS_var x)
 {
-    return _NS_create_var(!x->value->b);
+    return _NS_create_var(!x->b);
 }
 
 _NS_var _NS_print(_NS_var x){
 	switch(x->type) {
         case INT:
-            std::cout << x->value->i;
+            std::cout << x->i;
             break;
 
         case BOOL:
-            x->value->b ? std::cout << "true": std::cout << "false";
+            x->b ? std::cout << "true": std::cout << "false";
             break;
 
         case STRING:
-            std::cout << x->value->s;
+            std::cout << x->s;
             break;
 
         case ARRAY:
             std::cout << "[";
-            for (size_t i = 0; i < x->value->array->size(); i++)
+            for (size_t i = 0; i < x->array->size(); i++)
             {
-                _NS_print(x->value->array->at(i));
+                _NS_print(x->array->at(i));
                 std::cout << ",";
             }   
             std::cout << "]";
@@ -187,7 +191,7 @@ _NS_var _NSdiv(_NS_var x, _NS_var y){
     return div(x,y);
 }
 _NS_var _NSmod(_NS_var x, _NS_var y){
-    return _NS_create_var(x->value->i%y->value->i);
+    return _NS_create_var(x->i%y->i);
 }
 
 
@@ -205,7 +209,7 @@ _NS_var _NS_list_int_adder(_NS_var x, _NS_var y){
 }
 
 _NS_var _NS_std_adder (_NS_var x, _NS_var y){
-    return _NS_create_var(x->value->i+y->value->i);
+    return _NS_create_var(x->i+y->i);
 }
 
 
@@ -221,40 +225,40 @@ _NS_var _NS_list_int_minus(_NS_var x, _NS_var y){
 }
 
 _NS_var _NS_std_minus (_NS_var x, _NS_var y){
-    return _NS_create_var(x->value->i-y->value->i);
+    return _NS_create_var(x->i-y->i);
 }
 
 
 
 //
 _NS_var _NS_std_mult (_NS_var x, _NS_var y){
-    return _NS_create_var(x->value->i*y->value->i);
+    return _NS_create_var(x->i*y->i);
 }
 
 _NS_var _NS_list_int_mult(_NS_var x, _NS_var y)
 {
     // reserve to optimize performance
-    //y->value->i * x->value->array->size()
+    //y->i * x->array->size()
     auto tmp = new std::vector<_NS_var>();
-    for (size_t k = 0; k < y->value->i; k++)
+    for (size_t k = 0; k < y->i; k++)
     {
-        for (size_t i = 0; i < x->value->array->size(); i++)
+        for (size_t i = 0; i < x->array->size(); i++)
         {
-            auto elem = x->value->array->at(i);
+            auto elem = x->array->at(i);
             switch (elem->type)
             {
                 case INT:
-                    tmp->push_back(_NS_create_var( elem->value->i));
+                    tmp->push_back(_NS_create_var( elem->i));
                     break;
                 case BOOL:
-                    tmp->push_back(_NS_create_var( elem->value->b));
+                    tmp->push_back(_NS_create_var( elem->b));
                     break;
                 case STRING:
-                    tmp->push_back(_NS_create_var( elem->value->s));
+                    tmp->push_back(_NS_create_var( elem->s));
                     break;
                 // case ARRAY:
                 //     {
-                //         auto copy = *elem->value->array;
+                //         auto copy = *elem->array;
                 //         auto heap_copy = new std::vector<_NS_var>(copy);
                 //         tmp->push_back(_NS_create_var(heap_copy));
                 //     }
@@ -275,17 +279,17 @@ _NS_var _NS_int_list_mult(_NS_var x, _NS_var y)
 
 // (/)
 _NS_var _NS_std_div (_NS_var x, _NS_var y){
-    return _NS_create_var((int)x->value->i/y->value->i);
+    return _NS_create_var((int)x->i/y->i);
 }
 
 //==
 _NS_var _NS_eq(_NS_var x, _NS_var y){
     if (x->type!=y->type) return _NS_create_var(false);
     switch (x->type) {
-        case INT: return _NS_create_var(x->value->i==y->value->i);
-        case BOOL: return _NS_create_var(x->value->b==y->value->b);
-        case STRING: return _NS_create_var(x->value->s==y->value->s);
-        case ARRAY: return _NS_create_var(x->value->array==y->value->array);
+        case INT: return _NS_create_var(x->i==y->i);
+        case BOOL: return _NS_create_var(x->b==y->b);
+        case STRING: return _NS_create_var(x->s==y->s);
+        case ARRAY: return _NS_create_var(x->array==y->array);
         default: return _NS_create_var(false);
     }
     return _NS_create_var(false);
@@ -294,29 +298,29 @@ _NS_var _NS_eq(_NS_var x, _NS_var y){
 _NS_var _NS_neq(_NS_var x, _NS_var y){
     if (x->type!=y->type) return _NS_create_var(true);
     switch (x->type) {
-        case INT: return _NS_create_var(x->value->i!=y->value->i);
-        case BOOL: return _NS_create_var(x->value->b!=y->value->b);
-        case STRING: return _NS_create_var(x->value->s!=y->value->s);
-        case ARRAY: return _NS_create_var(x->value->array!=y->value->array);
+        case INT: return _NS_create_var(x->i!=y->i);
+        case BOOL: return _NS_create_var(x->b!=y->b);
+        case STRING: return _NS_create_var(x->s!=y->s);
+        case ARRAY: return _NS_create_var(x->array!=y->array);
         default: return _NS_create_var(true);
     }
     return _NS_create_var(true);
 }
 //<=
 _NS_var _NS_le(_NS_var x, _NS_var y){
-    return _NS_create_var(x->value->i <= y->value->i);
+    return _NS_create_var(x->i <= y->i);
 }
 //>=
 _NS_var _NS_ge(_NS_var x, _NS_var y){
-    return _NS_create_var(x->value->i >= y->value->i);
+    return _NS_create_var(x->i >= y->i);
 }
 //<
 _NS_var _NS_lt(_NS_var x, _NS_var y){
-    return _NS_create_var(x->value->i < y->value->i);
+    return _NS_create_var(x->i < y->i);
 }
 //>
 _NS_var _NS_gt(_NS_var x, _NS_var y){
-    return _NS_create_var(x->value->i > y->value->i);
+    return _NS_create_var(x->i > y->i);
 }
 
 

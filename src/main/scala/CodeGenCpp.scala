@@ -58,7 +58,7 @@ class CodeGenCpp {
 				case 1 => "f1"
 				case 2 => "f2"
 			}
-			f + "->value->" + fname + "(" + args.map(recurse).mkString(",") + ")"
+			f + "->" + fname + "(" + args.map(recurse).mkString(",") + ")"
 
 		case callNode(functionNode(_,fargs, body), args) =>
 			val id = Util.genRandomName()
@@ -76,7 +76,7 @@ class CodeGenCpp {
 				case Some(x) => "\nelse\n" + recurse(x)
 			}
 
-			"if ("+recurse(cond)+"->value->b)\n" + recurse(body) + elsString
+			"if ("+recurse(cond)+"->b)\n" + recurse(body) + elsString
 
 		case nullLeaf() => ""
 		//case sequenceNode(l) => l.map(recurse).mkString(";\n")
