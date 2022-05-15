@@ -130,7 +130,7 @@ class TypeChecker {
 				//TODO: improve + construct empty node possibly
 				if (children.isEmpty) return (functionNode(null,List(), blockNode(List(returnNode(stringNode(""))))), functionType(), symbol)
 
-				val (_, unusedVariables) = findUnusedVariables(blockNode(children), HashSet())
+				val (_, unusedVariables) = findUnusedVariables(blockNode(children), symbol.keySet.to(HashSet))
 
 				var culSymTable = symbol.to(collection.mutable.HashMap)
 

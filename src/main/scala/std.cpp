@@ -225,7 +225,7 @@ _NS_var _NS_std_minus (_NS_var x, _NS_var y){
 
 
 
-//*
+//
 _NS_var _NS_std_mult (_NS_var x, _NS_var y){
     return _NS_create_var(x->value->i*y->value->i);
 }
@@ -319,16 +319,26 @@ _NS_var _NS_gt(_NS_var x, _NS_var y){
 }
 
 
+/*
 struct slab{
     int free_stack_head;
     int *free_stack;
-    _NS_struct *memory_base;
-}
+    _NS_var_struct *memory_base;
 
-_NS_var alloc(){
-    //TODO: if full alloc new slab. if partial slab exist. take from that.
-    return memory_base + free_list_stack[free_stack_head--];
-}
-void free(_NS_var block) {
-    free_list_stack[++free_stack_head] = block - memory_base;
-}
+    slab(int size){
+        free_stack_head = 0;
+        free_stack = new int[size];
+        memory_base = new _NS_var_struct[size];
+    }
+    //x=base+idx*size
+    //idx=x-base/size
+    _NS_var alloc(){
+        //TODO: if full alloc new slab. if partial slab exist. take from that.
+        return memory_base + free_stack[free_stack_head--] * sizeof(_NS_var_struct);
+    }   
+    void free(_NS_var block) {
+        free_stack[++free_stack_head] = (block - memory_base)/sizeof(_NS_var_struct);
+    }
+};
+slab memory_manager();
+*/
