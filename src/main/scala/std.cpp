@@ -29,6 +29,10 @@ struct _NS_var_struct{
         _NSfunc2 f2;
     };
 
+    _NS_var_struct(){
+        type=VOID;
+    }
+
     _NS_var_struct(_NS_enum t, int i){
         type=t;
         this->i = i;
@@ -65,34 +69,68 @@ struct _NS_var_struct{
     }
 };
 
+
+//TODO: add empty, partial, full
+struct slab{
+    int free_stack_head;
+    int *free_stack;
+    _NS_var_struct *memory_base;
+    int num_allocs = 0;
+
+    slab(int size){
+        free_stack_head = 0;
+        free_stack = new int[size];
+        memory_base = new _NS_var_struct[size];
+        for (int i = 0; i < size; i++)
+        {
+            free_stack[i] = i;
+        }
+        std::cout<<"Memory manager initialized"<<std::endl;
+        
+    }
+    //x=base+idx*size
+    //idx=x-base/sizes
+    _NS_var_struct *alloc(){
+        //TODO: if full alloc new slab. if partial slab exist. take from that.
+        return memory_base + free_stack[free_stack_head++];
+    }   
+    void free(_NS_var_struct *block) {
+        free_stack[--free_stack_head] = (block - memory_base);
+    }
+    
+};
+slab memory_manager(10000);
+auto deleter = [](_NS_var_struct *p) { memory_manager.free(p); };
+
+//std::shared_ptr<MyType> sp(new int[10], [](int *p) { delete[] p; });
 _NS_var _NS_create_var(){
-    return std::make_shared<_NS_var_struct>(VOID,0);
+    return std::shared_ptr<_NS_var_struct>();
 }
 _NS_var _NS_create_var(int i){
-    return std::make_shared<_NS_var_struct>(INT,i);
+    return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(INT,i),deleter);
 }
 _NS_var _NS_create_var(bool b)
 {
-    return std::make_shared<_NS_var_struct>(BOOL,b);
+    return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(BOOL,b),deleter);
 }
 _NS_var _NS_create_var(std::string *s)
 {
-    return std::make_shared<_NS_var_struct>(STRING, s);
+    return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(STRING, s),deleter);
 }
 _NS_var _NS_create_var(std::vector<_NS_var> *a){
-    return std::make_shared<_NS_var_struct>(ARRAY,a);
+    return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(ARRAY,a),deleter);
 }
 _NS_var _NS_create_var(std::initializer_list<_NS_var> init){
-    return std::make_shared<_NS_var_struct>(ARRAY,new std::vector<_NS_var>(init.begin(),init.end()));
+   return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(ARRAY,new std::vector<_NS_var>(init.begin(),init.end())),deleter);
 }
 _NS_var _NS_create_var(_NSfunc0 f){
-    return std::make_shared<_NS_var_struct>(FUNCTION0,f);
+   return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(FUNCTION0,f),deleter);
 }
 _NS_var _NS_create_var(_NSfunc1 f){
-    return std::make_shared<_NS_var_struct>(FUNCTION1,f);
+    return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(FUNCTION1,f),deleter);
 }
 _NS_var _NS_create_var(_NSfunc2 f){
-    return std::make_shared<_NS_var_struct>(FUNCTION2,f);
+   return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(FUNCTION2,f),deleter);
 }
 
 
@@ -322,28 +360,3 @@ _NS_var _NS_lt(_NS_var x, _NS_var y){
 _NS_var _NS_gt(_NS_var x, _NS_var y){
     return _NS_create_var(x->i > y->i);
 }
-
-
-/*
-struct slab{
-    int free_stack_head;
-    int *free_stack;
-    _NS_var_struct *memory_base;
-
-    slab(int size){
-        free_stack_head = 0;
-        free_stack = new int[size];
-        memory_base = new _NS_var_struct[size];
-    }
-    //x=base+idx*size
-    //idx=x-base/size
-    _NS_var alloc(){
-        //TODO: if full alloc new slab. if partial slab exist. take from that.
-        return memory_base + free_stack[free_stack_head--] * sizeof(_NS_var_struct);
-    }   
-    void free(_NS_var block) {
-        free_stack[++free_stack_head] = (block - memory_base)/sizeof(_NS_var_struct);
-    }
-};
-slab memory_manager();
-*/
