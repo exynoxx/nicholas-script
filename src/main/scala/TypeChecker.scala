@@ -93,7 +93,7 @@ class TypeChecker {
 					//case ("*", functionType(), boolType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
 					//case ("*", intType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
 					//case ("*", boolType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
-					case ("/", functionType(), arrayType()) => (libraryCallNode("_NS_map1", List(left, right)), arrayType())
+					case ("/", functionType(_), arrayType()) => (libraryCallNode("_NS_map1", List(left, right)), arrayType())
 					case (_, _, _) => (binopNode(op, left, right), ltyp)
 				}
 				(ret, typ, symbol)
@@ -128,7 +128,7 @@ class TypeChecker {
 				//TODO convert to function type
 
 				//TODO: improve + construct empty node possibly
-				if (children.isEmpty) return (functionNode(null,List(), blockNode(List(returnNode(stringNode(""))))), functionType(), symbol)
+				if (children.isEmpty) return (functionNode(null,List(), blockNode(List(returnNode(stringNode(""))))), functionType(null), symbol)
 
 				val (_, unusedVariables) = findUnusedVariables(blockNode(children), symbol.keySet.to(HashSet))
 
@@ -147,7 +147,7 @@ class TypeChecker {
 					case assignNode(_, _) => nChildren ++ List(returnNode(stringNode("")))
 					case _ => nChildren.init :+ returnNode(nChildren.last)
 				}
-				(functionNode(null,unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn)), functionType(), symbol)
+				(functionNode(null,unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn)), functionType(null), symbol)
 
 			case callNode(f, args) =>
 				//TODO symbol register each arg if contain assign
