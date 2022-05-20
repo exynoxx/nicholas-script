@@ -2,69 +2,56 @@ import scala.collection.immutable.HashMap
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.collection.immutable.List
+
+case class typedNode(node: Tree, typ: Type) extends Tree
+
 class TypeTracer {
-
-	var edges = ListBuffer[(String, String, Integer)]()
 	val functions = ListBuffer[Tree]()
+	val graph = mutable.HashMap[String, Type]()
 
-	//match other than wordnode
-	def findEdges(elements:List[Tree]) = elements.foreach(dfs)
+	def lookupType(left: Type, right: Type): Type = intType()
 
-	//DFS
-	def dfs(node:Tree):String = node match {
-		case integerNode(_) => "INT"
-		case stringNode(_) => "STR"
-		case wordNode(x) => x
- 		case arrayNode(elements) => "ARR"
-		case binopNode(op,l,r) =>
-			edges.addOne((dfs(l),op,edges.length))
-			edges.addOne((dfs(r),op,edges.length))
-			op
-		case functionNode(name,args,body) =>
-			functions.append(functionNode(name,args, body))
-			name
-		case assignNode(wordNode(id),body) =>
-			edges.addOne((dfs(body),id,edges.length))
-			"===="
+	def dfs(node: Tree): typedNode = node match {
+		case integerNode(_) => typedNode(node, intType())
+		case stringNode(_) => typedNode(node, stringType())
+		case wordNode(x) => typedNode(node, graph.getOrElse(x, voidType()))
+		case arrayNode(elements) => typedNode(node, arrayType())
+		case binopNode(op, l, r) =>
+			val ll = dfs(l)
+			val rr = dfs(r)
+			typedNode(binopNode(op, ll, rr), lookupType(ll.typ, rr.typ))
+		case functionNode(name, args, body) =>
+			functions.append(functionNode(name, args, body))
+			typedNode(node, unknownType())
+		case assignNode(wordNode(id), body) =>
+			val recurs = dfs(body)
+			graph.addOne((id -> recurs.typ))
+			typedNode(assignNode(wordNode(id), recurs), recurs.typ)
 		//TODO: fix duplicate
-		case reassignNode(wordNode(id),body) =>
-			edges.addOne((dfs(body),id,edges.length))
-			"==#=="
-		case callNode(wordNode(id),args) =>
-			args.foreach(x=>edges.addOne((dfs(x),id,edges.length)))
-			id
-		case _ => "!!!"
+		case reassignNode(wordNode(id), body) =>
+			val recurs = dfs(body)
+			graph.addOne((id -> recurs.typ))
+			typedNode(assignNode(wordNode(id), recurs), recurs.typ)
+		case callNode(wordNode(id), args) =>
+			val argTypes = args.map(dfs)
+			unknownType()
+			typedNode(callNode(wordNode(id), argTypes), unknownType())
+		case ifNode(c, b, None) =>
+			val body = dfs(b)
+			typedNode(ifNode(dfs(c), body, None), body.typ)
+		case ifNode(c, b, Some(e)) =>
+			val body = dfs(b)
+			typedNode(ifNode(dfs(c), body, Some(dfs(e))), body.typ)
+		case returnNode(exp) =>
+			val body = dfs(exp)
+			typedNode(returnNode(body), body.typ)
+		case x => typedNode(x, voidType())
 	}
 
-
-	//edges are inverted
-	def constructGraph(): Map[String,List[(String,Integer)]] =
-		edges.groupBy(_._2).map{case (k,v) => (k,v.map{case(u,_,w)=>(u,w)}.toList)}
-
-
-		def determineType():mutable.HashMap[String,Type] = {
-			val types = new  mutable.HashMap[String,Type]()
-
-			val graph = constructGraph()
-			graph.keys.foreach(u => {
-				if (!types.contains(u)) {
-					types.addOne(u,recursiveDetermineType(graph,types,u,1000))
-				}
-			})
-			types
-		}
-
-		def recursiveDetermineType(graph:Map[String,List[(String,Integer)]],types:mutable.HashMap[String,Type], u:String, count:Int) : Type = {
-			val list = graph(u)
-			val (v,w) = list.filter(_._2 < count).maxBy(_._2)
-			types.getOrElse(v,recursiveDetermineType(graph, types, v, w))
-		}
-
-	def processor(main:functionNode) = {
-		findEdges(main.body.asInstanceOf[blockNode].children)
-		println(edges)
-		println(edges.groupBy(_._2))
-		println(determineType().toString)
+	def processor(main: functionNode):Tree= {
+		var elems = main.body.asInstanceOf[blockNode].children
+		val typedBlock = blockNode(elems.map(dfs))
+		functionNode(main.name,main.args,typedBlock)
 	}
 }
 

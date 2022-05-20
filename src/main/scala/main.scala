@@ -39,6 +39,7 @@ object main {
 		val typeChecker = new TypeChecker
 		val codeGen = new CodeGenCpp
 		val typeTracer = new TypeTracer
+		val singleFyer = new TypeSinglefyer
 
 		//val inputFile = "src/main/scala/examples/object.ns"
 		val outputFile = "out/output.cpp"
@@ -49,9 +50,14 @@ object main {
 
 		val ast = parseString(parser, in)
 		printer.print(ast)
-		val typed = typeChecker.typecheck(ast)
+		val argmented = typeChecker.typecheck(ast)
+		printer.print(argmented)
+		val typed = typeTracer.processor(argmented.asInstanceOf[functionNode])
 		printer.print(typed)
-		typeTracer.processor(typed.asInstanceOf[functionNode])
+
+
+
+
 		/*println("-----------txt source:---------------------")
 		val outputString = codeGen.stringiFy(typed)
 		println(outputString);

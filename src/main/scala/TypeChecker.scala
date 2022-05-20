@@ -116,10 +116,9 @@ class TypeChecker {
 					case _ => body
 				}
 
-				if (symbol.contains(id)) {
-					(reassignNode(wordNode(id), newbody), btyp, newsym)
-				} else {
-					(assignNode(wordNode(id), newbody), btyp, newsym)
+				symbol.contains(id) match {
+					case true => (reassignNode(wordNode(id), newbody), btyp, newsym)
+					case false => (assignNode(wordNode(id), newbody), btyp, newsym)
 				}
 
 
@@ -145,6 +144,7 @@ class TypeChecker {
 				}
 				val childrenWithReturn = nChildren.last match {
 					case assignNode(_, _) => nChildren ++ List(returnNode(stringNode("")))
+					case reassignNode(_, _) => nChildren ++ List(returnNode(stringNode("")))
 					case _ => nChildren.init :+ returnNode(nChildren.last)
 				}
 				(functionNode(null,unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn)), functionType(null), symbol)

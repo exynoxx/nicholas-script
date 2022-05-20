@@ -3,9 +3,9 @@ class TreePrinter {
 		val spaces = (0 to depth).map(x => sym).mkString("")
 		spaces
 	}
-	
-	def printNS(s:Type): String ={
-		if (s == null){
+
+	def printNS(s: Type): String = {
+		if (s == null) {
 			return "null"
 		} else {
 			return s.toString
@@ -28,13 +28,17 @@ class TreePrinter {
 				"assignNode(" + id + ")\n" +
 				recursion(b, depth + increment)
 
+			case reassignNode(id, b) => printMinus("-", depth) +
+				"reassignNode(" + id + ")\n" +
+				recursion(b, depth + increment)
+
 			case arrayNode(elem) => printMinus("-", depth) +
 				"arrayNode()\n" +
 				elem.map(e => recursion(e, depth + increment)).mkString
 
-			case accessNode(array,idx) => printMinus("-", depth) +
+			case accessNode(array, idx) => printMinus("-", depth) +
 				"accessNode()\n" +
-				recursion(array, depth + increment)+
+				recursion(array, depth + increment) +
 				recursion(idx, depth + increment)
 
 			case blockNode(children) => printMinus("-", depth) +
@@ -44,7 +48,7 @@ class TreePrinter {
 			case callNode(f, args) => printMinus("-", depth) +
 				"callNode()\n" +
 				recursion(f, depth + increment) +
-				printMinus("-", depth+ increment) + "ARGs\n" +
+				printMinus("-", depth + increment) + "ARGs\n" +
 				args.map(e => recursion(e, depth + increment)).mkString("")
 
 			case ifNode(c, b, Some(e)) => printMinus("-", depth) +
@@ -56,7 +60,19 @@ class TreePrinter {
 				"ifNode\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment)
-
+			case typedNode(node, typ) =>
+				printMinus("-", depth) +
+					"typedNode(" + typ + ")\n" +
+					recursion(node, depth + increment)
+			case returnNode(exp) => printMinus("-", depth) +
+				"returnNode()\n" +
+				recursion(exp, depth + increment)
+			case functionNode(name, args, body) =>
+				printMinus("-", depth) +
+					"functionNode(" + name + ")\n" +
+					printMinus("-", depth + increment) + "ARGs\n" +
+					args.map(e => recursion(e, depth + increment)).mkString("") +
+					recursion(body, depth + increment)
 			/*
 			case whileNode(c, b, ns) => printMinus("-", depth) +
 				"whileNode\n" +
