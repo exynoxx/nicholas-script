@@ -46,13 +46,13 @@ object main {
 
 		//val in = "even = {(x%2==0)?true:false};println even 5;println even 6;println even 7;"
 		//val in = "println 1+1; fib = { (n <= 1) ? 1 : (fib n-1) + (fib n-2)}; println fib 35;"
-		val in = "y=1+1;x=\"str\";x=y;y=5*x;x=y;print x"
+		val in = "y=1+1;f={k*2+l};x=\"str\";x=y;f x 1;y=5*x;x=y;print x;"
 
 		val ast = parseString(parser, in)
 		printer.print(ast)
 		val argmented = typeChecker.typecheck(ast)
 		printer.print(argmented)
-		val typed = typeTracer.processor(argmented.asInstanceOf[functionNode])
+		val typed = typeTracer.process(argmented.asInstanceOf[functionNode])
 		printer.print(typed)
 
 

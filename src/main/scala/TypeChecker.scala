@@ -93,7 +93,7 @@ class TypeChecker {
 					//case ("*", functionType(), boolType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
 					//case ("*", intType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
 					//case ("*", boolType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
-					case ("/", functionType(_), arrayType()) => (libraryCallNode("_NS_map1", List(left, right)), arrayType())
+					case ("/", functionType(_), arrayType(_)) => (libraryCallNode("_NS_map1", List(left, right)), arrayType())
 					case (_, _, _) => (binopNode(op, left, right), ltyp)
 				}
 				(ret, typ, symbol)

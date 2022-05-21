@@ -66,7 +66,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	})("term")*/
 
 	//(exp)|block | a.x
-	def factor: Parser[Tree] = debug(integer | strings | bool | call | word | unary | block | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
+	def factor: Parser[Tree] = debug(integer | strings | bool | word | call  | unary | block | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
 
 
 	// ### ASSIGN ###
