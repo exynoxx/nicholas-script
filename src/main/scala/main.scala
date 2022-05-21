@@ -37,9 +37,9 @@ object main {
 		val parser = new Parser
 		val printer = new TreePrinter
 		val typeChecker = new TypeChecker
-		val codeGen = new CodeGenCpp
 		val typeTracer = new TypeTracer
-		val singleFyer = new TypeSinglefyer
+		val inliner = new TypeInliner
+		val codeGen = new CodeGenCpp
 
 		//val inputFile = "src/main/scala/examples/object.ns"
 		val outputFile = "out/output.cpp"
@@ -48,12 +48,18 @@ object main {
 		//val in = "println 1+1; fib = { (n <= 1) ? 1 : (fib n-1) + (fib n-2)}; println fib 35;"
 		val in = "y=1+1;f={k*2+l};x=\"str\";x=y;f x 1;y=5*x;x=y;print x;"
 
+		println("---------------------- parsed ----------------------")
 		val ast = parseString(parser, in)
 		printer.print(ast)
+		println("--------------------- argumented --------------------")
 		val argmented = typeChecker.typecheck(ast)
 		printer.print(argmented)
+		println("-------------------- type traced --------------------")
 		val typed = typeTracer.process(argmented.asInstanceOf[functionNode])
 		printer.print(typed)
+		println("---------------------- inlined ----------------------")
+		val inlined = inliner.process(typed)
+		printer.print(inlined)
 
 
 
