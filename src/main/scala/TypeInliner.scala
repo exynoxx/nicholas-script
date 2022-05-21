@@ -31,7 +31,7 @@ class TypeInliner {
 						symbolMap.addOne(id -> typ)
 						replaceMap.addOne(lastId -> id)
 					}
-					assignNode(wordNode(id),inlineTypes(typedNode(body, typ)))
+					reassignNode(wordNode(id),inlineTypes(typedNode(body, typ)))
 				case ifNode(c, body, None) =>
 					ifNode(c, inlineTypes(body), None)
 				case ifNode(c, body, Some(e)) =>

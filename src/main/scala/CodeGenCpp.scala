@@ -6,12 +6,12 @@ class CodeGenCpp {
 
 
 	def recurse(t: Tree): String = t match {
-		case integerNode(x) => "_NS_create_var(" + x + ")"
-		case boolNode(x) => "_NS_create_var(" + x + ")"
-		case stringNode(x) => "_NS_create_var(" + x + ")"
+		case integerNode(x) => x
+		case boolNode(x) => x
+		case stringNode(x) => "std::String(&" + x + ")"
 		case wordNode(x) => x
 		case binopNode(op, left, right) => {
-			val nativeFunction = op match {
+			/*val nativeFunction = op match {
 				case "+" => "_NSadd"
 				case "-" => "_NSminus"
 				case "*" => "_NSmult"
@@ -28,11 +28,12 @@ class CodeGenCpp {
 				//case "**" | "^" => "_NS"
 				case _ => "_NS"
 			}
-			nativeFunction + "(" + recurse(left) + "," + recurse(right) + ")"
+			nativeFunction + "(" + recurse(left) + "," + recurse(right) + ")"*/
+			recurse(left) + op + recurse(right)
 		}
 		case assignNode(id, b) => "auto " + recurse(id) + "=" + recurse(b)
 		case reassignNode(id, b) => recurse(id) + "=" + recurse(b)
-		case arrayNode(elements) => "_NS_create_var({" + elements.map(recurse).mkString(",") + "})"
+		case arrayNode(elements) => "[]"
 		case accessNode(array, idx) => recurse(array) + "[" + recurse(idx) + "]"
 		case blockNode(elem) => //"{\n" + elem.map(recurse).mkString("",";\n",";\n") + "\n}\n"
 			elem.map{

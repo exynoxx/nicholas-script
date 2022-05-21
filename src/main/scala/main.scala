@@ -60,7 +60,7 @@ object main {
 		println("---------------------- inlined ----------------------")
 		val inlined = inliner.process(typed)
 		printer.print(inlined)
-
+		
 
 
 
