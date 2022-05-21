@@ -15,7 +15,7 @@ class TypeInliner {
 			val treeNode = typNode match {
 				case assignNode(wordNode(id), typedNode(body, typ)) =>
 					symbolMap.addOne(id -> typ)
-					assignNode(wordNode(id), typedNode(inlineTypes(body), typ))
+					assignNode(wordNode(id), inlineTypes(typedNode(body, typ)))
 				case reassignNode(wordNode(oldId), typedNode(body, typ)) =>
 					//replace id from previous type change
 					var id = oldId
@@ -31,20 +31,33 @@ class TypeInliner {
 						symbolMap.addOne(id -> typ)
 						replaceMap.addOne(lastId -> id)
 					}
-					reassignNode(wordNode(id), typedNode(inlineTypes(body), typ))
+					assignNode(wordNode(id),inlineTypes(typedNode(body, typ)))
 				case ifNode(c, body, None) =>
 					ifNode(c, inlineTypes(body), None)
 				case ifNode(c, body, Some(e)) =>
 					ifNode(c, inlineTypes(body), Some(inlineTypes(e)))
+				case binopNode(op, l, r) =>
+					binopNode(op, inlineTypes(l), inlineTypes(r))
+				case returnNode(exp) =>
+					returnNode(inlineTypes(exp))
+				case wordNode(oldId) =>
+					var id = oldId
+					while (replaceMap.contains(id)) id = replaceMap(id)
+					wordNode(id)
+				//TODO fix anon f,
+				case callNode(f, args) => callNode(f, args.map(inlineTypes))
+
+				case x => x
 			}
 			typedNode(treeNode, ty)
 		case _ => node
 	}
 
-	def process(main: functionNode): Tree = {
-		val body = main.body.asInstanceOf[blockNode]
+	def process(main: Tree): Tree = {
+		val function = main.asInstanceOf[functionNode]
+		val body = function.body.asInstanceOf[blockNode]
 		val inlined = body.children.map(inlineTypes)
-		functionNode(main.name, main.args, blockNode(inlined))
+		functionNode(function.name, function.args, blockNode(inlined))
 	}
 
 

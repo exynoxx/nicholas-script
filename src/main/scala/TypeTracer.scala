@@ -36,7 +36,7 @@ class TypeTracer {
 		case reassignNode(wordNode(id), body) =>
 			val recurs = dfs1(body)
 			graph.addOne(id -> recurs.typ)
-			typedNode(assignNode(wordNode(id), recurs), recurs.typ)
+			typedNode(reassignNode(wordNode(id), recurs), recurs.typ)
 		case callNode(wordNode(id), args) =>
 			val argTypes = args.map(dfs1)
 			functionCallArgs.getOrElseUpdate(id, new ListBuffer()).addOne(argTypes.map(_.typ))
@@ -89,19 +89,18 @@ class TypeTracer {
 		case typedNode(assignNode(wordNode(id), body), _) =>
 			val b = recurseTypedTree(body)
 			typedNode(assignNode(wordNode(id), b), b.typ)
-		case typedNode(assignNode(wordNode(id), body), _) =>
+		case typedNode(reassignNode(wordNode(id), body), _) =>
 			val b = recurseTypedTree(body)
-			typedNode(assignNode(wordNode(id), b), b.typ)
+			typedNode(reassignNode(wordNode(id), b), b.typ)
 
 		case typedNode(callNode(wordNode(id), args), ty) =>
 			if (ty != unknownType()) return typedNode(callNode(wordNode(id), args), ty)
 			typedNode(callNode(wordNode(id), args.map(recurseTypedTree)), graph.getOrElse(id, unknownType()))
-
+		case typedNode(wordNode(x),ty) =>
+			typedNode(wordNode(x), graph.getOrElse(x, voidType()))
 
 		case typedNode(exp, typ) =>
 			val content = exp match {
-				case wordNode(x) =>
-					typedNode(node, graph.getOrElse(x, voidType()))
 				case arrayNode(elements) => arrayNode(elements.map(recurseTypedTree))
 				case binopNode(op, l, r) =>
 					binopNode(op, recurseTypedTree(l), recurseTypedTree(r))
