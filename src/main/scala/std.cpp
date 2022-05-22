@@ -4,71 +4,13 @@
 #include <vector>
 #include <cstring>
 #include <memory>
+#include <variant>
+
+typedef std::shared_ptr<std::variant<int,bool,std::string> _NS_array;
+typedef std::variant<int,bool,std::string,_NS_array> _NS_var;
 
 
-/*   FUNDAMENTAL ENTITIES   */
-
-struct _NS_var_struct;
-enum _NS_enum {VOID, INT,STRING,BOOL,ARRAY,FUNCTION0,FUNCTION1,FUNCTION2};
-
-typedef std::shared_ptr<_NS_var_struct> _NS_var;
-typedef _NS_var (*_NSfunc2)(_NS_var x, _NS_var y);
-typedef _NS_var (*_NSfunc1)(_NS_var x);
-typedef _NS_var (*_NSfunc0)();
-
-struct _NS_var_struct{
-    _NS_enum type;
-
-    union {
-        int i;
-        std::string *s;
-        bool b;
-        std::vector<_NS_var> *array;
-        _NSfunc0 f0;
-        _NSfunc1 f1;
-        _NSfunc2 f2;
-    };
-
-    _NS_var_struct(){
-        type=VOID;
-    }
-
-    _NS_var_struct(_NS_enum t, int i){
-        type=t;
-        this->i = i;
-    }
-
-    _NS_var_struct(_NS_enum t, bool b){
-        type=t;
-        this->b = b;
-    }
-    _NS_var_struct(_NS_enum t, std::string *s){
-        type=t;
-        this->s = s;
-    }
-    _NS_var_struct(_NS_enum t, std::vector<_NS_var> *a){
-        type=t;
-        this->array = a;
-    }
-    _NS_var_struct(_NS_enum t, _NSfunc0 f){
-        type=t;
-        this->f0 = f;
-    }
-    _NS_var_struct(_NS_enum t, _NSfunc1 f){
-        type=t;
-        this->f1 = f;
-    }
-    _NS_var_struct(_NS_enum t, _NSfunc2 f){
-        type=t;
-        this->f2 = f;
-    }
-    
-    ~_NS_var_struct(){
-        //std::cout<<"destructing:"<<i<<std::endl;
-        //if (type == ARRAY) delete array;
-    }
-};
-
+/*
 
 //TODO: add empty, partial, full
 struct slab{
@@ -101,40 +43,10 @@ struct slab{
 };
 slab memory_manager(10000);
 auto deleter = [](_NS_var_struct *p) { memory_manager.free(p); };
-
-//std::shared_ptr<MyType> sp(new int[10], [](int *p) { delete[] p; });
-_NS_var _NS_create_var(){
-    return std::shared_ptr<_NS_var_struct>();
-}
-_NS_var _NS_create_var(int i){
-    return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(INT,i),deleter);
-}
-_NS_var _NS_create_var(bool b)
-{
-    return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(BOOL,b),deleter);
-}
-_NS_var _NS_create_var(std::string *s)
-{
-    return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(STRING, s),deleter);
-}
-_NS_var _NS_create_var(std::vector<_NS_var> *a){
-    return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(ARRAY,a),deleter);
-}
-_NS_var _NS_create_var(std::initializer_list<_NS_var> init){
-   return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(ARRAY,new std::vector<_NS_var>(init.begin(),init.end())),deleter);
-}
-_NS_var _NS_create_var(_NSfunc0 f){
-   return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(FUNCTION0,f),deleter);
-}
-_NS_var _NS_create_var(_NSfunc1 f){
-    return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(FUNCTION1,f),deleter);
-}
-_NS_var _NS_create_var(_NSfunc2 f){
-   return std::shared_ptr<_NS_var_struct>(new(memory_manager.alloc()) _NS_var_struct(FUNCTION2,f),deleter);
-}
-
+*/
 
 /*   MISC   */
+/*
 _NS_var _NS_map1(_NS_var f,_NS_var array)
 {
     std::vector<_NS_var> *tmp = new std::vector<_NS_var>(array->array->size());
@@ -157,20 +69,20 @@ int factorial(int n) {
 	else
 		return 1;
 }
+*/
 
+/*
 _NS_var _NS_fac(_NS_var x)
 {
     return _NS_create_var(factorial(x->i));
 }
+*/
 
-_NS_var _NS_boolinv(_NS_var x)
-{
-    return _NS_create_var(!x->b);
-}
 
-_NS_var _NS_print(_NS_var x){
-	switch(x->type) {
-        case INT:
+int _NS_print(_NS_var x){
+	std::cout << x << std::endl;
+	/*switch(x.index) {
+        case 0:
             std::cout << x->i;
             break;
 
@@ -194,47 +106,17 @@ _NS_var _NS_print(_NS_var x){
             
         default:
             std::cout <<  "not printable: "<< x->type;
-    }
-	return _NS_create_var();
+    }*/
+	return 0;
 }
-_NS_var _NS_println(_NS_var x){
+int _NS_println(_NS_var x){
     _NS_print(x);
     std::cout << std::endl;
-    return _NS_create_var();
+    return 0;
 }
+/*
 
-
-
-
-/*   EVERY OPERATOR   */
-auto _NS_addition_ops = new _NSfunc2[8*8+8];
-auto _NS_minus_ops = new _NSfunc2[8*8+8];
-auto _NS_mult_ops = new _NSfunc2[8*8+8];
-auto _NS_div_ops = new _NSfunc2[8*8+8];
-
-_NS_var _NSadd(_NS_var x, _NS_var y){
-    auto adder = _NS_addition_ops[x->type*8+y->type];
-    return adder(x,y);
-}
-_NS_var _NSminus(_NS_var x, _NS_var y){
-    auto minus = _NS_minus_ops[x->type*8+y->type];
-    return minus(x,y);
-}
-_NS_var _NSmult(_NS_var x, _NS_var y){
-    auto mult = _NS_mult_ops[x->type*8+y->type];
-    return mult(x,y);
-}
-_NS_var _NSdiv(_NS_var x, _NS_var y){
-    auto div = _NS_mult_ops[x->type*8+y->type];
-    return div(x,y);
-}
-_NS_var _NSmod(_NS_var x, _NS_var y){
-    return _NS_create_var(x->i%y->i);
-}
-
-
-
-/*  BINARY OPERATIONS (EACH COMBINATION)  */
+*//*  BINARY OPERATIONS (EACH COMBINATION)  *//*
 //+
 _NS_var _NS_int_list_adder(_NS_var x, _NS_var y){
     _NSfunc2 f = &_NSadd;
@@ -359,4 +241,4 @@ _NS_var _NS_lt(_NS_var x, _NS_var y){
 //>
 _NS_var _NS_gt(_NS_var x, _NS_var y){
     return _NS_create_var(x->i > y->i);
-}
+}*/

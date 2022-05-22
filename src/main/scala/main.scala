@@ -45,8 +45,8 @@ object main {
 		val outputFile = "out/output.cpp"
 
 		//val in = "even = {(x%2==0)?true:false};println even 5;println even 6;println even 7;"
-		//val in = "println 1+1; fib = { (n <= 1) ? 1 : (fib n-1) + (fib n-2)}; println fib 35;"
-		val in = "y=1+1;f={k*2+l};x=\"str\";x=y;f x 1;y=5*x;x=y;print x;"
+		//val in = "y=1+1;f={k*2+l};x=\"str\";x=y;f x 1;y=5*x;x=y;print x;"
+		val in = "println 1+1; fib = { (n <= 1) ? 1 : (fib n-1) + (fib n-2)}; println (fib 35);"
 
 		println("---------------------- parsed ----------------------")
 		val ast = parseString(parser, in)
@@ -60,18 +60,15 @@ object main {
 		println("---------------------- inlined ----------------------")
 		val inlined = inliner.process(typed)
 		printer.print(inlined)
-		
+		val outputString = codeGen.stringiFy(inlined)
+		println(outputString)
 
-
-
-		/*println("-----------txt source:---------------------")
-		val outputString = codeGen.stringiFy(typed)
-		println(outputString);
 		writeFile("out/std.cpp", readFile("src/main/scala/std.cpp"))
 		writeFile(outputFile, outputString)
 
 		val f = ("g++ " + outputFile + " -o out/output").!
-		println(f)*/
+		println(f)
+
 
 		//val tests = new Tests
 		//tests.run()

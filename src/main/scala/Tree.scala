@@ -43,7 +43,7 @@ case class libraryCallNode(fname: String, expr: List[Tree]) extends Tree
 
 case class sequenceNode(list: List[Tree]) extends Tree
 
-case class ifNode(condition: Tree, body: Tree, elseBody: Option[Tree]) extends Tree
+case class ifNode(condition: Tree, body: Tree, elseBody: Option[Tree], retturnName:String=null) extends Tree
 
 
 /*

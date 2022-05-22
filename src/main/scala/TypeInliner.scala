@@ -5,6 +5,7 @@ class TypeInliner {
 	//### responsibility ###
 	//1) clone
 	//2) extract and replace func names
+	//TODO: remove void-returning (return(call(voidF))
 
 	val symbolMap = mutable.HashMap[String, Type]()
 	val replaceMap = mutable.HashMap[String, String]()
@@ -26,15 +27,18 @@ class TypeInliner {
 					}
 
 					//new tyoe change
-					if (symbolMap(id) != typ) {
+					if (symbolMap(id) == typ) {
+						reassignNode(wordNode(id), inlineTypes(typedNode(body, typ)))
+					} else {
 						id = Util.genRandomName()
 						symbolMap.addOne(id -> typ)
 						replaceMap.addOne(lastId -> id)
+						assignNode(wordNode(id), inlineTypes(typedNode(body, typ)))
 					}
-					reassignNode(wordNode(id),inlineTypes(typedNode(body, typ)))
-				case ifNode(c, body, None) =>
+
+				case ifNode(c, body, None,_) =>
 					ifNode(c, inlineTypes(body), None)
-				case ifNode(c, body, Some(e)) =>
+				case ifNode(c, body, Some(e),_) =>
 					ifNode(c, inlineTypes(body), Some(inlineTypes(e)))
 				case binopNode(op, l, r) =>
 					binopNode(op, inlineTypes(l), inlineTypes(r))

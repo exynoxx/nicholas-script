@@ -46,7 +46,7 @@ class TypeChecker {
 				unused ++= unu
 			}
 			(used, unused)
-		case ifNode(cond, body, elseBody) =>
+		case ifNode(cond, body, elseBody,_) =>
 			val (u1, unu1) = findUnusedVariables(cond, symbol)
 			val (u2, unu2) = findUnusedVariables(body, symbol)
 			val (u3, unu3) = elseBody match {
@@ -100,6 +100,8 @@ class TypeChecker {
 
 
 			case assignNode(wordNode(id), b) =>
+				//TODO: if functionNode and arg has function type in scope. convert from wordNode to call node and capture
+				//remaining args
 				val (body, btyp, sym) = typerecurse(b, AST, symbol++ HashMap(id -> voidType()))
 
 				val newsym = symbol ++ HashMap(id -> btyp)
@@ -143,8 +145,8 @@ class TypeChecker {
 					case x => List(x)
 				}
 				val childrenWithReturn = nChildren.last match {
-					case assignNode(_, _) => nChildren ++ List(returnNode(stringNode("")))
-					case reassignNode(_, _) => nChildren ++ List(returnNode(stringNode("")))
+					case assignNode(_, _) => nChildren ++ List(returnNode(integerNode(1)))
+					case reassignNode(_, _) => nChildren ++ List(returnNode(integerNode(1)))
 					case _ => nChildren.init :+ returnNode(nChildren.last)
 				}
 				(functionNode(null,unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn)), functionType(null), symbol)
@@ -176,7 +178,7 @@ class TypeChecker {
 				//TODO: recurse idx
 				(accessNode(arrayId, idx), intType(), symbol)
 
-			case ifNode(cond, body, elseBody) =>
+			case ifNode(cond, body, elseBody,_) =>
 				//TODO: impl returns as "#=1+1"
 				val id = Util.genRandomName()
 				val (newCond, _, _) = typerecurse(cond, AST, symbol)
@@ -203,8 +205,8 @@ class TypeChecker {
 				}
 
 				val result = wordNode(id)
-				val resultInit = assignNode(result, wordNode("(_NS_var)NULL"))
-				(sequenceNode(List(resultInit, ifNode(newCond, newbody, nels), result)), voidType(), symbol)
+				val resultInit = assignNode(result, integerNode(0))
+				(sequenceNode(List(resultInit, ifNode(newCond, newbody, nels,id), result)), voidType(), symbol)
 
 			case x => (x, voidType(), symbol)
 		}
