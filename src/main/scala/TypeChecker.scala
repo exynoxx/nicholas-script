@@ -114,7 +114,7 @@ class TypeChecker {
 						else {
 							wordNode(s)
 						}
-					case functionNode(_, args, fbody) => functionNode(id, args,fbody)
+					case functionNode(args, fbody,metaData) => functionNode(args,fbody,metaNode(id,null))
 					case _ => body
 				}
 
@@ -129,7 +129,7 @@ class TypeChecker {
 				//TODO convert to function type
 
 				//TODO: improve + construct empty node possibly
-				if (children.isEmpty) return (functionNode(null,List(), blockNode(List(returnNode(stringNode(""))))), functionType(null), symbol)
+				if (children.isEmpty) return (functionNode(List(), blockNode(List(returnNode(stringNode("")))), null), functionType(null), symbol)
 
 				val (_, unusedVariables) = findUnusedVariables(blockNode(children), symbol.keySet.to(HashSet))
 
@@ -149,7 +149,7 @@ class TypeChecker {
 					case reassignNode(_, _) => nChildren ++ List(returnNode(integerNode(1)))
 					case _ => nChildren.init :+ returnNode(nChildren.last)
 				}
-				(functionNode(null,unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn)), functionType(null), symbol)
+				(functionNode(unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn),null), functionType(null), symbol)
 
 			case callNode(f, args) =>
 				//TODO symbol register each arg if contain assign

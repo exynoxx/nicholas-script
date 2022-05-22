@@ -58,8 +58,9 @@ class CodeGenCpp {
 	}
 
 	def recurseTypedTree(t: Tree): String = t match {
-		case typedNode(functionNode(name, args, body),ty) =>
-			val id = Util.genRandomName()
+		case typedNode(functionNode(args, body,meta),ty) =>
+			val metaNode(name,extractName) = meta
+			val id = extractName
 			preMainFunctions += convertType(ty) + " " + id
 
 			val stringArgs = args.map{
@@ -67,12 +68,7 @@ class CodeGenCpp {
 			}.mkString(",")
 
 			preMainFunctions += "(" + stringArgs + ")"
-			val newBody = body match {
-				case blockNode(children) => recurseTypedTree(blockNode(assignNode(wordNode(name), stringNode("&" + id)) :: children))
-				case x => recurseTypedTree(blockNode(List(assignNode(wordNode(name), stringNode("&" + id)), x)))
-
-			}
-			preMainFunctions += newBody
+			preMainFunctions += recurseTypedTree(body)
 			"&" + id
 		case typedNode(node, _) => recurseTypedTree(node)
 		case x => recurseTree(x)
@@ -81,7 +77,7 @@ class CodeGenCpp {
 	def stringiFy(t: Tree): String = {
 
 		val mainBody = t match {
-			case functionNode(_, _, blockNode(elem)) =>
+			case functionNode(_, blockNode(elem),_) =>
 				val elemNoReturn = elem.map {
 					case returnNode(x) => x
 					case x => x

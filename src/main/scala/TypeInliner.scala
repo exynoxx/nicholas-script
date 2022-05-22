@@ -13,7 +13,7 @@ class TypeInliner {
 
 	def inlineTypes(node: Tree): Tree = node match {
 		case typedNode(typNode, ty) =>
-			val treeNode = typNode match {
+			val treeNode: Tree = typNode match {
 				case assignNode(wordNode(id), typedNode(body, typ)) =>
 					symbolMap.addOne(id -> typ)
 					assignNode(wordNode(id), inlineTypes(typedNode(body, typ)))
@@ -36,9 +36,9 @@ class TypeInliner {
 						assignNode(wordNode(id), inlineTypes(typedNode(body, typ)))
 					}
 
-				case ifNode(c, body, None,_) =>
+				case ifNode(c, body, None, _) =>
 					ifNode(c, inlineTypes(body), None)
-				case ifNode(c, body, Some(e),_) =>
+				case ifNode(c, body, Some(e), _) =>
 					ifNode(c, inlineTypes(body), Some(inlineTypes(e)))
 				case binopNode(op, l, r) =>
 					binopNode(op, inlineTypes(l), inlineTypes(r))
@@ -49,8 +49,16 @@ class TypeInliner {
 					while (replaceMap.contains(id)) id = replaceMap(id)
 					wordNode(id)
 				//TODO fix anon f,
+				case callNode(wordNode(id), args) => callNode(wordNode(replaceMap.getOrElse(id, id)), args.map(inlineTypes))
 				case callNode(f, args) => callNode(f, args.map(inlineTypes))
-
+				case functionNode(args, blockNode(children), meta) =>
+					val metaNode(name, _) = meta
+					val extractName = Util.genRandomName()
+					replaceMap.addOne(name -> extractName)
+					val ret = functionNode(args, blockNode(children.map(inlineTypes)), metaNode(name, extractName))
+					replaceMap.remove(name)
+					ret
+				case blockNode(children) => blockNode(children.map(inlineTypes))
 				case x => x
 			}
 			typedNode(treeNode, ty)
@@ -61,7 +69,7 @@ class TypeInliner {
 		val function = main.asInstanceOf[functionNode]
 		val body = function.body.asInstanceOf[blockNode]
 		val inlined = body.children.map(inlineTypes)
-		functionNode(function.name, function.args, blockNode(inlined))
+		functionNode(function.args, blockNode(inlined), function.metaData)
 	}
 
 

@@ -51,12 +51,12 @@ class TreePrinter {
 				printMinus("-", depth + increment) + "ARGs\n" +
 				args.map(e => recursion(e, depth + increment)).mkString("")
 
-			case ifNode(c, b, Some(e)) => printMinus("-", depth) +
+			case ifNode(c, b, Some(e),_) => printMinus("-", depth) +
 				"ifNode\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment) +
 				recursion(e, depth + increment)
-			case ifNode(c, b, _) => printMinus("-", depth) +
+			case ifNode(c, b, _,_) => printMinus("-", depth) +
 				"ifNode\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment)
@@ -67,9 +67,17 @@ class TreePrinter {
 			case returnNode(exp) => printMinus("-", depth) +
 				"returnNode()\n" +
 				recursion(exp, depth + increment)
-			case functionNode(name, args, body) =>
+
+			case functionNode(args, body, null) =>
 				printMinus("-", depth) +
-					"functionNode(" + name + ")\n" +
+					"functionNode(null)\n" +
+					printMinus("-", depth + increment) + "ARGs\n" +
+					args.map(e => recursion(e, depth + increment)).mkString("") +
+					recursion(body, depth + increment)
+
+			case functionNode(args, body, metaNode(name, extractName)) =>
+				printMinus("-", depth) +
+					"functionNode(" + name + ", " + extractName + ")\n" +
 					printMinus("-", depth + increment) + "ARGs\n" +
 					args.map(e => recursion(e, depth + increment)).mkString("") +
 					recursion(body, depth + increment)

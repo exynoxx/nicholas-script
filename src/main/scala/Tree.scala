@@ -25,7 +25,8 @@ case class arrayNode(elements: List[Tree]) extends Tree
 
 case class blockNode(children: List[Tree]) extends Tree
 
-case class functionNode(name:String, args: List[Tree], body: Tree) extends Tree
+case class metaNode(name:String, extractName:String) extends Tree
+case class functionNode(args: List[Tree], body: Tree, metaData: metaNode) extends Tree
 
 case class returnNode(exp: Tree) extends Tree
 
@@ -43,7 +44,7 @@ case class libraryCallNode(fname: String, expr: List[Tree]) extends Tree
 
 case class sequenceNode(list: List[Tree]) extends Tree
 
-case class ifNode(condition: Tree, body: Tree, elseBody: Option[Tree], retturnName:String=null) extends Tree
+case class ifNode(condition: Tree, body: Tree, elseBody: Option[Tree], returnName:String=null) extends Tree
 
 
 /*

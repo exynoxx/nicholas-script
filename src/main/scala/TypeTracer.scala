@@ -27,7 +27,7 @@ class TypeTracer {
 			val ll = dfs1(l)
 			val rr = dfs1(r)
 			typedNode(binopNode(op, ll, rr), lookupType(ll.typ, rr.typ))
-		case functionNode(id, _, _) =>
+		case functionNode(_, _, _) =>
 			typedNode(node, unknownType())
 		case assignNode(wordNode(id), body) =>
 			val recurs = dfs1(body)
@@ -82,7 +82,7 @@ class TypeTracer {
 
 	def recurseTypedTree(node: Tree): typedNode = node match {
 
-		case typedNode(functionNode(name, args, body), _) =>
+		case typedNode(functionNode(args, body,metaNode(name,_)), _) =>
 			//paste back in
 			val elementOption = functionCallArgs.get(name)
 			elementOption match {
@@ -101,7 +101,7 @@ class TypeTracer {
 					graph = graphCopy
 					currentScopeName = oldScope
 					graph.addOne(name -> fbodyType)
-					typedNode(functionNode(name, namedArgs, fbody), fbodyType)
+					typedNode(functionNode(namedArgs, fbody,metaNode(name,null)), fbodyType)
 				case None => typedNode(nullLeaf(), voidType())
 			}
 		case typedNode(assignNode(wordNode(id), body), _) =>
@@ -147,7 +147,7 @@ class TypeTracer {
 	def process(main: functionNode): Tree = {
 		val body = main.body.asInstanceOf[blockNode]
 		val typedBlock = doScope(body)
-		functionNode(main.name, main.args, typedBlock)
+		functionNode(main.args, typedBlock,main.metaData)
 	}
 }
 
