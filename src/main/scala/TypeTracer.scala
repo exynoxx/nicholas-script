@@ -145,6 +145,7 @@ class TypeTracer {
 	}
 
 	def process(main: functionNode): Tree = {
+		injectExternalMethods()
 		val body = main.body.asInstanceOf[blockNode]
 		val typedBlock = doScope(body)
 		functionNode(main.args, typedBlock,main.metaData)

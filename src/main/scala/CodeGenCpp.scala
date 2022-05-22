@@ -82,10 +82,9 @@ class CodeGenCpp {
 					case returnNode(x) => x
 					case x => x
 				}
-				"int main (){\n" +
-					elemNoReturn.map(recurseTypedTree).mkString("", ";\n", ";\n") +
-					"return 0;\n" +
-					"\n}\n"
+				val nsMain = "int _NS_main (){\n" + elemNoReturn.map(recurseTypedTree).mkString("", ";\n", ";\n") + "}\n"
+				val main = "int main() {\n _NS_main();\nreturn 0;\n}"
+				nsMain+main
 		}
 		"#include \"std.cpp\"\n" + preMainFunctions + mainBody
 	}

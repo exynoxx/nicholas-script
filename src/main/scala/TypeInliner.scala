@@ -8,7 +8,7 @@ class TypeInliner {
 	//TODO: remove void-returning (return(call(voidF))
 
 	val symbolMap = mutable.HashMap[String, Type]()
-	val replaceMap = mutable.HashMap[String, String]()
+	val replaceMap = mutable.HashMap[String, String]("print"->"_NS_print","println"->"_NS_println")
 
 
 	def inlineTypes(node: Tree): Tree = node match {
