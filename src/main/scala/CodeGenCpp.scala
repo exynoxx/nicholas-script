@@ -4,7 +4,7 @@ class CodeGenCpp {
 
 	var preMainFunctions = ""
 
-	def convertType(ty:Type):String = ty match {
+	def convertType(ty: Type): String = ty match {
 		case intType() => "int"
 		case boolType() => "bool"
 		case stringType() => "std::string"
@@ -12,25 +12,22 @@ class CodeGenCpp {
 		case _ => "auto"
 	}
 
-	def recurseTree(t:Tree): String = t match {
+	def recurseTree(t: Tree): String = t match {
 		case integerNode(x) => x.toString
 		case boolNode(x) => x.toString
 		case stringNode(x) => "std::string(" + x + ")"
 		case wordNode(x) => x
 		case binopNode(op, left, right) => recurseTypedTree(left) + op + recurseTypedTree(right)
-		case assignNode(id, b) =>
-			"auto " + recurseTypedTree(id) + "=" +
-				recurseTypedTree(b)
 		case reassignNode(id, b) => recurseTypedTree(id) + "=" + recurseTypedTree(b)
 		case arrayNode(elements) => "new " + convertType(arrayType()) + "()"
 		case accessNode(array, idx) => recurseTypedTree(array) + "[" + recurseTypedTree(idx) + "]"
 		case blockNode(elem) => //"{\n" + elem.map(recurse).mkString("",";\n",";\n") + "\n}\n"
 			elem.map {
-				case ifNode(a, b, c,_) => recurseTypedTree(ifNode(a, b, c))
+				case typedNode(ifNode(a, b, c, d),ty) => recurseTypedTree(ifNode(a, b, c, d))
 				case x => recurseTypedTree(x) + ";\n"
 			}.mkString("{\n", "", "}\n")
 		case returnNode(exp) => "return " + recurseTypedTree(exp)
-		case libraryCallNode(fname, expr) => fname + "(" + expr.map(recurseTypedTree).mkString(",") + ")"
+		case libraryCallNode(fname, expr) => fname + "(" + expr.map(recurseTypedTree(_)).mkString(",") + ")"
 		case callNode(wordNode(f), args) =>
 			f + "(" + args.map(recurseTypedTree).mkString(",") + ")"
 
@@ -41,7 +38,7 @@ class CodeGenCpp {
 			preMainFunctions += recurseTypedTree(body)
 			id + "(" + args.map(recurseTypedTree).mkString(",") + ")"*/
 
-		case ifNode(cond, body, els,_) =>
+		case ifNode(cond, body, els, _) =>
 			val id = Util.genRandomName()
 			val result = "_NS_var " + id + " = NULL;\n"
 
@@ -58,33 +55,30 @@ class CodeGenCpp {
 	}
 
 	def recurseTypedTree(t: Tree): String = t match {
-		case typedNode(functionNode(args, body,meta),ty) =>
-			val metaNode(name,extractName) = meta
+		case typedNode(functionNode(args, body, meta), ty) =>
+			val metaNode(name, extractName) = meta
 			val id = extractName
 			preMainFunctions += convertType(ty) + " " + id
 
-			val stringArgs = args.map{
+			val stringArgs = args.map {
 				case typedNode(x, ty) => convertType(ty) + " " + recurseTree(x)
 			}.mkString(",")
 
 			preMainFunctions += "(" + stringArgs + ")"
 			preMainFunctions += recurseTypedTree(body)
 			"&" + id
-		case typedNode(node, _) => recurseTypedTree(node)
+		case typedNode(assignNode(id, b), ty) => convertType(ty) + " " + recurseTypedTree(id) + "=" + recurseTypedTree(b)
+		case typedNode(node, _) => 	recurseTree(node)
 		case x => recurseTree(x)
 	}
 
 	def stringiFy(t: Tree): String = {
 
 		val mainBody = t match {
-			case functionNode(_, blockNode(elem),_) =>
-				val elemNoReturn = elem.map {
-					case returnNode(x) => x
-					case x => x
-				}
-				val nsMain = "int _NS_main (){\n" + elemNoReturn.map(recurseTypedTree).mkString("", ";\n", ";\n") + "}\n"
+			case functionNode(_, blockNode(elem), _) =>
+				val nsMain = "int _NS_main ()" + recurseTree(blockNode(elem))
 				val main = "int main() {\n _NS_main();\nreturn 0;\n}"
-				nsMain+main
+				nsMain + main
 		}
 		"#include \"std.cpp\"\n" + preMainFunctions + mainBody
 	}
