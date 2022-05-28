@@ -6,8 +6,8 @@
 #include <memory>
 #include <variant>
 
-typedef std::shared_ptr<std::variant<int,bool,std::string> _NS_array;
-typedef std::variant<int,bool,std::string,_NS_array> _NS_var;
+/*typedef std::shared_ptr<std::variant<int,bool,std::string> _NS_array;
+typedef std::variant<int,bool,std::string,_NS_array> _NS_var;*/
 
 
 /*
@@ -79,7 +79,7 @@ _NS_var _NS_fac(_NS_var x)
 */
 
 
-int _NS_print(_NS_var x){
+int _NS_print(int x){
 	std::cout << x << std::endl;
 	/*switch(x.index) {
         case 0:
@@ -109,7 +109,7 @@ int _NS_print(_NS_var x){
     }*/
 	return 0;
 }
-int _NS_println(_NS_var x){
+int _NS_println(int x){
     _NS_print(x);
     std::cout << std::endl;
     return 0;

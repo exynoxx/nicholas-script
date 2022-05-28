@@ -8,7 +8,7 @@ class CodeGenCpp {
 		case intType() => "int"
 		case boolType() => "bool"
 		case stringType() => "std::string"
-		case arrayType(_) => "std::shared_ptr<std::vec<std::variant>>"
+		case arrayType(_) => "std::shared_ptr<std::vector<std::variant<int,bool,std::string>>>"
 		case _ => "auto"
 	}
 
@@ -19,7 +19,10 @@ class CodeGenCpp {
 		case wordNode(x) => x
 		case binopNode(op, left, right) => recurseTypedTree(left) + op + recurseTypedTree(right)
 		case reassignNode(id, b) => recurseTypedTree(id) + "=" + recurseTypedTree(b)
-		case arrayNode(elements) => "new " + convertType(arrayType()) + "()"
+		case arrayNode(elements) =>
+			val stringElements = elements.map(recurseTypedTree).mkString(",")
+			val vecInit = "new std::vector<std::variant<int,bool,std::string>>({"+stringElements+"})"
+			"new " + convertType(arrayType()) + "("+vecInit+")"
 		case accessNode(array, idx) => recurseTypedTree(array) + "[" + recurseTypedTree(idx) + "]"
 		case blockNode(elem) => //"{\n" + elem.map(recurse).mkString("",";\n",";\n") + "\n}\n"
 			elem.map {
@@ -67,7 +70,7 @@ class CodeGenCpp {
 			preMainFunctions += "(" + stringArgs + ")"
 			preMainFunctions += recurseTypedTree(body)
 			"&" + id
-		case typedNode(assignNode(id, b), ty) => convertType(ty) + " " + recurseTypedTree(id) + "=" + recurseTypedTree(b)
+		case typedNode(assignNode(id, b), ty) => "auto " + recurseTypedTree(id) + "=" + recurseTypedTree(b)
 		case typedNode(node, _) => 	recurseTree(node)
 		case x => recurseTree(x)
 	}

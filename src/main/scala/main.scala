@@ -45,8 +45,9 @@ object main {
 		val outputFile = "out/output.cpp"
 
 		//val in = "even = {(x%2==0)?true:false};println even 5;println even 6;println even 7;"
-		//val in = "y=1+1;f={k*2+l};x=\"str\";x=y;f x 1;y=5*x;x=y;print x;"
-		val in = "println 1+1; fib = { (n <= 1) ? 1 : (fib n-1) + (fib n-2)}; println (fib 35);"
+		//val in = "y=1+1;f={k*2+l};x=\"str\";x=y;non=f x 1;y=5*x;x=y;print x;"
+		//val in = "println 1+1; fib = { (n <= 1) ? 1 : (fib n-1) + (fib n-2)}; println (fib 35); x=[1,2,3];x$1+x$2;"
+		val in = "one = [1]*10;two = {x*2}; two/[1,2,3]; {x*2}/[1,2,3]"
 
 		println("---------------------- parsed ----------------------")
 		val ast = parseString(parser, in)

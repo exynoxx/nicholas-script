@@ -66,7 +66,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	})("term")*/
 
 	//(exp)|block | a.x
-	def factor: Parser[Tree] = debug(integer | strings | bool | word | call  | unary | block | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
+	def factor: Parser[Tree] = debug(access | integer | strings | bool | word | call  | unary | block | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
 
 
 	// ### ASSIGN ###
@@ -79,7 +79,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 		case _ ~ list ~ _ => arrayNode(list)
 	})("array")
 
-	def access: Parser[Tree] = debug((word | array) ~ "$" ~ expression ^^ { case array ~ _ ~ idx => accessNode(array, idx) })("access")
+	def access: Parser[Tree] = debug((word | array) ~ "$" ~ integer ^^ { case array ~ _ ~ idx => accessNode(array, idx) })("access")
 
 
 	// ### CODE BLOCKS ###
@@ -109,7 +109,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	def unary: Parser[Tree] = debug(notOpeator)("unary")
 
-	def expression: Parser[Tree] = debug(ifStatement | access | assign | call | binop | unary | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
+	def expression: Parser[Tree] = debug(ifStatement  | assign | call | binop | access | unary | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
 
 	/*def assign: Parser[Tree] = debug(defstatement | assignStatement
 
