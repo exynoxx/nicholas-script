@@ -2,10 +2,11 @@ import scala.collection.immutable.{HashMap, HashSet}
 import scala.collection.mutable
 import scala.util.control.Exception
 
-class TypeChecker {
+class TreeAugmenter extends Stage{
 
-	def typecheck(AST: Tree): Tree = {
-		val (t, _, _) = typerecurse(AST, AST, HashMap("+" -> intType()))
+	def process(AST: Tree): Tree = {
+		println("--------------------- augmenting --------------------")
+		val (t, _, _) = recurse(AST, unknownType(), HashMap("+" -> intType()))
 		t
 	}
 
@@ -58,7 +59,7 @@ class TypeChecker {
 		case _ => (HashSet[String](), mutable.LinkedHashSet[String]())
 	}
 
-	def typerecurse(AST: Tree, parent: Tree, symbol: HashMap[String, Type]): (Tree, Type, HashMap[String, Type]) = {
+	def recurse(AST: Tree, typ:Type, symbol: HashMap[String, Type]): (Tree, Type, HashMap[String, Type]) = {
 		AST match {
 			case wordNode(x) =>
 				try {
@@ -73,28 +74,27 @@ class TypeChecker {
 
 			case stringNode(x) => (stringNode(x), stringType(), symbol)
 
-			case unopNode(op, exp) =>
-
-				val (body, typ, nsymbol) = typerecurse(exp, AST, symbol)
-				op match {
-					case "!" =>
-						val fname = typ match {
-							case intType() => "_NS_fac"
-							case boolType() => "_NS_boolinv"
-						}
-						(libraryCallNode(fname, List(body)), typ, nsymbol)
-				}
+			case unopNode(op, exp) => recurse(exp, typ, symbol)
 
 			case binopNode(op, l, r) =>
-				val (left, ltyp, _) = typerecurse(l, AST, symbol)
-				val (right, rtyp, _) = typerecurse(r, AST, symbol)
-				val (ret: Tree, typ: Type) = (op, ltyp, rtyp) match {
-					//case ("*", functionType(), intType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
-					//case ("*", functionType(), boolType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), right, integerNode(1), left), voidType)
-					//case ("*", intType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
-					//case ("*", boolType(), functionType()) => (loopNode(wordNode(Util.genRandomName()), integerNode(0), left, integerNode(1), right), voidType)
-					case ("/", functionType(_), arrayType(_)) => (libraryCallNode("_NS_map1", List(left, right)), arrayType())
-					case (_, _, _) => (binopNode(op, left, right), ltyp)
+				val (left, ltyp, _) = recurse(l, typ, symbol)
+				val (right, rtyp, _) = recurse(r, typ, symbol)
+
+				//first run
+				var ret = (op, left, right) match {
+					case ("/", functionNode(args,body,_), arrayNode(_)) =>
+						val tmpName = Util.genRandomName()
+						val f = functionNode(args,body,metaNode(tmpName,null))
+						//val map = mapNode(f,right)
+						val binop = binopNode(op, wordNode(tmpName), right)
+						sequenceNode(List(f,binop))
+					case (_, _, _) => binopNode(op, left, right)
+				}
+
+				//second run
+				ret = (op,ltyp,rtyp) match {
+					case ("/", functionType(_), arrayType(_)) => mapNode(left,right)
+					case _ => ret
 				}
 				(ret, typ, symbol)
 
@@ -102,25 +102,19 @@ class TypeChecker {
 			case assignNode(wordNode(id), b) =>
 				//TODO: if functionNode and arg has function type in scope. convert from wordNode to call node and capture
 				//remaining args
-				val (body, btyp, sym) = typerecurse(b, AST, symbol++ HashMap(id -> voidType()))
+				val (body, btyp, sym) = recurse(b, typ, symbol++ HashMap(id -> voidType()))
 
 				val newsym = symbol ++ HashMap(id -> btyp)
 
 				//TODO: prettify (usage: println=_NS_println)
 				val newbody = body match {
-					case wordNode(s) =>
-						if (s.startsWith("_NS"))
-							stringNode("&" + s)
-						else {
-							wordNode(s)
-						}
 					case functionNode(args, fbody,metaData) => functionNode(args,fbody,metaNode(id,null))
 					case _ => body
 				}
 
 				symbol.contains(id) match {
-					case true => (reassignNode(wordNode(id), newbody), btyp, newsym)
-					case false => (assignNode(wordNode(id), newbody), btyp, newsym)
+					case true => (reassignNode(wordNode(id), newbody), typ, newsym)
+					case false => (assignNode(wordNode(id), newbody), typ, newsym)
 				}
 
 
@@ -136,7 +130,7 @@ class TypeChecker {
 				var culSymTable = symbol.to(collection.mutable.HashMap)
 
 				val recursedChildren = children.map(x => {
-					val (exp, typ, localSym) = typerecurse(x, AST, culSymTable.to(HashMap))
+					val (exp, _, localSym) = recurse(x, typ, culSymTable.to(HashMap))
 					culSymTable ++= localSym
 					exp
 				})
@@ -149,97 +143,68 @@ class TypeChecker {
 					case reassignNode(_, _) => nChildren ++ List(returnNode(integerNode(1)))
 					case _ => nChildren.init :+ returnNode(nChildren.last)
 				}
-				(functionNode(unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn),null), functionType(null), symbol)
+				(functionNode(unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn),null), typ, symbol)
 
 			case callNode(f, args) =>
 				//TODO symbol register each arg if contain assign
-				val nargs = args.map(x => typerecurse(x, AST, symbol)._1)
-				val (func, ftyp, sym) = typerecurse(f, AST, symbol)
-				(callNode(func, nargs), ftyp, sym)
+				val nargs = args.map(x => recurse(x, typ, symbol)._1)
+				val (func, ftyp, sym) = recurse(f, typ, symbol)
+				(callNode(func, nargs), typ, sym)
 
 
 			case arrayNode(elements) =>
 				var sym = symbol
 				var typ: Type = null
 				val nelements = elements.map(x => {
-					val (elem, t, s) = typerecurse(x, AST, sym)
+					val (elem, t, s) = recurse(x, typ, sym)
 					sym = s
 					typ = t
 					elem
 				})
-				(arrayNode(nelements), arrayType(), sym)
+				(arrayNode(nelements), typ, sym)
 
 			case accessNode(arrayId, idx) =>
 				//TODO: recurse array
-				val typ = arrayId match {
-					case arrayNode(elements) => typerecurse(arrayNode(elements), AST, symbol)._2.asInstanceOf[arrayType]
+				val ty:Type = arrayId match {
+					case arrayNode(elements) => recurse(arrayNode(elements), typ, symbol)._2.asInstanceOf[arrayType]
 					case wordNode(id) => symbol(id).asInstanceOf[arrayType]
 				}
 				//TODO: recurse idx
-				(accessNode(arrayId, idx), intType(), symbol)
+				(accessNode(arrayId, idx), typ, symbol)
 
 			case ifNode(cond, body, elseBody,_) =>
 				//TODO: impl returns as "#=1+1"
 				val id = Util.genRandomName()
-				val (newCond, _, _) = typerecurse(cond, AST, symbol)
+				val (newCond, _, _) = recurse(cond, typ, symbol)
 				val newbody = body match {
 					case blockNode(elem) =>
-						val (blockNode(elems), _, _) = typerecurse(blockNode(elem), AST, symbol)
+						val (blockNode(elems), _, _) = recurse(blockNode(elem), typ, symbol)
 						blockNode(elems.init :+ reassignNode(wordNode(id), elems.last))
 
 					case exp =>
-						val (b, _, _) = typerecurse(exp, AST, symbol)
+						val (b, _, _) = recurse(exp, typ, symbol)
 						//TODO: block?
 						blockNode(List(reassignNode(wordNode(id), b)))
 				}
 				val nels = elseBody match {
 					case None => None
-					case Some(x) => typerecurse(x, AST, symbol)._1 match {
+					case Some(x) => recurse(x, typ, symbol)._1 match {
 						case blockNode(elem) =>
-							val (blockNode(elems), _, _) = typerecurse(blockNode(elem), AST, symbol)
+							val (blockNode(elems), _, _) = recurse(blockNode(elem), typ, symbol)
 							Some(blockNode(elems.init :+ reassignNode(wordNode(id), elems.last)))
 						case exp =>
-							val (b, _, _) = typerecurse(exp, AST, symbol)
+							val (b, _, _) = recurse(exp, typ, symbol)
 							Some(blockNode(List(reassignNode(wordNode(id), b))))
 					}
 				}
 
 				val result = wordNode(id)
 				val resultInit = assignNode(result, integerNode(0))
-				(sequenceNode(List(resultInit, ifNode(newCond, newbody, nels,id), result)), voidType(), symbol)
+				(sequenceNode(List(resultInit, ifNode(newCond, newbody, nels,id), result)), typ, symbol)
+
+			case typedNode(exp,ty) => recurse(exp,ty,symbol)
 
 			case x => (x, voidType(), symbol)
 		}
 	}
-
-	/*def replaceId(tree: Tree, target: String, replacement: String): Tree = tree match {
-		case wordNode(x) =>
-			if (x == target) wordNode(replacement)
-			else wordNode(x)
-
-		case binopNode(op, l, r) =>
-			binopNode(op, replaceId(l, target, replacement), replaceId(r, target, replacement))
-
-		case unopNode(op, exp) =>
-			unopNode(op, replaceId(exp, target, replacement))
-
-		case assignNode(id, body) =>
-			assignNode(replaceId(id, target, replacement), replaceId(body, target, replacement))
-
-		case blockNode(elems) =>
-			blockNode(elems.map(replaceId(_, target, replacement)))
-
-		case callNode(f, args) =>
-			callNode(replaceId(f, target, replacement), args.map(replaceId(_, target, replacement)))
-
-		case arrayNode(elems) =>
-			arrayNode(elems.map(replaceId(_, target, replacement)))
-
-		case ifNode(c,b,els) =>
-			val e = els match {
-				case None => None
-				case Some(x) => Some(replaceId(x, target, replacement))
-			}
-			ifNode(replaceId(c, target, replacement),replaceId(b, target, replacement),e)
-	}*/
 }

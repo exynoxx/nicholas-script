@@ -111,6 +111,20 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	def expression: Parser[Tree] = debug(ifStatement  | assign | call | binop | access | unary | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
 
+	def process(s: String): Tree = {
+		println("---------------------- parsing ----------------------")
+		val inn = "{" + s + "}"
+		this.parse(expression,inn) match {
+			case this.Success(t, _) =>
+				println("success")
+				t
+			case x => println("Error in .parse: " + x)
+				nullLeaf()
+		}
+	}
+
+
+
 	/*def assign: Parser[Tree] = debug(defstatement | assignStatement
 
 	def vartype: Parser[Tree] = "[" ~ word ~ "]" ^^ { case _ ~ valueNode(w, ns) ~ _ => valueNode("array(" + w + ")", ns) })("assign") |

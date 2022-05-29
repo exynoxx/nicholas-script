@@ -46,6 +46,7 @@ case class sequenceNode(list: List[Tree]) extends Tree
 
 case class ifNode(condition: Tree, body: Tree, elseBody: Option[Tree], returnName:String=null) extends Tree
 
+case class mapNode(f:Tree, array:Tree) extends Tree
 
 /*
 case class returnNode(body: Tree, nstype: String) extends Tree

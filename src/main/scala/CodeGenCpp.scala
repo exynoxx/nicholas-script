@@ -75,7 +75,7 @@ class CodeGenCpp {
 		case x => recurseTree(x)
 	}
 
-	def stringiFy(t: Tree): String = {
+	def process(t: Tree): String = {
 
 		val mainBody = t match {
 			case functionNode(_, blockNode(elem), _) =>

@@ -1,6 +1,6 @@
 import scala.collection.mutable
 
-class TypeInliner {
+class TypeInliner extends Stage{
 
 	//### responsibility ###
 	//1) clone
@@ -66,6 +66,7 @@ class TypeInliner {
 	}
 
 	def process(main: Tree): Tree = {
+		println("---------------------- inlining ----------------------")
 		val function = main.asInstanceOf[functionNode]
 		val body = function.body.asInstanceOf[blockNode]
 		val inlined = body.children.map(inlineTypes)

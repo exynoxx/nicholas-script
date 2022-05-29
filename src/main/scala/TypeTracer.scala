@@ -3,7 +3,7 @@ import scala.collection.mutable.ListBuffer
 
 case class typedNode(node: Tree, typ: Type) extends Tree
 
-class TypeTracer {
+class TypeTracer extends Stage{
 	val functionCallArgs = mutable.HashMap[String, ListBuffer[List[Type]]]()
 	var graph = mutable.HashMap[String, Type]()
 	var currentScopeName = ""
@@ -144,7 +144,9 @@ class TypeTracer {
 		graph.addOne("print" -> intType())
 	}
 
-	def process(main: functionNode): Tree = {
+	def process(tree: Tree): Tree = {
+		println("-------------------- type tracing --------------------")
+		val main = tree.asInstanceOf[functionNode]
 		injectExternalMethods()
 		val body = main.body.asInstanceOf[blockNode]
 		val typedBlock = doScope(body)

@@ -1,30 +1,17 @@
-import main.{parseString, readFile, writeFile}
+import Util.{readFile, writeFile}
+
 import sys.process._
 
 class Tests {
 	val parser = new Parser
 	val printer = new TreePrinter
 
-	val typeChecker = new TypeChecker
+	val typeChecker = new TreeAugmenter
 	val codeGen = new CodeGenCpp
 
 	var combinedCode = ""
 
-	def parseString(parser: Parser, s: String): Tree = {
-		val inn = "{" + s + "}"
-		parser.parse(parser.expression, inn) match {
-			case parser.Success(t, _) =>
-				println("success")
-				t
-			case x => println("Error in .parse: " + x)
-				nullLeaf()
-		}
-	}
-
-	def compile(in: String): String = {
-		val ast = parseString(parser, in)
-		codeGen.stringiFy(typeChecker.typecheck(ast))
-	}
+	def compile(in: String): String = codeGen.process(typeChecker.process(parser.process(in)))
 
 	def basic(): String = {
 		//val x = "1+1;2*3;5-5;1/2;false & true; 5 & 2; false | false; 2*3 & 5+2/1;"
