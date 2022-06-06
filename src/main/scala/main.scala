@@ -16,10 +16,10 @@ object main {
 		val stage1 = new TreeAugmenter
 		val stage2 = new TypeTracer
 		val stage3 = new TypeInliner
-		val codeGen = new CodeGenCpp
+		val codeGen = new CodeGenJS
 
 		//val inputFile = "src/main/scala/examples/object.ns"
-		val outputFile = "out/output.cpp"
+		val outputFile = "out/output.js"
 
 		//val in = "even = {(x%2==0)?true:false};println even 5;println even 6;println even 7;"
 		//val in = "y=1+1;f={k*2+l};x=\"str\";x=y;non=f x 1;y=5*x;x=y;print x;"
@@ -38,11 +38,11 @@ object main {
 		printer.print(AST)
 		val output = codeGen.process(AST)
 		println(output)
-		writeFile("out/std.cpp", readFile("src/main/scala/std.cpp"))
+		//writeFile("out/std.cpp", readFile("src/main/scala/std.cpp"))
 		writeFile(outputFile, output)
 
-		val f = ("g++ " + outputFile + " -o out/output").!
-		println(f)
+		/*val f = ("g++ " + outputFile + " -o out/output").!
+		println(f)*/
 
 
 		//val tests = new Tests
