@@ -9,7 +9,7 @@ class CodeGenJS {
 		case binopNode(op, left, right) => recurse(left) + op + recurse(right)
 		case arrayNode(elements) => "[" + elements.map(recurse).mkString(",") + "]"
 		case accessNode(array, idx) => recurse(array) + "[" + recurse(idx) + "]"
-		case blockNode(elem) => elem.map(recurse).mkString("{\n", "\n", "}\n")
+		case blockNode(elem) => elem.map(recurse).mkString("{\n", ";\n", ";\n}\n")
 		case returnNode(exp) => "return " + recurse(exp)
 		case libraryCallNode(fname, expr) => fname + "(" + expr.map(recurse).mkString(",") + ")"
 		case callNode(wordNode(f), args) => f + "(" + args.map(recurse).mkString(",") + ")"
@@ -28,18 +28,18 @@ class CodeGenJS {
 			}
 			"if (" + recurse(cond) + ")\n" + recurse(body) + elsString
 
-		case functionNode(args, body, meta) =>
-			val metaNode(name,extractName) = meta
-			name + " = (" + args.map(recurse).mkString(",") + ") => " + recurse(body)
+		case functionNode(args, body, _) =>
+			"(" + args.map(recurse).mkString(",") + ") => " + recurse(body)
 		case assignNode(id, b) => recurse(id) + "=" + recurse(b)
 		case reassignNode(id, b) => recurse(id) + "=" + recurse(b)
 		case typedNode(node, _) => recurse(node)
+		case mapNode(f,array) => recurse(array) + ".map(" + recurse(f) + ")"
 		case nullLeaf() => ""
 		case x => x.toString
 	}
 
 	def process(tree: Tree): String = tree match {
-		case functionNode(_, blockNode(elem), _) => elem.map(recurse).mkString("\n")
+		case functionNode(_, blockNode(elem), _) => elem.map(recurse).mkString(";\n")
 
 	}
 }

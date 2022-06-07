@@ -66,7 +66,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	})("term")*/
 
 	//(exp)|block | a.x
-	def factor: Parser[Tree] = debug(access | integer | strings | bool | word | call  | unary | block | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
+	def factor: Parser[Tree] = debug(access | integer | strings | bool | word | call  | unary | block | arrayMap | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
 
 
 	// ### ASSIGN ###
@@ -80,6 +80,8 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	})("array")
 
 	def access: Parser[Tree] = debug((word | array) ~ "$" ~ integer ^^ { case array ~ _ ~ idx => accessNode(array, idx) })("access")
+
+	def arrayMap: Parser[Tree] = debug(array ~ (word|block)^^{case array ~ function => mapNode(function,array)})("array map")
 
 
 	// ### CODE BLOCKS ###
@@ -109,7 +111,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	def unary: Parser[Tree] = debug(notOpeator)("unary")
 
-	def expression: Parser[Tree] = debug(ifStatement  | assign | call | binop | access | unary | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
+	def expression: Parser[Tree] = debug(ifStatement  | assign | call | binop | access | unary | arrayMap | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
 
 	def process(s: String): Tree = {
 		println("---------------------- parsing ----------------------")

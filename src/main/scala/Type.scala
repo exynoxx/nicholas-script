@@ -13,7 +13,7 @@ case class blockType() extends Type
 
 case class functionType(name:String) extends Type
 
-case class arrayType(args:List[Type]=null) extends Type
+case class arrayType(elementType:Type=null) extends Type
 
 case class unknownType() extends Type
 

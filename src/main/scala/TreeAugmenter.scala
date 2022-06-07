@@ -90,12 +90,6 @@ class TreeAugmenter extends Stage{
 						sequenceNode(List(f,binop))
 					case (_, _, _) => binopNode(op, left, right)
 				}
-
-				//second run
-				ret = (op,ltyp,rtyp) match {
-					case ("/", functionType(_), arrayType(_)) => mapNode(left,right)
-					case _ => ret
-				}
 				(ret, typ, symbol)
 
 
@@ -139,8 +133,8 @@ class TreeAugmenter extends Stage{
 					case x => List(x)
 				}
 				val childrenWithReturn = nChildren.last match {
-					case assignNode(_, _) => nChildren ++ List(returnNode(integerNode(1)))
-					case reassignNode(_, _) => nChildren ++ List(returnNode(integerNode(1)))
+					case assignNode(_, _) => nChildren ++ List(returnNode(integerNode(0)))
+					case reassignNode(_, _) => nChildren ++ List(returnNode(integerNode(0)))
 					case _ => nChildren.init :+ returnNode(nChildren.last)
 				}
 				(functionNode(unusedVariables.toList.map(wordNode), blockNode(childrenWithReturn),null), typ, symbol)
@@ -165,12 +159,12 @@ class TreeAugmenter extends Stage{
 
 			case accessNode(arrayId, idx) =>
 				//TODO: recurse array
-				val ty:Type = arrayId match {
+				/*val ty:Type = arrayId match {
 					case arrayNode(elements) => recurse(arrayNode(elements), typ, symbol)._2.asInstanceOf[arrayType]
 					case wordNode(id) => symbol(id).asInstanceOf[arrayType]
-				}
+				}*/
 				//TODO: recurse idx
-				(accessNode(arrayId, idx), typ, symbol)
+				(accessNode(arrayId, idx), arrayType(), symbol)
 
 			case ifNode(cond, body, elseBody,_) =>
 				//TODO: impl returns as "#=1+1"
@@ -201,6 +195,8 @@ class TreeAugmenter extends Stage{
 				val result = wordNode(id)
 				val resultInit = assignNode(result, integerNode(0))
 				(sequenceNode(List(resultInit, ifNode(newCond, newbody, nels,id), result)), typ, symbol)
+				case mapNode(f,array) =>
+					(mapNode(recurse(f, unknownType(),symbol)._1,recurse(array,unknownType(),symbol)._1),arrayType(),symbol)
 
 			case typedNode(exp,ty) => recurse(exp,ty,symbol)
 
