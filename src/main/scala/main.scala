@@ -15,7 +15,8 @@ object main {
 		val parser = new Parser
 		val stage1 = new TreeAugmenter
 		val stage2 = new TypeTracer
-		val stage3 = new TypeInliner
+		val stage3 = new TypeAugmenter
+		val stage4 = new TypeInliner
 		val codeGen = new CodeGenJS
 
 		//val inputFile = "src/main/scala/examples/object.ns"
@@ -27,7 +28,7 @@ object main {
 
 		//val in = "one = [1]*10; a = [1,2,3]; [1,2,3]; b=a$0;"
 		//val in = "f={x}; a = f 1; b = {x*2}; f = b;"
-		val in = "one = [1]*10; two = {x*2}; [1,2,3] two; [1,2,3] {x-1}; a = one$0;"
+		val in = "one = [1]*10; two = {x*2}; [1,2,3] two; [1,2,3] {x-1}; a = one$0; 1 + [1,1,1];"
 
 		var AST = parser.process(in)
 		printer.print(AST)
@@ -37,11 +38,13 @@ object main {
 		printer.print(AST)
 		AST = stage3.process(AST)
 		printer.print(AST)
-		//AST = stage1.process(AST)
-		//printer.print(AST)
+		AST = stage4.process(AST)
+		printer.print(AST)
 		val output = codeGen.process(AST)
 		println(output)
+
 		//writeFile("out/std.cpp", readFile("src/main/scala/std.cpp"))
+		//writeFile("out/std.js", readFile("src/main/scala/std.js"))
 		writeFile(outputFile, output)
 
 		/*val f = ("g++ " + outputFile + " -o out/output").!

@@ -38,9 +38,13 @@ class CodeGenJS {
 		case x => x.toString
 	}
 
-	def process(tree: Tree): String = tree match {
-		case functionNode(_, blockNode(elem), _) => elem.map(recurse).mkString(";\n")
+	def process(tree: Tree): String = {
+		val std = Util.readFile("src/main/scala/std.js") + "\n"
+		val main = tree match {
+			case functionNode(_, blockNode(elem), _) => elem.map(recurse).mkString(";\n")
 
+		}
+		std+main
 	}
 }
 

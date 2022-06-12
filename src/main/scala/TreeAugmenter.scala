@@ -1,3 +1,4 @@
+import java.io.NotActiveException
 import scala.collection.immutable.{HashMap, HashSet}
 import scala.collection.mutable
 import scala.util.control.Exception
@@ -175,9 +176,20 @@ class TreeAugmenter extends Stage {
 
 
 			case mapNode(f, array) =>
-				(mapNode(recurse(f, symbol)._1, recurse(array, symbol)._1), symbol)
+				val retNode = recurse(f, symbol) match {
+					//if anon func: give it a name and replace with wordNode
+					case (functionNode(a,b,_),_) =>
+						val id = Util.genRandomName()
+						val preassign = assignNode(wordNode(id),functionNode(a,b,metaNode(id,null)))
+						val map = mapNode(wordNode(id), recurse(array, symbol)._1)
+						sequenceNode(List(preassign,map))
 
-			case typedNode(exp, ty) => recurse(exp, symbol)
+					case (x,_)=>mapNode(x, recurse(array, symbol)._1)
+				}
+				(retNode, symbol)
+
+
+			case typedNode(exp, ty) => throw new NotActiveException(exp.toString)
 
 			case x => (x, symbol)
 		}

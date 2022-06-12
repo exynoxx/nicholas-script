@@ -58,12 +58,16 @@ class TypeTracer extends Stage {
 			val ty = findTypeOfReturn(body)
 			graph = graphCopy
 			typedNode(body, ty)
-		case mapNode(f, array) =>
-			//register function in type table
-			typedNode(mapNode(dfs1(f), dfs1(array)), unknownType())
+		case mapNode(wordNode(f), array) =>
+			val typedArray = dfs1(array)
+			functionCallArgs.getOrElseUpdate(f, new ListBuffer()).addOne(List(typedArray.typ.asInstanceOf[arrayType].elementType))
+			typedNode(mapNode(dfs1(wordNode(f)), typedArray), unknownType())
+		case accessNode(arr, idx) =>
+			val typedArray = dfs1(arr)
+			typedNode(accessNode(typedArray, idx), typedArray.typ)
 		case typedNode(exp, ty) =>
 			typedNode(exp, ty)
-		case x => typedNode(x, voidType())
+		case x => throw new NotImplementedError(x.toString)
 	}
 
 	def findTypeOfReturn(node: Tree): Type = node match {
@@ -93,19 +97,19 @@ class TypeTracer extends Stage {
 				case Some(listOfListOfArgs: ListBuffer[List[Type]]) =>
 					//TODO spawn copies
 					val argTypes = listOfListOfArgs(0)
-					val namedArgs = args.zip(argTypes).map { case (node, typ) => typedNode(node, typ) }
+					val typedArgs = args.zip(argTypes).map { case (node, typ) => typedNode(node, typ) }
 					//TODO send recursively
 
 					val graphCopy = graph.clone()
 					val oldScope = currentScopeName
 					currentScopeName = name
-					namedArgs.foreach { case typedNode(wordNode(id), ty) => graph.addOne(id -> ty) }
+					typedArgs.foreach { case typedNode(wordNode(id), ty) => graph.addOne(id -> ty) }
 					val fbody = doScope(body.asInstanceOf[blockNode])
 					val fbodyType = findTypeOfReturn(fbody)
 					graph = graphCopy
 					currentScopeName = oldScope
 					graph.addOne(name -> fbodyType)
-					typedNode(functionNode(namedArgs, fbody, metaNode(name, null)), fbodyType)
+					typedNode(functionNode(typedArgs, fbody, metaNode(name, null)), fbodyType)
 				//TODO: dont paste null
 				case None => typedNode(functionNode(args, body, metaNode(name, null)), null)
 			}

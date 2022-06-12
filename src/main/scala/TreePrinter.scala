@@ -75,12 +75,15 @@ class TreePrinter {
 					args.map(e => recursion(e, depth + increment)).mkString("") +
 					recursion(body, depth + increment)
 
-			case functionNode(args, body, metaNode(name, extractName)) =>
-				printMinus("-", depth) +
+			case functionNode(args, body, metaNode(name, extractName)) => printMinus("-", depth) +
 					"functionNode(" + name + ", " + extractName + ")\n" +
 					printMinus("-", depth + increment) + "ARGs\n" +
 					args.map(e => recursion(e, depth + increment)).mkString("") +
 					recursion(body, depth + increment)
+			case mapNode(f,array) => printMinus("-", depth) +
+					"mapNode()\n" +
+					recursion(f, depth + increment)+
+					recursion(array, depth + increment)
 			/*
 			case whileNode(c, b, ns) => printMinus("-", depth) +
 				"whileNode\n" +
