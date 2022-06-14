@@ -51,13 +51,13 @@ class TypeInliner extends Stage{
 				//TODO fix anon f,
 				case callNode(wordNode(id), args) => callNode(wordNode(replaceMap.getOrElse(id, id)), args.map(inlineTypes))
 				case callNode(f, args) => callNode(f, args.map(inlineTypes))
-				case functionNode(args, blockNode(children), meta) =>
+				/*case functionNode(args, blockNode(children), meta) =>
 					val metaNode(name, _) = meta
 					val extractName = Util.genRandomName()
 					replaceMap.addOne(name -> extractName)
 					val ret = functionNode(args, blockNode(children.map(inlineTypes)), metaNode(name, extractName))
 					replaceMap.remove(name)
-					ret
+					ret*/
 				case blockNode(children) => blockNode(children.map(inlineTypes))
 				case x => x
 			}

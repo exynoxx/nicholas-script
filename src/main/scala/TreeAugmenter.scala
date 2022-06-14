@@ -19,6 +19,7 @@ class TreeAugmenter extends Stage {
 			} else {
 				(HashSet(), mutable.LinkedHashSet(x))
 			}
+		case boolNode(x) => (HashSet(), mutable.LinkedHashSet())
 		case unopNode(op, exp) =>
 			findUnusedVariables(exp, symbol)
 		case binopNode(op, l, r) =>
@@ -57,7 +58,7 @@ class TreeAugmenter extends Stage {
 			}
 			(u1 ++ u2 ++ u3, unu1 ++ unu2 ++ unu3)
 
-		case mapNode(f, array) => findUnusedVariables(array,symbol)
+		case mapNode(f, array) => findUnusedVariables(array, symbol)
 		case integerNode(_) | stringNode(_) => (HashSet(), mutable.LinkedHashSet())
 
 		case x => throw new NotImplementedError("Could not match every case in unsued variables: " + x.toString)
@@ -178,13 +179,13 @@ class TreeAugmenter extends Stage {
 			case mapNode(f, array) =>
 				val retNode = recurse(f, symbol) match {
 					//if anon func: give it a name and replace with wordNode
-					case (functionNode(a,b,_),_) =>
+					case (functionNode(a, b, _), _) =>
 						val id = Util.genRandomName()
-						val preassign = assignNode(wordNode(id),functionNode(a,b,metaNode(id,null)))
+						val preassign = assignNode(wordNode(id), functionNode(a, b, metaNode(id, null)))
 						val map = mapNode(wordNode(id), recurse(array, symbol)._1)
-						sequenceNode(List(preassign,map))
+						sequenceNode(List(preassign, map))
 
-					case (x,_)=>mapNode(x, recurse(array, symbol)._1)
+					case (x, _) => mapNode(x, recurse(array, symbol)._1)
 				}
 				(retNode, symbol)
 

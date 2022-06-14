@@ -22,13 +22,13 @@ object main {
 		//val inputFile = "src/main/scala/examples/object.ns"
 		val outputFile = "out/output.js"
 
-		//val in = "even = {(x%2==0)?true:false};println even 5;println even 6;println even 7;"
+		val in = "even = {(x%2==0)?true:false};println (even 5);println (even 6);println (even 7);"
 		//val in = "y=1+1;f={k*2+l};x=\"str\";x=y;non=f x 1;y=5*x;x=y;print x;"
 		//val in = "println 1+1; fib = { (n <= 1) ? 1 : (fib n-1) + (fib n-2)}; println (fib 35); x=[1,2,3];x$1+x$2;"
 
 		//val in = "one = [1]*10; a = [1,2,3]; [1,2,3]; b=a$0;"
 		//val in = "f={x}; a = f 1; b = {x*2}; f = b;"
-		val in = "one = [1]*10; two = {x*2}; [1,2,3] two; [1,2,3] {x-1}; a = one$0; 1 + [1,1,1];"
+		//val in = "one = [1]*10; two = {x*2}; [1,2,3] two; [1,2,3] {x-1}; a = one$0; 1 + [1,1,1]; [2,2,2]+2"
 
 		var AST = parser.process(in)
 		printer.print(AST)
