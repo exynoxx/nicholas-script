@@ -1,4 +1,4 @@
-class TypeAugmenter {
+class TypeAugmenter extends Stage {
 
 	def process(AST: Tree): Tree = {
 		println("------------------- type augmenting ------------------")
@@ -7,8 +7,9 @@ class TypeAugmenter {
 
 	def recurse(AST: Tree): Tree = {
 		AST match {
-			case wordNode(x) =>wordNode(x)
+			case wordNode(x) => wordNode(x)
 			case integerNode(x) => integerNode(x)
+			case boolNode(x) => boolNode(x)
 			case stringNode(x) => stringNode(x)
 			case unopNode(op, exp) => unopNode(op,recurse(exp))
 			case binopNode(op, l, r) =>
@@ -31,15 +32,32 @@ class TypeAugmenter {
 											typedNode(left,lty),
 											arrayElement
 										),
-										rty)
+										lty)
 								),
-								rty)
+								lty)
 						))
 						val f = functionNode(List(typedNode(wordNode(elementId),ty)),fbody,metaNode(Util.genRandomName(),null))
 						mapNode(f,typedNode(right,rty))
 
 					//TODO: make right case
-					//case (_,arrayType(ty),_) =>
+					case (_,arrayType(ty),_) =>
+						val elementId = Util.genRandomName()
+						val arrayElement = typedNode(wordNode(elementId),ty)
+						val fbody = blockNode(List(
+							typedNode(
+								returnNode(
+									typedNode(
+										binopNode(
+											op,
+											arrayElement,
+											typedNode(right,rty)
+										),
+										rty)
+								),
+								rty)
+						))
+						val f = functionNode(List(typedNode(wordNode(elementId),ty)),fbody,metaNode(Util.genRandomName(),null))
+						mapNode(f,typedNode(left,lty))
 					case (_,_,_) => binopNode(op, typedNode(left,lty),typedNode(right,rty))
 				}
 
