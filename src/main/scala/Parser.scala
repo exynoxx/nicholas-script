@@ -93,6 +93,11 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	//TODO: (exp)
 	def call: Parser[Tree] = debug((word | block) ~ rep1(array | binop) ^^ { case f ~ args => callNode(f, args) })("call")
 
+	def pipe: Parser[Tree] = debug( pipExp ~ rep1("|>" ~ pipExp) ^^ {
+		case exp ~ pipeline => pipeline.map{case _ ~ f => f}.foldLeft(exp)((arg,f)=>callNode(f,List(arg)))
+	})("pipe")
+
+	def pipExp: Parser[Tree ] = ifStatement | assign | call | binop | access | unary | arrayMap | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
 
 	// ### use f-on-operator ###
 	//def shortOperatos = ("+" | "*") ^^ (s => wordNode(s))
@@ -111,7 +116,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	def unary: Parser[Tree] = debug(notOpeator)("unary")
 
-	def expression: Parser[Tree] = debug(ifStatement  | assign | call | binop | access | unary | arrayMap | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
+	def expression: Parser[Tree] = debug( pipe | ifStatement | assign | call | binop | access | unary | arrayMap | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
 
 	def process(s: String): Tree = {
 		println("---------------------- parsing ----------------------")

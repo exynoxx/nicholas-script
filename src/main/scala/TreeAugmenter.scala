@@ -1,6 +1,7 @@
 import java.io.NotActiveException
 import scala.collection.immutable.{HashMap, HashSet}
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 import scala.util.control.Exception
 
 class TreeAugmenter extends Stage {
@@ -124,10 +125,33 @@ class TreeAugmenter extends Stage {
 
 			case callNode(f, args) =>
 				//TODO symbol register each arg if contain assign
-				val nargs = args.map(x => recurse(x, symbol)._1)
-				val (func, sym) = recurse(f, symbol)
-				(callNode(func, nargs), sym)
 
+				var extractedNodes = ListBuffer[Tree]()
+				val nargs = args.map(x => recurse(x, symbol)._1 match {
+					case sequenceNode(list) =>
+						extractedNodes ++= list.init
+						list.last
+					case mapNode(f, array) =>
+						val id = Util.genRandomName()
+						extractedNodes += assignNode(wordNode(id), f)
+						mapNode(wordNode(id), array)
+					case y => y
+				})
+
+				val func:Tree = recurse(f, symbol)._1 match {
+					case functionNode(fargs, fbody, meta) =>
+						val id = Util.genRandomName()
+						val assign = assignNode(wordNode(id), functionNode(fargs, fbody, metaNode(id, null)))
+						extractedNodes+=assign
+						wordNode(id)
+					case x => x
+				}
+
+				val sequence = extractedNodes.toList:+callNode(func, nargs)
+				if (sequence.length == 1)
+					return (sequence.head,symbol)
+
+				(sequenceNode(sequence), symbol)
 
 			case arrayNode(elements) =>
 				var sym = symbol
@@ -184,7 +208,6 @@ class TreeAugmenter extends Stage {
 						val preassign = assignNode(wordNode(id), functionNode(a, b, metaNode(id, null)))
 						val map = mapNode(wordNode(id), recurse(array, symbol)._1)
 						sequenceNode(List(preassign, map))
-
 					case (x, _) => mapNode(x, recurse(array, symbol)._1)
 				}
 				(retNode, symbol)
