@@ -27,12 +27,15 @@ object main {
 		//val in = "println 1+1; fib = { (n <= 1) ? 1 : (fib n-1) + (fib n-2)}; println (fib 35); x=[1,2,3];x$1+x$2;"
 
 		//val in = "one = [1]*10; a = [1,2,3]; [1,2,3]; b=a$0;"
-		val in = "f={x}; a = f 1; b = {x*2}; f = a; 0"
+		//val in = "f={x}; a = f 1; b = {x*2}; f = a; b = f + 10; 0"
 		//val in = "one = [1]*10; two = {x*2}; [1,2,3] two; [1,2,3] {x-1}; a = one$0; 1 + [1,1,1]; [2,2,2]+2"
 
 		//anon func val in ="println ({ (n <= 1) ? 1 : (fib n-1) + (fib n-2)} 50);0"
 
 		//val in = "[1,1,1] {x*10} |> println;0"
+
+		//val in = "qsort = {[x$0]}; (qsort [1,2,3]) |> println"
+		val in = "qsort = {}; (qsort [1,2,3]) |> println"
 
 		var AST = parser.process(in)
 		printer.print(AST)
