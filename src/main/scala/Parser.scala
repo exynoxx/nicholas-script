@@ -43,7 +43,6 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 		}
 	}
 
-
 	def binop: Parser[Tree] = debug(number ~ rep(boolOp ~ number) ^^ {
 		case n ~ List() => n
 		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
@@ -60,18 +59,29 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
 	})("term")
 
-	/*def boolean: Parser[Tree] = debug(factor ~ rep(("&&" | "&" | "||" | "|" | "!=" | "==" | ">=" | "<=" | ">" | "<") ~ factor) ^^ {
-		case n ~ List() => n
-		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
-	})("term")*/
 
-	//(exp)|block | a.x
-	def factor: Parser[Tree] = debug(access | integer | strings | bool | word | call  | unary | block | arrayMap | listComprehension | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
+	def factor: Parser[Tree] = debug(access | integer | strings | bool | unary | word | call | block | arrayMap | listComprehension | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
+
+	def unary: Parser[Tree] = debug(notOperator|sizeOperator)("unary")
+	def notOperator: Parser[Tree] = debug("!" ~ factor ^^ { case not ~ exp => unopNode(not, exp) })("notOpeator")
+	def sizeOperator: Parser[Tree] = debug((word|listComprehension|array) ~ "?" ^^ { case exp ~ size => unopNode(size, exp) })("sizeOpeator")
+
+
+
+
+
 
 
 	// ### ASSIGN ###
 	//TODO: array access assign
 	def assign: Parser[Tree] = debug(word ~ "=" ~ expression ^^ { case id ~ _ ~ b => assignNode(id, b) })("assign")
+
+
+
+
+
+
+
 
 
 	// ### ARRAY ###
@@ -89,10 +99,23 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	def arrayMap: Parser[Tree] = debug(array ~ (word|block)^^{case array ~ function => mapNode(function,array)})("array map")
 
 
+
+
+
+
+
+
 	// ### CODE BLOCKS ###
 	def block: Parser[Tree] = debug("{" ~ repsep(expression, ";" | "\n") ~ (";" | "\n").? ~ "}" ^^ {
 		case _ ~ expList ~ _ ~ _ => blockNode(expList)
 	})("block")
+
+
+
+
+
+
+
 
 	// ### FUNCTION CALL ###
 	//TODO: (exp)
@@ -102,26 +125,36 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 		case exp ~ pipeline => pipeline.map{case _ ~ f => f}.foldLeft(exp)((arg,f)=>callNode(f,List(arg)))
 	})("pipe")
 
-	def pipExp: Parser[Tree ] = ifStatement | assign | call | binop | access | unary | arrayMap | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
+	def pipExp: Parser[Tree ] = ifStatement | assign | call | binop | access |arrayMap | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
 
 	// ### use f-on-operator ###
 	//def shortOperatos = ("+" | "*") ^^ (s => wordNode(s))
 
 
+
+
+
+
+
+
+
+
 	// ### if else ###
 	def ifStatement: Parser[Tree] = debug(
-		"(" ~ expression ~ ")" ~ "?" ~ expression ~ (":" ~ expression).? ^^ {
-			case _ ~ cond ~ _ ~ _ ~ body ~ None => ifNode(cond,body,None)
-			case _ ~ cond ~ _ ~ _ ~ body ~ Some(_ ~ elsBody) => ifNode(cond,body,Some(elsBody))
+		"if" ~ expression ~ "|" ~ expression ~ ("|" ~ expression).? ^^ {
+			case _ ~ cond ~ _ ~ body ~ None => ifNode(cond,body,None)
+			case _ ~ cond ~ _ ~ body ~ Some(_ ~ elsBody) => ifNode(cond,body,Some(elsBody))
 		}
 	)("if")
-	//def ifCondition: Parser[Tree] = expression | ("(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })
 
-	def notOpeator: Parser[Tree] = debug("!" ~ expression ^^ { case not ~ exp => unopNode(not, exp) })("notOpeator")
 
-	def unary: Parser[Tree] = debug(notOpeator)("unary")
 
-	def expression: Parser[Tree] = debug( pipe | ifStatement | assign | call | binop | access | unary | arrayMap | listComprehension | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
+
+
+
+
+
+	def expression: Parser[Tree] = debug( pipe | ifStatement | assign | call | binop | access | arrayMap | listComprehension | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
 
 	def process(s: String): Tree = {
 		println("---------------------- parsing ----------------------")

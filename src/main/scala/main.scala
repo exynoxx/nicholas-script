@@ -38,9 +38,11 @@ object main {
 		//val in = "qsort = {}; (qsort [1,2,3]) |> println"
 
 		//val in = "qsort = { (qsort [x|x:list|x<list$0]) + [list$0] + (qsort [x|x:list|x>=list$0])}; [5,2,3,6,1,4] |> qsort |> println"
-		val in = "qsort = { (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>=list$0]) }; qsort [1,2,3];"
+		//val in = "qsort = { (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>=list$0]) }; qsort [1,2,3];"
+		val in = "qsort = { if x? > 0 | true | false }; qsort [1,2,3];"
 		//val in = "list = [1,2,3,4,5]; l = [x*2|x:list|x>1]"
 
+		"if x? | true | false"
 		var AST = parser.process(in)
 		printer.print(AST)
 		AST = stage1.process(AST)

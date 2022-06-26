@@ -11,7 +11,13 @@ class TypeAugmenter extends Stage {
 			case integerNode(x) => integerNode(x)
 			case boolNode(x) => boolNode(x)
 			case stringNode(x) => stringNode(x)
-			case unopNode(op, exp) => unopNode(op,recurse(exp))
+			case unopNode(op, exp) => op match {
+				case "?" => exp match {
+					case typedNode(_, arrayType(_)) => callNode(wordNode("_NS_len"),List(exp))
+					//contains functionality for MAP here
+				}
+				case _ => unopNode(op,recurse(exp))
+			}
 			case binopNode(op, l, r) =>
 				val typedNode(left,lty) = recurse(l)
 				val typedNode(right,rty) = recurse(r)

@@ -27,6 +27,10 @@ class TypeTracer extends Stage {
 		case arrayNode(elements) =>
 			val typedElements = elements.map(dfs1)
 			typedNode(arrayNode(typedElements), arrayType(typedElements.head.typ))
+		case unopNode(op, exp) => op match {
+			case "!" => typedNode(unopNode(op,dfs1(exp)), boolType())
+			case "?" => typedNode(unopNode(op,dfs1(exp)), intType())
+		}
 		case binopNode(op, l, r) =>
 			val ll = dfs1(l)
 			val rr = dfs1(r)
@@ -150,6 +154,7 @@ class TypeTracer extends Stage {
 				case comprehensionNode(a, b, c, d) => comprehensionNode(a, b, c, d) //TODO: recurse again. in case if funcall
 				case binopNode(op, l, r) =>
 					binopNode(op, recurseTypedTree(l), recurseTypedTree(r))
+				case unopNode(op, exp) => unopNode(op, recurseTypedTree(exp))
 				case returnNode(exp) =>
 					returnNode(recurseTypedTree(exp))
 				case x => x
