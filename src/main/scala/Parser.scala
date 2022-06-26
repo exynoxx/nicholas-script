@@ -49,7 +49,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
 	})("binop")
 
-	def number: Parser[Tree] = debug(term ~ rep(("+" | "-") ~ term) ^^ {
+	def number: Parser[Tree] = debug(term ~ rep(( "++" | "+" | "-") ~ term) ^^ {
 		case n ~ List() => n
 		case n ~ (l: List[String ~ Tree]) => binopList2Tree(n, l)
 

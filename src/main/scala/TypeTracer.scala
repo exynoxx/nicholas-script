@@ -8,11 +8,13 @@ class TypeTracer extends Stage {
 	var graph = mutable.HashMap[String, Type]()
 	var currentScopeName = ""
 
-	def lookupType(left: Type, right: Type): Type = (left, right) match {
-		case (intType(), intType()) => intType()
-		case (boolType(), boolType()) => boolType()
-		case (stringType(), stringType()) => stringType()
-		case (arrayType(a), arrayType(b)) => arrayType(a)
+	def lookupType(op: String, left: Type, right: Type): Type = (op, left, right) match {
+		case (_, intType(), intType()) => intType()
+		case (_, boolType(), boolType()) => boolType()
+		case (_, stringType(), stringType()) => stringType()
+		case (_, arrayType(a), arrayType(b)) => arrayType(a)
+		case ("++", arrayType(a), _) => arrayType(a)
+		case ("++", _, arrayType(b)) => arrayType(b)
 		case _ => intType()
 	}
 
@@ -28,7 +30,7 @@ class TypeTracer extends Stage {
 		case binopNode(op, l, r) =>
 			val ll = dfs1(l)
 			val rr = dfs1(r)
-			typedNode(binopNode(op, ll, rr), lookupType(ll.typ, rr.typ))
+			typedNode(binopNode(op, ll, rr), lookupType(op, ll.typ, rr.typ))
 		case functionNode(_, _, _) =>
 			typedNode(node, unknownType())
 		case assignNode(wordNode(id), body) =>
@@ -74,7 +76,7 @@ class TypeTracer extends Stage {
 			}
 			val listType = graph.getOrElse(array, unknownType()).asInstanceOf[arrayType]
 			val newVariable = typedNode(variable, listType.elementType)
-			typedNode(comprehensionNode(newBody,newVariable, wordNode(array),newFilter), listType)
+			typedNode(comprehensionNode(newBody, newVariable, wordNode(array), newFilter), listType)
 		case typedNode(exp, ty) =>
 			typedNode(exp, ty)
 		case x => throw new NotImplementedError(x.toString)
@@ -145,7 +147,7 @@ class TypeTracer extends Stage {
 		case typedNode(exp, typ) =>
 			val content = exp match {
 				case arrayNode(elements) => arrayNode(elements.map(recurseTypedTree))
-				case comprehensionNode(a,b,c,d) => comprehensionNode(a,b,c,d) //TODO: recurse again. in case if funcall
+				case comprehensionNode(a, b, c, d) => comprehensionNode(a, b, c, d) //TODO: recurse again. in case if funcall
 				case binopNode(op, l, r) =>
 					binopNode(op, recurseTypedTree(l), recurseTypedTree(r))
 				case returnNode(exp) =>

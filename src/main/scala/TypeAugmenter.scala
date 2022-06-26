@@ -20,6 +20,8 @@ class TypeAugmenter extends Stage {
 					//case (intType(),intType())
 					case ("*", arrayType(_),_) => callNode(wordNode("_NS_repeat"),List(typedNode(left,lty),typedNode(right,rty)))
 					case ("*", _,arrayType(_)) => callNode(wordNode("_NS_repeat"),List(typedNode(right,rty), typedNode(left,lty)))
+					case ("++", _,arrayType(_)) => binopNode("+", typedNode(left,lty),typedNode(right,rty))
+					case ("++", arrayType(_),_) => binopNode("+", typedNode(left,lty),typedNode(right,rty))
 					case (_, _,arrayType(ty)) =>
 						val elementId = Util.genRandomName()
 						val arrayElement = typedNode(wordNode(elementId),ty)
