@@ -48,6 +48,8 @@ case class ifNode(condition: Tree, body: Tree, elseBody: Option[Tree], returnNam
 
 case class mapNode(f:Tree, array:Tree) extends Tree
 
+case class comprehensionNode(body:Tree, variable:Tree, array:Tree, filter:Option[Tree]) extends Tree
+
 /*
 case class returnNode(body: Tree, nstype: String) extends Tree
 case class functionNode(id: String, args: List[Tree], body: Tree, nstype: String) extends Tree
@@ -70,3 +72,4 @@ case class objectAssociatedFunctionNode(name:String,functions:List[Tree],nstype:
 case class specialArgNode(content: String, nstype: String) extends Tree
 case class overrideNode(op:Tree,function:Tree,nstype:String) extends Tree
 */
+

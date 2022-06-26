@@ -84,6 +84,13 @@ class TreePrinter {
 					"mapNode()\n" +
 					recursion(f, depth + increment)+
 					recursion(array, depth + increment)
+			case comprehensionNode(body,variable,array,filter) => printMinus("-", depth) +
+				"comprehensionNode\n" +
+				recursion(body, depth + increment)+
+				recursion(variable, depth + increment) +
+				recursion(array, depth + increment) +
+				recursion(filter.getOrElse(nullLeaf()), depth + increment)
+
 			/*
 			case whileNode(c, b, ns) => printMinus("-", depth) +
 				"whileNode\n" +

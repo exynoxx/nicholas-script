@@ -34,6 +34,8 @@ class CodeGenJS {
 		case reassignNode(id, b) => recurse(id) + "=" + recurse(b)
 		case typedNode(node, _) => recurse(node)
 		case mapNode(f,array) => recurse(array) + ".map(" + recurse(f) + ")"
+		case comprehensionNode(body,variable,array,Some(filter)) =>
+			recurse(array) + ".filter(" + recurse(variable) + "=>" + recurse(filter) + ").map(" + recurse(variable) + "=>" + recurse(body)+")"
 		case nullLeaf() => ""
 		case x => x.toString
 	}

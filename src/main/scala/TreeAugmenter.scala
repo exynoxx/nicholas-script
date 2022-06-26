@@ -58,8 +58,16 @@ class TreeAugmenter extends Stage {
 				case None => (HashSet(), mutable.LinkedHashSet())
 			}
 			(u1 ++ u2 ++ u3, unu1 ++ unu2 ++ unu3)
-
 		case mapNode(f, array) => findUnusedVariables(array, symbol)
+		case comprehensionNode(body,wordNode(variable),array,Some(filter)) =>
+			val (u1,unu1) = findUnusedVariables(body,symbol+variable)
+			val (u2,unu2) = findUnusedVariables(filter,symbol+variable)
+			val (u3,unu3) = findUnusedVariables(array,symbol)
+			(u1++u2++u3,unu1++unu2++unu3)
+		case comprehensionNode(body,wordNode(variable),array,None) =>
+			val (u1,unu1) = findUnusedVariables(body,symbol+variable)
+			val (u2,unu2) = findUnusedVariables(array,symbol)
+			(u1++u2,unu1++unu2)
 		case integerNode(_) | stringNode(_) => (HashSet(), mutable.LinkedHashSet())
 
 		case x => throw new NotImplementedError("Could not match every case in unsued variables: " + x.toString)
@@ -125,7 +133,6 @@ class TreeAugmenter extends Stage {
 
 			case callNode(f, args) =>
 				//TODO symbol register each arg if contain assign
-
 				var extractedNodes = ListBuffer[Tree]()
 				val nargs = args.map(x => recurse(x, symbol)._1 match {
 					case sequenceNode(list) =>
@@ -138,18 +145,18 @@ class TreeAugmenter extends Stage {
 					case y => y
 				})
 
-				val func:Tree = recurse(f, symbol)._1 match {
+				val func: Tree = recurse(f, symbol)._1 match {
 					case functionNode(fargs, fbody, meta) =>
 						val id = Util.genRandomName()
 						val assign = assignNode(wordNode(id), functionNode(fargs, fbody, metaNode(id, null)))
-						extractedNodes+=assign
+						extractedNodes += assign
 						wordNode(id)
 					case x => x
 				}
 
-				val sequence = extractedNodes.toList:+callNode(func, nargs)
+				val sequence = extractedNodes.toList :+ callNode(func, nargs)
 				if (sequence.length == 1)
-					return (sequence.head,symbol)
+					return (sequence.head, symbol)
 
 				(sequenceNode(sequence), symbol)
 
@@ -211,6 +218,15 @@ class TreeAugmenter extends Stage {
 					case (x, _) => mapNode(x, recurse(array, symbol)._1)
 				}
 				(retNode, symbol)
+
+			case comprehensionNode(body,variable, array, filter) =>
+				body match {
+					case wordNode(x)=>(comprehensionNode(body, variable, array, filter),symbol)
+					case _ =>(comprehensionNode(body, variable, array, filter),symbol)
+						/*val id = Util.genRandomName()
+						val assign = assignNode(wordNode(id),recurse(blockNode(List(body)),symbol)._1)
+						(sequenceNode(List(assign,comprehensionNode(wordNode(id),variable,array, filter))),symbol)*/
+				}
 
 
 			case typedNode(exp, ty) => throw new NotActiveException(exp.toString)

@@ -20,7 +20,7 @@ class TypeTracer extends Stage {
 	def dfs1(node: Tree): typedNode = node match {
 		case integerNode(_) => typedNode(node, intType())
 		case stringNode(_) => typedNode(node, stringType())
-		case boolNode(_) => typedNode(node,boolType())
+		case boolNode(_) => typedNode(node, boolType())
 		case wordNode(x) => typedNode(node, graph.getOrElse(x, voidType()))
 		case arrayNode(elements) =>
 			val typedElements = elements.map(dfs1)
@@ -66,6 +66,15 @@ class TypeTracer extends Stage {
 		case accessNode(arr, idx) =>
 			val typedArray = dfs1(arr)
 			typedNode(accessNode(typedArray, idx), typedArray.typ.asInstanceOf[arrayType].elementType)
+		case comprehensionNode(body, variable, wordNode(array), filter) =>
+			val newBody = dfs1(body)
+			val newFilter = filter match {
+				case Some(f) => Some(dfs1(f))
+				case None => None
+			}
+			val listType = graph.getOrElse(array, unknownType()).asInstanceOf[arrayType]
+			val newVariable = typedNode(variable, listType.elementType)
+			typedNode(comprehensionNode(newBody,newVariable, wordNode(array),newFilter), listType)
 		case typedNode(exp, ty) =>
 			typedNode(exp, ty)
 		case x => throw new NotImplementedError(x.toString)
@@ -116,11 +125,11 @@ class TypeTracer extends Stage {
 			}
 		case typedNode(assignNode(wordNode(id), body), _) =>
 			val b = recurseTypedTree(body)
-			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(),unknownType())
+			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
 			typedNode(assignNode(wordNode(id), b), b.typ)
 		case typedNode(reassignNode(wordNode(id), body), _) =>
 			val b = recurseTypedTree(body)
-			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(),unknownType())
+			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
 			typedNode(reassignNode(wordNode(id), b), b.typ)
 		case typedNode(callNode(wordNode(id), args), ty) =>
 			if (ty != unknownType()) return typedNode(callNode(wordNode(id), args), ty)
@@ -130,12 +139,13 @@ class TypeTracer extends Stage {
 		case typedNode(ifNode(c, b, None, _), _) =>
 			val typedBody = recurseTypedTree(b)
 			typedNode(ifNode(recurseTypedTree(c), typedBody, None), typedBody.typ)
-		case typedNode(ifNode(c, b, Some(e), _),_) =>
+		case typedNode(ifNode(c, b, Some(e), _), _) =>
 			val typedBody = recurseTypedTree(b)
 			typedNode(ifNode(recurseTypedTree(c), typedBody, Some(recurseTypedTree(e))), typedBody.typ)
 		case typedNode(exp, typ) =>
 			val content = exp match {
 				case arrayNode(elements) => arrayNode(elements.map(recurseTypedTree))
+				case comprehensionNode(a,b,c,d) => comprehensionNode(a,b,c,d) //TODO: recurse again. in case if funcall
 				case binopNode(op, l, r) =>
 					binopNode(op, recurseTypedTree(l), recurseTypedTree(r))
 				case returnNode(exp) =>

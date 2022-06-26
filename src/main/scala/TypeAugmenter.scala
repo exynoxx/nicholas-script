@@ -73,6 +73,7 @@ class TypeAugmenter extends Stage {
 			case typedNode(exp, ty) => typedNode(recurse(exp),ty)
 			case functionNode(args, body,meta) => functionNode(args,recurse(body),meta)
 			case returnNode(exp) => returnNode(recurse(exp))
+			case comprehensionNode(body,variable,array,filter) => comprehensionNode(recurse(body),variable,array,filter)
 			case nullLeaf() => nullLeaf()
 			case x => throw new NotImplementedError(x.toString)
 		}
