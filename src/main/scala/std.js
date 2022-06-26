@@ -6,6 +6,9 @@ function _NS_repeat(array, n){
 function _NS_len(array){
 	return array.length;
 }
+function _NS_concat(arr1,arr2){
+	return arr1.concat(arr2)
+}
 
 function _NS_println(x){
 	console.log(x)
