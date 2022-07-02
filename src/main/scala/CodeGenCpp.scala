@@ -8,7 +8,7 @@ class CodeGenCpp {
 		case intType() => "int"
 		case boolType() => "bool"
 		case stringType() => "std::string"
-		case arrayType(_) => "std::shared_ptr<std::vector<std::variant<int,bool,std::string>>>"
+		case arrayType(ty) => "std::vector<"+convertType(ty)+">"
 		case _ => "auto"
 	}
 
@@ -19,10 +19,6 @@ class CodeGenCpp {
 		case wordNode(x) => x
 		case binopNode(op, left, right) => recurseTypedTree(left) + op + recurseTypedTree(right)
 		case reassignNode(id, b) => recurseTypedTree(id) + "=" + recurseTypedTree(b)
-		case arrayNode(elements) =>
-			val stringElements = elements.map(recurseTypedTree).mkString(",")
-			val vecInit = "new std::vector<std::variant<int,bool,std::string>>({"+stringElements+"})"
-			"new " + convertType(arrayType()) + "("+vecInit+")"
 		case accessNode(array, idx) => recurseTypedTree(array) + "[" + recurseTypedTree(idx) + "]"
 		case blockNode(elem) => //"{\n" + elem.map(recurse).mkString("",";\n",";\n") + "\n}\n"
 			elem.map {
@@ -54,14 +50,16 @@ class CodeGenCpp {
 
 		case nullLeaf() => ""
 		//case sequenceNode(l) => l.map(recurse).mkString(";\n")
-		case x => x.toString
+
+		case comprehensionNode(body,variable,array,filterOption) => ""
+
+		case x => throw new IllegalArgumentException(x.toString)
 	}
 
 	def recurseTypedTree(t: Tree): String = t match {
 		case typedNode(functionNode(args, body, meta), ty) =>
-			val metaNode(name, extractName) = meta
-			val id = extractName
-			preMainFunctions += convertType(ty) + " " + id
+			val metaNode(name, _) = meta
+			preMainFunctions += convertType(ty) + " " + name
 
 			val stringArgs = args.map {
 				case typedNode(x, ty) => convertType(ty) + " " + recurseTree(x)
@@ -69,9 +67,13 @@ class CodeGenCpp {
 
 			preMainFunctions += "(" + stringArgs + ")"
 			preMainFunctions += recurseTypedTree(body)
-			"&" + id
+			"1"
+
 		case typedNode(assignNode(id, b), ty) => "auto " + recurseTypedTree(id) + "=" + recurseTypedTree(b)
-		case typedNode(node, _) => 	recurseTree(node)
+		case typedNode(arrayNode(elements),ty) =>
+			val stringElements = elements.map(recurseTypedTree).mkString(",")
+			"new std::make_shared<" + convertType(ty) + ">({"+stringElements+"})"
+		case typedNode(node, _) =>	recurseTree(node)
 		case x => recurseTree(x)
 	}
 

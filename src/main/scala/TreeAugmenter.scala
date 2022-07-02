@@ -96,16 +96,15 @@ class TreeAugmenter extends Stage {
 
 				val newsym = symbol ++ sym + id //maybe redundant
 
-				val newbody = body match {
-					case functionNode(args, fbody, _) => functionNode(args, fbody, metaNode(id, null))
-					case _ => body
+				body match {
+					case functionNode(args, fbody, _) =>
+						(functionNode(args, fbody, metaNode(id, null)), newsym)
+					case _ => if (symbol.contains(id)) {
+						(reassignNode(wordNode(id), body), newsym)
+					} else {
+						(assignNode(wordNode(id), body), newsym)
+					}
 				}
-
-				symbol.contains(id) match {
-					case true => (reassignNode(wordNode(id), newbody), newsym)
-					case false => (assignNode(wordNode(id), newbody), newsym)
-				}
-
 
 			case blockNode(children) =>
 				if (children.isEmpty)

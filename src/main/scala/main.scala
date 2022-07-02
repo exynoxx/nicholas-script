@@ -17,7 +17,7 @@ object main {
 		val stage2 = new TypeTracer
 		val stage3 = new TypeAugmenter
 		val stage4 = new TypeInliner
-		val codeGen = new CodeGenJS
+		val codeGen = new CodeGenCpp
 
 		//val inputFile = "src/main/scala/examples/object.ns"
 		val outputFile = "out/output.js"
