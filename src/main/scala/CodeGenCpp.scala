@@ -8,7 +8,7 @@ class CodeGenCpp {
 		case intType() => "int"
 		case boolType() => "bool"
 		case stringType() => "std::string"
-		case arrayType(ty) => "std::vector<"+convertType(ty)+">"
+		case arrayType(ty) => "std::shared_ptr<std::vector<"+convertType(ty)+">>"
 		case _ => "auto"
 	}
 
@@ -23,10 +23,11 @@ class CodeGenCpp {
 		case blockNode(elem) => //"{\n" + elem.map(recurse).mkString("",";\n",";\n") + "\n}\n"
 			elem.map {
 				case typedNode(ifNode(a, b, c, d),ty) => recurseTypedTree(ifNode(a, b, c, d))
+				case typedNode(nullLeaf(),_) => ""
 				case x => recurseTypedTree(x) + ";\n"
 			}.mkString("{\n", "", "}\n")
 		case returnNode(exp) => "return " + recurseTypedTree(exp)
-		case libraryCallNode(fname, expr) => fname + "(" + expr.map(recurseTypedTree(_)).mkString(",") + ")"
+		case libraryCallNode(fname, expr) => fname + "(" + expr.map(recurseTypedTree).mkString(",") + ")"
 		case callNode(wordNode(f), args) =>
 			f + "(" + args.map(recurseTypedTree).mkString(",") + ")"
 
@@ -37,22 +38,24 @@ class CodeGenCpp {
 			preMainFunctions += recurseTypedTree(body)
 			id + "(" + args.map(recurseTypedTree).mkString(",") + ")"*/
 
-		case ifNode(cond, body, els, _) =>
-			val id = Util.genRandomName()
-			val result = "_NS_var " + id + " = NULL;\n"
+		case ifNode(cond, body, els, resultId) =>
+			val result = convertType(body.asInstanceOf[typedNode].typ) + " " + resultId + ";\n"
 
 			val elsString = els match {
 				case None => ""
 				case Some(x) => "\nelse\n" + recurseTypedTree(x)
 			}
 
-			"if (" + recurseTypedTree(cond) + ")\n" + recurseTypedTree(body) + elsString
+			result + "if (" + recurseTypedTree(cond) + ")\n" + recurseTypedTree(body) + elsString
 
 		case nullLeaf() => ""
 		//case sequenceNode(l) => l.map(recurse).mkString(";\n")
 
-		case comprehensionNode(body,variable,array,filterOption) => ""
+		case comprehensionNode(body,variable,array,Some(filterOption)) =>
+			"_NS_map_filter("+recurseTypedTree(array)+","+recurseTypedTree(body)+","+recurseTypedTree(filterOption)+")"
 
+		case comprehensionNode(body,variable,array,None) =>
+			"_NS_map_filter("+recurseTypedTree(array)+","+recurseTypedTree(body)+",null)"
 		case x => throw new IllegalArgumentException(x.toString)
 	}
 

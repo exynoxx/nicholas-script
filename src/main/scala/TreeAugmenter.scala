@@ -252,7 +252,7 @@ class TreeAugmenter extends Stage {
 						}
 				}
 				val result = wordNode(id)
-				preIf += assignNode(result, integerNode(0))
+				//preIf += assignNode(result, integerNode(0)) this is done in codeGen
 				val sequence = preIf :+ ifNode(newCond, newbody, nels, id) :+ result
 				(sequenceNode(sequence.toList), sym)
 
