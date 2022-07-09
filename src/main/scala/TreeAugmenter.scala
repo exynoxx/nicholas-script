@@ -59,18 +59,27 @@ class TreeAugmenter extends Stage {
 			}
 			(u1 ++ u2 ++ u3, unu1 ++ unu2 ++ unu3)
 		case mapNode(f, array) => findUnusedVariables(array, symbol)
-		case comprehensionNode(body,wordNode(variable),array,Some(filter)) =>
-			val (u1,unu1) = findUnusedVariables(body,symbol+variable)
-			val (u2,unu2) = findUnusedVariables(filter,symbol+variable)
-			val (u3,unu3) = findUnusedVariables(array,symbol)
-			(u1++u2++u3,unu1++unu2++unu3)
-		case comprehensionNode(body,wordNode(variable),array,None) =>
-			val (u1,unu1) = findUnusedVariables(body,symbol+variable)
-			val (u2,unu2) = findUnusedVariables(array,symbol)
-			(u1++u2,unu1++unu2)
+		case comprehensionNode(body, wordNode(variable), array, Some(filter)) =>
+			val (u1, unu1) = findUnusedVariables(body, symbol + variable)
+			val (u2, unu2) = findUnusedVariables(filter, symbol + variable)
+			val (u3, unu3) = findUnusedVariables(array, symbol)
+			(u1 ++ u2 ++ u3, unu1 ++ unu2 ++ unu3)
+		case comprehensionNode(body, wordNode(variable), array, None) =>
+			val (u1, unu1) = findUnusedVariables(body, symbol + variable)
+			val (u2, unu2) = findUnusedVariables(array, symbol)
+			(u1 ++ u2, unu1 ++ unu2)
 		case integerNode(_) | stringNode(_) => (HashSet(), mutable.LinkedHashSet())
 
 		case x => throw new NotImplementedError("Could not match every case in unsued variables: " + x.toString)
+	}
+
+	def extractNode(node: Tree): (Tree, Tree) = node match {
+		case sequenceNode(list) =>
+			(sequenceNode(list.init), list.last)
+		case x =>
+			val id = Util.genRandomName()
+			val assign = assignNode(wordNode(id), x)
+			(assign, wordNode(id))
 	}
 
 	def recurse(AST: Tree, symbol: HashSet[String]): (Tree, HashSet[String]) = {
@@ -86,7 +95,25 @@ class TreeAugmenter extends Stage {
 			case binopNode(op, l, r) =>
 				val (left, ls) = recurse(l, symbol)
 				val (right, rs) = recurse(r, symbol)
-				(binopNode(op, left, right), symbol ++ ls ++ rs)
+
+				val (lpreassign, newleft) = extractNode(left)
+				val (rpreassign, newright) = extractNode(right)
+
+				val preassign = ListBuffer[Tree]()
+
+				preassign ++= (lpreassign match {
+					case sequenceNode(l) => l
+					case x => List(x)
+				})
+
+				preassign ++= (rpreassign match {
+					case sequenceNode(l) => l
+					case x => List(x)
+				})
+
+				val ret = binopNode(op, newleft, newright)
+				preassign += ret
+				(sequenceNode(preassign.toList), symbol ++ ls ++ rs)
 
 
 			case assignNode(wordNode(id), b) =>
@@ -106,6 +133,14 @@ class TreeAugmenter extends Stage {
 					}
 				}
 
+			case reassignNode(wordNode(id),b) =>
+				recurse(b,symbol)._1 match {
+					case sequenceNode(l) =>
+						(sequenceNode(l.init :+ reassignNode(wordNode(id),l.last)),symbol)
+					case x =>
+						(reassignNode(wordNode(id),x),symbol)
+				}
+
 			case blockNode(children) =>
 				if (children.isEmpty)
 					return (functionNode(List(), blockNode(List(returnNode(integerNode(0)))), null), symbol)
@@ -120,6 +155,7 @@ class TreeAugmenter extends Stage {
 					exp
 				}).flatMap {
 					case sequenceNode(l) => l
+					//case blockNode(l) => l
 					case x => List(x)
 				}
 
@@ -132,7 +168,7 @@ class TreeAugmenter extends Stage {
 
 			case callNode(f, args) =>
 				//TODO symbol register each arg if contain assign
-				var extractedNodes = ListBuffer[Tree]()
+				val extractedNodes = ListBuffer[Tree]()
 				val nargs = args.map(x => recurse(x, symbol)._1 match {
 					case sequenceNode(list) =>
 						extractedNodes ++= list.init
@@ -146,17 +182,13 @@ class TreeAugmenter extends Stage {
 
 				val func: Tree = recurse(f, symbol)._1 match {
 					case functionNode(fargs, fbody, meta) =>
-						val id = Util.genRandomName()
-						val assign = assignNode(wordNode(id), functionNode(fargs, fbody, metaNode(id, null)))
-						extractedNodes += assign
-						wordNode(id)
+						val (pre,newFunction) = extractNode(functionNode(fargs, fbody, meta))
+						extractedNodes += pre
+						newFunction
 					case x => x
 				}
 
 				val sequence = extractedNodes.toList :+ callNode(func, nargs)
-				if (sequence.length == 1)
-					return (sequence.head, symbol)
-
 				(sequenceNode(sequence), symbol)
 
 			case arrayNode(elements) =>
@@ -172,21 +204,33 @@ class TreeAugmenter extends Stage {
 				val (index, sym) = recurse(idx, symbol)
 				(accessNode(arrayId, index), symbol ++ sym)
 
+
 			case ifNode(cond, body, elseBody, _) =>
 				//TODO: impl returns as "#=1+1"
+
+				val preIf = ListBuffer[Tree]()
 				val id = Util.genRandomName()
 				var sym = symbol
-				val (newCond, csym) = recurse(cond, symbol)
-				sym ++= csym
+				val newCond = recurse(cond, symbol)._1 match {
+					case sequenceNode(l) =>
+						preIf ++= l.init
+						l.last
+					case x => x
+				}
 				val newbody = body match {
 					case blockNode(elem) =>
 						val (blockNode(elems), localSym) = recurse(blockNode(elem), symbol)
 						sym ++= localSym
 						blockNode(elems.init :+ reassignNode(wordNode(id), elems.last))
 					case exp =>
-						val (b, localSym) = recurse(exp, symbol)
-						sym ++= localSym
+						val b = recurse(exp, symbol)._1 match {
+							case sequenceNode(l) =>
+								preIf ++= l.init
+								l.last
+							case x => x
+						}
 						blockNode(List(reassignNode(wordNode(id), b)))
+
 				}
 				val nels = elseBody match {
 					case None => None
@@ -197,36 +241,52 @@ class TreeAugmenter extends Stage {
 								val (blockNode(elems), _) = recurse(blockNode(elem), symbol)
 								Some(blockNode(elems.init :+ reassignNode(wordNode(id), elems.last)))
 							case exp =>
-								val (b, _) = recurse(exp, symbol)
+								val b = recurse(exp, symbol)._1 match {
+									case sequenceNode(l) =>
+										preIf ++= l.init
+										l.last
+									case x => x
+								}
 								Some(blockNode(List(reassignNode(wordNode(id), b))))
+
 						}
 				}
 				val result = wordNode(id)
-				val resultInit = assignNode(result, integerNode(0))
-				(sequenceNode(List(resultInit, ifNode(newCond, newbody, nels, id), result)), sym)
+				preIf += assignNode(result, integerNode(0))
+				val sequence = preIf :+ ifNode(newCond, newbody, nels, id) :+ result
+				(sequenceNode(sequence.toList), sym)
 
 
 			case mapNode(f, array) =>
 				val retNode = recurse(f, symbol) match {
 					//if anon func: give it a name and replace with wordNode
-					case (functionNode(a, b, _), _) =>
-						val id = Util.genRandomName()
-						val preassign = assignNode(wordNode(id), functionNode(a, b, metaNode(id, null)))
-						val map = mapNode(wordNode(id), recurse(array, symbol)._1)
-						sequenceNode(List(preassign, map))
+					case (functionNode(a, b, c), _) =>
+						val (pre,newFunction) = extractNode(functionNode(a, b, c))
+						val map = mapNode(newFunction, recurse(array, symbol)._1)
+						sequenceNode(List(pre, map))
 					case (x, _) => mapNode(x, recurse(array, symbol)._1)
 				}
 				(retNode, symbol)
 
-			case comprehensionNode(body,variable, array, filter) =>
-				body match {
-					case wordNode(x)=>(comprehensionNode(body, variable, array, filter),symbol)
-					case _ =>(comprehensionNode(body, variable, array, filter),symbol)
-						/*val id = Util.genRandomName()
-						val assign = assignNode(wordNode(id),recurse(blockNode(List(body)),symbol)._1)
-						(sequenceNode(List(assign,comprehensionNode(wordNode(id),variable,array, filter))),symbol)*/
+			case comprehensionNode(body, variable, array, filter) =>
+				val bodyId = Util.genRandomName()
+				val bodyF = recurse(blockNode(List(body)), symbol)._1 match {
+					case functionNode(args,body,_) => functionNode(args,body,metaNode(bodyId, null))
 				}
 
+				filter match {
+					case Some(f) =>
+						val filterId = Util.genRandomName()
+						val filterF = recurse(blockNode(List(f)), symbol)._1 match {
+							case functionNode(args,body,_) => functionNode(args,body,metaNode(filterId, null))
+						}
+						val result = comprehensionNode(wordNode(bodyId), variable, array, Some(wordNode(filterId)))
+						(sequenceNode(List(bodyF, filterF, result)), symbol)
+
+					case None =>
+						val result = comprehensionNode(wordNode(bodyId), variable, array, None)
+						(sequenceNode(List(bodyF, result)), symbol)
+				}
 
 			case typedNode(exp, ty) => throw new NotActiveException(exp.toString)
 
