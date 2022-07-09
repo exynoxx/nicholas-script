@@ -51,13 +51,13 @@ class TreePrinter {
 				printMinus("-", depth + increment) + "ARGs\n" +
 				args.map(e => recursion(e, depth + increment)).mkString("")
 
-			case ifNode(c, b, Some(e),_) => printMinus("-", depth) +
-				"ifNode\n" +
+			case ifNode(c, b, Some(e),id) => printMinus("-", depth) +
+				"ifNode("+id+")\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment) +
 				recursion(e, depth + increment)
-			case ifNode(c, b, _,_) => printMinus("-", depth) +
-				"ifNode\n" +
+			case ifNode(c, b, _,id) => printMinus("-", depth) +
+				"ifNode("+id+")\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment)
 			case typedNode(node, typ) =>

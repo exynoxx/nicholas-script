@@ -15,6 +15,12 @@ class TypeTracer extends Stage {
 		case (_, arrayType(a), arrayType(b)) => arrayType(a)
 		case ("++", arrayType(a), _) => arrayType(a)
 		case ("++", _, arrayType(b)) => arrayType(b)
+		case ("<",_,_) => boolType()
+		case ("<=",_,_) => boolType()
+		case (">",_,_) => boolType()
+		case (">=",_,_) => boolType()
+		case ("==",_,_) => boolType()
+		case ("!=",_,_) => boolType()
 		case _ => intType()
 	}
 
@@ -50,12 +56,12 @@ class TypeTracer extends Stage {
 			val argTypes = args.map(dfs1)
 			functionCallArgs.getOrElseUpdate(id, new ListBuffer()).addOne(argTypes.map(_.typ))
 			typedNode(callNode(wordNode(id), argTypes), unknownType())
-		case ifNode(c, b, None, _) =>
+		case ifNode(c, b, None, id) =>
 			val body = dfs1(b)
-			typedNode(ifNode(dfs1(c), body, None), body.typ)
-		case ifNode(c, b, Some(e), _) =>
+			typedNode(ifNode(dfs1(c), body, None,id), body.typ)
+		case ifNode(c, b, Some(e), id) =>
 			val body = dfs1(b)
-			typedNode(ifNode(dfs1(c), body, Some(dfs1(e))), body.typ)
+			typedNode(ifNode(dfs1(c), body, Some(dfs1(e)),id), body.typ)
 		case returnNode(exp) =>
 			val body = dfs1(exp)
 			typedNode(returnNode(body), body.typ)
@@ -99,10 +105,10 @@ class TypeTracer extends Stage {
 				case x => x
 			}
 		case assignNode(_, body) => findTypeOfReturn(body)
-		case typedNode(returnNode(_), typ) => typ
+		case typedNode(_, typ) => typ
 		case arrayNode(elements) => findTypeOfReturn(elements.head)
 		case mapNode(_, array) => findTypeOfReturn(array)
-		case x => voidType()
+		case x => throw new Exception("Could not find findTypeOfReturn: " + node.toString)
 	}
 
 	def recurseTypedTree(node: Tree): typedNode = node match {
@@ -142,12 +148,12 @@ class TypeTracer extends Stage {
 			typedNode(callNode(wordNode(id), args.map(recurseTypedTree)), graph.getOrElse(id, unknownType()))
 		case typedNode(wordNode(x), ty) =>
 			typedNode(wordNode(x), graph.getOrElse(x, voidType()))
-		case typedNode(ifNode(c, b, None, _), _) =>
+		case typedNode(ifNode(c, b, None, id), _) =>
 			val typedBody = recurseTypedTree(b)
-			typedNode(ifNode(recurseTypedTree(c), typedBody, None), typedBody.typ)
-		case typedNode(ifNode(c, b, Some(e), _), _) =>
+			typedNode(ifNode(recurseTypedTree(c), typedBody, None,id), typedBody.typ)
+		case typedNode(ifNode(c, b, Some(e), id), _) =>
 			val typedBody = recurseTypedTree(b)
-			typedNode(ifNode(recurseTypedTree(c), typedBody, Some(recurseTypedTree(e))), typedBody.typ)
+			typedNode(ifNode(recurseTypedTree(c), typedBody, Some(recurseTypedTree(e)),id), typedBody.typ)
 		case typedNode(exp, typ) =>
 			val content = exp match {
 				case arrayNode(elements) => arrayNode(elements.map(recurseTypedTree))

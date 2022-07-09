@@ -36,10 +36,10 @@ class TypeInliner extends Stage{
 						assignNode(wordNode(id), inlineTypes(typedNode(body, typ)))
 					}
 
-				case ifNode(c, body, None, _) =>
-					ifNode(c, inlineTypes(body), None)
-				case ifNode(c, body, Some(e), _) =>
-					ifNode(c, inlineTypes(body), Some(inlineTypes(e)))
+				case ifNode(c, body, None, meta) =>
+					ifNode(c, inlineTypes(body), None,meta)
+				case ifNode(c, body, Some(e), meta) =>
+					ifNode(c, inlineTypes(body), Some(inlineTypes(e)),meta)
 				case binopNode(op, l, r) =>
 					binopNode(op, inlineTypes(l), inlineTypes(r))
 				case returnNode(exp) =>
