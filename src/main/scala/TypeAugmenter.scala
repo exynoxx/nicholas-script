@@ -45,7 +45,7 @@ class TypeAugmenter extends Stage {
 								),
 								lty)
 						))
-						val f = functionNode(List(typedNode(wordNode(elementId),ty)),fbody,metaNode(Util.genRandomName(),null))
+						val f = functionNode(List(),List(typedNode(wordNode(elementId),ty)),fbody,metaNode(Util.genRandomName(),null))
 						mapNode(f,typedNode(right,rty))
 
 					//TODO: make right case
@@ -65,7 +65,7 @@ class TypeAugmenter extends Stage {
 								),
 								rty)
 						))
-						val f = functionNode(List(typedNode(wordNode(elementId),ty)),fbody,metaNode(Util.genRandomName(),null))
+						val f = functionNode(List(),List(typedNode(wordNode(elementId),ty)),fbody,metaNode(Util.genRandomName(),null))
 						mapNode(f,typedNode(left,lty))
 					case (_,_,_) => binopNode(op, typedNode(left,lty),typedNode(right,rty))
 				}
@@ -80,7 +80,7 @@ class TypeAugmenter extends Stage {
 			case ifNode(cond, body, Some(elseBody), meta) => ifNode(recurse(cond),recurse(body), Some(recurse(elseBody)),meta)
 			case mapNode(f, array) => mapNode(recurse(f), recurse(array))
 			case typedNode(exp, ty) => typedNode(recurse(exp),ty)
-			case functionNode(args, body,meta) => functionNode(args,recurse(body),meta)
+			case functionNode(captured,args, body,meta) => functionNode(captured,args,recurse(body),meta)
 			case returnNode(exp) => returnNode(recurse(exp))
 			case comprehensionNode(body,variable,array,filter) => comprehensionNode(recurse(body),variable,array,filter)
 			case nullLeaf() => nullLeaf()

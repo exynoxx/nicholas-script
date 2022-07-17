@@ -41,7 +41,7 @@ class TypeTracer extends Stage {
 			val ll = dfs1(l)
 			val rr = dfs1(r)
 			typedNode(binopNode(op, ll, rr), lookupType(op, ll.typ, rr.typ))
-		case functionNode(_, _, _) =>
+		case functionNode(_, _, _, _) =>
 			typedNode(node, unknownType())
 		case assignNode(wordNode(id), body) =>
 			val recurs = dfs1(body)
@@ -112,16 +112,23 @@ class TypeTracer extends Stage {
 	}
 
 	def recurseTypedTree(node: Tree): typedNode = node match {
-		case typedNode(functionNode(args, body, metaNode(name, _)), _) =>
+		//TODO: type captured vars using scope
+		case typedNode(functionNode(captured, args, body, metaNode(name, _)), _) =>
 			//paste back in
 			val elementOption = functionCallArgs.get(name)
 			elementOption match {
 				case Some(listOfListOfArgs: ListBuffer[List[Type]]) =>
 					//TODO spawn copies
+
+					//captured args
+					val typedCaptures = captured.map{case wordNode(id) => typedNode(wordNode(id),graph(id))}
+
+					//args
 					val argTypes = listOfListOfArgs(0)
 					val typedArgs = args.zip(argTypes).map { case (node, typ) => typedNode(node, typ) }
-					//TODO send recursively
 
+					//body
+					//TODO send recursively
 					val graphCopy = graph.clone()
 					val oldScope = currentScopeName
 					currentScopeName = name
@@ -131,7 +138,9 @@ class TypeTracer extends Stage {
 					graph = graphCopy
 					currentScopeName = oldScope
 					graph.addOne(name -> fbodyType)
-					typedNode(functionNode(typedArgs, fbody, metaNode(name, null)), fbodyType)
+
+					//finish
+					typedNode(functionNode(typedCaptures,typedArgs, fbody, metaNode(name, null)), fbodyType)
 				//TODO: dont paste null
 				case None => typedNode(nullLeaf(), unknownType())
 			}
@@ -158,11 +167,9 @@ class TypeTracer extends Stage {
 			val content = exp match {
 				case arrayNode(elements) => arrayNode(elements.map(recurseTypedTree))
 				case comprehensionNode(a, b, c, d) => comprehensionNode(a, b, c, d) //TODO: recurse again. in case if funcall
-				case binopNode(op, l, r) =>
-					binopNode(op, recurseTypedTree(l), recurseTypedTree(r))
+				case binopNode(op, l, r) => binopNode(op, recurseTypedTree(l), recurseTypedTree(r))
 				case unopNode(op, exp) => unopNode(op, recurseTypedTree(exp))
-				case returnNode(exp) =>
-					returnNode(recurseTypedTree(exp))
+				case returnNode(exp) => returnNode(recurseTypedTree(exp))
 				case x => x
 			}
 			typedNode(content, typ)
@@ -185,7 +192,7 @@ class TypeTracer extends Stage {
 		injectExternalMethods()
 		val body = main.body.asInstanceOf[blockNode]
 		val typedBlock = doScope(body)
-		functionNode(main.args, typedBlock, main.metaData)
+		functionNode(List(),main.args, typedBlock, main.metaData)
 	}
 }
 

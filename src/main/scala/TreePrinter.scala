@@ -51,13 +51,13 @@ class TreePrinter {
 				printMinus("-", depth + increment) + "ARGs\n" +
 				args.map(e => recursion(e, depth + increment)).mkString("")
 
-			case ifNode(c, b, Some(e),id) => printMinus("-", depth) +
-				"ifNode("+id+")\n" +
+			case ifNode(c, b, Some(e), id) => printMinus("-", depth) +
+				"ifNode(" + id + ")\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment) +
 				recursion(e, depth + increment)
-			case ifNode(c, b, _,id) => printMinus("-", depth) +
-				"ifNode("+id+")\n" +
+			case ifNode(c, b, _, id) => printMinus("-", depth) +
+				"ifNode(" + id + ")\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment)
 			case typedNode(node, typ) =>
@@ -68,25 +68,30 @@ class TreePrinter {
 				"returnNode()\n" +
 				recursion(exp, depth + increment)
 
-			case functionNode(args, body, null) =>
+			case functionNode(captured, args, body, null) =>
 				printMinus("-", depth) +
 					"functionNode(null)\n" +
+					printMinus("-", depth + increment) + "CAPTURED\n" +
+					captured.map(e => recursion(e, depth + increment)).mkString("") +
 					printMinus("-", depth + increment) + "ARGs\n" +
 					args.map(e => recursion(e, depth + increment)).mkString("") +
+					printMinus("-", depth + increment) + "BODY\n" +
 					recursion(body, depth + increment)
 
-			case functionNode(args, body, metaNode(name, extractName)) => printMinus("-", depth) +
-					"functionNode(" + name + ", " + extractName + ")\n" +
-					printMinus("-", depth + increment) + "ARGs\n" +
-					args.map(e => recursion(e, depth + increment)).mkString("") +
-					recursion(body, depth + increment)
-			case mapNode(f,array) => printMinus("-", depth) +
-					"mapNode()\n" +
-					recursion(f, depth + increment)+
-					recursion(array, depth + increment)
-			case comprehensionNode(body,variable,array,filter) => printMinus("-", depth) +
+			case functionNode(captured, args, body, metaNode(name, extractName)) => printMinus("-", depth) +
+				"functionNode(" + name + ", " + extractName + ")\n" +
+				printMinus("-", depth + increment) + "CAPTURED\n" +
+				captured.map(e => recursion(e, depth + increment)).mkString("") +
+				printMinus("-", depth + increment) + "ARGs\n" +
+				args.map(e => recursion(e, depth + increment)).mkString("") +
+				recursion(body, depth + increment)
+			case mapNode(f, array) => printMinus("-", depth) +
+				"mapNode()\n" +
+				recursion(f, depth + increment) +
+				recursion(array, depth + increment)
+			case comprehensionNode(body, variable, array, filter) => printMinus("-", depth) +
 				"comprehensionNode\n" +
-				recursion(body, depth + increment)+
+				recursion(body, depth + increment) +
 				recursion(variable, depth + increment) +
 				recursion(array, depth + increment) +
 				recursion(filter.getOrElse(nullLeaf()), depth + increment)

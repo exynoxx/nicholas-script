@@ -6,15 +6,15 @@ import scala.util.control.Exception
 
 class TreeAugmenter extends Stage {
 
-	implicit class TupleAddition(a: (HashSet[String],mutable.LinkedHashSet[String])) {
-		def ++(b: (HashSet[String],mutable.LinkedHashSet[String])) = (a._1++b._1,a._2++b._2)
+	implicit class TupleAddition(a: (HashSet[String], mutable.LinkedHashSet[String])) {
+		def ++(b: (HashSet[String], mutable.LinkedHashSet[String])) = (a._1 ++ b._1, a._2 ++ b._2)
 	}
 
 	var topLevelBlock = true
 
 	//TODO
 	val fixed = mutable.HashMap[String, ListBuffer[List[Type]]]()
-
+	val functions = mutable.HashMap[String, functionNode]()
 
 	def process(AST: Tree): Tree = {
 		println("--------------------- augmenting --------------------")
@@ -34,30 +34,23 @@ class TreeAugmenter extends Stage {
 		case unopNode(op, exp) =>
 			findFreeVariables(exp, symbol)
 		case binopNode(op, l, r) => findFreeVariables(l, symbol) ++ findFreeVariables(r, symbol)
-			/*val (lused, lunused) = findFreeVariables(l, symbol)
-			val (rused, runused) = findFreeVariables(r, symbol)
-			(lused ++ rused, lunused ++ runused)*/
 		case assignNode(wordNode(id), body) =>
 			val (used, unsued) = findFreeVariables(body, symbol + id)
 			(used ++ HashSet[String](id), unsued)
 		//TODO: assign in one cell used in next
 		case arrayNode(elem) => elem.map(findFreeVariables(_, symbol)).reduce((a, b) => (a._1 ++ b._1, a._2 ++ b._2))
 		case accessNode(arr, index) => findFreeVariables(arr, symbol) ++ findFreeVariables(index, symbol)
-			/*val (u, unu) = findFreeVariables(arr, symbol)
-			val (u1, unu1) = findFreeVariables(index, symbol)
-			(u ++ u1, unu ++ unu1)*/
-		//case callNode(blockNode(elems), args) => ()
-		case callNode(id, args) => findFreeVariables(id, symbol) ++ findFreeVariables(arrayNode(args),symbol)
+		case callNode(id, args) => findFreeVariables(id, symbol) ++ findFreeVariables(arrayNode(args), symbol)
 		case blockNode(elems) =>
 			var currentState = (symbol, mutable.LinkedHashSet[String]())
-			elems.foreach(x=>{
+			elems.foreach(x => {
 				val variablesInUse = currentState._1
 				currentState ++= findFreeVariables(x, variablesInUse)
 			})
 			currentState
 
 		case ifNode(cond, body, elseBody, _) =>
-			val freeInEls = elseBody match {
+			val freeInEls: (HashSet[String], mutable.LinkedHashSet[String]) = elseBody match {
 				case Some(els) => findFreeVariables(els, symbol)
 				case None => (HashSet(), mutable.LinkedHashSet())
 			}
@@ -65,9 +58,9 @@ class TreeAugmenter extends Stage {
 
 		case mapNode(f, array) => findFreeVariables(array, symbol)
 		case comprehensionNode(body, wordNode(variable), array, Some(filter)) =>
-			findFreeVariables(body, symbol + variable)++
-			findFreeVariables(filter, symbol + variable)++
-			findFreeVariables(array, symbol)
+			findFreeVariables(body, symbol + variable) ++
+				findFreeVariables(filter, symbol + variable) ++
+				findFreeVariables(array, symbol)
 		case comprehensionNode(body, wordNode(variable), array, None) => findFreeVariables(body, symbol + variable) ++ findFreeVariables(array, symbol)
 		case integerNode(_) | stringNode(_) => (HashSet(), mutable.LinkedHashSet())
 		case x => throw new NotImplementedError("Could not match every case in unsued variables: " + x.toString)
@@ -125,7 +118,12 @@ class TreeAugmenter extends Stage {
 
 				body match {
 					case functionNode(captured, args, fbody, _) =>
-						(functionNode(captured,args, fbody, metaNode(id, null)), newsym)
+						//give id to node
+						//remove own id from captured variables.
+						val noSelfCapture = captured.filter { case wordNode(elemId) => elemId != id }
+						val node = functionNode(noSelfCapture, args, fbody, metaNode(id, null))
+						functions += (id -> node)
+						(node, newsym)
 					case sequenceNode(l) =>
 						val newBody = if (symbol.contains(id)) {
 							reassignNode(wordNode(id), l.last)
@@ -152,7 +150,7 @@ class TreeAugmenter extends Stage {
 
 			case blockNode(children) =>
 				if (children.isEmpty)
-					return (functionNode(List(),List(), blockNode(List(returnNode(integerNode(0)))), null), symbol)
+					return (functionNode(List(), List(), blockNode(List(returnNode(integerNode(0)))), null), symbol)
 
 				//TODO scopeVars. add fixed vars list to func node
 				var (scopeVars, freeVars) = findFreeVariables(blockNode(children), symbol)
@@ -178,7 +176,7 @@ class TreeAugmenter extends Stage {
 					case reassignNode(_, _) => recursedChildren ++ List(returnNode(integerNode(0)))
 					case _ => recursedChildren.init :+ returnNode(recursedChildren.last)
 				}
-				(functionNode(scopeVars.toList.map(wordNode),freeVars.toList.map(wordNode), blockNode(childrenWithReturn), null), symbol)
+				(functionNode(scopeVars.toList.map(wordNode), freeVars.toList.map(wordNode), blockNode(childrenWithReturn), null), symbol)
 
 			case callNode(f, args) =>
 				//TODO symbol register each arg if contain assign
@@ -194,15 +192,22 @@ class TreeAugmenter extends Stage {
 					case y => y
 				})
 
+				//variables that are captured comes before the real arguments
+				val capturedArgs = f match {
+					case wordNode(id) => functions(id).captured
+					case _ => throw new NotImplementedError("fix captured variables for anon func")
+				}
+
+				//TODO: handle captured variables if anon func
 				val func: Tree = recurse(f, symbol)._1 match {
-					case functionNode(fcap,fargs, fbody, meta) =>
-						val (pre, newFunction) = extractNode(functionNode(fcap,fargs, fbody, meta))
+					case functionNode(fcap, fargs, fbody, meta) =>
+						val (pre, newFunction) = extractNode(functionNode(fcap, fargs, fbody, meta))
 						extractedNodes += pre
 						newFunction
 					case x => x
 				}
-
-				val sequence = extractedNodes.toList :+ callNode(func, nargs)
+				val finalArgs = capturedArgs ++ nargs
+				val sequence = extractedNodes.toList :+ callNode(func, finalArgs)
 				(sequenceNode(sequence), symbol)
 
 			case arrayNode(elements) =>
@@ -274,8 +279,8 @@ class TreeAugmenter extends Stage {
 			case mapNode(f, array) =>
 				val retNode = recurse(f, symbol) match {
 					//if anon func: give it a name and replace with wordNode
-					case (functionNode(a, b, c,d), _) =>
-						val (pre, newFunction) = extractNode(functionNode(a, b, c,d))
+					case (functionNode(a, b, c, d), _) =>
+						val (pre, newFunction) = extractNode(functionNode(a, b, c, d))
 						val map = mapNode(newFunction, recurse(array, symbol)._1)
 						sequenceNode(List(pre, map))
 					case (x, _) => mapNode(x, recurse(array, symbol)._1)
@@ -285,14 +290,14 @@ class TreeAugmenter extends Stage {
 			case comprehensionNode(body, variable, array, filter) =>
 				val bodyId = Util.genRandomName()
 				val bodyF = recurse(blockNode(List(body)), symbol)._1 match {
-					case functionNode(cap,args, body, _) => functionNode(cap,args, body, metaNode(bodyId, null))
+					case functionNode(cap, args, body, _) => functionNode(cap, args, body, metaNode(bodyId, null))
 				}
 
 				filter match {
 					case Some(f) =>
 						val filterId = Util.genRandomName()
 						val filterF = recurse(blockNode(List(f)), symbol)._1 match {
-							case functionNode(cap,args, body, _) => functionNode(cap,args, body, metaNode(filterId, null))
+							case functionNode(cap, args, body, _) => functionNode(cap, args, body, metaNode(filterId, null))
 						}
 						val result = comprehensionNode(wordNode(bodyId), variable, array, Some(wordNode(filterId)))
 						(sequenceNode(List(bodyF, filterF, result)), symbol)

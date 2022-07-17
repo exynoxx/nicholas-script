@@ -28,8 +28,8 @@ class CodeGenJS {
 			}
 			"if (" + recurse(cond) + ")\n" + recurse(body) + elsString
 
-		case functionNode(args, body, _) =>
-			"(" + args.map(recurse).mkString(",") + ") => " + recurse(body)
+		case functionNode(captured,args, body, _) =>
+			"(" + (captured++args).map(recurse).mkString(",") + ") => " + recurse(body)
 		case assignNode(id, b) => recurse(id) + "=" + recurse(b)
 		case reassignNode(id, b) => recurse(id) + "=" + recurse(b)
 		case typedNode(node, _) => recurse(node)
@@ -43,7 +43,7 @@ class CodeGenJS {
 	def process(tree: Tree): String = {
 		val std = Util.readFile("src/main/scala/std.js") + "\n"
 		val main = tree match {
-			case functionNode(_, blockNode(elem), _) => elem.map(recurse).mkString(";\n")
+			case functionNode(_,_, blockNode(elem), _) => elem.map(recurse).mkString(";\n")
 
 		}
 		std+main

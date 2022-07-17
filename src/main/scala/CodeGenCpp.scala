@@ -60,11 +60,11 @@ class CodeGenCpp {
 	}
 
 	def recurseTypedTree(t: Tree): String = t match {
-		case typedNode(functionNode(args, body, meta), ty) =>
+		case typedNode(functionNode(captured,args, body, meta), ty) =>
 			val metaNode(name, _) = meta
 			preMainFunctions += convertType(ty) + " " + name
 
-			val stringArgs = args.map {
+			val stringArgs = (captured++args).map {
 				case typedNode(x, ty) => convertType(ty) + " " + recurseTree(x)
 			}.mkString(",")
 
@@ -83,7 +83,7 @@ class CodeGenCpp {
 	def process(t: Tree): String = {
 
 		val mainBody = t match {
-			case functionNode(_, blockNode(elem), _) =>
+			case functionNode(_,_, blockNode(elem), _) =>
 				val nsMain = "int _NS_main ()" + recurseTree(blockNode(elem))
 				val main = "int main() {\n _NS_main();\nreturn 0;\n}"
 				nsMain + main

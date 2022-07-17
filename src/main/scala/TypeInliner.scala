@@ -70,7 +70,7 @@ class TypeInliner extends Stage{
 		val function = main.asInstanceOf[functionNode]
 		val body = function.body.asInstanceOf[blockNode]
 		val inlined = body.children.map(inlineTypes)
-		functionNode(function.args, blockNode(inlined), function.metaData)
+		functionNode(List(),function.args, blockNode(inlined), function.metaData)
 	}
 
 
