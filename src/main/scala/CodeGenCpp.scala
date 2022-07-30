@@ -75,7 +75,7 @@ class CodeGenCpp {
 		case typedNode(assignNode(id, b), ty) => "auto " + recurseTypedTree(id) + "=" + recurseTypedTree(b)
 		case typedNode(arrayNode(elements),ty) =>
 			val stringElements = elements.map(recurseTypedTree).mkString(",")
-			"new std::make_shared<" + convertType(ty) + ">({"+stringElements+"})"
+			"std::make_shared<" + convertType(ty.asInstanceOf[arrayType].elementType) + ">({"+stringElements+"})"
 		case typedNode(node, _) =>	recurseTree(node)
 		case x => recurseTree(x)
 	}
