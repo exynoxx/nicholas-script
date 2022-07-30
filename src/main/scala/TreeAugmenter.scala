@@ -194,7 +194,11 @@ class TreeAugmenter extends Stage {
 
 				//variables that are captured comes before the real arguments
 				val capturedArgs = f match {
-					case wordNode(id) => functions(id).captured
+					case wordNode(id) =>
+						functions.contains(id) match {
+						case true => functions(id).captured
+						case false => List() //TODO: self recursive functions cannot capture variables
+					}
 					case _ => throw new NotImplementedError("fix captured variables for anon func")
 				}
 
