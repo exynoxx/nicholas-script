@@ -124,7 +124,7 @@ class TypeTracer extends Stage {
 					val typedCaptures = captured.map{case wordNode(id) => typedNode(wordNode(id),graph(id))}
 
 					//args
-					val argTypes = listOfListOfArgs(0)
+					val argTypes = listOfListOfArgs.head.drop(captured.length) //only type based on args not captured
 					val typedArgs = args.zip(argTypes).map { case (node, typ) => typedNode(node, typ) }
 
 					//body
