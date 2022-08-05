@@ -63,15 +63,17 @@ class CodeGenCpp {
 	def recurseTypedTree(t: Tree): String = t match {
 		case typedNode(functionNode(captured, args, body, meta), ty) =>
 			val metaNode(name, _) = meta
-			preMainFunctions += convertType(ty) + " " + name
+
+			var preMainString = convertType(ty) + " " + name
 
 			val stringArgs = (captured ++ args).map {
 				case typedNode(x, ty) => convertType(ty) + " " + recurseTree(x)
 			}.mkString(",")
 
-			preMainFunctions += "(" + stringArgs + ")"
-			preMainFunctions += recurseTypedTree(body)
-			"1"
+			preMainString += "(" + stringArgs + ")"
+			preMainString += recurseTypedTree(body)
+			preMainFunctions += preMainString
+			name
 
 		case typedNode(assignNode(id, b), ty) => "auto " + recurseTypedTree(id) + "=" + recurseTypedTree(b)
 		case typedNode(arrayNode(elements), ty) =>
