@@ -39,7 +39,7 @@ object main {
 
 		//val in = "qsort = { (qsort [x|x:list|x<list$0]) + [list$0] + (qsort [x|x:list|x>=list$0])}; [5,2,3,6,1,4] |> qsort |> println"
 		//val in = "qsort = { (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>=list$0]) }; qsort [1,2,3];"
-		//val in = "qsort = { if list?<=1 | list | (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>list$0]) }; qsort [2,6,20,11,45,6,33,1,7,8];"
+		val in = "qsort = { if list?<=1 | list | (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>list$0]) }; qsort [2,6,20,11,45,6,33,1,7,8];"
 
 		val in = "x=[1,2,3]; f2={x+y}; y=f2 4"
 
