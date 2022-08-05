@@ -1,14 +1,12 @@
 import java.io.NotActiveException
-import scala.collection.immutable.{HashMap, HashSet}
+import scala.collection.immutable.HashSet
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.util.control.Exception
+import Util.TupleAddition
 
 class TreeAugmenter extends Stage {
 
-	implicit class TupleAddition(a: (HashSet[String], mutable.LinkedHashSet[String])) {
-		def ++(b: (HashSet[String], mutable.LinkedHashSet[String])) = (a._1 ++ b._1, a._2 ++ b._2)
-	}
+
 
 	var topLevelBlock = true
 

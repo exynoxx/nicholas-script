@@ -8,7 +8,7 @@ class CodeGenCpp {
 		case intType() => "int"
 		case boolType() => "bool"
 		case stringType() => "std::string"
-		case arrayType(ty) => "std::shared_ptr<std::vector<"+convertType(ty)+">>"
+		case arrayType(ty) => "std::shared_ptr<std::vector<" + convertType(ty) + ">>"
 		case _ => "auto"
 	}
 
@@ -22,8 +22,8 @@ class CodeGenCpp {
 		case accessNode(array, idx) => recurseTypedTree(array) + "[" + recurseTypedTree(idx) + "]"
 		case blockNode(elem) => //"{\n" + elem.map(recurse).mkString("",";\n",";\n") + "\n}\n"
 			elem.map {
-				case typedNode(ifNode(a, b, c, d),ty) => recurseTypedTree(ifNode(a, b, c, d))
-				case typedNode(nullLeaf(),_) => ""
+				case typedNode(ifNode(a, b, c, d), ty) => recurseTypedTree(ifNode(a, b, c, d))
+				case typedNode(nullLeaf(), _) => ""
 				case x => recurseTypedTree(x) + ";\n"
 			}.mkString("{\n", "", "}\n")
 		case returnNode(exp) => "return " + recurseTypedTree(exp)
@@ -51,20 +51,21 @@ class CodeGenCpp {
 		case nullLeaf() => ""
 		//case sequenceNode(l) => l.map(recurse).mkString(";\n")
 
-		case comprehensionNode(body,variable,array,Some(filterOption)) =>
-			"_NS_map_filter("+recurseTypedTree(array)+","+recurseTypedTree(body)+","+recurseTypedTree(filterOption)+")"
-
-		case comprehensionNode(body,variable,array,None) =>
-			"_NS_map_filter("+recurseTypedTree(array)+","+recurseTypedTree(body)+",null)"
+		case comprehensionNode(body, _, array, Some(filterOption)) =>
+			"_NS_map_filter(" + recurseTypedTree(array) + "," + recurseTypedTree(body) + "," + recurseTypedTree(filterOption) + ")"
+		case comprehensionNode(body, _, array, None) =>
+			"_NS_map_filter(" + recurseTypedTree(array) + "," + recurseTypedTree(body) + ",null)"
+		case mapNode(f, array) =>
+			"_NS_map(" + recurseTypedTree(f) + "," + recurseTypedTree(array) + ")"
 		case x => throw new IllegalArgumentException(x.toString)
 	}
 
 	def recurseTypedTree(t: Tree): String = t match {
-		case typedNode(functionNode(captured,args, body, meta), ty) =>
+		case typedNode(functionNode(captured, args, body, meta), ty) =>
 			val metaNode(name, _) = meta
 			preMainFunctions += convertType(ty) + " " + name
 
-			val stringArgs = (captured++args).map {
+			val stringArgs = (captured ++ args).map {
 				case typedNode(x, ty) => convertType(ty) + " " + recurseTree(x)
 			}.mkString(",")
 
@@ -73,17 +74,17 @@ class CodeGenCpp {
 			"1"
 
 		case typedNode(assignNode(id, b), ty) => "auto " + recurseTypedTree(id) + "=" + recurseTypedTree(b)
-		case typedNode(arrayNode(elements),ty) =>
+		case typedNode(arrayNode(elements), ty) =>
 			val stringElements = elements.map(recurseTypedTree).mkString(",")
-			"new std::make_shared<" + convertType(ty) + ">({"+stringElements+"})"
-		case typedNode(node, _) =>	recurseTree(node)
+			"new std::make_shared<" + convertType(ty) + ">({" + stringElements + "})"
+		case typedNode(node, _) => recurseTree(node)
 		case x => recurseTree(x)
 	}
 
 	def process(t: Tree): String = {
 
 		val mainBody = t match {
-			case functionNode(_,_, blockNode(elem), _) =>
+			case functionNode(_, _, blockNode(elem), _) =>
 				val nsMain = "int _NS_main ()" + recurseTree(blockNode(elem))
 				val main = "int main() {\n _NS_main();\nreturn 0;\n}"
 				nsMain + main
