@@ -57,6 +57,8 @@ class CodeGenCpp {
 			"_NS_map_filter(" + recurseTypedTree(array) + "," + recurseTypedTree(body) + ",null)"
 		case mapNode(f, array) =>
 			"_NS_map(" + recurseTypedTree(f) + "," + recurseTypedTree(array) + ")"
+
+		case typedNode(_,_) => recurseTypedTree(t)
 		case x => throw new IllegalArgumentException(x.toString)
 	}
 

@@ -41,11 +41,10 @@ object main {
 		//val in = "qsort = { (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>=list$0]) }; qsort [1,2,3];"
 		//val in = "qsort = { if list?<=1 | list | (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>list$0]) }; qsort [2,6,20,11,45,6,33,1,7,8];"
 
-		val in = "x=[1,2,3]; f2={x+y}; y=f2 4"
+		//TODO: introduce lambda to fix this
+		//val in = "x=[1,2,3]; f2={x+y}; y=f2 4"
+		val in = "qsort = { if list?<=1 | list | (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>list$0]) }; qsort [2,6,20,11,45,6,33,1,7,8];"
 
-		//val in = "list = [1,2,3,4,5]; l = [x*2|x:list|x>1]"
-
-		"if x? | true | false"
 		var AST = parser.process(in)
 		printer.print(AST)
 		AST = stage1.process(AST)
