@@ -44,7 +44,7 @@ class TypeAugmenter extends Stage {
 							),
 							lty)
 					))
-					val f = typedNode(functionNode(List(), List(typedNode(wordNode(elementId), ty)), fbody, metaNode(Util.genRandomName(), null)), functionType(null))
+					val f = typedNode(lambdaNode(List(), List(typedNode(wordNode(elementId), ty)), fbody), functionType(null))
 					mapNode(f, typedNode(right, rty))
 
 				//TODO: make right case
@@ -64,7 +64,7 @@ class TypeAugmenter extends Stage {
 							),
 							rty)
 					))
-					val f = typedNode(functionNode(List(), List(typedNode(wordNode(elementId), ty)), fbody, metaNode(Util.genRandomName(), null)), functionType(null))
+					val f = typedNode(lambdaNode(List(), List(typedNode(wordNode(elementId), ty)), fbody), functionType(null))
 					mapNode(f, typedNode(left, lty))
 				case (_, _, _) => binopNode(op, typedNode(left, lty), typedNode(right, rty))
 			}
