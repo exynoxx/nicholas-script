@@ -154,7 +154,8 @@ class TypeTracer extends Stage {
 			typedNode(reassignNode(wordNode(id), b), b.typ)
 		case typedNode(callNode(wordNode(id), args), ty) =>
 			if (ty != unknownType()) return typedNode(callNode(wordNode(id), args), ty)
-			typedNode(callNode(wordNode(id), args.map(recurseTypedTree)), graph.getOrElse(id, unknownType()))
+			val typ = graph.getOrElse(id, unknownType())
+			typedNode(callNode(typedNode(wordNode(id),typ), args.map(recurseTypedTree)), typ)
 		case typedNode(wordNode(x), ty) =>
 			typedNode(wordNode(x), graph.getOrElse(x, voidType()))
 		case typedNode(ifNode(c, b, None, id), _) =>

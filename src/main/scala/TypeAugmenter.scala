@@ -72,7 +72,13 @@ class TypeAugmenter extends Stage {
 		case assignNode(id, body) => assignNode(id, recurse(body))
 		case reassignNode(id, body) => reassignNode(id, recurse(body))
 		case blockNode(children) => blockNode(children.map(recurse))
-		case callNode(f, args) => callNode(recurse(f), args.map(recurse))
+		case callNode(f, args) =>
+			val newF = recurse(f)
+			val newArgs = args.map(recurse)
+			newF match {
+				case typedNode(wordNode(_), arrayType(ty)) => typedNode(mapNode(newArgs.head,newF),arrayType(ty))
+				case _ => callNode(newF, newArgs)
+			}
 		case arrayNode(elements) => arrayNode(elements.map(recurse))
 		case accessNode(arrayId, idx) => accessNode(arrayId, recurse(idx))
 		case ifNode(cond, body, None, meta) => ifNode(recurse(cond), recurse(body), None, meta)
