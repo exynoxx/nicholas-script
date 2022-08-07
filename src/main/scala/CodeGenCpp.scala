@@ -58,7 +58,8 @@ class CodeGenCpp {
 		case mapNode(f, array) =>
 			"_NS_map(" + recurseTypedTree(f) + "," + recurseTypedTree(array) + ")"
 
-		case typedNode(_,_) => recurseTypedTree(t)
+		case lambdaNode(_, args, body) => "[=](" + args.map(recurseTypedTree).mkString(",") + ")" + recurseTypedTree(body)
+		case typedNode(_, _) => recurseTypedTree(t)
 		case x => throw new IllegalArgumentException(x.toString)
 	}
 
@@ -80,8 +81,8 @@ class CodeGenCpp {
 		case typedNode(assignNode(id, b), ty) => "auto " + recurseTypedTree(id) + "=" + recurseTypedTree(b)
 		case typedNode(arrayNode(elements), ty) =>
 			val stringElements = elements.map(recurseTypedTree).mkString(",")
-			"std::make_shared<" + convertType(ty.asInstanceOf[arrayType].elementType) + ">({"+stringElements+"})"
-		case typedNode(node, _) =>	recurseTree(node)
+			"std::make_shared<" + convertType(ty.asInstanceOf[arrayType].elementType) + ">({" + stringElements + "})"
+		case typedNode(node, _) => recurseTree(node)
 		case x => recurseTree(x)
 	}
 

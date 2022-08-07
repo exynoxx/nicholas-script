@@ -95,7 +95,13 @@ class TreePrinter {
 				recursion(variable, depth + increment) +
 				recursion(array, depth + increment) +
 				recursion(filter.getOrElse(nullLeaf()), depth + increment)
-
+			case lambdaNode(captured, args, body) => printMinus("-", depth) +
+				"lambdaNode()\n" +
+				printMinus("-", depth + increment) + "CAPTURED\n" +
+				captured.map(e => recursion(e, depth + increment)).mkString("") +
+				printMinus("-", depth + increment) + "ARGs\n" +
+				args.map(e => recursion(e, depth + increment)).mkString("") +
+				recursion(body, depth + increment)
 			/*
 			case whileNode(c, b, ns) => printMinus("-", depth) +
 				"whileNode\n" +

@@ -76,7 +76,7 @@ class TypeAugmenter extends Stage {
 			val newF = recurse(f)
 			val newArgs = args.map(recurse)
 			newF match {
-				case typedNode(wordNode(_), arrayType(ty)) => typedNode(mapNode(newArgs.head,newF),arrayType(ty))
+				case typedNode(wordNode(_), arrayType(ty)) => typedNode(mapNode(newArgs.head, newF), arrayType(ty))
 				case _ => callNode(newF, newArgs)
 			}
 		case arrayNode(elements) => arrayNode(elements.map(recurse))
@@ -88,6 +88,7 @@ class TypeAugmenter extends Stage {
 		case functionNode(captured, args, body, meta) => functionNode(captured, args, recurse(body), meta)
 		case returnNode(exp) => returnNode(recurse(exp))
 		case comprehensionNode(body, variable, array, filter) => comprehensionNode(recurse(body), variable, array, filter)
+		case lambdaNode(cap, args, body) => lambdaNode(cap, args, recurse(body))
 		case nullLeaf() => nullLeaf()
 		case x => throw new NotImplementedError(x.toString)
 	}

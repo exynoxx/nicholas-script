@@ -7,7 +7,6 @@ import Util.TupleAddition
 class TreeAugmenter extends Stage {
 
 
-
 	var topLevelBlock = true
 
 	//TODO
@@ -194,16 +193,16 @@ class TreeAugmenter extends Stage {
 				val capturedArgs = f match {
 					case wordNode(id) =>
 						functions.contains(id) match {
-						case true => functions(id).captured
-						case false => List() //TODO: self recursive functions cannot capture variables
-					}
+							case true => functions(id).captured
+							case false => List() //TODO: self recursive functions cannot capture variables
+						}
 					case _ => throw new NotImplementedError("fix captured variables for anon func")
 				}
 
 				//TODO: handle captured variables if anon func
 				val func: Tree = recurse(f, symbol)._1 match {
 					case functionNode(fcap, fargs, fbody, meta) =>
-						val (pre, newFunction) = extractNode(functionNode(fcap, fargs, fbody, meta))
+						val (pre, newFunction) = extractNode(lambdaNode(fcap, fargs, fbody))
 						extractedNodes += pre
 						newFunction
 					case x => x
@@ -279,35 +278,24 @@ class TreeAugmenter extends Stage {
 
 
 			case mapNode(f, array) =>
-				val retNode = recurse(f, symbol) match {
-					//if anon func: give it a name and replace with wordNode
-					case (functionNode(a, b, c, d), _) =>
-						val (pre, newFunction) = extractNode(functionNode(a, b, c, d))
-						val map = mapNode(newFunction, recurse(array, symbol)._1)
-						sequenceNode(List(pre, map))
-					case (x, _) => mapNode(x, recurse(array, symbol)._1)
+				val newF = recurse(f, symbol) match {
+					case (functionNode(a, b, c, d), _) => lambdaNode(a, b, c)
+					case (x, _) => x
 				}
-				(retNode, symbol)
+				(mapNode(newF, recurse(array, symbol)._1), symbol)
 
 			case comprehensionNode(body, variable, array, filter) =>
-				val bodyId = Util.genRandomName()
 				val bodyF = recurse(blockNode(List(body)), symbol)._1 match {
-					case functionNode(cap, args, body, _) => functionNode(cap, args, body, metaNode(bodyId, null))
+					case functionNode(cap, args, body, _) => lambdaNode(cap, args, body)
 				}
-
-				filter match {
-					case Some(f) =>
-						val filterId = Util.genRandomName()
-						val filterF = recurse(blockNode(List(f)), symbol)._1 match {
-							case functionNode(cap, args, body, _) => functionNode(cap, args, body, metaNode(filterId, null))
-						}
-						val result = comprehensionNode(wordNode(bodyId), variable, array, Some(wordNode(filterId)))
-						(sequenceNode(List(bodyF, filterF, result)), symbol)
-
-					case None =>
-						val result = comprehensionNode(wordNode(bodyId), variable, array, None)
-						(sequenceNode(List(bodyF, result)), symbol)
+				val newFilter = filter match {
+					case Some(f) => recurse(blockNode(List(f)), symbol)._1 match {
+						case functionNode(cap, args, body, _) => Some(lambdaNode(cap, args, body))
+					}
+					case None => None
 				}
+				val result = comprehensionNode(bodyF, variable, array, newFilter)
+				(result, symbol)
 
 			case typedNode(exp, ty) => throw new NotActiveException(exp.toString)
 

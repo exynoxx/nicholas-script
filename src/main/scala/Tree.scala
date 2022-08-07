@@ -38,7 +38,6 @@ case class loopNode(variable: Tree, from: Tree, to: Tree, step: Tree, body: Tree
 
 case class castNode(from: Tree, to: Tree, toTyp: Type) extends Tree
 
-case class arrayMultNode(element: Tree, amount: Tree) extends Tree
 
 case class libraryCallNode(fname: String, expr: List[Tree]) extends Tree
 
@@ -49,6 +48,10 @@ case class ifNode(condition: Tree, body: Tree, elseBody: Option[Tree], returnNam
 case class mapNode(f:Tree, array:Tree) extends Tree
 
 case class comprehensionNode(body:Tree, variable:Tree, array:Tree, filter:Option[Tree]) extends Tree
+
+case class lambdaNode(captured: List[Tree], args: List[Tree], body: Tree) extends Tree
+
+
 
 /*
 case class returnNode(body: Tree, nstype: String) extends Tree

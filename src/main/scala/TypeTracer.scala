@@ -15,12 +15,12 @@ class TypeTracer extends Stage {
 		case (_, arrayType(a), arrayType(b)) => arrayType(a)
 		case ("++", arrayType(a), _) => arrayType(a)
 		case ("++", _, arrayType(b)) => arrayType(b)
-		case ("<",_,_) => boolType()
-		case ("<=",_,_) => boolType()
-		case (">",_,_) => boolType()
-		case (">=",_,_) => boolType()
-		case ("==",_,_) => boolType()
-		case ("!=",_,_) => boolType()
+		case ("<", _, _) => boolType()
+		case ("<=", _, _) => boolType()
+		case (">", _, _) => boolType()
+		case (">=", _, _) => boolType()
+		case ("==", _, _) => boolType()
+		case ("!=", _, _) => boolType()
 		case _ => intType()
 	}
 
@@ -34,14 +34,16 @@ class TypeTracer extends Stage {
 			val typedElements = elements.map(dfs1)
 			typedNode(arrayNode(typedElements), arrayType(typedElements.head.typ))
 		case unopNode(op, exp) => op match {
-			case "!" => typedNode(unopNode(op,dfs1(exp)), boolType())
-			case "?" => typedNode(unopNode(op,dfs1(exp)), intType())
+			case "!" => typedNode(unopNode(op, dfs1(exp)), boolType())
+			case "?" => typedNode(unopNode(op, dfs1(exp)), intType())
 		}
 		case binopNode(op, l, r) =>
 			val ll = dfs1(l)
 			val rr = dfs1(r)
 			typedNode(binopNode(op, ll, rr), lookupType(op, ll.typ, rr.typ))
 		case functionNode(_, _, _, _) =>
+			typedNode(node, unknownType())
+		case lambdaNode(_, _, _) =>
 			typedNode(node, unknownType())
 		case assignNode(wordNode(id), body) =>
 			val recurs = dfs1(body)
@@ -58,10 +60,10 @@ class TypeTracer extends Stage {
 			typedNode(callNode(wordNode(id), argTypes), unknownType())
 		case ifNode(c, b, None, id) =>
 			val body = dfs1(b)
-			typedNode(ifNode(dfs1(c), body, None,id), body.typ)
+			typedNode(ifNode(dfs1(c), body, None, id), body.typ)
 		case ifNode(c, b, Some(e), id) =>
 			val body = dfs1(b)
-			typedNode(ifNode(dfs1(c), body, Some(dfs1(e)),id), body.typ)
+			typedNode(ifNode(dfs1(c), body, Some(dfs1(e)), id), body.typ)
 		case returnNode(exp) =>
 			val body = dfs1(exp)
 			typedNode(returnNode(body), body.typ)
@@ -71,22 +73,33 @@ class TypeTracer extends Stage {
 			val ty = findTypeOfReturn(body)
 			graph = graphCopy
 			typedNode(body, ty)
-		case mapNode(wordNode(f), array) =>
+		case mapNode(f, array) =>
 			val typedArray = dfs1(array)
-			functionCallArgs.getOrElseUpdate(f, new ListBuffer()).addOne(List(typedArray.typ.asInstanceOf[arrayType].elementType))
-			typedNode(mapNode(dfs1(wordNode(f)), typedArray), unknownType())
+			val typedF = dfs1(f) match {
+				case typedNode(wordNode(fname), typ) =>
+					functionCallArgs.getOrElseUpdate(fname, new ListBuffer()).addOne(List(typedArray.typ.asInstanceOf[arrayType].elementType))
+					typedNode(wordNode(fname), typ)
+				case typedNode(lambdaNode(cap, args, body), _) =>
+					typedNode(lambdaNode(cap, args, body), typedArray.typ)
+				case x => x
+			}
+			typedNode(mapNode(typedF, typedArray), typedArray.typ)
 		case accessNode(arr, idx) =>
 			val typedArray = dfs1(arr)
 			typedNode(accessNode(typedArray, idx), typedArray.typ.asInstanceOf[arrayType].elementType)
 		case comprehensionNode(body, variable, wordNode(array), filter) =>
-			val newBody = dfs1(body)
+			val arrayType = graph(array).asInstanceOf[arrayType]
+			val newBody = dfs1(body) match {
+				case typedNode(lambdaNode(cap, args, body), _) =>
+					typedNode(lambdaNode(cap, args, body), arrayType)
+				case x => x
+			}
 			val newFilter = filter match {
 				case Some(f) => Some(dfs1(f))
 				case None => None
 			}
-			val listType = graph.getOrElse(array, unknownType()).asInstanceOf[arrayType]
-			val newVariable = typedNode(variable, listType.elementType)
-			typedNode(comprehensionNode(newBody, newVariable, wordNode(array), newFilter), listType)
+			val newVariable = typedNode(variable, arrayType.elementType)
+			typedNode(comprehensionNode(newBody, newVariable, wordNode(array), newFilter), arrayType)
 		case typedNode(exp, ty) =>
 			typedNode(exp, ty)
 		case x => throw new NotImplementedError(x.toString)
@@ -111,39 +124,67 @@ class TypeTracer extends Stage {
 		case x => throw new Exception("Could not find findTypeOfReturn: " + node.toString)
 	}
 
+	def recurseFunction(f: functionNode, listOfListOfArgs: ListBuffer[List[Type]]): typedNode = {
+		//TODO spawn copies
+
+		//captured args
+		val typedCaptures = f.captured.map { case wordNode(id) => typedNode(wordNode(id), graph(id)) }
+
+		//args
+		val argTypes = listOfListOfArgs.head.drop(f.captured.length) //only type based on args not captured
+		val typedArgs = f.args.zip(argTypes).map { case (node, typ) => typedNode(node, typ) }
+
+		//body
+		//TODO send recursively
+		val graphCopy = graph.clone()
+		val oldScope = currentScopeName
+		currentScopeName = f.metaData.name
+		typedArgs.foreach { case typedNode(wordNode(id), ty) => graph.addOne(id -> ty) }
+		val fbody = doScope(f.body.asInstanceOf[blockNode])
+		val fbodyType = findTypeOfReturn(fbody)
+		graph = graphCopy
+		currentScopeName = oldScope
+		graph.addOne(f.metaData.name -> fbodyType)
+
+		//finish
+		typedNode(functionNode(typedCaptures, typedArgs, fbody, f.metaData), fbodyType)
+	}
+
 	def recurseTypedTree(node: Tree): typedNode = node match {
 		//TODO: type captured vars using scope
-		case typedNode(functionNode(captured, args, body, metaNode(name, _)), _) =>
+		case typedNode(functionNode(captured, args, body, metaData), _) =>
 			//paste back in
-			val elementOption = functionCallArgs.get(name)
-			elementOption match {
+			functionCallArgs.get(metaData.name) match {
+
 				case Some(listOfListOfArgs: ListBuffer[List[Type]]) =>
-					//TODO spawn copies
+					recurseFunction(functionNode(captured, args, body, metaData), listOfListOfArgs)
 
-					//captured args
-					val typedCaptures = captured.map{case wordNode(id) => typedNode(wordNode(id),graph(id))}
-
-					//args
-					val argTypes = listOfListOfArgs.head.drop(captured.length) //only type based on args not captured
-					val typedArgs = args.zip(argTypes).map { case (node, typ) => typedNode(node, typ) }
-
-					//body
-					//TODO send recursively
-					val graphCopy = graph.clone()
-					val oldScope = currentScopeName
-					currentScopeName = name
-					typedArgs.foreach { case typedNode(wordNode(id), ty) => graph.addOne(id -> ty) }
-					val fbody = doScope(body.asInstanceOf[blockNode])
-					val fbodyType = findTypeOfReturn(fbody)
-					graph = graphCopy
-					currentScopeName = oldScope
-					graph.addOne(name -> fbodyType)
-
-					//finish
-					typedNode(functionNode(typedCaptures,typedArgs, fbody, metaNode(name, null)), fbodyType)
-				//TODO: dont paste null
-				case None => typedNode(nullLeaf(), unknownType())
+				case None =>
+					typedNode(nullLeaf(), unknownType())
 			}
+
+		case typedNode(lambdaNode(captured, args, body), ty) =>
+			//getOrElse is a temporary fix
+			val typedCaptures = captured.map { case wordNode(id) => typedNode(wordNode(id), graph.getOrElse(id, unknownType())) }
+
+			//args
+			val typedArgs = args.length match {
+				case 0 => List()
+				case _ =>
+					val argType = ty.asInstanceOf[arrayType].elementType
+					List(typedNode(args.head, argType))
+			}
+
+			//body
+			val graphCopy = graph.clone()
+			typedArgs.foreach { case typedNode(wordNode(id), ty) => graph.addOne(id -> ty) }
+			val fbody = doScope(body.asInstanceOf[blockNode])
+			val fbodyType = findTypeOfReturn(fbody)
+			graph = graphCopy
+
+			//finish
+			typedNode(lambdaNode(typedCaptures, typedArgs, fbody), arrayType(fbodyType))
+
 		case typedNode(assignNode(wordNode(id), body), _) =>
 			val b = recurseTypedTree(body)
 			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
@@ -155,22 +196,24 @@ class TypeTracer extends Stage {
 		case typedNode(callNode(wordNode(id), args), ty) =>
 			if (ty != unknownType()) return typedNode(callNode(wordNode(id), args), ty)
 			val typ = graph.getOrElse(id, unknownType())
-			typedNode(callNode(typedNode(wordNode(id),typ), args.map(recurseTypedTree)), typ)
+			typedNode(callNode(typedNode(wordNode(id), typ), args.map(recurseTypedTree)), typ)
 		case typedNode(wordNode(x), ty) =>
 			typedNode(wordNode(x), graph.getOrElse(x, voidType()))
 		case typedNode(ifNode(c, b, None, id), _) =>
 			val typedBody = recurseTypedTree(b)
-			typedNode(ifNode(recurseTypedTree(c), typedBody, None,id), typedBody.typ)
+			typedNode(ifNode(recurseTypedTree(c), typedBody, None, id), typedBody.typ)
 		case typedNode(ifNode(c, b, Some(e), id), _) =>
 			val typedBody = recurseTypedTree(b)
-			typedNode(ifNode(recurseTypedTree(c), typedBody, Some(recurseTypedTree(e)),id), typedBody.typ)
+			typedNode(ifNode(recurseTypedTree(c), typedBody, Some(recurseTypedTree(e)), id), typedBody.typ)
 		case typedNode(exp, typ) =>
 			val content = exp match {
 				case arrayNode(elements) => arrayNode(elements.map(recurseTypedTree))
-				case comprehensionNode(a, b, c, d) => comprehensionNode(a, b, c, d) //TODO: recurse again. in case if funcall
+				case comprehensionNode(body,varr,array,None) => comprehensionNode(recurseTypedTree(body), varr, array, None)
+				case comprehensionNode(body,varr,array,Some(filter)) => comprehensionNode(recurseTypedTree(body), varr, array, Some(recurseTypedTree(filter)))
 				case binopNode(op, l, r) => binopNode(op, recurseTypedTree(l), recurseTypedTree(r))
 				case unopNode(op, exp) => unopNode(op, recurseTypedTree(exp))
 				case returnNode(exp) => returnNode(recurseTypedTree(exp))
+				case mapNode(f, array) => mapNode(recurseTypedTree(f), recurseTypedTree(array))
 				case x => x
 			}
 			typedNode(content, typ)
@@ -193,7 +236,7 @@ class TypeTracer extends Stage {
 		injectExternalMethods()
 		val body = main.body.asInstanceOf[blockNode]
 		val typedBlock = doScope(body)
-		functionNode(List(),main.args, typedBlock, main.metaData)
+		functionNode(List(), main.args, typedBlock, main.metaData)
 	}
 }
 
