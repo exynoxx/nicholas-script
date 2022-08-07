@@ -95,7 +95,14 @@ class TypeTracer extends Stage {
 				case x => x
 			}
 			val newFilter = filter match {
-				case Some(f) => Some(dfs1(f))
+				case Some(f) =>
+					val newF = dfs1(f) match {
+						case typedNode(lambdaNode(cap, args, body), _) =>
+							typedNode(lambdaNode(cap, args, body), arrayType)
+						case x => x
+					}
+
+					Some(newF)
 				case None => None
 			}
 			val newVariable = typedNode(variable, arrayType.elementType)
@@ -168,11 +175,14 @@ class TypeTracer extends Stage {
 			val typedCaptures = captured.map { case wordNode(id) => typedNode(wordNode(id), graph.getOrElse(id, unknownType())) }
 
 			//args
+			//here ty comes from mapNode or comprehension. Has to be an array type
 			val typedArgs = args.length match {
 				case 0 => List()
-				case _ =>
-					val argType = ty.asInstanceOf[arrayType].elementType
-					List(typedNode(args.head, argType))
+				case _ => ty match {
+					case arrayType(elementType) => List(typedNode(args.head, elementType))
+					case _ => throw new IllegalArgumentException(node.toString)
+				}
+
 			}
 
 			//body
@@ -208,8 +218,12 @@ class TypeTracer extends Stage {
 		case typedNode(exp, typ) =>
 			val content = exp match {
 				case arrayNode(elements) => arrayNode(elements.map(recurseTypedTree))
-				case comprehensionNode(body,varr,array,None) => comprehensionNode(recurseTypedTree(body), varr, array, None)
-				case comprehensionNode(body,varr,array,Some(filter)) => comprehensionNode(recurseTypedTree(body), varr, array, Some(recurseTypedTree(filter)))
+				case comprehensionNode(body,varr,array,None) =>
+					val newBody = recurseTypedTree(body)
+					comprehensionNode(newBody, varr, array, None)
+				case comprehensionNode(body,varr,array,Some(filter)) =>
+					val newBody = recurseTypedTree(body)
+					comprehensionNode(newBody, varr, array, Some(recurseTypedTree(filter)))
 				case binopNode(op, l, r) => binopNode(op, recurseTypedTree(l), recurseTypedTree(r))
 				case unopNode(op, exp) => unopNode(op, recurseTypedTree(exp))
 				case returnNode(exp) => returnNode(recurseTypedTree(exp))

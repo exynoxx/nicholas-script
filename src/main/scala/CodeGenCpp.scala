@@ -28,8 +28,8 @@ class CodeGenCpp {
 			}.mkString("{\n", "", "}\n")
 		case returnNode(exp) => "return " + recurseTypedTree(exp)
 		case libraryCallNode(fname, expr) => fname + "(" + expr.map(recurseTypedTree).mkString(",") + ")"
-		case callNode(wordNode(f), args) =>
-			f + "(" + args.map(recurseTypedTree).mkString(",") + ")"
+		case callNode(f, args) =>
+			recurseTypedTree(f) + "(" + args.map(recurseTypedTree).mkString(",") + ")"
 
 		/*case callNode(functionNode(_, fargs, body), args) =>
 			val id = Util.genRandomName()
