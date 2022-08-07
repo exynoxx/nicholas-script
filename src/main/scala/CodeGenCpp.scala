@@ -90,7 +90,7 @@ class CodeGenCpp {
 
 		val mainBody = t match {
 			case functionNode(_, _, blockNode(elem), _) =>
-				val nsMain = "int _NS_main ()" + recurseTree(blockNode(elem))
+				val nsMain = convertType(elem.last.asInstanceOf[typedNode].typ) + " _NS_main ()" + recurseTree(blockNode(elem))
 				val main = "int main() {\n _NS_main();\nreturn 0;\n}"
 				nsMain + main
 		}
