@@ -20,7 +20,7 @@ class CodeGenCpp {
 		case wordNode(x) => x
 		case binopNode(op, left, right) => recurseTypedTree(left) + op + recurseTypedTree(right)
 		case reassignNode(id, b) => recurseTypedTree(id) + "=" + recurseTypedTree(b)
-		case accessNode(array, idx) => recurseTypedTree(array) + "[" + recurseTypedTree(idx) + "]"
+		case accessNode(array, idx) => "(*"+recurseTypedTree(array) + ")[" + recurseTypedTree(idx) + "]"
 		case blockNode(elem) => //"{\n" + elem.map(recurse).mkString("",";\n",";\n") + "\n}\n"
 			elem.map {
 				case typedNode(ifNode(a, b, c, d), ty) => recurseTypedTree(ifNode(a, b, c, d))
@@ -93,7 +93,7 @@ class CodeGenCpp {
 	}
 
 	def process(t: Tree): String = {
-		val includes = "#include <memory>\n#include <vector>\n"
+		val includes = "#include \"std.cpp\"\n"
 
 		val mainBody = t match {
 			case functionNode(_, _, blockNode(elem), _) =>

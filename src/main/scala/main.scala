@@ -63,7 +63,7 @@ object main {
 		val output = codeGen.process(AST)
 		println(output)
 
-		//writeFile("out/std.cpp", readFile("src/main/scala/std.cpp"))
+		writeFile("out/std.cpp", readFile("src/main/scala/std.cpp"))
 		//writeFile("out/std.js", readFile("src/main/scala/std.js"))
 		writeFile(outputFile, output)
 
