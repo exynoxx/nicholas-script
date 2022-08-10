@@ -42,11 +42,11 @@ object main {
 		//val in = "qsort = { if list?<=1 | list | (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>list$0]) }; qsort [2,6,20,11,45,6,33,1,7,8];"
 
 		//val in = "x=[1,2,3]; f2={x+y}; y=f2 4"
-		//val in = "qsort = { if list?<=1 | list | (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>list$0]) }; qsort [2,6,20,11,45,6,33,1,7,8];"
+		val in = "qsort = { if list?<=1 | list | (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>list$0]) }; qsort [2,6,20,11,45,6,33,1,7,8];"
 
 		//TODO: have local variables overlapping with outside variables in list comprehension
 		//TODO: make array inside list comprehension, support
-		val in = "x=[1,2,3]; x = [\"a\", \"b\"]; a = x+1; y = [\"1\", \"2\"]; I={x}; intArray = y I; b = 1; [b*2+z|z:x]; [1,2,3] {k*b};"
+		//val in = "x=[1,2,3]; x = [\"a\", \"b\"]; a = x+1; y = [\"1\", \"2\"]; I={x}; intArray = y I; b = 1; [b*2+z|z:x]; [1,2,3] {k*b};"
 
 
 
