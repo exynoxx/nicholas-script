@@ -76,7 +76,8 @@ class TypeAugmenter extends Stage {
 			val newF = recurse(f)
 			val newArgs = args.map(recurse)
 			newF match {
-				case typedNode(wordNode(_), arrayType(ty)) => typedNode(mapNode(newArgs.head, newF), arrayType(ty))
+				//is mapNode really but is parsed as callNode. types reveal whats up.
+				case typedNode(wordNode(_), arrayType(ty)) => typedNode(mapNode(newArgs.head, newF), ty)
 				case _ => callNode(newF, newArgs)
 			}
 		case arrayNode(elements) => arrayNode(elements.map(recurse))

@@ -9,6 +9,7 @@ class CodeGenCpp {
 		case boolType() => "bool"
 		case stringType() => "std::string"
 		case arrayType(ty) => "std::shared_ptr<std::vector<" + convertType(ty) + ">>"
+		case functionType(ret) => convertType(ret)
 		case _ => "auto"
 	}
 

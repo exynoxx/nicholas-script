@@ -20,7 +20,7 @@ object main {
 		val codeGen = new CodeGenCpp
 
 		//val inputFile = "src/main/scala/examples/object.ns"
-		val outputFile = "out/output.js"
+		val outputFile = "out/output.cpp"
 
 		//val in = "even = {(x%2==0)?true:false};println (even 5);println (even 6);println (even 7);"
 		//val in = "y=1+1;f={k*2+l};x=\"str\";x=y;non=f x 1;y=5*x;x=y;print x;"

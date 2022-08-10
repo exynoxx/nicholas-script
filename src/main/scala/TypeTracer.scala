@@ -42,7 +42,7 @@ class TypeTracer extends Stage {
 			val rr = dfs1(r)
 			typedNode(binopNode(op, ll, rr), lookupType(op, ll.typ, rr.typ))
 		case functionNode(_, _, _, _) =>
-			typedNode(node, unknownType())
+			typedNode(node, functionType(unknownType()))
 		case lambdaNode(_, _, _) =>
 			typedNode(node, unknownType())
 		case assignNode(wordNode(id), body) =>
@@ -151,10 +151,10 @@ class TypeTracer extends Stage {
 		val fbodyType = findTypeOfReturn(fbody)
 		graph = graphCopy
 		currentScopeName = oldScope
-		graph.addOne(f.metaData.name -> fbodyType)
+		graph.addOne(f.metaData.name -> functionType(fbodyType))
 
 		//finish
-		typedNode(functionNode(typedCaptures, typedArgs, fbody, f.metaData), fbodyType)
+		typedNode(functionNode(typedCaptures, typedArgs, fbody, f.metaData), functionType(fbodyType))
 	}
 
 	def recurseTypedTree(node: Tree): typedNode = node match {
