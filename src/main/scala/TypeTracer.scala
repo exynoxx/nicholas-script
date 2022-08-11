@@ -193,7 +193,7 @@ class TypeTracer extends Stage {
 			graph = graphCopy
 
 			//finish
-			typedNode(lambdaNode(typedCaptures, typedArgs, fbody), arrayType(fbodyType))
+			typedNode(lambdaNode(typedCaptures, typedArgs, fbody), lambdaType(fbodyType,typedArgs.map{case typedNode(_,ty)=>ty}))
 
 		case typedNode(assignNode(wordNode(id), body), _) =>
 			val b = recurseTypedTree(body)

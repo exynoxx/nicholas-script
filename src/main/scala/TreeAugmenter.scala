@@ -63,15 +63,6 @@ class TreeAugmenter extends Stage {
 		case x => throw new NotImplementedError("Could not match every case in unsued variables: " + x.toString)
 	}
 
-	def extractNode(node: Tree): (Tree, Tree) = node match {
-		case sequenceNode(list) =>
-			(sequenceNode(list.init), list.last)
-		case x =>
-			val id = Util.genRandomName()
-			val assign = assignNode(wordNode(id), x)
-			(assign, wordNode(id))
-	}
-
 	def recurse(AST: Tree, symbol: HashSet[String]): (Tree, HashSet[String]) = {
 		AST match {
 			case wordNode(x) =>
@@ -86,8 +77,8 @@ class TreeAugmenter extends Stage {
 				val (left, ls) = recurse(l, symbol)
 				val (right, rs) = recurse(r, symbol)
 
-				val (lpreassign, newleft) = extractNode(left)
-				val (rpreassign, newright) = extractNode(right)
+				val (lpreassign, newleft) = Util.extractNode(left)
+				val (rpreassign, newright) = Util.extractNode(right)
 
 				val preassign = ListBuffer[Tree]()
 
@@ -202,7 +193,7 @@ class TreeAugmenter extends Stage {
 				//TODO: handle captured variables if anon func
 				val func: Tree = recurse(f, symbol)._1 match {
 					case functionNode(fcap, fargs, fbody, meta) =>
-						val (pre, newFunction) = extractNode(lambdaNode(fcap, fargs, fbody))
+						val (pre, newFunction) = Util.extractNode(lambdaNode(fcap, fargs, fbody))
 						extractedNodes += pre
 						newFunction
 					case x => x

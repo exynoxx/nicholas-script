@@ -34,4 +34,22 @@ object Util {
 		writer.write(content)
 		writer.close()
 	}
+
+	def extractNode(node: Tree): (Tree, Tree) = node match {
+		case sequenceNode(list) =>
+			(sequenceNode(list.init), list.last)
+		case x =>
+			val id = genRandomName()
+			val assign = assignNode(wordNode(id), x)
+			(assign, wordNode(id))
+	}
+
+	def extractTypedNode(node: Tree): (Tree, Tree) = node match {
+		case sequenceNode(list) =>
+			(sequenceNode(list.init), list.last)
+		case typedNode(x,ty) =>
+			val id = genRandomName()
+			val assign = typedNode(assignNode(wordNode(id), x), ty)
+			(assign, wordNode(id))
+	}
 }

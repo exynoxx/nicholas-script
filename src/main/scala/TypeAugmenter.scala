@@ -1,3 +1,5 @@
+import scala.collection.mutable.ListBuffer
+
 class TypeAugmenter extends Stage {
 
 	def process(AST: Tree): Tree = {
@@ -18,10 +20,22 @@ class TypeAugmenter extends Stage {
 			case _ => unopNode(op, recurse(exp))
 		}
 		case binopNode(op, l, r) =>
-			val typedNode(left, lty) = recurse(l)
-			val typedNode(right, rty) = recurse(r)
 
-			(op, lty, rty) match {
+			val extractedNodes = ListBuffer[Tree]()
+			val (left, lty) = recurse(l) match {
+				case typedNode(sequenceNode(ll), llty) =>
+					extractedNodes ++= ll.init
+					(ll.last, llty)
+				case typedNode(ll, llty) => (ll, llty)
+			}
+			val (right, rty) = recurse(r) match {
+				case typedNode(sequenceNode(rr), rrty) =>
+					extractedNodes ++= rr.init
+					(rr.last, rrty)
+				case typedNode(rr, rrty) => (rr, rrty)
+			}
+
+			val newBinop = (op, lty, rty) match {
 				//case (intType(),intType())
 				case ("*", arrayType(_), _) => callNode(wordNode("_NS_repeat"), List(typedNode(left, lty), typedNode(right, rty)))
 				case ("*", _, arrayType(_)) => callNode(wordNode("_NS_repeat"), List(typedNode(right, rty), typedNode(left, lty)))
@@ -44,8 +58,12 @@ class TypeAugmenter extends Stage {
 							),
 							lty)
 					))
-					val f = typedNode(lambdaNode(List(), List(typedNode(wordNode(elementId), ty)), fbody), functionType(null))
-					mapNode(f, typedNode(right, rty))
+					val f = typedNode(lambdaNode(List(), List(typedNode(wordNode(elementId), ty)), fbody), lambdaType(lty,List(ty)))
+					val id = Util.genRandomName()
+					val assign = typedNode(assignNode(wordNode(id), f), f.typ)
+					extractedNodes += assign
+					mapNode(wordNode(id), typedNode(right, rty))
+
 
 				//TODO: make right case
 				case (_, arrayType(ty), _) =>
@@ -64,22 +82,61 @@ class TypeAugmenter extends Stage {
 							),
 							rty)
 					))
-					val f = typedNode(lambdaNode(List(), List(typedNode(wordNode(elementId), ty)), fbody), functionType(null))
+					val f = typedNode(lambdaNode(List(), List(typedNode(wordNode(elementId), ty)), fbody), lambdaType(rty,List(ty)))
+					val id = Util.genRandomName()
+					val assign = typedNode(assignNode(wordNode(id), f), f.typ)
+					extractedNodes += assign
 					mapNode(f, typedNode(left, lty))
 				case (_, _, _) => binopNode(op, typedNode(left, lty), typedNode(right, rty))
 			}
+			if (extractedNodes.isEmpty)
+				newBinop
+			else
+				sequenceNode(extractedNodes.toList :+ newBinop)
 
-		case assignNode(id, body) => assignNode(id, recurse(body))
-		case reassignNode(id, body) => reassignNode(id, recurse(body))
-		case blockNode(children) => blockNode(children.map(recurse))
+
+		case assignNode(id, body) =>
+			recurse(body) match {
+				case typedNode(sequenceNode(l),ty) => sequenceNode(l.init :+ typedNode(assignNode(id,l.last),ty))
+				case x => assignNode(id, x)
+			}
+
+		case reassignNode(id, body) =>
+			recurse(body) match {
+				case typedNode(sequenceNode(l),ty) => sequenceNode(l.init :+ typedNode(reassignNode(id,l.last),ty))
+				case x => assignNode(id, x)
+			}
+		case blockNode(children) =>
+			val flatChildren = children.map(recurse).flatMap {
+				case typedNode(sequenceNode(l),_) => l
+				case x => List(x)
+			}
+			blockNode(flatChildren)
 		case callNode(f, args) =>
 			val newF = recurse(f)
-			val newArgs = args.map(recurse)
-			newF match {
-				//is mapNode really but is parsed as callNode. types reveal whats up.
+			val extractedNodes = ListBuffer[Tree]()
+			val newArgs = args.map(recurse).map {
+				case typedNode(sequenceNode(list), ty) =>
+					extractedNodes ++= list.init
+					typedNode(list.last, ty)
+				case x => x
+			}
+
+
+			val callnode = newF match {
 				case typedNode(wordNode(_), arrayType(ty)) => typedNode(mapNode(newArgs.head, newF), ty)
+				/*case typedNode(sequenceNode(l), ty) =>
+					extractedNodes ++= l.init
+					//typed node here??
+					callNode(l.last, newArgs)*/
 				case _ => callNode(newF, newArgs)
 			}
+
+			if (extractedNodes.isEmpty)
+				callnode
+			else
+				sequenceNode(extractedNodes.toList :+ callnode)
+
 		case arrayNode(elements) => arrayNode(elements.map(recurse))
 		case accessNode(arrayId, idx) => accessNode(arrayId, recurse(idx))
 		case ifNode(cond, body, None, meta) => ifNode(recurse(cond), recurse(body), None, meta)
@@ -88,7 +145,18 @@ class TypeAugmenter extends Stage {
 		case typedNode(exp, ty) => typedNode(recurse(exp), ty)
 		case functionNode(captured, args, body, meta) => functionNode(captured, args, recurse(body), meta)
 		case returnNode(exp) => returnNode(recurse(exp))
-		case comprehensionNode(body, variable, array, filter) => comprehensionNode(recurse(body), variable, array, filter)
+		case comprehensionNode(body, variable, array, filter) =>
+			val (lambdaBody, newBody) = Util.extractTypedNode(recurse(body))
+			filter match {
+				case Some(filter) =>
+					val (lambdaFilter, newFilter) = Util.extractTypedNode(filter)
+					val result = comprehensionNode(newBody, variable, array, Some(newFilter))
+					sequenceNode(List(lambdaBody, lambdaFilter, result))
+				case None =>
+					val result = comprehensionNode(newBody, variable, array, None)
+					sequenceNode(List(lambdaBody, result))
+			}
+
 		case lambdaNode(cap, args, body) => lambdaNode(cap, args, recurse(body))
 		case nullLeaf() => nullLeaf()
 		case x => throw new NotImplementedError(x.toString)

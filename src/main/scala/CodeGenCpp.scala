@@ -9,6 +9,7 @@ class CodeGenCpp {
 		case boolType() => "bool"
 		case stringType() => "std::string"
 		case arrayType(ty) => "std::shared_ptr<std::vector<" + convertType(ty) + ">>"
+		case lambdaType(ty,argTypes) => "std::function<"+convertType(ty)+"("+argTypes.map(convertType).mkString(",")+")>"
 		case functionType(ret) => convertType(ret)
 		case _ => "auto"
 	}
@@ -53,6 +54,20 @@ class CodeGenCpp {
 		//case sequenceNode(l) => l.map(recurse).mkString(";\n")
 
 		case comprehensionNode(body, _, array, Some(filterOption)) =>
+
+			/*      //filter
+			  val filteredResultId = Util.genRandomName()
+			  val arrayName = recurseTypedTree(array)
+
+			  val s1 = "std::vector<T> " + filteredResultId + ";\n"
+			  val s2 = "std::copy_if("+arrayName+"->begin(), "+arrayName+"->end(), std::back_inserter("+filteredResultId+"),"+ recurseTypedTree(filterOption)+");\n"
+
+			  //map
+			  val mappedResultId = Util.genRandomName()
+			  val s3 = "auto " + mappedResultId + " = new std::vector("+filteredResultId+");\n"
+			  val s4 = "std::transform("+mappedResultId+"->begin(), "+mappedResultId+"->end(), "+mappedResultId+"->begin(),"+recurseTypedTree(body)+");\n"
+			  s1+s2+s3+s4
+      		*/
 			"_NS_map_filter(" + recurseTypedTree(array) + "," + recurseTypedTree(body) + "," + recurseTypedTree(filterOption) + ")"
 		case comprehensionNode(body, _, array, None) =>
 			"_NS_map_filter(" + recurseTypedTree(array) + "," + recurseTypedTree(body) + ",null)"
@@ -67,6 +82,7 @@ class CodeGenCpp {
 		case typedNode(_, _) => recurseTypedTree(t)
 		case x => throw new IllegalArgumentException(x.toString)
 	}
+
 
 	def recurseTypedTree(t: Tree): String = t match {
 		case typedNode(functionNode(captured, args, body, meta), ty) =>
@@ -83,7 +99,7 @@ class CodeGenCpp {
 			preMainFunctions += preMainString
 			name
 
-		case typedNode(assignNode(id, b), ty) => "auto " + recurseTypedTree(id) + "=" + recurseTypedTree(b)
+		case typedNode(assignNode(id, b), ty) => convertType(ty) + " " + recurseTypedTree(id) + "=" + recurseTypedTree(b)
 		case typedNode(arrayNode(elements), ty) =>
 			val stringElements = elements.map(recurseTypedTree).mkString(",")
 			val elementType = convertType(ty.asInstanceOf[arrayType].elementType)
