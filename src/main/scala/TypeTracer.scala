@@ -9,10 +9,6 @@ class TypeTracer extends Stage {
 	var currentScopeName = ""
 
 	def lookupType(op: String, left: Type, right: Type): Type = (op, left, right) match {
-		case (_, intType(), intType()) => intType()
-		case (_, boolType(), boolType()) => boolType()
-		case (_, stringType(), stringType()) => stringType()
-		case (_, arrayType(a), arrayType(b)) => arrayType(a)
 		case ("++", arrayType(a), _) => arrayType(a)
 		case ("++", _, arrayType(b)) => arrayType(b)
 		case ("<", _, _) => boolType()
@@ -21,6 +17,10 @@ class TypeTracer extends Stage {
 		case (">=", _, _) => boolType()
 		case ("==", _, _) => boolType()
 		case ("!=", _, _) => boolType()
+		case (_, intType(), intType()) => intType()
+		case (_, boolType(), boolType()) => boolType()
+		case (_, stringType(), stringType()) => stringType()
+		case (_, arrayType(a), arrayType(b)) => arrayType(a)
 		case _ => intType()
 	}
 

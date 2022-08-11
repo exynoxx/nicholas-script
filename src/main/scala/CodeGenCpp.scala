@@ -25,6 +25,7 @@ class CodeGenCpp {
 		case blockNode(elem) => //"{\n" + elem.map(recurse).mkString("",";\n",";\n") + "\n}\n"
 			elem.map {
 				case typedNode(ifNode(a, b, c, d), ty) => recurseTypedTree(ifNode(a, b, c, d))
+				case typedNode(functionNode(a,b,c,d),ty) => recurseTypedTree(typedNode(functionNode(a,b,c,d),ty))
 				case typedNode(nullLeaf(), _) => ""
 				case x => recurseTypedTree(x) + ";\n"
 			}.mkString("{\n", "", "}\n")
@@ -97,7 +98,7 @@ class CodeGenCpp {
 			preMainString += "(" + stringArgs + ")"
 			preMainString += recurseTypedTree(body)
 			preMainFunctions += preMainString
-			name
+			""
 
 		case typedNode(assignNode(id, b), ty) => convertType(ty) + " " + recurseTypedTree(id) + "=" + recurseTypedTree(b)
 		case typedNode(arrayNode(elements), ty) =>
