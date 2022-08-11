@@ -12,3 +12,5 @@ src/main/scala/.vscode/
 src/main/scala/std
 
 *.exe
+
+src/.vscode/
