@@ -12,7 +12,7 @@ int _NS_len(std::shared_ptr<std::vector<T>> list){
 
 
 template <typename T, typename G>
-std::shared_ptr<std::vector<T>> _NS_map_filter(std::function<G(T)> fmap, std::function<bool(T)> ffilter,  std::shared_ptr<std::vector<T>> list){
+std::shared_ptr<std::vector<T>> _NS_map_filter(std::shared_ptr<std::vector<T>> list,std::function<G(T)> fmap, std::function<bool(T)> ffilter){
     
     //filter
     std::vector<T> filteredResult;
@@ -22,4 +22,9 @@ std::shared_ptr<std::vector<T>> _NS_map_filter(std::function<G(T)> fmap, std::fu
     auto mappedResult = new std::vector(filteredResult); //clone
     //auto unary_op = [](int num) {return std::pow(num, 2);};
     std::transform(mappedResult->begin(), mappedResult->end(), mappedResult->begin(), fmap);
+}
+
+template <typename T>
+std::shared_ptr<std::vector<T>> _NS_concat(std::shared_ptr<std::vector<T>> a, std::shared_ptr<std::vector<T>> b){
+	return a;
 }
