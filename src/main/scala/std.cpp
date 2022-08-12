@@ -28,7 +28,7 @@ std::shared_ptr<std::vector<T>> _NS_map_filter(std::shared_ptr<std::vector<T>> l
 template <typename T>
 std::shared_ptr<std::vector<T>> _NS_concat(std::shared_ptr<std::vector<T>> a, std::shared_ptr<std::vector<T>> b)
 {
-	auto result = new std::vector<T>(a->size()+b->size());
+	auto result = new std::vector<T>();
     result->insert(result->begin(), a->begin(), a->end());
     result->insert(result->end(), b->begin(), b->end());
     return std::shared_ptr<std::vector<T>>(result);
