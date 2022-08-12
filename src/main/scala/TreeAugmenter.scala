@@ -233,14 +233,11 @@ class TreeAugmenter extends Stage {
 						val (blockNode(elems), localSym) = recurse(blockNode(elem), symbol)
 						sym ++= localSym
 						blockNode(elems.init :+ reassignNode(wordNode(id), elems.last))
-					case exp =>
-						val b = recurse(exp, symbol)._1 match {
-							case sequenceNode(l) =>
-								preIf ++= l.init
-								l.last
-							case x => x
-						}
-						blockNode(List(reassignNode(wordNode(id), b)))
+					case exp => recurse(exp, symbol)._1 match {
+						case sequenceNode(l) => blockNode(l)
+						case x => blockNode(List(reassignNode(wordNode(id), x)))
+					}
+
 
 				}
 				val nels = elseBody match {
@@ -251,19 +248,13 @@ class TreeAugmenter extends Stage {
 							case blockNode(elem) =>
 								val (blockNode(elems), _) = recurse(blockNode(elem), symbol)
 								Some(blockNode(elems.init :+ reassignNode(wordNode(id), elems.last)))
-							case exp =>
-								val b = recurse(exp, symbol)._1 match {
-									case sequenceNode(l) =>
-										preIf ++= l.init
-										l.last
-									case x => x
-								}
-								Some(blockNode(List(reassignNode(wordNode(id), b))))
-
+							case exp => recurse(exp, symbol)._1 match {
+								case sequenceNode(l) => Some(blockNode(l))
+								case x => Some(blockNode(List(reassignNode(wordNode(id), x))))
+							}
 						}
 				}
 				val result = wordNode(id)
-				//preIf += assignNode(result, integerNode(0)) this is done in codeGen
 				val sequence = preIf :+ ifNode(newCond, newbody, nels, id) :+ result
 				(sequenceNode(sequence.toList), sym)
 

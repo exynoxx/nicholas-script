@@ -104,8 +104,9 @@ class TypeAugmenter extends Stage {
 		case reassignNode(id, body) =>
 			recurse(body) match {
 				case typedNode(sequenceNode(l),ty) => sequenceNode(l.init :+ typedNode(reassignNode(id,l.last),ty))
-				case x => assignNode(id, x)
+				case x => reassignNode(id, x)
 			}
+
 		case blockNode(children) =>
 			val flatChildren = children.map(recurse).flatMap {
 				case typedNode(sequenceNode(l),_) => l
