@@ -24,7 +24,7 @@ object main {
 
 		//val in = "even = {(x%2==0)?true:false};println (even 5);println (even 6);println (even 7);"
 		//val in = "y=1+1;f={k*2+l};x=\"str\";x=y;non=f x 1;y=5*x;x=y;print x;"
-		//val in = "println 1+1; fib = { (n <= 1) ? 1 : (fib n-1) + (fib n-2)}; println (fib 35); x=[1,2,3];x$1+x$2;"
+		val in = "fib = { if (n <= 1) | 1 | (fib n-1) + (fib n-2)}; x = fib 40;"
 
 		//val in = "one = [1]*10; a = [1,2,3]; [1,2,3]; b=a$0;"
 		//val in = "f={x}; a = f 1; b = {x*2}; f = a; b = f + 10; 0"
@@ -43,12 +43,18 @@ object main {
 
 		//val in = "x=[1,2,3]; f2={x+y}; y=f2 4"
 
-		val in = "qsort = { if list?<=1 | list | (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>list$0]) }; qsort [2,6,20,11,45,6,33,1,7,8];"
+		//val in = "qsort = { if list?<=1 | list | (qsort [x|x:list|x<list$0]) ++ [list$0] ++ (qsort [x|x:list|x>list$0]) }; qsort [2,6,20,11,45,6,33,1,7,8];"
 
 
 		//TODO: have local variables overlapping with outside variables in list comprehension
 		//TODO: make array inside list comprehension, support
 		//val in = "x=[1,2,3]; x = [\"a\", \"b\"]; a = x+1; y = [\"1\", \"2\"]; I={x}; intArray = y I; b = 1; [b*2+z|z:x]; [1,2,3] {k*b};"
+
+
+		val basic = "a=1;b=true;c=[1,2,3]; d = a + 1; e = a + \"s\";"
+		val arrays = "a=[1,2,3]; b=5; c=a+b; cc = a + 6; d=[\"a\",\"b\",\"c\"]; e = d$0; f = [f1=1;f2=2;f3=3]; g1=f$0; g2=f1; h1 = [1]*10; h2=[1,2]*10"
+		val strings = "f1 = \"hello\"; f2 = \"world\"; f3 = f1+f2; f4 = f3 + \" !\""
+		val functions = "f1={x}; a = true; f2 = {if (a==true)|true|a;}"
 
 
 
