@@ -234,7 +234,7 @@ class TreeAugmenter extends Stage {
 						sym ++= localSym
 						blockNode(elems.init :+ reassignNode(wordNode(id), elems.last))
 					case exp => recurse(exp, symbol)._1 match {
-						case sequenceNode(l) => blockNode(l)
+						case sequenceNode(l) => blockNode(l.init :+ reassignNode(wordNode(id), l.last))
 						case x => blockNode(List(reassignNode(wordNode(id), x)))
 					}
 
@@ -249,7 +249,7 @@ class TreeAugmenter extends Stage {
 								val (blockNode(elems), _) = recurse(blockNode(elem), symbol)
 								Some(blockNode(elems.init :+ reassignNode(wordNode(id), elems.last)))
 							case exp => recurse(exp, symbol)._1 match {
-								case sequenceNode(l) => Some(blockNode(l))
+								case sequenceNode(l) => Some(blockNode(l.init :+ reassignNode(wordNode(id), l.last)))
 								case x => Some(blockNode(List(reassignNode(wordNode(id), x))))
 							}
 						}
