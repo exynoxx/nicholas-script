@@ -73,7 +73,7 @@ class CodeGenCpp {
 		case comprehensionNode(body, _, array, None) =>
 			"_NS_map_filter(" + recurseTypedTree(array) + "," + recurseTypedTree(body) + ",null)"
 		case mapNode(f, array) =>
-			"_NS_map(" + recurseTypedTree(f) + "," + recurseTypedTree(array) + ")"
+			"_NS_map(" + recurseTypedTree(array) + "," + recurseTypedTree(f) + ")"
 
 		case lambdaNode(_, args, body) =>
 			val argTypes = args.map{ case typedNode(_,typ) =>typ}.map(convertType)
