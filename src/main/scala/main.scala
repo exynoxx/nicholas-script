@@ -51,16 +51,19 @@ object main {
 		//val in = "x=[1,2,3]; x = [\"a\", \"b\"]; a = x+1; y = [\"1\", \"2\"]; I={x}; intArray = y I; b = 1; [b*2+z|z:x]; [1,2,3] {k*b};"
 
 
+		//c++ convert types when + with string
 		val basic = "a=1;b=true;c=[1,2,3]; d = a + 1; e = a + \"s\";"
+
+		//compiles
 		val arrays = "a=[1,2,3]; b=5; c=a+b; cc = a + 6; d=[\"a\",\"b\",\"c\"]; e = d$0; f = [f1=1,f2=2,f3=3]; g1=f$0; g2=f1; h1 = [1]*10; h2=[1,2]*10"
 
 		//compiles
 		val strings = "f1 = \"hello\"; f2 = \"world\"; f3 = f1+f2; f4 = f3 + \" !\""
 
-		//dont capture unsued symbols in this.
+		//dont capture unused symbols in this.
 		val functions = "f1={x}; a = true; f2 = {if (a==true)|true|a;};f1 1; f2 true;"
 
-		val in = arrays
+		val in = basic
 
 
 
