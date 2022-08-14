@@ -25,6 +25,15 @@ std::shared_ptr<std::vector<T>> _NS_map_filter(std::shared_ptr<std::vector<T>> l
     return std::shared_ptr<std::vector<T>>(mappedResult);
 }
 
+template <typename T, typename G>
+std::shared_ptr<std::vector<T>> _NS_map(std::shared_ptr<std::vector<T>> list,std::function<G(T)> fmap)
+{
+    //map
+    auto mappedResult = new std::vector(*list); //clone
+    std::transform(mappedResult->begin(), mappedResult->end(), mappedResult->begin(), fmap);
+    return std::shared_ptr<std::vector<T>>(mappedResult);
+}
+
 template <typename T>
 std::shared_ptr<std::vector<T>> _NS_concat(std::shared_ptr<std::vector<T>> a, std::shared_ptr<std::vector<T>> b)
 {
@@ -32,4 +41,16 @@ std::shared_ptr<std::vector<T>> _NS_concat(std::shared_ptr<std::vector<T>> a, st
     result->insert(result->begin(), a->begin(), a->end());
     result->insert(result->end(), b->begin(), b->end());
     return std::shared_ptr<std::vector<T>>(result);
+}
+
+template <typename T>
+std::shared_ptr<std::vector<T>> _NS_repeat(std::shared_ptr<std::vector<T>> x, int amount)
+{
+	auto result = new std::vector<T>((size_t) x->size()+amount);
+	for(int i = 0; i < amount; i++){
+		for (T elem : *x) {
+			result->push_back(elem);
+		}
+	}
+	 return std::shared_ptr<std::vector<T>>(result);
 }
