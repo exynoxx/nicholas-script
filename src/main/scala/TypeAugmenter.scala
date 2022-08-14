@@ -86,7 +86,7 @@ class TypeAugmenter extends Stage {
 					val id = Util.genRandomName()
 					val assign = typedNode(assignNode(wordNode(id), f), f.typ)
 					extractedNodes += assign
-					mapNode(f, typedNode(left, lty))
+					mapNode(wordNode(id), typedNode(left, lty))
 				case (_, _, _) => binopNode(op, typedNode(left, lty), typedNode(right, rty))
 			}
 			if (extractedNodes.isEmpty)
