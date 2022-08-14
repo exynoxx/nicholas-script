@@ -24,7 +24,7 @@ object main {
 
 		//val in = "even = {(x%2==0)?true:false};println (even 5);println (even 6);println (even 7);"
 		//val in = "y=1+1;f={k*2+l};x=\"str\";x=y;non=f x 1;y=5*x;x=y;print x;"
-		val in = "fib = { if (n <= 1) | 1 | (fib n-1) + (fib n-2)}; x = fib 40;"
+		//val in = "fib = { if (n <= 1) | 1 | (fib n-1) + (fib n-2)}; x = fib 40;"
 
 		//val in = "one = [1]*10; a = [1,2,3]; [1,2,3]; b=a$0;"
 		//val in = "f={x}; a = f 1; b = {x*2}; f = a; b = f + 10; 0"
@@ -52,9 +52,15 @@ object main {
 
 
 		val basic = "a=1;b=true;c=[1,2,3]; d = a + 1; e = a + \"s\";"
-		val arrays = "a=[1,2,3]; b=5; c=a+b; cc = a + 6; d=[\"a\",\"b\",\"c\"]; e = d$0; f = [f1=1;f2=2;f3=3]; g1=f$0; g2=f1; h1 = [1]*10; h2=[1,2]*10"
+		val arrays = "a=[1,2,3]; b=5; c=a+b; cc = a + 6; d=[\"a\",\"b\",\"c\"]; e = d$0; f = [f1=1,f2=2,f3=3]; g1=f$0; g2=f1; h1 = [1]*10; h2=[1,2]*10"
+
+		//compiles
 		val strings = "f1 = \"hello\"; f2 = \"world\"; f3 = f1+f2; f4 = f3 + \" !\""
-		val functions = "f1={x}; a = true; f2 = {if (a==true)|true|a;}"
+
+		//dont capture unsued symbols in this.
+		val functions = "f1={x}; a = true; f2 = {if (a==true)|true|a;};f1 1; f2 true;"
+
+		val in = arrays
 
 
 

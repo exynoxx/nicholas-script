@@ -1,8 +1,9 @@
+import Util.TupleAddition
+
 import java.io.NotActiveException
 import scala.collection.immutable.HashSet
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import Util.TupleAddition
 
 class TreeAugmenter extends Stage {
 
@@ -203,13 +204,19 @@ class TreeAugmenter extends Stage {
 				(sequenceNode(sequence), symbol)
 
 			case arrayNode(elements) =>
+				val extractedNodes = ListBuffer[Tree]()
 				var sym = symbol
 				val children = elements.map(x => {
 					val (elem, s) = recurse(x, sym)
 					sym = s
 					elem
-				})
-				(arrayNode(children), sym)
+				}).map {
+					case assignNode(wordNode(id), body) =>
+						extractedNodes += assignNode(wordNode(id),body)
+						wordNode(id)
+					case x => x
+				}
+				(sequenceNode(extractedNodes.toList:+arrayNode(children)), sym)
 
 			case accessNode(arrayId, idx) =>
 				val (index, sym) = recurse(idx, symbol)
