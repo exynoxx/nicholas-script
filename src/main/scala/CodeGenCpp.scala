@@ -51,6 +51,8 @@ class CodeGenCpp {
 
 			result + "if (" + recurseTypedTree(cond) + ")\n" + recurseTypedTree(body) + elsString
 
+			case castNode(exp,from,stringType()) => "_NS_to_string("+recurseTypedTree(exp)+")"
+
 		case nullLeaf() => ""
 		//case sequenceNode(l) => l.map(recurse).mkString(";\n")
 

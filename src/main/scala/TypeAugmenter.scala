@@ -58,7 +58,7 @@ class TypeAugmenter extends Stage {
 							),
 							lty)
 					))
-					val f = typedNode(lambdaNode(List(), List(typedNode(wordNode(elementId), ty)), fbody), lambdaType(lty,List(ty)))
+					val f = typedNode(lambdaNode(List(), List(typedNode(wordNode(elementId), ty)), fbody), lambdaType(lty, List(ty)))
 					val id = Util.genRandomName()
 					val assign = typedNode(assignNode(wordNode(id), f), f.typ)
 					extractedNodes += assign
@@ -82,11 +82,20 @@ class TypeAugmenter extends Stage {
 							),
 							rty)
 					))
-					val f = typedNode(lambdaNode(List(), List(typedNode(wordNode(elementId), ty)), fbody), lambdaType(rty,List(ty)))
+					val f = typedNode(lambdaNode(List(), List(typedNode(wordNode(elementId), ty)), fbody), lambdaType(rty, List(ty)))
 					val id = Util.genRandomName()
 					val assign = typedNode(assignNode(wordNode(id), f), f.typ)
 					extractedNodes += assign
 					mapNode(wordNode(id), typedNode(left, lty))
+
+				case ("+", stringType(), intType()) => binopNode(op, typedNode(left, lty), castNode(typedNode(right, rty),rty,stringType()))
+				case ("+", intType(), stringType()) => binopNode(op, castNode(typedNode(left, lty),lty,stringType()), typedNode(right, rty))
+				case ("+", stringType(), boolType()) => binopNode(op, typedNode(left, lty), castNode(typedNode(right, rty),rty,stringType()))
+				case ("+", boolType(), stringType()) => binopNode(op, castNode(typedNode(left, lty),lty,stringType()), typedNode(right, rty))
+
+				//case ("*", stringType(),intType())
+				//case ("*", intType(),stringType())
+
 				case (_, _, _) => binopNode(op, typedNode(left, lty), typedNode(right, rty))
 			}
 			if (extractedNodes.isEmpty)
@@ -97,19 +106,19 @@ class TypeAugmenter extends Stage {
 
 		case assignNode(id, body) =>
 			recurse(body) match {
-				case typedNode(sequenceNode(l),ty) => sequenceNode(l.init :+ typedNode(assignNode(id,l.last),ty))
+				case typedNode(sequenceNode(l), ty) => sequenceNode(l.init :+ typedNode(assignNode(id, l.last), ty))
 				case x => assignNode(id, x)
 			}
 
 		case reassignNode(id, body) =>
 			recurse(body) match {
-				case typedNode(sequenceNode(l),ty) => sequenceNode(l.init :+ typedNode(reassignNode(id,l.last),ty))
+				case typedNode(sequenceNode(l), ty) => sequenceNode(l.init :+ typedNode(reassignNode(id, l.last), ty))
 				case x => reassignNode(id, x)
 			}
 
 		case blockNode(children) =>
 			val flatChildren = children.map(recurse).flatMap {
-				case typedNode(sequenceNode(l),_) => l
+				case typedNode(sequenceNode(l), _) => l
 				case x => List(x)
 			}
 			blockNode(flatChildren)

@@ -54,3 +54,14 @@ std::shared_ptr<std::vector<T>> _NS_repeat(std::shared_ptr<std::vector<T>> x, in
 	}
 	 return std::shared_ptr<std::vector<T>>(result);
 }
+
+std::string _NS_to_string(int i){
+    return std::to_string(i);
+}
+std::string _NS_to_string(bool b){
+    if (b){
+        return std::string("true");
+    } else {
+        return std::string("false");
+    }
+}

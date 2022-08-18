@@ -23,6 +23,8 @@ class TypeTracer extends Stage {
 		case ("*", arrayType(ty), boolType()) => arrayType(ty)
 		case ("+", arrayType(ty), rty) => arrayType(lookupType(op,ty,rty))
 		case ("+", lty, arrayType(ty)) => arrayType(lookupType(op,lty,ty))
+		case ("+",stringType(),_) => stringType()
+		case ("+",_,stringType()) => stringType()
 		case (_, intType(), intType()) => intType()
 		case (_, boolType(), boolType()) => boolType()
 		case (_, stringType(), stringType()) => stringType()

@@ -51,7 +51,7 @@ object main {
 		//val in = "x=[1,2,3]; x = [\"a\", \"b\"]; a = x+1; y = [\"1\", \"2\"]; I={x}; intArray = y I; b = 1; [b*2+z|z:x]; [1,2,3] {k*b};"
 
 
-		//c++ convert types when + with string
+		//compiles
 		val basic = "a=1;b=true;c=[1,2,3]; d = a + 1; e = a + \"s\";"
 
 		//compiles
