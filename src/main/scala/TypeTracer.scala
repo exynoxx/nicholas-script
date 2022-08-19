@@ -94,7 +94,8 @@ class TypeTracer extends Stage {
 			typedNode(mapNode(typedF, typedArray), typedArray.typ)
 		case accessNode(arr, idx) =>
 			val typedArray = dfs1(arr)
-			typedNode(accessNode(typedArray, idx), typedArray.typ.asInstanceOf[arrayType].elementType)
+			val typedIdx = dfs1(idx)
+			typedNode(accessNode(typedArray, typedIdx), typedArray.typ.asInstanceOf[arrayType].elementType)
 		case comprehensionNode(body, variable, wordNode(array), filter) =>
 			val arrayType = graph(array).asInstanceOf[arrayType]
 			val newBody = dfs1(body) match {
@@ -203,11 +204,13 @@ class TypeTracer extends Stage {
 			//finish
 			typedNode(lambdaNode(typedCaptures, typedArgs, fbody), lambdaType(fbodyType,typedArgs.map{case typedNode(_,ty)=>ty}))
 
-		case typedNode(assignNode(wordNode(id), body), _) =>
+		case typedNode(assignNode(wordNode(id), body), ty) =>
+			if (ty != unknownType()) return typedNode(assignNode(wordNode(id), body), ty)
 			val b = recurseTypedTree(body)
 			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
 			typedNode(assignNode(wordNode(id), b), b.typ)
-		case typedNode(reassignNode(wordNode(id), body), _) =>
+		case typedNode(reassignNode(wordNode(id), body), ty) =>
+			if (ty != unknownType()) return typedNode(reassignNode(wordNode(id), body), ty)
 			val b = recurseTypedTree(body)
 			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
 			typedNode(reassignNode(wordNode(id), b), b.typ)

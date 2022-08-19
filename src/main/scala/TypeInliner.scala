@@ -14,6 +14,14 @@ class TypeInliner extends Stage{
 	def inlineTypes(node: Tree): Tree = node match {
 		case typedNode(typNode, ty) =>
 			val treeNode: Tree = typNode match {
+				case wordNode(oldId) =>
+					var id = oldId
+					while (replaceMap.contains(id)) id = replaceMap(id)
+					wordNode(id)
+				case stringNode(x) => stringNode(x)
+				case boolNode(x) => boolNode(x)
+				case integerNode(x) => integerNode(x)
+
 				case assignNode(wordNode(id), typedNode(body, typ)) =>
 					symbolMap.addOne(id -> typ)
 					assignNode(wordNode(id), inlineTypes(typedNode(body, typ)))
@@ -44,25 +52,22 @@ class TypeInliner extends Stage{
 					binopNode(op, inlineTypes(l), inlineTypes(r))
 				case returnNode(exp) =>
 					returnNode(inlineTypes(exp))
-				case wordNode(oldId) =>
-					var id = oldId
-					while (replaceMap.contains(id)) id = replaceMap(id)
-					wordNode(id)
 				//TODO fix anon f,
 				case callNode(wordNode(id), args) => callNode(wordNode(replaceMap.getOrElse(id, id)), args.map(inlineTypes))
 				case callNode(f, args) => callNode(f, args.map(inlineTypes))
-				/*case functionNode(args, blockNode(children), meta) =>
-					val metaNode(name, _) = meta
-					val extractName = Util.genRandomName()
-					replaceMap.addOne(name -> extractName)
-					val ret = functionNode(args, blockNode(children.map(inlineTypes)), metaNode(name, extractName))
-					replaceMap.remove(name)
-					ret*/
 				case blockNode(children) => blockNode(children.map(inlineTypes))
-				case x => x
+				case arrayNode(l) => arrayNode(l.map(inlineTypes))
+				case castNode(exp,from,to) => castNode(inlineTypes(exp),from,to)
+				case accessNode(exp,index) => accessNode(inlineTypes(exp),inlineTypes(index))
+
+				//TODO: fix these
+				case lambdaNode(captured,args,body) => lambdaNode(captured,args,body)
+				case mapNode(f,array) => mapNode(f,array)
+				//case typedNode(exp,ty) => typedNode(inlineTypes(exp),ty)
+				case _ => throw new Exception("node not handled: " + typNode.toString)
 			}
 			typedNode(treeNode, ty)
-		case _ => node
+		case _ => throw new Exception("not typed node "+node.toString)
 	}
 
 	def process(main: Tree): Tree = {

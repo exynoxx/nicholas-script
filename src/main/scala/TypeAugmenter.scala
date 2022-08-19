@@ -62,7 +62,7 @@ class TypeAugmenter extends Stage {
 					val id = Util.genRandomName()
 					val assign = typedNode(assignNode(wordNode(id), f), f.typ)
 					extractedNodes += assign
-					mapNode(wordNode(id), typedNode(right, rty))
+					typedNode(mapNode(wordNode(id), typedNode(right, rty)),arrayType(lty))
 
 
 				//TODO: make right case
@@ -86,12 +86,12 @@ class TypeAugmenter extends Stage {
 					val id = Util.genRandomName()
 					val assign = typedNode(assignNode(wordNode(id), f), f.typ)
 					extractedNodes += assign
-					mapNode(wordNode(id), typedNode(left, lty))
+					typedNode(mapNode(wordNode(id), typedNode(left, lty)),arrayType(rty))
 
-				case ("+", stringType(), intType()) => binopNode(op, typedNode(left, lty), castNode(typedNode(right, rty),rty,stringType()))
-				case ("+", intType(), stringType()) => binopNode(op, castNode(typedNode(left, lty),lty,stringType()), typedNode(right, rty))
-				case ("+", stringType(), boolType()) => binopNode(op, typedNode(left, lty), castNode(typedNode(right, rty),rty,stringType()))
-				case ("+", boolType(), stringType()) => binopNode(op, castNode(typedNode(left, lty),lty,stringType()), typedNode(right, rty))
+				case ("+", stringType(), intType()) => binopNode(op, typedNode(left, lty), typedNode(castNode(typedNode(right, rty),rty,stringType()),stringType()))
+				case ("+", intType(), stringType()) => binopNode(op, typedNode(castNode(typedNode(left, lty),lty,stringType()),stringType()), typedNode(right, rty))
+				case ("+", stringType(), boolType()) => binopNode(op, typedNode(left, lty), typedNode(castNode(typedNode(right, rty),rty,stringType()),stringType()))
+				case ("+", boolType(), stringType()) => binopNode(op, typedNode(castNode(typedNode(left, lty),lty,stringType()),stringType()), typedNode(right, rty))
 
 				//case ("*", stringType(),intType())
 				//case ("*", intType(),stringType())
