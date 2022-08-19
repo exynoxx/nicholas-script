@@ -1,3 +1,5 @@
+import io.AnsiColor._
+
 class TreePrinter {
 	def printMinus(sym: String, depth: Int): String = {
 		val spaces = (0 to depth).map(x => sym).mkString("")
@@ -16,6 +18,11 @@ class TreePrinter {
 				recursion(exp, depth + increment)
 
 			/*case opNode(b, ns) => b*/
+
+			case assignNode(wordNode(id), b) => printMinus("-", depth) +
+				s"assignNode(${GREEN}" + id + s"${RESET})\n" +
+				recursion(b, depth + increment)
+
 			case assignNode(id, b) => printMinus("-", depth) +
 				"assignNode(" + id + ")\n" +
 				recursion(b, depth + increment)
@@ -52,10 +59,9 @@ class TreePrinter {
 				"ifNode(" + id + ")\n" +
 				recursion(c, depth + increment) +
 				recursion(b, depth + increment)
-			case typedNode(node, typ) =>
-				printMinus("-", depth) +
-					"typedNode(" + typ + ")\n" +
-					recursion(node, depth + increment)
+			case typedNode(node, typ) => printMinus("-", depth) +
+				s"${YELLOW}typedNode(" + typ + s")${RESET}\n" +
+				recursion(node, depth + increment)
 			case returnNode(exp) => printMinus("-", depth) +
 				"returnNode()\n" +
 				recursion(exp, depth + increment)
