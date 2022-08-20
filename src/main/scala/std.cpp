@@ -65,3 +65,20 @@ std::string _NS_to_string(bool b){
         return std::string("false");
     }
 }
+
+int I(std::string s){
+	return std::stoi(s);
+}
+
+std::shared_ptr<std::vector<std::string>> _NS_split(std::string s, std::string delim){
+	auto result = new std::vector<std::string>();
+	size_t start;
+    size_t end = 0;
+
+    while ((start = s.find_first_not_of(delim, end)) != std::string::npos)
+    {
+        end = s.find(delim, start);
+        result.push_back(str.substr(start, end - start));
+    }
+    return std::shared_ptr<std::vector<std::string>>(result);
+}
