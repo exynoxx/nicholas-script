@@ -49,7 +49,7 @@ object Util {
 			(sequenceNode(list.init), list.last)
 		case typedNode(x,ty) =>
 			val id = genRandomName()
-			val assign = typedNode(assignNode(wordNode(id), x), ty)
-			(assign, wordNode(id))
+			val assign = typedNode(assignNode(wordNode(id), typedNode(x,ty)), ty)
+			(assign, typedNode(wordNode(id),ty))
 	}
 }

@@ -63,6 +63,8 @@ class TypeInliner extends Stage{
 				//TODO: fix these
 				case lambdaNode(captured,args,body) => lambdaNode(captured,args,body)
 				case mapNode(f,array) => mapNode(f,array)
+				case functionNode(cap,args,body,meta) => functionNode(cap,args,body,meta)
+				case lambdaNode(cap,args,body) => lambdaNode(cap,args,body)
 				//case typedNode(exp,ty) => typedNode(inlineTypes(exp),ty)
 				case _ => throw new Exception("node not handled: " + typNode.toString)
 			}

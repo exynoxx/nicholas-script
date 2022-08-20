@@ -20,47 +20,48 @@ class TreeAugmenter extends Stage {
 		t
 	}
 
-	//returns (used variables, unused variables)
-	def findFreeVariables(AST: Tree, symbol: HashSet[String]): (HashSet[String], mutable.LinkedHashSet[String]) = AST match {
+	def injectExternalMethods() : HashSet[String] = {
+		HashSet() + "println"+"print"+"I"+"split"
+	}
+
+	//returns (captured variables, free variables)
+	def findFreeVariables(AST: Tree, outerScope: HashSet[String]): (HashSet[String], mutable.LinkedHashSet[String]) = AST match {
 		case wordNode(x) =>
-			if (symbol.contains(x)) {
-				(HashSet(), mutable.LinkedHashSet())
+			if (!outerScope.contains(x)) {
+				(HashSet(), mutable.LinkedHashSet(x)) //free var
+			} else if(outerScope.contains(x)) {
+				(HashSet(x), mutable.LinkedHashSet()) //captured
 			} else {
-				(HashSet(), mutable.LinkedHashSet(x))
+				(HashSet(), mutable.LinkedHashSet()) //neither captured or free
 			}
-		case boolNode(x) => (HashSet(), mutable.LinkedHashSet())
-		case unopNode(op, exp) =>
-			findFreeVariables(exp, symbol)
-		case binopNode(op, l, r) => findFreeVariables(l, symbol) ++ findFreeVariables(r, symbol)
-		case assignNode(wordNode(id), body) =>
-			val (used, unsued) = findFreeVariables(body, symbol + id)
-			(used ++ HashSet[String](id), unsued)
+		case unopNode(op, exp) => findFreeVariables(exp, outerScope)
+		case binopNode(op, l, r) => findFreeVariables(l, outerScope) ++ findFreeVariables(r, outerScope)
+		case assignNode(wordNode(id), body) => findFreeVariables(body, outerScope)
 		//TODO: assign in one cell used in next
-		case arrayNode(elem) => elem.map(findFreeVariables(_, symbol)).reduce((a, b) => (a._1 ++ b._1, a._2 ++ b._2))
-		case accessNode(arr, index) => findFreeVariables(arr, symbol) ++ findFreeVariables(index, symbol)
-		case callNode(id, args) => findFreeVariables(id, symbol) ++ findFreeVariables(arrayNode(args), symbol)
+		case arrayNode(elem) => elem.map(findFreeVariables(_, outerScope)).reduce((a, b) => (a._1 ++ b._1, a._2 ++ b._2))
+		case accessNode(arr, index) => findFreeVariables(arr, outerScope) ++ findFreeVariables(index, outerScope)
+		case callNode(id, args) => findFreeVariables(id, outerScope) ++ findFreeVariables(arrayNode(args), outerScope)
 		case blockNode(elems) =>
-			var currentState = (symbol, mutable.LinkedHashSet[String]())
+			var currentState = (HashSet[String](), mutable.LinkedHashSet[String]())
 			elems.foreach(x => {
-				val variablesInUse = currentState._1
-				currentState ++= findFreeVariables(x, variablesInUse)
+				currentState ++= findFreeVariables(x, outerScope)
 			})
 			currentState
 
 		case ifNode(cond, body, elseBody, _) =>
 			val freeInEls: (HashSet[String], mutable.LinkedHashSet[String]) = elseBody match {
-				case Some(els) => findFreeVariables(els, symbol)
+				case Some(els) => findFreeVariables(els, outerScope)
 				case None => (HashSet(), mutable.LinkedHashSet())
 			}
-			findFreeVariables(cond, symbol) ++ findFreeVariables(body, symbol) ++ freeInEls
+			findFreeVariables(cond, outerScope) ++ findFreeVariables(body, outerScope) ++ freeInEls
 
-		case mapNode(f, array) => findFreeVariables(array, symbol)
+		case mapNode(f, array) => findFreeVariables(array, outerScope)
 		case comprehensionNode(body, wordNode(variable), array, Some(filter)) =>
-			findFreeVariables(body, symbol + variable) ++
-				findFreeVariables(filter, symbol + variable) ++
-				findFreeVariables(array, symbol)
-		case comprehensionNode(body, wordNode(variable), array, None) => findFreeVariables(body, symbol + variable) ++ findFreeVariables(array, symbol)
-		case integerNode(_) | stringNode(_) => (HashSet(), mutable.LinkedHashSet())
+			findFreeVariables(body, outerScope + variable) ++
+				findFreeVariables(filter, outerScope + variable) ++
+				findFreeVariables(array, outerScope)
+		case comprehensionNode(body, wordNode(variable), array, None) => findFreeVariables(body, outerScope) ++ findFreeVariables(array, outerScope)
+		case integerNode(_) | boolNode(_) | stringNode(_) => (HashSet(), mutable.LinkedHashSet())
 		case x => throw new NotImplementedError("Could not match every case in unsued variables: " + x.toString)
 	}
 
@@ -141,18 +142,17 @@ class TreeAugmenter extends Stage {
 				if (children.isEmpty)
 					return (functionNode(List(), List(), blockNode(List(returnNode(integerNode(0)))), null), symbol)
 
-				//TODO scopeVars. add fixed vars list to func node
-				var (scopeVars, freeVars) = findFreeVariables(blockNode(children), symbol)
+				var (capturedVars, freeVars) = findFreeVariables(blockNode(children), symbol++injectExternalMethods())
 				if (topLevelBlock) {
 					topLevelBlock = false
 					freeVars = freeVars.empty
 				}
 
-				var culumativeSymbol = freeVars.to(HashSet)
+				var cumulativeSymbol = freeVars.to(HashSet)
 
 				val recursedChildren = children.map(x => {
-					val (exp, localSym) = recurse(x, culumativeSymbol)
-					culumativeSymbol ++= localSym
+					val (exp, localSym) = recurse(x, cumulativeSymbol)
+					cumulativeSymbol ++= localSym
 					exp
 				}).flatMap {
 					case sequenceNode(l) => l
@@ -165,7 +165,7 @@ class TreeAugmenter extends Stage {
 					case reassignNode(_, _) => recursedChildren ++ List(returnNode(integerNode(0)))
 					case _ => recursedChildren.init :+ returnNode(recursedChildren.last)
 				}
-				(functionNode(scopeVars.toList.map(wordNode), freeVars.toList.map(wordNode), blockNode(childrenWithReturn), null), symbol)
+				(functionNode(capturedVars.toList.map(wordNode), freeVars.toList.map(wordNode), blockNode(childrenWithReturn), null), symbol)
 
 			case callNode(f, args) =>
 				//TODO symbol register each arg if contain assign

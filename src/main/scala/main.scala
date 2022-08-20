@@ -63,7 +63,11 @@ object main {
 		//dont capture unused symbols in this.
 		val functions = "f1={x}; a = true; f2 = {if (a==true)|true|a;};f1 1; f2 true;"
 
-		val in = basic + arrays + strings
+		val chain = "double = {x*2}; print={x}; y = [1,2,3]; y |> double |> print"
+
+		//compiles
+		val in = "a = [\"1\",\"2\",\"3\"]; b=a{I x};c = a$0;"
+
 
 
 

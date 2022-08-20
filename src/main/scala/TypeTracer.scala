@@ -17,14 +17,14 @@ class TypeTracer extends Stage {
 		case (">=", _, _) => boolType()
 		case ("==", _, _) => boolType()
 		case ("!=", _, _) => boolType()
-		case ("*", intType(),arrayType(ty)) => arrayType(ty)
-		case ("*", boolType(),arrayType(ty)) => arrayType(ty)
+		case ("*", intType(), arrayType(ty)) => arrayType(ty)
+		case ("*", boolType(), arrayType(ty)) => arrayType(ty)
 		case ("*", arrayType(ty), intType()) => arrayType(ty)
 		case ("*", arrayType(ty), boolType()) => arrayType(ty)
-		case ("+", arrayType(ty), rty) => arrayType(lookupType(op,ty,rty))
-		case ("+", lty, arrayType(ty)) => arrayType(lookupType(op,lty,ty))
-		case ("+",stringType(),_) => stringType()
-		case ("+",_,stringType()) => stringType()
+		case ("+", arrayType(ty), rty) => arrayType(lookupType(op, ty, rty))
+		case ("+", lty, arrayType(ty)) => arrayType(lookupType(op, lty, ty))
+		case ("+", stringType(), _) => stringType()
+		case ("+", _, stringType()) => stringType()
 		case (_, intType(), intType()) => intType()
 		case (_, boolType(), boolType()) => boolType()
 		case (_, stringType(), stringType()) => stringType()
@@ -144,10 +144,17 @@ class TypeTracer extends Stage {
 		//TODO spawn copies
 
 		//captured args
-		val typedCaptures = f.captured.map { case wordNode(id) => typedNode(wordNode(id), graph(id)) }
+		val typedCaptures = f.captured
+			.map { case wordNode(id) => typedNode(wordNode(id), graph(id)) }
+			.filter{case typedNode(_,typ) => !typ.isInstanceOf[functionType]}
 
 		//args
-		val argTypes = listOfListOfArgs.head.drop(f.captured.length) //only type based on args not captured
+		val argTypes = listOfListOfArgs.head.drop(typedCaptures.length) //only type based on args not captured
+
+		if(argTypes.length != f.args.length) {
+			throw new Exception("length does not match")
+		}
+
 		val typedArgs = f.args.zip(argTypes).map { case (node, typ) => typedNode(node, typ) }
 
 		//body
@@ -202,7 +209,7 @@ class TypeTracer extends Stage {
 			graph = graphCopy
 
 			//finish
-			typedNode(lambdaNode(typedCaptures, typedArgs, fbody), lambdaType(fbodyType,typedArgs.map{case typedNode(_,ty)=>ty}))
+			typedNode(lambdaNode(typedCaptures, typedArgs, fbody), lambdaType(fbodyType, typedArgs.map { case typedNode(_, ty) => ty }))
 
 		case typedNode(assignNode(wordNode(id), body), ty) =>
 			if (ty != unknownType()) return typedNode(assignNode(wordNode(id), body), ty)
@@ -214,10 +221,28 @@ class TypeTracer extends Stage {
 			val b = recurseTypedTree(body)
 			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
 			typedNode(reassignNode(wordNode(id), b), b.typ)
+
 		case typedNode(callNode(wordNode(id), args), ty) =>
 			if (ty != unknownType()) return typedNode(callNode(wordNode(id), args), ty)
-			val typ = graph.getOrElse(id, unknownType())
-			typedNode(callNode(typedNode(wordNode(id), typ), args.map(recurseTypedTree)), typ)
+			var typ = graph.getOrElse(id, unknownType())
+
+			//extract f type here
+
+			//HACK! FIX TODO LATER...
+			//if this is an array being mapped to anon function that is not called by name
+			(typ, args) match {
+				case (arrayType(elementType), List(typedNode(functionNode(cap, args, body, _),_))) =>
+					val fId = Util.genRandomName()
+					functionCallArgs.getOrElseUpdate(fId, new ListBuffer()).addOne(List(elementType))
+					val f = recurseTypedTree(typedNode(functionNode(cap, args, body, metaNode(fId, null)),unknownType()))
+					typ = arrayType(f.typ.asInstanceOf[functionType].returnType)
+					typedNode(callNode(typedNode(wordNode(id), typ), List(f)), typ)
+
+				case (functionType(typ),_) =>
+					typedNode(callNode(typedNode(wordNode(id), typ), args.map(recurseTypedTree)), typ)
+				case _ =>
+					typedNode(callNode(typedNode(wordNode(id), typ), args.map(recurseTypedTree)), typ)
+			}
 		case typedNode(wordNode(x), ty) =>
 			typedNode(wordNode(x), graph.getOrElse(x, voidType()))
 		case typedNode(ifNode(c, b, None, id), _) =>
@@ -226,18 +251,21 @@ class TypeTracer extends Stage {
 		case typedNode(ifNode(c, b, Some(e), id), _) =>
 			val typedBody = recurseTypedTree(b)
 			typedNode(ifNode(recurseTypedTree(c), typedBody, Some(recurseTypedTree(e)), id), typedBody.typ)
+
+		case typedNode(returnNode(exp),_) =>
+			val body = recurseTypedTree(exp)
+			typedNode(returnNode(body),body.typ)
 		case typedNode(exp, typ) =>
 			val content = exp match {
 				case arrayNode(elements) => arrayNode(elements.map(recurseTypedTree))
-				case comprehensionNode(body,varr,array,None) =>
+				case comprehensionNode(body, varr, array, None) =>
 					val newBody = recurseTypedTree(body)
 					comprehensionNode(newBody, varr, array, None)
-				case comprehensionNode(body,varr,array,Some(filter)) =>
+				case comprehensionNode(body, varr, array, Some(filter)) =>
 					val newBody = recurseTypedTree(body)
 					comprehensionNode(newBody, varr, array, Some(recurseTypedTree(filter)))
 				case binopNode(op, l, r) => binopNode(op, recurseTypedTree(l), recurseTypedTree(r))
 				case unopNode(op, exp) => unopNode(op, recurseTypedTree(exp))
-				case returnNode(exp) => returnNode(recurseTypedTree(exp))
 				case mapNode(f, array) => mapNode(recurseTypedTree(f), recurseTypedTree(array))
 				case x => x
 			}
@@ -251,8 +279,10 @@ class TypeTracer extends Stage {
 	}
 
 	def injectExternalMethods() = {
-		graph.addOne("println" -> intType())
-		graph.addOne("print" -> intType())
+		graph.addOne("println" -> functionType(voidType()))
+		graph.addOne("print" -> functionType(voidType()))
+		graph.addOne("I" -> functionType(intType()))
+		graph.addOne("split" -> functionType(arrayType(stringType())))
 	}
 
 	def process(tree: Tree): Tree = {

@@ -62,7 +62,7 @@ class TypeAugmenter extends Stage {
 					val id = Util.genRandomName()
 					val assign = typedNode(assignNode(wordNode(id), f), f.typ)
 					extractedNodes += assign
-					typedNode(mapNode(wordNode(id), typedNode(right, rty)),arrayType(lty))
+					typedNode(mapNode(wordNode(id), typedNode(right, rty)), arrayType(lty))
 
 
 				//TODO: make right case
@@ -86,12 +86,12 @@ class TypeAugmenter extends Stage {
 					val id = Util.genRandomName()
 					val assign = typedNode(assignNode(wordNode(id), f), f.typ)
 					extractedNodes += assign
-					typedNode(mapNode(wordNode(id), typedNode(left, lty)),arrayType(rty))
+					typedNode(mapNode(wordNode(id), typedNode(left, lty)), arrayType(rty))
 
-				case ("+", stringType(), intType()) => binopNode(op, typedNode(left, lty), typedNode(castNode(typedNode(right, rty),rty,stringType()),stringType()))
-				case ("+", intType(), stringType()) => binopNode(op, typedNode(castNode(typedNode(left, lty),lty,stringType()),stringType()), typedNode(right, rty))
-				case ("+", stringType(), boolType()) => binopNode(op, typedNode(left, lty), typedNode(castNode(typedNode(right, rty),rty,stringType()),stringType()))
-				case ("+", boolType(), stringType()) => binopNode(op, typedNode(castNode(typedNode(left, lty),lty,stringType()),stringType()), typedNode(right, rty))
+				case ("+", stringType(), intType()) => binopNode(op, typedNode(left, lty), typedNode(castNode(typedNode(right, rty), rty, stringType()), stringType()))
+				case ("+", intType(), stringType()) => binopNode(op, typedNode(castNode(typedNode(left, lty), lty, stringType()), stringType()), typedNode(right, rty))
+				case ("+", stringType(), boolType()) => binopNode(op, typedNode(left, lty), typedNode(castNode(typedNode(right, rty), rty, stringType()), stringType()))
+				case ("+", boolType(), stringType()) => binopNode(op, typedNode(castNode(typedNode(left, lty), lty, stringType()), stringType()), typedNode(right, rty))
 
 				//case ("*", stringType(),intType())
 				//case ("*", intType(),stringType())
@@ -123,7 +123,7 @@ class TypeAugmenter extends Stage {
 			}
 			blockNode(flatChildren)
 		case callNode(f, args) =>
-			val newF = recurse(f)
+			val recursedFunction = recurse(f)
 			val extractedNodes = ListBuffer[Tree]()
 			val newArgs = args.map(recurse).map {
 				case typedNode(sequenceNode(list), ty) =>
@@ -133,13 +133,21 @@ class TypeAugmenter extends Stage {
 			}
 
 
-			val callnode = newF match {
-				case typedNode(wordNode(_), arrayType(ty)) => typedNode(mapNode(newArgs.head, newF), ty)
-				/*case typedNode(sequenceNode(l), ty) =>
-					extractedNodes ++= l.init
-					//typed node here??
-					callNode(l.last, newArgs)*/
-				case _ => callNode(newF, newArgs)
+			val callnode = recursedFunction match {
+				//mapping array, this is not call
+				case typedNode(wordNode(_), arrayType(ty)) =>
+					newArgs.head match {
+						//func is anonymous, extract first
+						case typedNode(functionNode(cap,args,body,_),functionType(ty)) =>
+							val lambda = typedNode(lambdaNode(cap,args,body),lambdaType(ty,args.map{case typedNode(_,tt)=>tt}))
+							val (extract,replacement) = Util.extractTypedNode(lambda)
+							extractedNodes+=extract
+							typedNode(mapNode(replacement, recursedFunction),arrayType(ty))
+						//default
+						case func => typedNode(mapNode(func, recursedFunction),arrayType(ty))
+					}
+				//default
+				case _ => callNode(recursedFunction, newArgs)
 			}
 
 			if (extractedNodes.isEmpty)
