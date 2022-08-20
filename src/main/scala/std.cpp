@@ -13,25 +13,25 @@ int _NS_len(std::shared_ptr<std::vector<T>> list)
 
 
 template <typename T, typename G>
-std::shared_ptr<std::vector<T>> _NS_map_filter(std::shared_ptr<std::vector<T>> list,std::function<G(T)> fmap, std::function<bool(T)> ffilter)
+std::shared_ptr<std::vector<G>> _NS_map_filter(std::shared_ptr<std::vector<T>> list,std::function<G(T)> fmap, std::function<bool(T)> ffilter)
 {
     //filter
     std::vector<T> filteredResult;
     std::copy_if(list->begin(), list->end(), std::back_inserter(filteredResult), ffilter);
 
     //map
-    auto mappedResult = new std::vector(filteredResult); //clone
+    auto mappedResult = new std::vector<G>(filteredResult); //clone
     std::transform(mappedResult->begin(), mappedResult->end(), mappedResult->begin(), fmap);
-    return std::shared_ptr<std::vector<T>>(mappedResult);
+    return std::shared_ptr<std::vector<G>>(mappedResult);
 }
 
 template <typename T, typename G>
-std::shared_ptr<std::vector<T>> _NS_map(std::shared_ptr<std::vector<T>> list,std::function<G(T)> fmap)
+std::shared_ptr<std::vector<G>> _NS_map(std::shared_ptr<std::vector<T>> list,std::function<G(T)> fmap)
 {
     //map
-    auto mappedResult = new std::vector(*list); //clone
-    std::transform(mappedResult->begin(), mappedResult->end(), mappedResult->begin(), fmap);
-    return std::shared_ptr<std::vector<T>>(mappedResult);
+    auto mappedResult = new std::vector<G>(); //clone
+    std::transform(list->begin(), list->end(), mappedResult->begin(), fmap);
+    return std::shared_ptr<std::vector<G>>(mappedResult);
 }
 
 template <typename T>
@@ -78,7 +78,7 @@ std::shared_ptr<std::vector<std::string>> _NS_split(std::string s, std::string d
     while ((start = s.find_first_not_of(delim, end)) != std::string::npos)
     {
         end = s.find(delim, start);
-        result.push_back(str.substr(start, end - start));
+        result->push_back(s.substr(start, end - start));
     }
     return std::shared_ptr<std::vector<std::string>>(result);
 }
