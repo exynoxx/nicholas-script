@@ -70,7 +70,7 @@ int I(std::string s){
 	return std::stoi(s);
 }
 
-std::shared_ptr<std::vector<std::string>> _NS_split(std::string s, std::string delim){
+std::shared_ptr<std::vector<std::string>> split(std::string s, std::string delim){
 	auto result = new std::vector<std::string>();
 	size_t start;
     size_t end = 0;

@@ -139,12 +139,13 @@ class TypeAugmenter extends Stage {
 					newArgs.head match {
 						//func is anonymous, extract first
 						case typedNode(functionNode(cap,args,body,_),functionType(ty)) =>
+
 							val lambda = typedNode(lambdaNode(cap,args,body),lambdaType(ty,args.map{case typedNode(_,tt)=>tt}))
 							val (extract,replacement) = Util.extractTypedNode(lambda)
 							extractedNodes+=extract
 							typedNode(mapNode(replacement, recursedFunction),arrayType(ty))
 						//default
-						case func => typedNode(mapNode(func, recursedFunction),arrayType(ty))
+						case func => mapNode(func, recursedFunction)
 					}
 				//default
 				case _ => callNode(recursedFunction, newArgs)

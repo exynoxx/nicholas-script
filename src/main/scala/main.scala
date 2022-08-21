@@ -60,14 +60,18 @@ object main {
 		//compiles
 		val strings = "f1 = \"hello\"; f2 = \"world\"; f3 = f1+f2; f4 = f3 + \" !\";"
 
-		//dont capture unused symbols in this.
+		//compiles
 		val functions = "f1={x}; a = true; f2 = {if (a==true)|true|a;};f1 1; f2 true;"
 
 		val chain = "double = {x*2}; print={x}; y = [1,2,3]; y |> double |> print"
 
 		//compiles
-		val in = "a = [\"1\",\"2\",\"3\"]; b=a{I x};c = a$0;"
+		val toInt = "a = [\"1\",\"2\",\"3\"]; b=a{I x};c = a$0;"
 
+		//compiles
+		val split = "in = \"this;is;an;array\"; inArr = split in \";\"; inInt = inArr {I x}"
+
+		val in = split
 
 
 

@@ -151,10 +151,6 @@ class TypeTracer extends Stage {
 		//args
 		val argTypes = listOfListOfArgs.head.drop(typedCaptures.length) //only type based on args not captured
 
-		if(argTypes.length != f.args.length) {
-			throw new Exception("length does not match")
-		}
-
 		val typedArgs = f.args.zip(argTypes).map { case (node, typ) => typedNode(node, typ) }
 
 		//body
@@ -215,18 +211,18 @@ class TypeTracer extends Stage {
 			if (ty != unknownType()) return typedNode(assignNode(wordNode(id), body), ty)
 			val b = recurseTypedTree(body)
 			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
+			graph.addOne(id -> b.typ)
 			typedNode(assignNode(wordNode(id), b), b.typ)
 		case typedNode(reassignNode(wordNode(id), body), ty) =>
 			if (ty != unknownType()) return typedNode(reassignNode(wordNode(id), body), ty)
 			val b = recurseTypedTree(body)
 			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
+			graph.addOne(id -> b.typ)
 			typedNode(reassignNode(wordNode(id), b), b.typ)
 
 		case typedNode(callNode(wordNode(id), args), ty) =>
 			if (ty != unknownType()) return typedNode(callNode(wordNode(id), args), ty)
 			var typ = graph.getOrElse(id, unknownType())
-
-			//extract f type here
 
 			//HACK! FIX TODO LATER...
 			//if this is an array being mapped to anon function that is not called by name
@@ -239,7 +235,7 @@ class TypeTracer extends Stage {
 					typedNode(callNode(typedNode(wordNode(id), typ), List(f)), typ)
 
 				case (functionType(typ),_) =>
-					typedNode(callNode(typedNode(wordNode(id), typ), args.map(recurseTypedTree)), typ)
+					typedNode(callNode(typedNode(wordNode(id), functionType(typ)), args.map(recurseTypedTree)), typ)
 				case _ =>
 					typedNode(callNode(typedNode(wordNode(id), typ), args.map(recurseTypedTree)), typ)
 			}
