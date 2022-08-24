@@ -62,6 +62,7 @@ class TypeAugmenter extends Stage {
 					val id = Util.genRandomName()
 					val assign = typedNode(assignNode(wordNode(id), f), f.typ)
 					extractedNodes += assign
+					//typedNode(mapNode(wordNode(id), typedNode(right, rty)), arrayType(lty))
 					typedNode(mapNode(wordNode(id), typedNode(right, rty)), arrayType(lty))
 
 
@@ -158,8 +159,13 @@ class TypeAugmenter extends Stage {
 
 		case arrayNode(elements) => arrayNode(elements.map(recurse))
 		case accessNode(arrayId, idx) => accessNode(arrayId, recurse(idx))
-		case ifNode(cond, body, None, meta) => ifNode(recurse(cond), recurse(body), None, meta)
-		case ifNode(cond, body, Some(elseBody), meta) => ifNode(recurse(cond), recurse(body), Some(recurse(elseBody)), meta)
+		case ifNode(cond, body, None, meta) =>
+			val (extract,replacement) = Util.extractTypedNode(recurse(cond))
+			sequenceNode(List(extract,ifNode(replacement, recurse(body), None, meta)))
+		case ifNode(cond, body, Some(elseBody), meta) =>
+			val tree = recurse(cond)
+			val (extract,replacement) = Util.extractTypedNode(tree)
+			sequenceNode(List(extract,ifNode(replacement, recurse(body), Some(recurse(elseBody)), meta)))
 		case mapNode(f, array) => mapNode(recurse(f), recurse(array))
 		case typedNode(exp, ty) => typedNode(recurse(exp), ty)
 		case functionNode(captured, args, body, meta) => functionNode(captured, args, recurse(body), meta)

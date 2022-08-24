@@ -1,4 +1,4 @@
-import Util.TupleAddition
+import Util.{TupleAddition, extractNode}
 
 import java.io.NotActiveException
 import scala.collection.immutable.HashSet
@@ -183,12 +183,11 @@ class TreeAugmenter extends Stage {
 
 				//variables that are captured comes before the real arguments
 				val capturedArgs = f match {
-					case wordNode(id) =>
-						functions.contains(id) match {
-							case true => functions(id).captured
-							case false => List() //TODO: self recursive functions cannot capture variables
-						}
-					case _ => throw new NotImplementedError("fix captured variables for anon func")
+					case wordNode(id) => functions.contains(id) match {
+						case true => functions(id).captured
+						case false => List() //TODO: self recursive functions cannot capture variables
+					}
+					case _ => List()
 				}
 
 				//TODO: handle captured variables if anon func
@@ -197,10 +196,20 @@ class TreeAugmenter extends Stage {
 						val (pre, newFunction) = Util.extractNode(lambdaNode(fcap, fargs, fbody))
 						extractedNodes += pre
 						newFunction
-					case x => x
+					case callNode(ff,fargs) =>
+						val (pre, replace) = extractNode(callNode(ff,fargs))
+						extractedNodes += pre
+						replace
+					case sequenceNode(nodes) =>
+						val (pre, replace) = extractNode(sequenceNode(nodes))
+						extractedNodes += pre
+						replace
+					case wordNode(x) => wordNode(x)
+					case x => throw new NotImplementedError("cannot handle function being: "+x.toString)
 				}
 				val finalArgs = capturedArgs ++ nargs
 				val sequence = extractedNodes.toList :+ callNode(func, finalArgs)
+				if (sequence.length == 1) return (sequence.head,symbol)
 				(sequenceNode(sequence), symbol)
 
 			case arrayNode(elements) =>

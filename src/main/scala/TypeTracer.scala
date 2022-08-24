@@ -208,13 +208,19 @@ class TypeTracer extends Stage {
 			typedNode(lambdaNode(typedCaptures, typedArgs, fbody), lambdaType(fbodyType, typedArgs.map { case typedNode(_, ty) => ty }))
 
 		case typedNode(assignNode(wordNode(id), body), ty) =>
-			if (ty != unknownType()) return typedNode(assignNode(wordNode(id), body), ty)
+			if (ty != unknownType()) {
+				graph.addOne(id -> ty)
+				return typedNode(assignNode(wordNode(id), body), ty)
+			}
 			val b = recurseTypedTree(body)
 			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
 			graph.addOne(id -> b.typ)
 			typedNode(assignNode(wordNode(id), b), b.typ)
 		case typedNode(reassignNode(wordNode(id), body), ty) =>
-			if (ty != unknownType()) return typedNode(reassignNode(wordNode(id), body), ty)
+			if (ty != unknownType()) {
+				graph.addOne(id -> ty)
+				return typedNode(reassignNode(wordNode(id), body), ty)
+			}
 			val b = recurseTypedTree(body)
 			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
 			graph.addOne(id -> b.typ)

@@ -27,6 +27,10 @@ class TreePrinter {
 				"assignNode(" + id + ")\n" +
 				recursion(b, depth + increment)
 
+			case reassignNode(wordNode(id), b) => printMinus("-", depth) +
+				s"reassignNode(${GREEN}" + id + s"${RESET})\n" +
+				recursion(b, depth + increment)
+
 			case reassignNode(id, b) => printMinus("-", depth) +
 				"reassignNode(" + id + ")\n" +
 				recursion(b, depth + increment)

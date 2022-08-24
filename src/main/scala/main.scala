@@ -63,15 +63,16 @@ object main {
 		//compiles
 		val functions = "f1={x}; a = true; f2 = {if (a==true)|true|a;};f1 1; f2 true;"
 
-		val chain = "double = {x*2}; print={x}; y = [1,2,3]; y |> double |> print"
+		val chain = "double = {x*2}; y = [1,2,3]; y |> double |> print;"
 
 		//compiles
-		val toInt = "a = [\"1\",\"2\",\"3\"]; b=a{I x};c = a$0;"
+		val toInt = "a = [\"1\",\"2\",\"3\"]; b=a {I x};c = a$0;"
 
 		//compiles
-		val split = "in = \"this;is;an;array\"; inArr = split in \";\"; inInt = inArr {I x}"
+		//val split = "in = \"this;is;an;array\"; inArr = split in \";\"; inInt = inArr {I x}"
+		val split = "in = \"this;is;an;array\"; inInt = (split in \";\") {I x};"
 
-		val in = split
+		val in = basic + arrays + strings + functions + chain + toInt + split
 
 
 
