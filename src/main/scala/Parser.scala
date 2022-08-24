@@ -60,7 +60,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 	})("term")
 
 
-	def factor: Parser[Tree] = debug(access | integer | strings | bool | unary | word | call | block | arrayMap | listComprehension | array | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("factor")
+	def factor: Parser[Tree] = debug(access | integer | strings | bool | unary | word | call | block | arrayMap | listComprehension | array | parenthesisExpression)("factor")
 
 	def unary: Parser[Tree] = debug(notOperator|sizeOperator)("unary")
 	def notOperator: Parser[Tree] = debug("!" ~ factor ^^ { case not ~ exp => unopNode(not, exp) })("notOpeator")
@@ -119,21 +119,16 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	// ### FUNCTION CALL ###
 	//TODO: (exp)
-	def call: Parser[Tree] = debug((word | block) ~ rep1(array | binop) ^^ { case f ~ args => callNode(f, args) })("call")
+	def call: Parser[Tree] = debug((word | block | parenthesisExpression) ~ rep1(array | binop | block) ^^ { case f ~ args => callNode(f, args) })("call")
 
 	def pipe: Parser[Tree] = debug( pipExp ~ rep1("|>" ~ pipExp) ^^ {
 		case exp ~ pipeline => pipeline.map{case _ ~ f => f}.foldLeft(exp)((arg,f)=>callNode(f,List(arg)))
 	})("pipe")
 
-	def pipExp: Parser[Tree ] = ifStatement | assign | call | binop | access |arrayMap | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
+	def pipExp: Parser[Tree ] = ifStatement | assign | call | binop | access | arrayMap | array | block | parenthesisExpression
 
 	// ### use f-on-operator ###
 	//def shortOperatos = ("+" | "*") ^^ (s => wordNode(s))
-
-
-
-
-
 
 
 
@@ -149,12 +144,9 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 
 
+	def expression: Parser[Tree] = debug( pipe | ifStatement | assign | call | binop | access | arrayMap | listComprehension | array | block |parenthesisExpression)("exp")
+	def parenthesisExpression =  "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
 
-
-
-
-
-	def expression: Parser[Tree] = debug( pipe | ifStatement | assign | call | binop | access | arrayMap | listComprehension | array | block | "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x })("exp")
 
 	def process(s: String): Tree = {
 		println("---------------------- parsing ----------------------")
