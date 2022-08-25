@@ -50,6 +50,7 @@ case class lambdaNode(captured: List[Tree], args: List[Tree], body: Tree) extend
 
 case class castNode(node:Tree,from:Type,to:Type) extends Tree
 
+case class rangeNode(from:Tree,to:Tree) extends Tree
 
 
 /*

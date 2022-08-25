@@ -61,6 +61,7 @@ class TreeAugmenter extends Stage {
 				findFreeVariables(filter, outerScope + variable) ++
 				findFreeVariables(array, outerScope)
 		case comprehensionNode(body, wordNode(variable), array, None) => findFreeVariables(body, outerScope) ++ findFreeVariables(array, outerScope)
+		case rangeNode(from,to) => findFreeVariables(from,outerScope) ++ findFreeVariables(to,outerScope)
 		case integerNode(_) | boolNode(_) | stringNode(_) => (HashSet(), mutable.LinkedHashSet())
 		case x => throw new NotImplementedError("Could not match every case in unsued variables: " + x.toString)
 	}
@@ -294,6 +295,8 @@ class TreeAugmenter extends Stage {
 				}
 				val result = comprehensionNode(bodyF, variable, array, newFilter)
 				(result, symbol)
+
+			case rangeNode(from,to) => (rangeNode(recurse(from,symbol)._1,recurse(to,symbol)._1),symbol)
 
 			case typedNode(exp, ty) => throw new NotActiveException(exp.toString)
 

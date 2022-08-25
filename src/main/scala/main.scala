@@ -72,8 +72,9 @@ object main {
 		//val split = "in = \"this;is;an;array\"; inArr = split in \";\"; inInt = inArr {I x}"
 		val split = "in = \"this;is;an;array\"; inInt = (split in \";\") {I x};"
 
-		val in = basic + arrays + strings + functions + chain + toInt + split
+		//val in = basic + arrays + strings + functions + chain + toInt + split
 
+		val in = "even = [x*2|x:1..100|x%2==0]"
 
 
 		var AST = parser.process(in)

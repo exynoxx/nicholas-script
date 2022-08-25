@@ -98,6 +98,8 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 	def arrayMap: Parser[Tree] = debug(array ~ (word|block)^^{case array ~ function => mapNode(function,array)})("array map")
 
+	def arrayOp = integer | word
+	def arrayRange: Parser[Tree] = debug(arrayOp ~ ".." ~ arrayOp ^^ {case from ~ _ ~ to => rangeNode(from,to)})("array range")
 
 
 
@@ -125,12 +127,10 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 		case exp ~ pipeline => pipeline.map{case _ ~ f => f}.foldLeft(exp)((arg,f)=>callNode(f,List(arg)))
 	})("pipe")
 
-	def pipExp: Parser[Tree ] = ifStatement | assign | call | binop | access | arrayMap | array | block | parenthesisExpression
+	def pipExp: Parser[Tree ] = ifStatement | assign | arrayRange | call | binop | access | arrayMap | array | block | parenthesisExpression
 
 	// ### use f-on-operator ###
 	//def shortOperatos = ("+" | "*") ^^ (s => wordNode(s))
-
-
 
 
 
@@ -144,7 +144,7 @@ factor ::= _ | int | true | false | ( expression ) | block | a.x*/
 
 
 
-	def expression: Parser[Tree] = debug( pipe | ifStatement | assign | call | binop | access | arrayMap | listComprehension | array | block |parenthesisExpression)("exp")
+	def expression: Parser[Tree] = debug( pipe | ifStatement | assign | arrayRange | call | binop | access | arrayMap | listComprehension | array | block |parenthesisExpression)("exp")
 	def parenthesisExpression =  "(" ~ expression ~ ")" ^^ { case _ ~ x ~ _ => x }
 
 

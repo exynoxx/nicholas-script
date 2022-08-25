@@ -96,8 +96,12 @@ class TypeTracer extends Stage {
 			val typedArray = dfs1(arr)
 			val typedIdx = dfs1(idx)
 			typedNode(accessNode(typedArray, typedIdx), typedArray.typ.asInstanceOf[arrayType].elementType)
-		case comprehensionNode(body, variable, wordNode(array), filter) =>
-			val arrayType = graph(array).asInstanceOf[arrayType]
+
+		case comprehensionNode(body, variable, array, filter) =>
+			//TODO: support function call
+			val newArray = dfs1(array)
+			val arrayType = newArray.typ.asInstanceOf[arrayType]
+
 			val newBody = dfs1(body) match {
 				case typedNode(lambdaNode(cap, args, body), _) =>
 					typedNode(lambdaNode(cap, args, body), arrayType)
@@ -115,7 +119,10 @@ class TypeTracer extends Stage {
 				case None => None
 			}
 			val newVariable = typedNode(variable, arrayType.elementType)
-			typedNode(comprehensionNode(newBody, newVariable, wordNode(array), newFilter), arrayType)
+			typedNode(comprehensionNode(newBody, newVariable, newArray, newFilter), arrayType)
+
+		case rangeNode(from,to) => typedNode(rangeNode(dfs1(from),dfs1(to)),arrayType(intType()))
+
 		case typedNode(exp, ty) =>
 			typedNode(exp, ty)
 		case x => throw new NotImplementedError(x.toString)
@@ -208,21 +215,11 @@ class TypeTracer extends Stage {
 			typedNode(lambdaNode(typedCaptures, typedArgs, fbody), lambdaType(fbodyType, typedArgs.map { case typedNode(_, ty) => ty }))
 
 		case typedNode(assignNode(wordNode(id), body), ty) =>
-			if (ty != unknownType()) {
-				graph.addOne(id -> ty)
-				return typedNode(assignNode(wordNode(id), body), ty)
-			}
 			val b = recurseTypedTree(body)
-			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
 			graph.addOne(id -> b.typ)
 			typedNode(assignNode(wordNode(id), b), b.typ)
 		case typedNode(reassignNode(wordNode(id), body), ty) =>
-			if (ty != unknownType()) {
-				graph.addOne(id -> ty)
-				return typedNode(reassignNode(wordNode(id), body), ty)
-			}
 			val b = recurseTypedTree(body)
-			if (b.node.isInstanceOf[nullLeaf]) return typedNode(nullLeaf(), unknownType())
 			graph.addOne(id -> b.typ)
 			typedNode(reassignNode(wordNode(id), b), b.typ)
 
@@ -262,10 +259,12 @@ class TypeTracer extends Stage {
 				case arrayNode(elements) => arrayNode(elements.map(recurseTypedTree))
 				case comprehensionNode(body, varr, array, None) =>
 					val newBody = recurseTypedTree(body)
-					comprehensionNode(newBody, varr, array, None)
+					val newArray = recurseTypedTree(array)
+					comprehensionNode(newBody, varr, newArray, None)
 				case comprehensionNode(body, varr, array, Some(filter)) =>
 					val newBody = recurseTypedTree(body)
-					comprehensionNode(newBody, varr, array, Some(recurseTypedTree(filter)))
+					val newArray = recurseTypedTree(array)
+					comprehensionNode(newBody, varr, newArray, Some(recurseTypedTree(filter)))
 				case binopNode(op, l, r) => binopNode(op, recurseTypedTree(l), recurseTypedTree(r))
 				case unopNode(op, exp) => unopNode(op, recurseTypedTree(exp))
 				case mapNode(f, array) => mapNode(recurseTypedTree(f), recurseTypedTree(array))

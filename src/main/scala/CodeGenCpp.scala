@@ -82,6 +82,7 @@ class CodeGenCpp {
 			val argConverted = args.map(recurseTypedTree)
 			val finalArgs = argTypes.zip(argConverted).map{case (x,y) => x + " " + y}
 			"[=](" + finalArgs.mkString(",") + ")" + recurseTypedTree(body)
+		case rangeNode(from,to) => "_NS_range("+recurseTypedTree(from)+","+recurseTypedTree(to)+")"
 		case typedNode(_, _) => recurseTypedTree(t)
 		case x => throw new IllegalArgumentException(x.toString)
 	}

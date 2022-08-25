@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstring>
 #include <memory>
+#include <numeric>
 
 template <typename T>
 int _NS_len(std::shared_ptr<std::vector<T>> list)
@@ -82,3 +83,10 @@ std::shared_ptr<std::vector<std::string>> split(std::string s, std::string delim
     }
     return std::shared_ptr<std::vector<std::string>>(result);
 }
+
+std::shared_ptr<std::vector<int>> _NS_range(int from, int to){
+	auto result = new std::vector<int>(to-from+1);
+	std::iota(result->begin(), result->end(),from);
+    return std::shared_ptr<std::vector<int>>(result);
+}
+

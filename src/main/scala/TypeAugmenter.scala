@@ -107,13 +107,13 @@ class TypeAugmenter extends Stage {
 
 		case assignNode(id, body) =>
 			recurse(body) match {
-				case typedNode(sequenceNode(l), ty) => sequenceNode(l.init :+ typedNode(assignNode(id, l.last), ty))
+				case typedNode(sequenceNode(l), ty) => sequenceNode(l.init :+ typedNode(assignNode(id, typedNode(l.last,ty)), ty))
 				case x => assignNode(id, x)
 			}
 
 		case reassignNode(id, body) =>
 			recurse(body) match {
-				case typedNode(sequenceNode(l), ty) => sequenceNode(l.init :+ typedNode(reassignNode(id, l.last), ty))
+				case typedNode(sequenceNode(l), ty) => sequenceNode(l.init :+ typedNode(reassignNode(id, typedNode(l.last,ty)), ty))
 				case x => reassignNode(id, x)
 			}
 
@@ -167,9 +167,9 @@ class TypeAugmenter extends Stage {
 			val (extract,replacement) = Util.extractTypedNode(tree)
 			sequenceNode(List(extract,ifNode(replacement, recurse(body), Some(recurse(elseBody)), meta)))
 		case mapNode(f, array) => mapNode(recurse(f), recurse(array))
-		case typedNode(exp, ty) => typedNode(recurse(exp), ty)
 		case functionNode(captured, args, body, meta) => functionNode(captured, args, recurse(body), meta)
 		case returnNode(exp) => returnNode(recurse(exp))
+
 		case comprehensionNode(body, variable, array, filter) =>
 			val (lambdaBody, newBody) = Util.extractTypedNode(recurse(body))
 			filter match {
@@ -183,6 +183,9 @@ class TypeAugmenter extends Stage {
 			}
 
 		case lambdaNode(cap, args, body) => lambdaNode(cap, args, recurse(body))
+		case rangeNode(from,to) => rangeNode(recurse(from),recurse(to))
+
+		case typedNode(exp, ty) => typedNode(recurse(exp), ty)
 		case nullLeaf() => nullLeaf()
 		case x => throw new NotImplementedError(x.toString)
 	}
