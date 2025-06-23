@@ -1,0 +1,29 @@
+﻿%{
+open System
+open NS2.Ast
+%}
+
+%start main
+%type <NS2.Ast.AST> main
+
+%token <int> INT
+%token 
+    PLUS MINUS TIMES DIVIDE
+    LPAREN RPAREN
+    EOF
+
+%left PLUS MINUS
+%left TIMES DIVIDE
+
+%%
+
+main:
+    expr { $1 }
+
+expr:
+    expr PLUS expr   { Binop ($1, "+", $3) }
+  | expr MINUS expr  { Binop ($1, "-", $3) }
+  | expr TIMES expr  { Binop ($1, "*", $3) }
+  | expr DIVIDE expr { Binop ($1, "/", $3) }
+  | LPAREN expr RPAREN { $2 }
+  | INT              { Int $1 }
