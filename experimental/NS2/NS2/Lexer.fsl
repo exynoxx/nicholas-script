@@ -25,6 +25,7 @@ rule tokenize = parse
 | '{'               { LCURLY }
 | '}'               { RCURLY }
 | ','               { COMMA }
+| ';'               { SEMICOLON }
 | '@'               { AT }
 | ident_char*		{ ID (lexeme lexbuf) }
 | eof               { EOF }

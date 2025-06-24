@@ -6,4 +6,5 @@ type AST =
     | Binop of AST * string * AST    
     | Index of AST * AST    
     | Array of AST list
+    | Func of AST list
     

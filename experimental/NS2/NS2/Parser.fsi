@@ -13,6 +13,7 @@ type token =
   | LCURLY
   | RCURLY
   | COMMA
+  | SEMICOLON
   | EOF
   | ID of (string)
   | INT of (int)
@@ -29,6 +30,7 @@ type tokenId =
     | TOKEN_LCURLY
     | TOKEN_RCURLY
     | TOKEN_COMMA
+    | TOKEN_SEMICOLON
     | TOKEN_EOF
     | TOKEN_ID
     | TOKEN_INT
@@ -40,6 +42,8 @@ type nonTerminalId =
     | NONTERM_expr
     | NONTERM_arr
     | NONTERM_element_list
+    | NONTERM_func
+    | NONTERM_body_list
 /// This function maps tokens to integer indexes
 val tagOfToken: token -> int
 

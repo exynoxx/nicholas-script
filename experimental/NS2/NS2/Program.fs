@@ -17,8 +17,9 @@ let rec equal a b =
     | Array xs, Array ys ->
         List.length xs = List.length ys && List.forall2 equal xs ys
     | Index (a,b), Index (x,y) -> a=x && b=y
-
-    | _ -> false
+    | Func xs, Func ys ->
+        List.length xs = List.length ys && List.forall2 equal xs ys
+    | _ -> failwith "%A %A" a b 
 
 let assert_same (input:string, expected:AST) =
     let actual = evaluate input
@@ -48,8 +49,13 @@ let test_array_expression3 () =
     assert_same (input, expected)
     
 let test_array_index () =
-    let input = "a@2"
-    let expected = Index (Id "a", Int 2)
+    let input = "a@2*10"
+    let expected = Binop(Index (Id "a", Int 2), "*", Int 10)
+    assert_same (input, expected)
+
+let test_func () =
+    let input = "{10;a}"
+    let expected = Func [Int 10; Id "a"]
     assert_same (input, expected)
 
 [<EntryPoint>]
@@ -59,9 +65,10 @@ let main argv =
     test_array_expression2 () 
     test_array_expression3 () 
     test_array_index ()
+    test_func ()
     
     printf "Enter arithmetic expression: "
-    let input = "a@2*10"
+    let input = "{10;a}"
     try
         let result = evaluate input
         printfn "Result: %A" result

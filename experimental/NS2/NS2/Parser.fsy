@@ -11,7 +11,7 @@ open NS2.Ast
 %token 
 	PLUS MINUS TIMES DIVIDE AT
 	LPAREN RPAREN LBRACK RBRACK LCURLY RCURLY
-	COMMA
+	COMMA SEMICOLON
 	EOF
 
 %left PLUS MINUS
@@ -31,6 +31,7 @@ expr:
 	| LPAREN expr RPAREN 				{ $2 }
 	| arr 								{ $1 }
 	| expr AT expr 						{ Index ($1, $3) }
+	| func 								{ $1 }
 	| INT								{ Int $1 }
 	| ID								{ Id $1 }
 
@@ -41,3 +42,11 @@ arr:
 element_list:
 	  expr								{ [$1] }
 	| expr COMMA element_list 			{ $1 :: $3 }
+	
+func:
+	  LCURLY RCURLY						{ Func [] }
+	| LCURLY body_list RCURLY			{ Func $2 }
+	
+body_list:
+	  expr								{ [$1] }
+	| expr SEMICOLON  body_list 		{ $1 :: $3 }
