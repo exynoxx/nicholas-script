@@ -11,11 +11,13 @@ let evaluate (input:string) =
 let rec equal a b =
     match a, b with
     | Int x, Int y -> x = y
-    | Str x, Str y -> x = y
+    | Id x, Id y -> x = y
     | Binop (l1, op1, r1), Binop (l2, op2, r2) ->
         op1 = op2 && equal l1 l2 && equal r1 r2
     | Array xs, Array ys ->
         List.length xs = List.length ys && List.forall2 equal xs ys
+    | Index (a,b), Index (x,y) -> a=x && b=y
+
     | _ -> false
 
 let assert_same (input:string, expected:AST) =
@@ -44,6 +46,11 @@ let test_array_expression3 () =
     let input = "[1,2+3,4]"
     let expected = Array [Int 1; Binop (Int 2, "+", Int 3); Int 4]
     assert_same (input, expected)
+    
+let test_array_index () =
+    let input = "a@2"
+    let expected = Index (Id "a", Int 2)
+    assert_same (input, expected)
 
 [<EntryPoint>]
 let main argv =
@@ -51,9 +58,10 @@ let main argv =
     test_array_expression1 () 
     test_array_expression2 () 
     test_array_expression3 () 
+    test_array_index ()
     
     printf "Enter arithmetic expression: "
-    let input = "[1*1,2,3]"
+    let input = "a@2"
     try
         let result = evaluate input
         printfn "Result: %A" result

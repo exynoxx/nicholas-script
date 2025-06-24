@@ -5,6 +5,7 @@ type token =
   | MINUS
   | TIMES
   | DIVIDE
+  | AT
   | LPAREN
   | RPAREN
   | LBRACK
@@ -13,12 +14,14 @@ type token =
   | RCURLY
   | COMMA
   | EOF
+  | ID of (string)
   | INT of (int)
 type tokenId = 
     | TOKEN_PLUS
     | TOKEN_MINUS
     | TOKEN_TIMES
     | TOKEN_DIVIDE
+    | TOKEN_AT
     | TOKEN_LPAREN
     | TOKEN_RPAREN
     | TOKEN_LBRACK
@@ -27,6 +30,7 @@ type tokenId =
     | TOKEN_RCURLY
     | TOKEN_COMMA
     | TOKEN_EOF
+    | TOKEN_ID
     | TOKEN_INT
     | TOKEN_end_of_input
     | TOKEN_error

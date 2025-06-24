@@ -2,7 +2,8 @@
 
 type AST =
     | Int of int
-    | Str of string
+    | Id of string
     | Binop of AST * string * AST    
+    | Index of AST * AST    
     | Array of AST list
     
