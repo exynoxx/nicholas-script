@@ -2,6 +2,7 @@
 open FSharp.Text
 open NS2
 open NS2.Ast
+open NS2.TypeChecker
 
 let evaluate (input:string) =
   let lexbuf = Lexing.LexBuffer<char>.FromString input
@@ -67,9 +68,10 @@ let main argv =
     test_func ()
     
     printf "Enter arithmetic expression: "
-    let input = "[1,2,3]{$1**2}"
+    let input = "[1,2,3]{$1**2} | sum" //14 
     try
         let result = evaluate input
+        typecheck result |> ignore
         printfn "Result: %A" result
     with ex ->
         printfn "Parse error: %s" ex.Message
