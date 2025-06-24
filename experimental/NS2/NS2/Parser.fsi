@@ -6,6 +6,7 @@ type token =
   | TIMES
   | DIVIDE
   | AT
+  | POW
   | LPAREN
   | RPAREN
   | LBRACK
@@ -23,6 +24,7 @@ type tokenId =
     | TOKEN_TIMES
     | TOKEN_DIVIDE
     | TOKEN_AT
+    | TOKEN_POW
     | TOKEN_LPAREN
     | TOKEN_RPAREN
     | TOKEN_LBRACK

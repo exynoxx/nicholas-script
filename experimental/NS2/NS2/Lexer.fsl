@@ -9,7 +9,7 @@ let lexeme lexbuf = LexBuffer<_>.LexemeString lexbuf
 let digit = ['0'-'9']
 let whitespace = [' ' '\t']
 let letter     = ['a'-'z' 'A'-'Z']
-let ident_char = letter | '_' | digit
+let ident_char = letter | '_' | '$' | digit
 
 rule tokenize = parse
 | whitespace        { tokenize lexbuf }
@@ -17,6 +17,7 @@ rule tokenize = parse
 | '+'               { PLUS }
 | '-'               { MINUS }
 | '*'               { TIMES }
+| "**"              { POW }
 | '/'               { DIVIDE }
 | '('               { LPAREN }
 | ')'               { RPAREN }

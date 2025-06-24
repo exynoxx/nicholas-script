@@ -5,8 +5,7 @@ open NS2.Ast
 
 let evaluate (input:string) =
   let lexbuf = Lexing.LexBuffer<char>.FromString input
-  let output = Parser.main Lexer.tokenize lexbuf
-  output
+  Parser.main Lexer.tokenize lexbuf
   
 let rec equal a b =
     match a, b with
@@ -64,11 +63,11 @@ let main argv =
     test_array_expression1 () 
     test_array_expression2 () 
     test_array_expression3 () 
-    test_array_index ()
+    test_array_index ()    
     test_func ()
     
     printf "Enter arithmetic expression: "
-    let input = "{10;a}"
+    let input = "[1,2,3]{$1**2}"
     try
         let result = evaluate input
         printfn "Result: %A" result

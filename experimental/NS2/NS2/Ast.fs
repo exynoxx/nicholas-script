@@ -7,4 +7,5 @@ type AST =
     | Index of AST * AST    
     | Array of AST list
     | Func of AST list
+    | Map of AST * AST
     
