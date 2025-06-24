@@ -9,34 +9,35 @@ open NS2.Ast
 %token <int> INT
 %token <string> ID
 %token 
-    PLUS MINUS TIMES DIVIDE AT
-    LPAREN RPAREN LBRACK RBRACK LCURLY RCURLY
-    COMMA
-    EOF
+	PLUS MINUS TIMES DIVIDE AT
+	LPAREN RPAREN LBRACK RBRACK LCURLY RCURLY
+	COMMA
+	EOF
 
 %left PLUS MINUS
 %left TIMES DIVIDE
+%left AT
 
 %%
 
 main:
-    expr { $1 }
+	expr { $1 }
 
 expr:
-    expr PLUS expr   	{ Binop ($1, "+", $3) }
-  | expr MINUS expr  	{ Binop ($1, "-", $3) }
-  | expr TIMES expr  	{ Binop ($1, "*", $3) }
-  | expr DIVIDE expr 	{ Binop ($1, "/", $3) }
-  | LPAREN expr RPAREN 	{ $2 }
-  | arr 				{ $1 }
-  | expr AT expr 		{ Index ($1, $3) }
-  | INT              	{ Int $1 }
-  | ID              	{ Str $1 }
+	  expr PLUS expr	 				{ Binop ($1, "+", $3) }
+	| expr MINUS expr					{ Binop ($1, "-", $3) }
+	| expr TIMES expr					{ Binop ($1, "*", $3) }
+	| expr DIVIDE expr 					{ Binop ($1, "/", $3) }
+	| LPAREN expr RPAREN 				{ $2 }
+	| arr 								{ $1 }
+	| expr AT expr 						{ Index ($1, $3) }
+	| INT								{ Int $1 }
+	| ID								{ Id $1 }
 
 arr:
-	 	LBRACK RBRACK				{ Array [] }
-	|	LBRACK element_list RBRACK	{ Array $2 }
+	  LBRACK RBRACK						{ Array [] }
+	| LBRACK element_list RBRACK		{ Array $2 }
 
 element_list:
-		expr					{ [$1] }
-	|	expr COMMA element_list { $1 :: $3 }
+	  expr								{ [$1] }
+	| expr COMMA element_list 			{ $1 :: $3 }

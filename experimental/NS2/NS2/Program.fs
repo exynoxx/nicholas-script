@@ -61,7 +61,7 @@ let main argv =
     test_array_index ()
     
     printf "Enter arithmetic expression: "
-    let input = "a@2"
+    let input = "a@2*10"
     try
         let result = evaluate input
         printfn "Result: %A" result
