@@ -7,6 +7,11 @@ type token =
   | DIVIDE
   | LPAREN
   | RPAREN
+  | LBRACK
+  | RBRACK
+  | LCURLY
+  | RCURLY
+  | COMMA
   | EOF
   | INT of (int)
 type tokenId = 
@@ -16,6 +21,11 @@ type tokenId =
     | TOKEN_DIVIDE
     | TOKEN_LPAREN
     | TOKEN_RPAREN
+    | TOKEN_LBRACK
+    | TOKEN_RBRACK
+    | TOKEN_LCURLY
+    | TOKEN_RCURLY
+    | TOKEN_COMMA
     | TOKEN_EOF
     | TOKEN_INT
     | TOKEN_end_of_input
@@ -24,6 +34,8 @@ type nonTerminalId =
     | NONTERM__startmain
     | NONTERM_main
     | NONTERM_expr
+    | NONTERM_arr
+    | NONTERM_element_list
 /// This function maps tokens to integer indexes
 val tagOfToken: token -> int
 

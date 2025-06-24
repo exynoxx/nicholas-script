@@ -19,5 +19,10 @@ rule tokenize = parse
 | '/'               { DIVIDE }
 | '('               { LPAREN }
 | ')'               { RPAREN }
+| '['               { LBRACK }
+| ']'               { RBRACK }
+| '{'               { LCURLY }
+| '}'               { RCURLY }
+| ','               { COMMA }
 | eof               { EOF }
 | _                 { lexeme lexbuf |> sprintf "lEXER Parsing error: %s" |> failwith }
