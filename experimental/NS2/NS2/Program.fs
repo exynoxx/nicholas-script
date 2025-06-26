@@ -11,7 +11,7 @@ let parse (input:string) =
 let main argv =
     //run_tests()
     
-    let input = "f = {$1+$2};a = f 1 2; a;" //3
+    let input = "pow = {$1**$2};a = pow 10 3; a;" //3
     try
         let raw = parse input
         printfn "Result: %A" raw

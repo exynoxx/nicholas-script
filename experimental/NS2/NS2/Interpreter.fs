@@ -9,10 +9,6 @@ type Scope (parent: Scope option) =
     
     let vars = Dictionary<string, AST>()
     let funcs = Dictionary<string, AST list>()
-    
-    member _.Parent = parent
-    member _.Vars = vars
-    member _.Funcs s = funcs
 
     member this.GetVariable(name: string) : AST option =
         match vars.ContainsKey name with
@@ -86,7 +82,7 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         match scope.GetFunction id with
         | Some fbody ->
             let bodyScope = scope.Push()
-            args |> List.mapi (fun i x -> bodyScope.Vars.Add($"${i+1}", x)) |> ignore
+            args |> List.mapi (fun i x -> bodyScope.SetVar($"${i+1}", x)) |> ignore
             let results = fbody |> List.map (eval_internal bodyScope)
             results |> List.last
             
