@@ -23,7 +23,7 @@ let rec equal a b =
     | _ -> failwith "%A %A" a b 
 
 let assert_same (input:string, expected:AST) =
-    let actual = evaluate input
+    let actual = evaluate input |> List.head
     if not (equal actual expected) then
         failwithf "AST test failed: expected %A but got %A" expected actual
     else
@@ -68,10 +68,10 @@ let main argv =
     test_array_index ()    
     test_func ()
     
-    let input = "\"STR\""
+    let input = "\"STR\";1+1"
     try
         let result = evaluate input
-        typecheck result |> ignore
+        //typecheck result |> ignore
         printfn "Result: %A" result
     with ex ->
         printfn "Parse error: %s" ex.Message
