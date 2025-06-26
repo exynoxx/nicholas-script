@@ -2,6 +2,7 @@
 
 open System
 open System.Collections.Generic
+open System.Linq.Expressions
 open NS2.Ast
 
 type Scope (parent: Scope option) =
@@ -64,6 +65,10 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         | Array arr, Int idx -> failwith "Array index outside range"
         | _ -> failwith "Invalid array indexing types"
 
+    | NamedFunc (id,body) ->
+        //elements |> List.map (eval_internal scope)
+        ast
+    
     | Func paramsAndBody ->
         //elements |> List.map (eval_internal scope)
         ast
@@ -104,16 +109,19 @@ let rec toString (scope: Scope) (ast:AST) : string =
         match scope.Get name with
         | Some v -> toString scope v
         | None -> failwith "%A not defined" name
-        
+     
     | Binop (left, op, right) -> failwith "Unsupported"
     | Index (arrExpr, indexExpr) -> failwith "Unsupported"
-    | _ -> failwith "%A Unsupported" ast
+    | _ -> failwith "toString Unsupported %A " ast
     
-let rec eval (expressions : AST list) =
-    let scope = Scope.Empty
-    let mutable result = null
-    
-    for e in expressions do
-        result <- eval_internal scope e
-    
-    printfn "%s" (toString scope result)
+let rec eval =
+    function
+    | Root expressions -> 
+        let scope = Scope.Empty
+        let mutable result = null
+        
+        for e in expressions do
+            result <- eval_internal scope e
+        
+        printfn "%s" (toString scope result)
+    | _ -> failwith "Eval of non root node"

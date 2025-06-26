@@ -202,7 +202,7 @@ let _fsyacc_immediateActions = [|65535us;49152us;16385us;65535us;65535us;16386us
 let _fsyacc_reductions = lazy [|
 # 203 "Parser.fs"
         (fun (parseState : FSharp.Text.Parsing.IParseState) ->
-            let _1 = parseState.GetInput(1) :?> NS2.Ast.AST list in
+            let _1 = parseState.GetInput(1) :?> NS2.Ast.AST in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
@@ -216,10 +216,10 @@ let _fsyacc_reductions = lazy [|
                 (
                    (
 # 27 "Parser.fsy"
-                                  _1 
+                                  Root _1 
                    )
 # 27 "Parser.fsy"
-                 : NS2.Ast.AST list));
+                 : NS2.Ast.AST));
 # 223 "Parser.fs"
         (fun (parseState : FSharp.Text.Parsing.IParseState) ->
             let _2 = parseState.GetInput(2) :?> 'gentype_expr in
@@ -493,5 +493,5 @@ let tables : FSharp.Text.Parsing.Tables<_> =
     numTerminals = 22;
     productionToNonTerminalTable = _fsyacc_productionToNonTerminalTable  }
 let engine lexer lexbuf startState = tables.Interpret(lexer, lexbuf, startState)
-let main lexer lexbuf : NS2.Ast.AST list =
+let main lexer lexbuf : NS2.Ast.AST =
     engine lexer lexbuf 0 :?> _

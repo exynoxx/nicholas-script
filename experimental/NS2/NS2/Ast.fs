@@ -1,6 +1,7 @@
 ﻿module NS2.Ast
 
 type AST =
+    | Root of AST list
     | Int of int
     | String of string
     | Id of string
@@ -8,6 +9,7 @@ type AST =
     | Index of AST * AST    
     | Array of AST list
     | Func of AST list
+    | NamedFunc of string * AST list
     | Map of AST * AST
     | Assign of AST * AST
     

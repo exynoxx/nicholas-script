@@ -25,10 +25,14 @@
         <Compile Include="Interpreter.fs" />
         
         
-        <Compile Include="Program.fs"/>
         
         
         <Content Include="roadmap.txt" />
+        
+        
+        <Compile Include="UnitTests.fs" />
+        <Compile Include="Program.fs"/>
+        
         
     </ItemGroup>
 

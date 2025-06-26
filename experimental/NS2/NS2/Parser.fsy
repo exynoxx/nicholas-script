@@ -4,7 +4,7 @@ open NS2.Ast
 %}
 
 %start main
-%type <NS2.Ast.AST list> main
+%type <NS2.Ast.AST> main
 
 %token <int> INT
 %token <string> ID
@@ -24,7 +24,7 @@ open NS2.Ast
 %%
 
 main:
-	body_list { $1 }
+	body_list { Root $1 }
 
 expr:
       LPAREN expr RPAREN 				{ $2 }

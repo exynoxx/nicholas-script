@@ -1,5 +1,4 @@
-﻿assignment
-named func
+﻿named func
 func calls
 std funcs
 func args
