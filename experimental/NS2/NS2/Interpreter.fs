@@ -40,6 +40,7 @@ type Scope (parent: Scope option) =
 let rec eval_internal (scope: Scope) (ast: AST) =
     match ast with
     | Int n -> Int n
+    | String x -> String x
     | Id name ->
         match scope.GetVariable name with
         | Some v -> v
@@ -115,11 +116,12 @@ let rec eval_internal (scope: Scope) (ast: AST) =
 
     | Func _ -> failwith "Func should not exist in this stage"
     | Map _ -> failwith "Map should not exist in this stage"
-    | _ -> failwith "Unsupported %A" ast
+    | _ -> failwith $"Unsupported %A{ast}"
 
 let rec toString (scope: Scope) (ast:AST) : string =
     match ast with
     | Int n -> n.ToString()
+    | String x -> x
     | Array elements ->
         let content = elements |> List.map (toString scope)
         "[" + String.Join (", ", content) + "]"
@@ -131,7 +133,7 @@ let rec toString (scope: Scope) (ast:AST) : string =
      
     | Binop (left, op, right) -> failwith "Unsupported"
     | Index (arrExpr, indexExpr) -> failwith "Unsupported"
-    | _ -> failwith "toString Unsupported %A " ast
+    | _ -> failwith $"toString Unsupported %A{ast}"
     
 let rec eval =
     function
