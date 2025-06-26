@@ -10,6 +10,7 @@ let digit = ['0'-'9']
 let whitespace = [' ' '\t']
 let letter     = ['a'-'z' 'A'-'Z']
 let ident_char = letter | '_' | '$' | digit
+let string_char = [^ '"' '\\']
 
 rule tokenize = parse
 | whitespace        { tokenize lexbuf }
@@ -28,6 +29,11 @@ rule tokenize = parse
 | ','               { COMMA }
 | ';'               { SEMICOLON }
 | '@'               { AT }
+| '"' (string_char)* '"'  { 
+    let s = lexeme lexbuf
+    let unquoted = s.Substring(1, s.Length - 2)
+    STRING unquoted
+}
 | ident_char*		{ ID (lexeme lexbuf) }
 | eof               { EOF }
 | _                 { lexeme lexbuf |> sprintf "lEXER Parsing error: %s" |> failwith }

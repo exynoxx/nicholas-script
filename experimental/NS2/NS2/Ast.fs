@@ -2,6 +2,7 @@
 
 type AST =
     | Int of int
+    | String of string
     | Id of string
     | Binop of AST * string * AST    
     | Index of AST * AST    

@@ -8,6 +8,7 @@ open NS2.Ast
 
 %token <int> INT
 %token <string> ID
+%token <string> STRING
 %token 
 	PLUS MINUS TIMES DIVIDE AT POW
 	LPAREN RPAREN LBRACK RBRACK LCURLY RCURLY
@@ -36,6 +37,7 @@ expr:
 	| func 								{ $1 }
 	| expr func 						{ Map ($1, $2) }
 	| INT								{ Int $1 }
+	| STRING							{ String $1 }
 	| ID								{ Id $1 }
 
 arr:

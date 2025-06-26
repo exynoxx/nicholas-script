@@ -68,15 +68,15 @@ let main argv =
     test_array_index ()    
     test_func ()
     
-    (*let input = "[1,2,3]{$1**2} | sum" //14 
+    let input = "\"STR\""
     try
         let result = evaluate input
         typecheck result |> ignore
         printfn "Result: %A" result
     with ex ->
         printfn "Parse error: %s" ex.Message
-    0*)
-    printfn ""
+    0
+    (*printfn ""
     while true do
         printf "Enter arithmetic expression: "
         try
@@ -86,4 +86,4 @@ let main argv =
             eval result
         with ex ->
             printfn "Parse error: %s" ex.Message
-    0
+    0*)
