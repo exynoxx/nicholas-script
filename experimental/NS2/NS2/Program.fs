@@ -2,6 +2,7 @@
 open FSharp.Text
 open NS2
 open NS2.Ast
+open NS2.Interpreter
 open NS2.TypeChecker
 
 let evaluate (input:string) =
@@ -67,12 +68,22 @@ let main argv =
     test_array_index ()    
     test_func ()
     
-    printf "Enter arithmetic expression: "
-    let input = "[1,2,3]{$1**2} | sum" //14 
+    (*let input = "[1,2,3]{$1**2} | sum" //14 
     try
         let result = evaluate input
         typecheck result |> ignore
         printfn "Result: %A" result
     with ex ->
         printfn "Parse error: %s" ex.Message
+    0*)
+    printfn ""
+    while true do
+        printf "Enter arithmetic expression: "
+        try
+            let input = stdin.ReadLine()
+            let result = evaluate input
+            let _ = typecheck result |> ignore
+            eval result
+        with ex ->
+            printfn "Parse error: %s" ex.Message
     0

@@ -22,6 +22,9 @@
         <Compile Include="Lexer.fs" />
 
 		<Compile Include="TypeChecker.fs" />
+        <Compile Include="Interpreter.fs" />
+        
+        
         <Compile Include="Program.fs"/>
         
     </ItemGroup>
