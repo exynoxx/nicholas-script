@@ -22,11 +22,9 @@
         <Compile Include="Lexer.fs" />
 
 		<Compile Include="TypeChecker.fs" />
+        <Compile Include="StdLib.fs" />
+        
         <Compile Include="Interpreter.fs" />
-        
-        
-        
-        
         <Content Include="roadmap.txt" />
         
         

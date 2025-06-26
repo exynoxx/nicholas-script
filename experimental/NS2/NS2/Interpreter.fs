@@ -3,13 +3,8 @@
 open System
 open System.Collections.Generic
 open NS2.Ast
+open NS2.StdLib
 
-//move
-let reverse input =
-    input
-    |> Seq.rev
-    |> Seq.toArray
-    |> System.String
 
 type Scope (parent: Scope option) =
     
@@ -91,21 +86,10 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         results |> List.last
             
     | Call (id, args) ->
-        match id with
-        //| std when id.StartsWith("std") -> ()
-        | str when id.StartsWith("str") ->
-            let input = match eval_internal scope (List.head args) with | String x -> x | _ -> failwith "Argument not string"
-            match str with
-            | "str.rev" -> String (reverse input)
-            | "str.length" -> String (input.Length.ToString())
-            | "str.trim" -> String (input.Trim())
-            | x -> failwith $"{x} not implemented yet"
-        | io when id.StartsWith("io") ->
-            match io with
-            | "io.stdin.line" -> String (stdin.ReadLine())
-            | "io.stdin.all" -> String (stdin.ReadToEnd())
-            | x -> failwith $"{x} not implemented yet"
-        | _ -> 
+        let callArgs = args |> List.map (eval_internal scope)
+        match eval_std_function (id, callArgs) with
+        | Some result -> result
+        | None -> 
             match scope.GetFunction id with
             | Some fbody ->
                 let bodyScope = scope.Push()
