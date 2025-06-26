@@ -20,7 +20,7 @@ let rec typecheck (tree:AST) =
     match tree with
     | Root body -> body |> List.map typecheck |> Root
     
-    //TODO pullout anon func to random var, make arr of f calls
+    //TODO pullout anon func to random var, make arr of f calls, eliminate namedCall
     | Map (arr, func) ->
         match (arr, func) with
         | Array a , Func f ->

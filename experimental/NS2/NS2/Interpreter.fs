@@ -2,8 +2,14 @@
 
 open System
 open System.Collections.Generic
-open System.Linq.Expressions
 open NS2.Ast
+
+//move
+let reverse input =
+    input
+    |> Seq.rev
+    |> Seq.toArray
+    |> System.String
 
 type Scope (parent: Scope option) =
     
@@ -38,6 +44,7 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         match scope.GetVariable name with
         | Some v -> v
         | None ->
+            //TODO replace id with call node in typechecker
             match scope.GetFunction name with
             | Some _ -> eval_internal scope (Call (name, []))
             | None -> failwith $"Unbound identifier: {name}"
@@ -76,10 +83,6 @@ let rec eval_internal (scope: Scope) (ast: AST) =
     | NamedFunc (id,body) ->
         scope.SetFunc(id,body)
         ast
-    
-    | Func paramsAndBody ->
-        //elements |> List.map (eval_internal scope)
-        ast
     | FuncCalled (args, fbody) ->
         let bodyScope = scope.Push()
         args |> List.mapi (fun i x -> bodyScope.SetVar($"${i+1}", x)) |> ignore
@@ -87,15 +90,30 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         results |> List.last
             
     | Call (id, args) ->
-        match scope.GetFunction id with
-        | Some fbody ->
-            let bodyScope = scope.Push()
-            args |> List.mapi (fun i x -> bodyScope.SetVar($"${i+1}", x)) |> ignore
-            let results = fbody |> List.map (eval_internal bodyScope)
-            results |> List.last
-            
-        | None -> failwith $"Function {id} not found"
+        match id with
+        //| std when id.StartsWith("std") -> ()
+        | str when id.StartsWith("str") ->
+            let input = match eval_internal scope (List.head args) with | String x -> x | _ -> failwith "Argument not string"
+            match str with
+            | "str.rev" -> String (reverse input)
+            | "str.length" -> String (input.Length.ToString())
+            | "str.trim" -> String (input.Trim())
+            | x -> failwith $"{x} not implemented yet"
+        | io when id.StartsWith("io") ->
+            match io with
+            | "io.stdin.line" -> String (stdin.ReadLine())
+            | "io.stdin.all" -> String (stdin.ReadToEnd())
+            | x -> failwith $"{x} not implemented yet"
+        | _ -> 
+            match scope.GetFunction id with
+            | Some fbody ->
+                let bodyScope = scope.Push()
+                args |> List.mapi (fun i x -> bodyScope.SetVar($"${i+1}", x)) |> ignore
+                let results = fbody |> List.map (eval_internal bodyScope)
+                results |> List.last
+            | None -> failwith $"Function {id} not found"
 
+    | Func _ -> failwith "Func should not exist in this stage"
     | Map _ -> failwith "Map should not exist in this stage"
     | _ -> failwith "Unsupported %A" ast
 

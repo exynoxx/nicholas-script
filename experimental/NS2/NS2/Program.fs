@@ -10,7 +10,7 @@ let parse (input:string) =
 let main argv =
     //run_tests()
     
-    let input = "a = 1; f = {1+1;a}; f;"
+    let input = "in = io.stdin.line; in"
     try
         let raw = parse input
         printfn $"Result: %A{raw}"
