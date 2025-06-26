@@ -8,6 +8,7 @@ type AST =
     | Binop of AST * string * AST    
     | Index of AST * AST    
     | Array of AST list
+    | Call of string * AST list
     | Func of AST list
     | NamedFunc of string * AST list
     | Map of AST * AST

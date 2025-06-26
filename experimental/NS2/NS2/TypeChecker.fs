@@ -16,6 +16,7 @@ let getType =
     | Array _ -> ArrayType
     | x -> failwith "Not recognized %A" x
 
+//TODO if ID func -> call node
 let rec typecheck (tree:AST) =
     match tree with
     | Root body -> body |> List.map typecheck |> Root

@@ -1,5 +1,5 @@
-﻿named func
-func calls
+﻿func calls
+normalize - fix tests
 std funcs
 func args
 stdin

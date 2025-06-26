@@ -11,7 +11,7 @@ let parse (input:string) =
 let main argv =
     //run_tests()
     
-    let input = "f = {1+1};1+1"
+    let input = "f = {1+1};f"
     try
         let raw = parse input
         printfn "Result: %A" raw
