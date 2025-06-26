@@ -21,11 +21,12 @@ let rec typecheck (tree:AST) =
     match tree with
     | Root body -> body |> List.map typecheck |> Root
     | Map (arr, func) ->
-        if getType arr <> ArrayType then
-            failwith "Mapping can only be done on arrays"
-        if getType func <> FuncType then
-            failwith "Can only map with a function"
-        tree
+        match (arr, func) with
+        | Array a , Func f ->
+            let elements = a |> List.map (fun x -> FuncCalled ([x], f))
+            Array elements
+        | _ -> failwith "Can only map an array with a function"
+        
     | Assign (Id id, body) ->
         let tbody = typecheck body
         match tbody with

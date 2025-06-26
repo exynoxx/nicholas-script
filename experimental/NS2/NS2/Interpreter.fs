@@ -77,7 +77,12 @@ let rec eval_internal (scope: Scope) (ast: AST) =
     | Func paramsAndBody ->
         //elements |> List.map (eval_internal scope)
         ast
-        
+    | FuncCalled (args, fbody) ->
+        let bodyScope = scope.Push()
+        args |> List.mapi (fun i x -> bodyScope.SetVar($"${i+1}", x)) |> ignore
+        let results = fbody |> List.map (eval_internal bodyScope)
+        results |> List.last
+            
     | Call (id, args) ->
         match scope.GetFunction id with
         | Some fbody ->
@@ -88,29 +93,7 @@ let rec eval_internal (scope: Scope) (ast: AST) =
             
         | None -> failwith $"Function {id} not found"
 
-    | Map (arr, f) -> ast
-        (*let earr = eval_internal scope arr
-        let ef = eval_internal scope f
-        match (earr, ef) with
-        | (Array a, Func f) ->
-            ()
-        | _ -> failwith "Cannot map non array"
-        
-        
-        let collection = eval env collectionExpr
-        match collection with
-        | ArrayVal items ->
-            match lambdaExpr with
-            | Func [Id param; body] ->
-                items
-                |> List.map (fun v ->
-                    let newEnv = scope.Add(param, v)
-                    eval newEnv body)
-                |> ArrayVal
-            | _ -> failwith "Invalid lambda for map"
-        | _ -> failwith "Map expects array as first argument"
-        *)
-        
+    | Map _ -> failwith "Map should not exist in this stage"
     | _ -> failwith "Unsupported %A" ast
 
 let rec toString (scope: Scope) (ast:AST) : string =

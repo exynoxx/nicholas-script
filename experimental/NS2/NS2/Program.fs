@@ -10,7 +10,7 @@ let parse (input:string) =
 let main argv =
     //run_tests()
     
-    let input = "pow = {$1**$2};a = pow 10 3; a;" //3
+    let input = "[1,2,3,4,5]{10**$1}"
     try
         let raw = parse input
         printfn $"Result: %A{raw}"

@@ -10,7 +10,9 @@ type AST =
     | Array of AST list
     | Call of string * AST list
     | Func of AST list
+    | FuncCalled of AST list * AST list
     | NamedFunc of string * AST list
     | Map of AST * AST
     | Assign of AST * AST
+    
     
