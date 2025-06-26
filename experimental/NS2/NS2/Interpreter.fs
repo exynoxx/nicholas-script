@@ -37,7 +37,10 @@ let rec eval_internal (scope: Scope) (ast: AST) =
     | Id name ->
         match scope.GetVariable name with
         | Some v -> v
-        | None -> failwith "Unbound identifier: %s" name
+        | None ->
+            match scope.GetFunction name with
+            | Some _ -> eval_internal scope (Call (name, []))
+            | None -> failwith $"Unbound identifier: {name}"
         
     | Assign (Id id, bodyExpr) ->
         let body = eval_internal scope bodyExpr

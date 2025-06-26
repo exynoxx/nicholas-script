@@ -1,13 +1,12 @@
-﻿func calls
-normalize - fix tests
+﻿normalize - fix tests
 std funcs
-func args
 stdin
 op alias to std funcs
 
 split operator
 length operator
 range
+dot syntax
 
 //v1
 exp = 2 ** $1
