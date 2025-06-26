@@ -12,17 +12,26 @@ type Scope (parent: Scope option) =
     
     member _.Parent = parent
     member _.Vars = vars
-    member _.Func s = vars
+    member _.Funcs s = funcs
 
-    member this.Get(name: string) : AST option =
+    member this.GetVariable(name: string) : AST option =
         match vars.ContainsKey name with
         | true -> Some vars[name]
         | _ ->
             match parent with
-            | Some p -> p.Get(name)
+            | Some p -> p.GetVariable(name)
+            | None -> None
+            
+    member this.GetFunction(name: string) : AST list option =
+        match funcs.ContainsKey name with
+        | true -> Some funcs[name]
+        | _ ->
+            match parent with
+            | Some p -> p.GetFunction(name)
             | None -> None
 
-    member this.Set(name: string, value: AST)= vars[name] <- value
+    member this.SetVar(name: string, value: AST)= vars[name] <- value
+    member this.SetFunc(name: string, value: AST list)= funcs[name] <- value
     member this.Push() : Scope = Scope(Some this)
     static member Empty = Scope(None)
 
@@ -30,13 +39,13 @@ let rec eval_internal (scope: Scope) (ast: AST) =
     match ast with
     | Int n -> Int n
     | Id name ->
-        match scope.Get name with
+        match scope.GetVariable name with
         | Some v -> v
         | None -> failwith "Unbound identifier: %s" name
         
     | Assign (Id id, bodyExpr) ->
         let body = eval_internal scope bodyExpr
-        scope.Set(id, body)
+        scope.SetVar(id, body)
         body
         
     | Binop (left, op, right) ->
@@ -66,12 +75,22 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         | _ -> failwith "Invalid array indexing types"
 
     | NamedFunc (id,body) ->
-        //elements |> List.map (eval_internal scope)
+        scope.SetFunc(id,body)
         ast
     
     | Func paramsAndBody ->
         //elements |> List.map (eval_internal scope)
         ast
+        
+    | Call (id, args) ->
+        match scope.GetFunction id with
+        | Some fbody ->
+            let bodyScope = scope.Push()
+            args |> List.mapi (fun i x -> bodyScope.Vars.Add($"${i+1}", x)) |> ignore
+            let results = fbody |> List.map (eval_internal bodyScope)
+            results |> List.last
+            
+        | None -> failwith "Function %s not found" id
 
     | Map (arr, f) -> ast
         (*let earr = eval_internal scope arr
@@ -106,7 +125,7 @@ let rec toString (scope: Scope) (ast:AST) : string =
         "[" + String.Join (", ", content) + "]"
         
     | Id name ->
-        match scope.Get name with
+        match scope.GetVariable name with
         | Some v -> toString scope v
         | None -> failwith "%A not defined" name
      
