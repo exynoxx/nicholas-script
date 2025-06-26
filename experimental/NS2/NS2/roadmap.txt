@@ -1,0 +1,26 @@
+﻿strings
+root block
+std funcs
+split operator
+length operator
+range
+named func
+
+
+//v1
+exp = 2 ** $1
+x = 1+2; y = x*3;
+
+//arrays
+y = [1,2,"34"]
+x = ['A'-'Z']{$1.lower}
+
+//func
+y{$1.lower}
+f = {$1**2}
+
+//pipe
+s = $%'\n'{$1%';'@2}|sum
+number_elements = $%'\n'{$1%';'@2} | #
+
+//split $ '\n' {split $1 ';' @2}|sum

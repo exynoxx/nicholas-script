@@ -11,7 +11,7 @@ type Scope (parent: Scope option) =
     
     member _.Parent = parent
     member _.Vars = vars
-    member _.Funcs = vars
+    member _.Func s = vars
 
     member this.Get(name: string) : AST option =
         match vars.ContainsKey name with
