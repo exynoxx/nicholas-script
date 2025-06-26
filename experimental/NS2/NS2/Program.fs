@@ -1,7 +1,6 @@
 ﻿open FSharp.Text
 open NS2.Interpreter
 open NS2.TypeChecker
-open NS2.UnitTests
 
 let parse (input:string) =
   let lexbuf = Lexing.LexBuffer<char>.FromString input
@@ -14,12 +13,12 @@ let main argv =
     let input = "pow = {$1**$2};a = pow 10 3; a;" //3
     try
         let raw = parse input
-        printfn "Result: %A" raw
+        printfn $"Result: %A{raw}"
         let ast = typecheck raw
-        printfn "typechecked: %A" ast
+        printfn $"typechecked: %A{ast}"
         eval ast
     with ex ->
-        printfn "ERROR: %s" ex.Message
+        printfn $"ERROR: %s{ex.Message}"
     0
     (*printfn ""
     while true do

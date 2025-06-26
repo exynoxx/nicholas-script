@@ -86,7 +86,7 @@ let rec eval_internal (scope: Scope) (ast: AST) =
             let results = fbody |> List.map (eval_internal bodyScope)
             results |> List.last
             
-        | None -> failwith "Function %s not found" id
+        | None -> failwith $"Function {id} not found"
 
     | Map (arr, f) -> ast
         (*let earr = eval_internal scope arr
