@@ -13,6 +13,7 @@ type token =
   | RBRACK
   | LCURLY
   | RCURLY
+  | EQ
   | COMMA
   | SEMICOLON
   | EOF
@@ -32,6 +33,7 @@ type tokenId =
     | TOKEN_RBRACK
     | TOKEN_LCURLY
     | TOKEN_RCURLY
+    | TOKEN_EQ
     | TOKEN_COMMA
     | TOKEN_SEMICOLON
     | TOKEN_EOF

@@ -5,7 +5,7 @@ open NS2.Ast
 open NS2.Interpreter
 open NS2.TypeChecker
 
-let evaluate (input:string) =
+let parse (input:string) =
   let lexbuf = Lexing.LexBuffer<char>.FromString input
   Parser.main Lexer.tokenize lexbuf
   
@@ -23,7 +23,7 @@ let rec equal a b =
     | _ -> failwith "%A %A" a b 
 
 let assert_same (input:string, expected:AST) =
-    let actual = evaluate input |> List.head
+    let actual = parse input |> List.head
     if not (equal actual expected) then
         failwithf "AST test failed: expected %A but got %A" expected actual
     else
@@ -68,13 +68,14 @@ let main argv =
     test_array_index ()    
     test_func ()
     
-    let input = "\"STR\";1+1"
+    let input = "a=1+1;b=a*2;b"
     try
-        let result = evaluate input
+        let result = parse input
         //typecheck result |> ignore
         printfn "Result: %A" result
+        eval result
     with ex ->
-        printfn "Parse error: %s" ex.Message
+        printfn "ERROR: %s" ex.Message
     0
     (*printfn ""
     while true do

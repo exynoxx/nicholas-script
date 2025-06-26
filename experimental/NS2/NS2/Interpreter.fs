@@ -31,7 +31,13 @@ let rec eval_internal (scope: Scope) (ast: AST) =
     | Id name ->
         match scope.Get name with
         | Some v -> v
-        | None -> failwithf "Unbound identifier: %s" name
+        | None -> failwith "Unbound identifier: %s" name
+        
+    | Assign (Id id, bodyExpr) ->
+        let body = eval_internal scope bodyExpr
+        scope.Set(id, body)
+        body
+        
     | Binop (left, op, right) ->
         let l = eval_internal scope left
         let r = eval_internal scope right
@@ -87,20 +93,27 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         
     | _ -> failwith "Unsupported %A" ast
 
-let rec toString (ast:AST) : string =
+let rec toString (scope: Scope) (ast:AST) : string =
     match ast with
     | Int n -> n.ToString()
     | Array elements ->
-        let content = elements |> List.map toString
+        let content = elements |> List.map (toString scope)
         "[" + String.Join (", ", content) + "]"
         
-    | Id name -> failwith "Unsupported"
+    | Id name ->
+        match scope.Get name with
+        | Some v -> toString scope v
+        | None -> failwith "%A not defined" name
+        
     | Binop (left, op, right) -> failwith "Unsupported"
     | Index (arrExpr, indexExpr) -> failwith "Unsupported"
     | _ -> failwith "%A Unsupported" ast
     
-let rec eval (ast:AST) =
+let rec eval (expressions : AST list) =
     let scope = Scope.Empty
-    let evaluated = eval_internal scope ast
+    let mutable result = null
     
-    printfn "%s" (toString evaluated)
+    for e in expressions do
+        result <- eval_internal scope e
+    
+    printfn "%s" (toString scope result)

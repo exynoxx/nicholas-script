@@ -1,9 +1,14 @@
-﻿std funcs
+﻿assignment
+named func
+func calls
+std funcs
+func args
+stdin
+op alias to std funcs
+
 split operator
 length operator
 range
-named func
-
 
 //v1
 exp = 2 ** $1

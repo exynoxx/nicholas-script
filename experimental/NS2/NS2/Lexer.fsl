@@ -15,6 +15,7 @@ let string_char = [^ '"' '\\']
 rule tokenize = parse
 | whitespace        { tokenize lexbuf }
 | ['-']?digit+      { INT ( System.Int32.Parse( lexeme lexbuf ) ) }
+| '='               { EQ }
 | '+'               { PLUS }
 | '-'               { MINUS }
 | '*'               { TIMES }
