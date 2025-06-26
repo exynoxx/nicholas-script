@@ -93,7 +93,7 @@ let rec eval_internal (scope: Scope) (ast: AST) =
             match scope.GetFunction id with
             | Some fbody ->
                 let bodyScope = scope.Push()
-                args |> List.mapi (fun i x -> bodyScope.SetVar($"${i+1}", x)) |> ignore
+                args |> List.map (eval_internal bodyScope) |> List.mapi (fun i x -> bodyScope.SetVar($"${i+1}", x)) |> ignore
                 let results = fbody |> List.map (eval_internal bodyScope)
                 results |> List.last
             | None -> failwith $"Function {id} not found"
@@ -115,6 +115,7 @@ let rec toString (scope: Scope) (ast:AST) : string =
         | Some v -> toString scope v
         | None -> failwith "%A not defined" name
      
+    | Nop -> ""
     | Binop (left, op, right) -> failwith "Unsupported"
     | Index (arrExpr, indexExpr) -> failwith "Unsupported"
     | _ -> failwith $"toString Unsupported %A{ast}"

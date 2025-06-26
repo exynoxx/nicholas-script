@@ -14,5 +14,6 @@ type AST =
     | NamedFunc of string * AST list
     | Map of AST * AST
     | Assign of AST * AST
+    | Nop
     
     
