@@ -2,6 +2,7 @@
 
 open NS2.Ast
 open NS2.Scope
+open NS2.StdLib
 
 type typ =
     | Unknown
@@ -31,9 +32,12 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
         match scope.GetVariable real_name with
         | Some v -> v
         | None ->
-            match scope.GetFunction real_name with
-            | Some _ -> Call (real_name, [])
-            | None -> failwith $"Unbound identifier: {real_name}({name})"
+            match lookup_std_function real_name with
+            | true -> Call (real_name, [])
+            | false -> 
+                match scope.GetFunction real_name with
+                | Some _ -> Call (real_name, [])
+                | None -> failwith $"Unbound identifier: {real_name}({name})"
     
     | Assign (Id id, Id other) ->
         scope.SetAlias(id, other)
@@ -88,9 +92,12 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
     | Call (id, args) ->
         let targs = args |> List.map (typecheck_internal scope)
 
-        match scope.GetFunction id with
-        | Some fbody -> ()
-        | None -> failwith $"Function {id} not found"
+        match lookup_std_function id with
+        | true -> ()
+        | false ->
+            match scope.GetFunction id with
+            | Some _ -> ()
+            | None -> failwith $"Function {id} not found"
         Call(id,targs)
         
     | Map (arr, func) ->

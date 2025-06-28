@@ -10,7 +10,7 @@ let parse (input:string) =
 let main argv =
     //run_tests()
     
-    let input = "print = {io.println str.rev $1};in = \"abcdef\"; print in;0+0";
+    let input = "str.rev io.stdin.line";
     try
         let raw = parse input
         printfn $"Result: %A{raw}"

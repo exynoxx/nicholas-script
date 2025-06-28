@@ -9,6 +9,15 @@ let reverse input =
     |> Seq.toArray
     |> System.String
 
+let lookup_std_function (name:string) =
+    match name with
+    | "str.rev" -> true
+    | "str.length" -> true
+    | "str.trim" -> true
+    | "io.println" -> true
+    | "io.stdin.line" -> true
+    | "io.stdin.all" -> true
+    | _ -> false
 
 let eval_std_function (name:string, args: AST list) =
     match name with
