@@ -1,55 +1,36 @@
 ﻿module NS2.Interpreter
 
 open System
-open System.Collections.Generic
 open NS2.Ast
+open NS2.Scope
 open NS2.StdLib
 
 
-type Scope (parent: Scope option) =
-    
-    let vars = Dictionary<string, AST>()
-    let funcs = Dictionary<string, AST list>()
-
-    member this.GetVariable(name: string) : AST option =
-        match vars.ContainsKey name with
-        | true -> Some vars[name]
-        | _ ->
-            match parent with
-            | Some p -> p.GetVariable(name)
-            | None -> None
-            
-    member this.GetFunction(name: string) : AST list option =
-        match funcs.ContainsKey name with
-        | true -> Some funcs[name]
-        | _ ->
-            match parent with
-            | Some p -> p.GetFunction(name)
-            | None -> None
-
-    member this.SetVar(name: string, value: AST)= vars[name] <- value
-    member this.SetFunc(name: string, value: AST list)= funcs[name] <- value
-    member this.Push() : Scope = Scope(Some this)
-    static member Empty = Scope(None)
 
 let rec eval_internal (scope: Scope) (ast: AST) =
     match ast with
     | Int n -> Int n
     | String x -> String x
     | Id name ->
-        match scope.GetVariable name with
+        
+        let real_name =
+            match scope.GetAlias name with
+            | Some alias -> alias
+            | None -> name
+        
+        match scope.GetVariable real_name with
         | Some v -> v
         | None ->
             //TODO replace id with call node in typechecker
-            match scope.GetFunction name with
-            | Some _ -> eval_internal scope (Call (name, []))
-            | None -> failwith $"Unbound identifier: {name}"
+            match scope.GetFunction real_name with
+            | Some _ -> eval_internal scope (Call (real_name, []))
+            | None -> failwith $"Unbound identifier: {real_name}({name})"
         
     | Assign (Id id, bodyExpr) ->
         let body = eval_internal scope bodyExpr
         scope.SetVar(id, body)
         body
-        
+
     | Binop (left, op, right) ->
         let l = eval_internal scope left
         let r = eval_internal scope right
