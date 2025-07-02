@@ -6,6 +6,7 @@ type AST =
     | String of string
     | Id of string
     | Binop of AST * string * AST    
+    | Unaryop of string * AST    
     | Index of AST * AST    
     | Array of AST list
     | Call of string * AST list

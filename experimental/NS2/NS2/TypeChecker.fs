@@ -52,6 +52,10 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
             scope.SetVar(id, tbody)
             Assign (Id id, tbody)
 
+    | Unaryop (op, right) ->
+        let r = typecheck_internal scope right
+        Unaryop (op, r)
+        
     | Binop (left, op, right) ->
         let l = typecheck_internal scope left
         let r = typecheck_internal scope right

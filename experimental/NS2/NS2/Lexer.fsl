@@ -11,6 +11,7 @@ let whitespace = [' ' '\t']
 let letter     = ['a'-'z' 'A'-'Z']
 let ident_char = letter | '_' | '.' | '$' | digit
 let string_char = [^ '"' '\\']
+let operators = ['#' '%' '&' '|' '!' '?']
 
 rule tokenize = parse
 | whitespace        { tokenize lexbuf }
@@ -30,6 +31,7 @@ rule tokenize = parse
 | ','               { COMMA }
 | ';'               { SEMICOLON }
 | '@'               { AT }
+| operators+        { OP (lexeme lexbuf) }
 | '"' (string_char)* '"'  { 
     let s = lexeme lexbuf
     let unquoted = s.Substring(1, s.Length - 2)

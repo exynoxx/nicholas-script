@@ -10,7 +10,7 @@ let parse (input:string) =
 let main argv =
     //run_tests()
     
-    (*let input = "str.rev io.stdin.line";
+    let input = "# 1";
     try
         let raw = parse input
         printfn $"Result: %A{raw}"
@@ -19,12 +19,12 @@ let main argv =
         eval ast
     with ex ->
         printfn $"ERROR: %s{ex.Message}"
-    0*)
-    printfn ""
+    0
+    (*printfn ""
     while true do
         printf "Enter expression: "
         try
             stdin.ReadLine() |> parse |> typecheck |> eval
         with ex ->
             printfn "Parse error: %s" ex.Message
-    0
+    0*)

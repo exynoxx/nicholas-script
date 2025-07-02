@@ -17,6 +17,7 @@ type token =
   | COMMA
   | SEMICOLON
   | EOF
+  | OP of (string)
   | STRING of (string)
   | ID of (string)
   | INT of (int)
@@ -37,6 +38,7 @@ type tokenId =
     | TOKEN_COMMA
     | TOKEN_SEMICOLON
     | TOKEN_EOF
+    | TOKEN_OP
     | TOKEN_STRING
     | TOKEN_ID
     | TOKEN_INT
