@@ -46,6 +46,7 @@ expr:
 	| STRING							{ String $1 }
 	| call							    { $1 }
 	| ID								{ Id $1 }
+	| OP								{ Id $1 }
 
 arr:
 	  LBRACK RBRACK						{ Array [] }

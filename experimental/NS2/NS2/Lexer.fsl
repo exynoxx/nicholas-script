@@ -14,7 +14,6 @@ let string_char = [^ '"' '\\']
 let operators = ['#' '%' '&' '|' '!' '?']
 let compound_assign = ['+' '-' '*' '/' '%' '&' '|' '^' '<' '>' '?']+ '='
 
-
 rule tokenize = parse
 | whitespace        { tokenize lexbuf }
 | ['-']?digit+      { INT ( System.Int32.Parse( lexeme lexbuf ) ) }

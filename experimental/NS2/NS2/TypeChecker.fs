@@ -37,11 +37,12 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
             | false -> 
                 match scope.GetFunction real_name with
                 | Some _ -> Call (real_name, [])
-                | None -> failwith $"Unbound identifier: {real_name}({name})"
+                | None -> failwith $"typecheck_internal Unbound identifier: {real_name}({name})"
     
     | Assign (Id id, Id other) ->
         scope.SetAlias(id, other)
-        Id other
+        Nop
+        
     | Assign (Id id, body) ->
         let tbody = typecheck_internal scope body
         match tbody with
@@ -111,7 +112,9 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
             Array elements
         | _ -> failwith "Can only map an array with a function"
         
-    | _ -> failwith $"Unsupported %A{tree}"
+    | Nop -> Nop
+    
+    | _ -> failwith $"typecheck_internal unsupported %A{tree}"
     
 let typecheck (tree:AST) =
     let scope = Scope.Empty

@@ -27,7 +27,7 @@ type Scope (parent: Scope option) =
             | None -> None
             
     member this.GetAlias(name: string) : string option =
-        match funcs.ContainsKey name with
+        match alias.ContainsKey name with
         | true -> Some alias[name]
         | _ ->
             match parent with

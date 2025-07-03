@@ -10,7 +10,8 @@ let parse (input:string) =
 let main argv =
     //run_tests()
     
-    let input = "a=0; b += 1; c ++=1; d=a@1";
+    let preinput = "# = str.length;$ = io.stdin.line;% = str.split;"
+    let input = preinput + "str.rev $";
     try
         let raw = parse input
         printfn $"Result: %A{raw}"

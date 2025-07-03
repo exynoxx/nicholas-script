@@ -87,97 +87,97 @@ let rec _fslex_dummy () = _fslex_dummy()
 and tokenize  lexbuf =
   match _fslex_tables.Interpret(0,lexbuf) with
   | 0 -> ( 
-# 19 "Lexer.fsl"
+# 18 "Lexer.fsl"
                                      tokenize lexbuf 
 # 92 "Lexer.fs"
           )
   | 1 -> ( 
-# 20 "Lexer.fsl"
+# 19 "Lexer.fsl"
                                      INT ( System.Int32.Parse( lexeme lexbuf ) ) 
 # 97 "Lexer.fs"
           )
   | 2 -> ( 
-# 21 "Lexer.fsl"
+# 20 "Lexer.fsl"
                                      EQ 
 # 102 "Lexer.fs"
           )
   | 3 -> ( 
-# 22 "Lexer.fsl"
+# 21 "Lexer.fsl"
                                      PLUS 
 # 107 "Lexer.fs"
           )
   | 4 -> ( 
-# 23 "Lexer.fsl"
+# 22 "Lexer.fsl"
                                      MINUS 
 # 112 "Lexer.fs"
           )
   | 5 -> ( 
-# 24 "Lexer.fsl"
+# 23 "Lexer.fsl"
                                      TIMES 
 # 117 "Lexer.fs"
           )
   | 6 -> ( 
-# 25 "Lexer.fsl"
+# 24 "Lexer.fsl"
                                      AT 
 # 122 "Lexer.fs"
           )
   | 7 -> ( 
-# 26 "Lexer.fsl"
+# 25 "Lexer.fsl"
                                      OPEQ (lexeme lexbuf) 
 # 127 "Lexer.fs"
           )
   | 8 -> ( 
-# 27 "Lexer.fsl"
+# 26 "Lexer.fsl"
                                      OP (lexeme lexbuf) 
 # 132 "Lexer.fs"
           )
   | 9 -> ( 
-# 28 "Lexer.fsl"
+# 27 "Lexer.fsl"
                                      DIVIDE 
 # 137 "Lexer.fs"
           )
   | 10 -> ( 
-# 29 "Lexer.fsl"
+# 28 "Lexer.fsl"
                                      LPAREN 
 # 142 "Lexer.fs"
           )
   | 11 -> ( 
-# 30 "Lexer.fsl"
+# 29 "Lexer.fsl"
                                      RPAREN 
 # 147 "Lexer.fs"
           )
   | 12 -> ( 
-# 31 "Lexer.fsl"
+# 30 "Lexer.fsl"
                                      LBRACK 
 # 152 "Lexer.fs"
           )
   | 13 -> ( 
-# 32 "Lexer.fsl"
+# 31 "Lexer.fsl"
                                      RBRACK 
 # 157 "Lexer.fs"
           )
   | 14 -> ( 
-# 33 "Lexer.fsl"
+# 32 "Lexer.fsl"
                                      LCURLY 
 # 162 "Lexer.fs"
           )
   | 15 -> ( 
-# 34 "Lexer.fsl"
+# 33 "Lexer.fsl"
                                      RCURLY 
 # 167 "Lexer.fs"
           )
   | 16 -> ( 
-# 35 "Lexer.fsl"
+# 34 "Lexer.fsl"
                                      COMMA 
 # 172 "Lexer.fs"
           )
   | 17 -> ( 
-# 36 "Lexer.fsl"
+# 35 "Lexer.fsl"
                                      SEMICOLON 
 # 177 "Lexer.fs"
           )
   | 18 -> ( 
-# 37 "Lexer.fsl"
+# 36 "Lexer.fsl"
                                            
                    let s = lexeme lexbuf
                    let unquoted = s.Substring(1, s.Length - 2)
@@ -185,17 +185,17 @@ and tokenize  lexbuf =
 # 185 "Lexer.fs"
           )
   | 19 -> ( 
-# 42 "Lexer.fsl"
+# 41 "Lexer.fsl"
                                 ID (lexeme lexbuf) 
 # 190 "Lexer.fs"
           )
   | 20 -> ( 
-# 43 "Lexer.fsl"
+# 42 "Lexer.fsl"
                                      EOF 
 # 195 "Lexer.fs"
           )
   | 21 -> ( 
-# 44 "Lexer.fsl"
+# 43 "Lexer.fsl"
                                      lexeme lexbuf |> sprintf "lEXER Parsing error: %s" |> failwith 
 # 200 "Lexer.fs"
           )

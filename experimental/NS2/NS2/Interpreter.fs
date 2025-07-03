@@ -21,15 +21,15 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         match scope.GetVariable real_name with
         | Some v -> v
         | None ->
-            //TODO replace id with call node in typechecker
+
             match scope.GetFunction real_name with
             | Some _ -> eval_internal scope (Call (real_name, []))
-            | None -> failwith $"Unbound identifier: {real_name}({name})"
+            | None -> failwith $"eval_internal Unbound identifier: {real_name}({name})"
         
     | Assign (Id id, bodyExpr) ->
         let body = eval_internal scope bodyExpr
         scope.SetVar(id, body)
-        body
+        Nop
 
     | Unaryop (op, right) ->
         failwith "Unary not implemented"
@@ -84,7 +84,8 @@ let rec eval_internal (scope: Scope) (ast: AST) =
 
     | Func _ -> failwith "Func should not exist in this stage"
     | Map _ -> failwith "Map should not exist in this stage"
-    | _ -> failwith $"Unsupported %A{ast}"
+    | Nop -> Nop
+    | _ -> failwith $"Eval_internal Unsupported %A{ast}"
 
 let rec toString (scope: Scope) (ast:AST) : string =
     match ast with
