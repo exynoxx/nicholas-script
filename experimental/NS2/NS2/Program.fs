@@ -10,7 +10,7 @@ let parse (input:string) =
 let main argv =
     //run_tests()
     
-    let input = "# 1";
+    let input = "a=0; a += 1";
     try
         let raw = parse input
         printfn $"Result: %A{raw}"

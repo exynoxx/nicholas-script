@@ -12,6 +12,8 @@ let letter     = ['a'-'z' 'A'-'Z']
 let ident_char = letter | '_' | '.' | '$' | digit
 let string_char = [^ '"' '\\']
 let operators = ['#' '%' '&' '|' '!' '?']
+let compound_assign = ['+' '-' '*' '/' '%' '&' '|' '^' '<' '>' '?']+ '='
+
 
 rule tokenize = parse
 | whitespace        { tokenize lexbuf }
@@ -20,6 +22,10 @@ rule tokenize = parse
 | '+'               { PLUS }
 | '-'               { MINUS }
 | '*'               { TIMES }
+| "+="              { OPEQ (lexeme lexbuf) }
+| "-="              { OPEQ (lexeme lexbuf) }
+| "*="              { OPEQ (lexeme lexbuf) }
+| compound_assign   { OPEQ (lexeme lexbuf) }
 | "**"              { POW }
 | '/'               { DIVIDE }
 | '('               { LPAREN }
