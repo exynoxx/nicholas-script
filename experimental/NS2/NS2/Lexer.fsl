@@ -22,11 +22,9 @@ rule tokenize = parse
 | '+'               { PLUS }
 | '-'               { MINUS }
 | '*'               { TIMES }
-| "+="              { OPEQ (lexeme lexbuf) }
-| "-="              { OPEQ (lexeme lexbuf) }
-| "*="              { OPEQ (lexeme lexbuf) }
+| '@'               { AT }
 | compound_assign   { OPEQ (lexeme lexbuf) }
-| "**"              { POW }
+| operators+        { OP (lexeme lexbuf) }
 | '/'               { DIVIDE }
 | '('               { LPAREN }
 | ')'               { RPAREN }
@@ -36,8 +34,6 @@ rule tokenize = parse
 | '}'               { RCURLY }
 | ','               { COMMA }
 | ';'               { SEMICOLON }
-| '@'               { AT }
-| operators+        { OP (lexeme lexbuf) }
 | '"' (string_char)* '"'  { 
     let s = lexeme lexbuf
     let unquoted = s.Substring(1, s.Length - 2)
