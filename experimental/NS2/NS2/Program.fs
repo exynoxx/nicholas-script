@@ -1,5 +1,6 @@
 ﻿open FSharp.Text
 open NS2.Interpreter
+open NS2.SSA
 open NS2.TypeChecker
 
 let parse (input:string) =
@@ -11,11 +12,13 @@ let main argv =
     //run_tests()
     
     let preinput = "# = std.size;$ = io.stdin.line;" //% = str.split;
-    let input = preinput + "a=0;b=a;a=[1,2,3];b";
+    let input = preinput + "a=0;b=a;a=[1,2,3];b=a;b";
     try
         let raw = parse input
         printfn $"Result: %A{raw}"
-        let ast = typecheck raw 
+        let ssa = ssa_transform raw
+        printfn $"SSA: %A{ssa}"
+        let ast = typecheck ssa 
         printfn $"typechecked: %A{ast}"
         eval ast
     with ex ->

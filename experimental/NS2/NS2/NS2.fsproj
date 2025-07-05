@@ -23,7 +23,7 @@
         <Compile Include="Parser.fs" />
         <Compile Include="Lexer.fs" />
 
-        
+        <Compile Include="SSA.fs" />
 		<Compile Include="TypeChecker.fs" />
         <Compile Include="Interpreter.fs" />
         <Content Include="roadmap.txt" />

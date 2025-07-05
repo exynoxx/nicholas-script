@@ -79,13 +79,8 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
         | _ -> failwith $"Function {id} not found"
         Call(id,targs)
         
-    | Map (arr, func) ->
-        match (arr, func) with
-        | Array a , Func f ->
-            let elements = a |> List.map (fun x -> FuncCalled ([x], f))
-            Array elements
-        | _ -> failwith "Can only map an array with a function"
-        
+    | Map ( Array a , Func f) -> a |> List.map (fun x -> FuncCalled ([x], f)) |> Array
+    | Map (arr, func) -> failwith "Can only map an array with a function"
     | Nop -> Nop
     
     | _ -> failwith $"typecheck_internal unsupported %A{tree}"
