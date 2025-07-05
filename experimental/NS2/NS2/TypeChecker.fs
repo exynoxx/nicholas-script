@@ -14,28 +14,21 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
             match scope.GetAlias name with
             | Some alias -> alias
             | None -> name
+            
+        match (scope, real_name) with
+        | IsStdFunction -> Call (real_name, [])
+        | Function _ -> Call (real_name, [])
+        | Variable v -> v
+        | _ -> failwith $"typecheck_internal Unbound identifier: {real_name}({name})"
         
-        match scope.GetVariable real_name with
-        | Some v -> v
-        | None ->
-            match lookup_std_function real_name with
-            | true -> Call (real_name, [])
-            | false -> 
-                match scope.GetFunction real_name with
-                | Some _ -> Call (real_name, [])
-                | None -> failwith $"typecheck_internal Unbound identifier: {real_name}({name})"
     
     | Assign (Id id, Id other) ->
-        match scope.GetFunction other with
-        | Some _ -> scope.SetAlias(id,other)
-        | None ->
-            match lookup_std_function other with
-            | false -> 
-                match scope.GetVariable other with
-                | Some value -> scope.SetVar(id, value)
-                | None ->
-                    failwith $"Variable {other} does not exist"
-            | true -> ()
+        
+        match (scope, other) with
+        | IsStdFunction -> ()
+        | Function _ -> scope.SetAlias(id,other)
+        | Variable value -> scope.SetVar(id, value)
+        | _ -> failwith $"Variable {other} does not exist"
         Nop
         
     | Assign (Id id, body) ->
@@ -80,12 +73,10 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
     | Call (id, args) ->
         let targs = args |> List.map (typecheck_internal scope)
 
-        match lookup_std_function id with
-        | true -> ()
-        | false ->
-            match scope.GetFunction id with
-            | Some _ -> ()
-            | None -> failwith $"Function {id} not found"
+        match (scope, id) with
+        | IsStdFunction -> ()
+        | Function _ -> ()
+        | _ -> failwith $"Function {id} not found"
         Call(id,targs)
         
     | Map (arr, func) ->

@@ -11,7 +11,7 @@ let main argv =
     //run_tests()
     
     let preinput = "# = std.size;$ = io.stdin.line;" //% = str.split;
-    let input = preinput + "a=0;b=a;a=[1,2,3];b@1";
+    let input = preinput + "a=0;b=a;a=[1,2,3];b";
     try
         let raw = parse input
         printfn $"Result: %A{raw}"
