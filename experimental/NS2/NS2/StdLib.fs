@@ -14,7 +14,7 @@ let lookup_std_function (name:string) =
     | "std.size" -> true
     | "str.rev" -> true
     | "str.trim" -> true
-    | "io.println" -> true
+    | "print" -> true
     | "io.stdin.line" -> true
     | "io.stdin.all" -> true
     | _ -> false
@@ -32,7 +32,7 @@ let eval_std_function (name:string, args: AST list) =
     | "str.trim" ->
         let input = match args with | [String x] -> x | _ -> failwith "Argument not string"
         Some (String (input.Trim()))
-     | "io.println" ->
+     | "print" ->
         match args.Head with
         | String s -> printfn $"{s}"
         | Int s -> printfn $"{s}"

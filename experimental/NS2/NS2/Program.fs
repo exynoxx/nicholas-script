@@ -11,7 +11,7 @@ let main argv =
     //run_tests()
     
     let preinput = "# = std.size;$ = io.stdin.line;% = str.split;"
-    let input = preinput + "[1,2,3,4] {10 ** $1}";
+    let input = preinput + "a = [1,2,3,4] {10 ** $1}; print a; a@3";
     try
         let raw = parse input
         printfn $"Result: %A{raw}"
