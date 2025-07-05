@@ -67,6 +67,7 @@ let ssa_transform (tree: AST) =
             let na = a |> List.map (transform scope) |> Array
             let nf = f |> List.map (transform scope) |> Func
             Map (na,nf)
-        | x -> x
+        | Int _ | String _ | Nop -> ast
+        | x -> failwith $"SSA unknown %A{x}"
 
     transform (SSA_Scope.Empty()) tree
