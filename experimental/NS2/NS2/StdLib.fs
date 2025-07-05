@@ -11,8 +11,8 @@ let reverse input =
 
 let lookup_std_function (name:string) =
     match name with
+    | "std.size" -> true
     | "str.rev" -> true
-    | "str.length" -> true
     | "str.trim" -> true
     | "io.println" -> true
     | "io.stdin.line" -> true
@@ -21,26 +21,23 @@ let lookup_std_function (name:string) =
 
 let eval_std_function (name:string, args: AST list) =
     match name with
-    | str when name.StartsWith("str") ->
+    | "std.size" ->
+        match args with
+        | [String x] -> Some (String (x.Length.ToString()))
+        | [Array x] -> Some (String (x.Length.ToString()))
+        | _ -> failwith "std.size Argument not string or array"
+    | "str.rev" ->
         let input = match args with | [String x] -> x | _ -> failwith "Argument not string"
-        let result = 
-            match str with
-            | "str.rev" -> String (reverse input)
-            | "str.length" -> String (input.Length.ToString())
-            | "str.trim" -> String (input.Trim())
-            | x -> failwith $"{x} not implemented yet"
-        Some result
-    | io when name.StartsWith("io") ->
-        let result =
-            match io with
-            | "io.println" ->
-                match args.Head with
-                | String s -> printfn $"{s}"
-                | Int s -> printfn $"{s}"
-                | Array a -> printfn $"%A{a}"
-                Nop
-            | "io.stdin.line" -> String (stdin.ReadLine())
-            | "io.stdin.all" -> String (stdin.ReadToEnd())
-            | x -> failwith $"{x} not implemented yet"
-        Some result
+        Some (String (reverse input))
+    | "str.trim" ->
+        let input = match args with | [String x] -> x | _ -> failwith "Argument not string"
+        Some (String (input.Trim()))
+     | "io.println" ->
+        match args.Head with
+        | String s -> printfn $"{s}"
+        | Int s -> printfn $"{s}"
+        | Array a -> printfn $"%A{a}"
+        Some Nop
+    | "io.stdin.line" -> Some (String (stdin.ReadLine()))
+    | "io.stdin.all" -> Some (String (stdin.ReadToEnd()))
     | _ -> None

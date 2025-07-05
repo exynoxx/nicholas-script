@@ -11,7 +11,7 @@ let whitespace = [' ' '\t']
 let letter     = ['a'-'z' 'A'-'Z']
 let ident_char = letter | '_' | '.' | '$' | digit
 let string_char = [^ '"' '\\']
-let operators = ['#' '%' '&' '|' '!' '?']
+let operators = ['#' '%' '&' '|' '!' '?' '*']
 let compound_assign = ['+' '-' '*' '/' '%' '&' '|' '^' '<' '>' '?']+ '='
 
 rule tokenize = parse
@@ -22,6 +22,7 @@ rule tokenize = parse
 | '-'               { MINUS }
 | '*'               { TIMES }
 | '@'               { AT }
+| '|'               { PIPE }
 | compound_assign   { OPEQ (lexeme lexbuf) }
 | operators+        { OP (lexeme lexbuf) }
 | '/'               { DIVIDE }

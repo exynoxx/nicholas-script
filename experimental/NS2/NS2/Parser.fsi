@@ -6,7 +6,7 @@ type token =
   | TIMES
   | DIVIDE
   | AT
-  | POW
+  | PIPE
   | LPAREN
   | RPAREN
   | LBRACK
@@ -28,7 +28,7 @@ type tokenId =
     | TOKEN_TIMES
     | TOKEN_DIVIDE
     | TOKEN_AT
-    | TOKEN_POW
+    | TOKEN_PIPE
     | TOKEN_LPAREN
     | TOKEN_RPAREN
     | TOKEN_LBRACK
@@ -50,6 +50,7 @@ type nonTerminalId =
     | NONTERM__startmain
     | NONTERM_main
     | NONTERM_expr
+    | NONTERM_pipe_expr
     | NONTERM_arr
     | NONTERM_element_list
     | NONTERM_func

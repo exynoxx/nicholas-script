@@ -12,7 +12,7 @@ open NS2.Ast
 %token <string> OP
 %token <string> OPEQ
 %token 
-	PLUS MINUS TIMES DIVIDE AT POW
+	PLUS MINUS TIMES DIVIDE AT PIPE
 	LPAREN RPAREN LBRACK RBRACK LCURLY RCURLY
 	EQ
 	COMMA SEMICOLON
@@ -20,7 +20,6 @@ open NS2.Ast
 
 %left PLUS MINUS
 %left TIMES DIVIDE
-%left POW
 %left AT
 
 %%
@@ -30,10 +29,10 @@ main:
 
 expr:
       LPAREN expr RPAREN 				{ $2 }
+	| expr OP expr	 				    { Binop ($1, $2, $3) }
 	| expr PLUS expr	 				{ Binop ($1, "+", $3) }
 	| expr MINUS expr					{ Binop ($1, "-", $3) }
 	| expr TIMES expr					{ Binop ($1, "*", $3) }
-	| expr POW expr						{ Binop ($1, "**", $3) }
 	| expr DIVIDE expr 					{ Binop ($1, "/", $3) }
 	| expr AT expr 						{ Index ($1, $3) }
 	| expr OPEQ expr                    { Assign ($1, Binop($1, $2[..$2.Length-2], $3))}
@@ -41,12 +40,17 @@ expr:
 	| OP expr                           { Unaryop ($1, $2)}
 	| arr 								{ $1 }
 	| func 								{ $1 }
+	| pipe_expr 						{ Pipe $1 }
 	| expr func 						{ Map ($1, $2) }
 	| INT								{ Int $1 }
 	| STRING							{ String $1 }
 	| call							    { $1 }
 	| ID								{ Id $1 }
 	| OP								{ Id $1 }
+
+pipe_expr:
+      expr PIPE expr                       { [$1;$3] }
+    | expr PIPE pipe_expr                  { $1::$3 }
 
 arr:
 	  LBRACK RBRACK						{ Array [] }

@@ -45,7 +45,7 @@ let rec eval_internal (scope: Scope) (ast: AST) =
                 | "-" -> x - y
                 | "*" -> x * y
                 | "/" -> x / y
-                | "**" -> (int)(Math.Pow(x,y))
+                | "**" -> (int)(Math.Pow(x,y)) //TODO move to std lib
                 | _ -> failwith "Binop op not supported %s" op
             Int result
         | _ -> failwith "Binop types other than int not supported for now"
@@ -63,6 +63,29 @@ let rec eval_internal (scope: Scope) (ast: AST) =
     | NamedFunc (id,body) ->
         scope.SetFunc(id,body)
         ast
+         
+    | Pipe (x::xs) ->
+        
+        let rec folder acc =
+            function
+            | Id f ->
+                
+                let real_name =
+                    match scope.GetAlias f with
+                    | Some alias -> alias
+                    | None -> f
+                
+                match scope.GetFunction real_name with
+                | Some _ -> eval_internal scope (Call (real_name, [acc]))
+                | None -> failwith $"Pipeting to variable does not makesense"
+                
+            | Func f -> eval_internal scope (FuncCalled ([acc], f))
+            | Call (id,args) -> eval_internal scope (Call (id, args@[acc]))
+            | x -> failwith $"eval pipe stage not supported %A{x}"
+        
+        let first =  eval_internal scope x
+        xs |> List.fold folder first
+        
     | FuncCalled (args, fbody) ->
         let bodyScope = scope.Push()
         args |> List.mapi (fun i x -> bodyScope.SetVar($"${i+1}", x)) |> ignore

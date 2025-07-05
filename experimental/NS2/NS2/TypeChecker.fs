@@ -77,6 +77,7 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
         Binop (l, op, r)
 
     | Array elements -> elements |> List.map (typecheck_internal scope) |> Array
+    | Pipe elements -> elements |> List.map (typecheck_internal scope) |> Pipe
 
     | Index (arrExpr, indexExpr) ->
         let arr = typecheck_internal scope arrExpr
