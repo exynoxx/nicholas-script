@@ -10,8 +10,8 @@ let parse (input:string) =
 let main argv =
     //run_tests()
     
-    let preinput = "# = std.size;$ = io.stdin.line;% = str.split;"
-    let input = preinput + "a = [1,2,3,4] {10 ** $1}; print a; a@3";
+    let preinput = "# = std.size;$ = io.stdin.line;" //% = str.split;
+    let input = preinput + "a=0;b=a;a=[1,2,3];b@1";
     try
         let raw = parse input
         printfn $"Result: %A{raw}"

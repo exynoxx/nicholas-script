@@ -4,20 +4,6 @@ open NS2.Ast
 open NS2.Scope
 open NS2.StdLib
 
-type typ =
-    | Unknown
-    | IntType
-    | StringType
-    | ArrayType
-    | FuncType
-
-let getType =
-    function
-    | Int _ -> IntType
-    | Id _ -> Unknown
-    | Array _ -> ArrayType
-    | x -> failwith "Not recognized %A" x
-
 let rec typecheck_internal (scope:Scope) (tree:AST) =
     match tree with
     | Root body -> body |> List.map (typecheck_internal scope) |> Root
@@ -40,7 +26,16 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
                 | None -> failwith $"typecheck_internal Unbound identifier: {real_name}({name})"
     
     | Assign (Id id, Id other) ->
-        scope.SetAlias(id, other)
+        match scope.GetFunction other with
+        | Some _ -> scope.SetAlias(id,other)
+        | None ->
+            match lookup_std_function other with
+            | false -> 
+                match scope.GetVariable other with
+                | Some value -> scope.SetVar(id, value)
+                | None ->
+                    failwith $"Variable {other} does not exist"
+            | true -> ()
         Nop
         
     | Assign (Id id, body) ->
@@ -61,19 +56,6 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
         let l = typecheck_internal scope left
         let r = typecheck_internal scope right
         //TODO op is std or custom that exists
-        
-        (*match (l, r) with //TODO
-        | Int x, Int y ->
-            let result = 
-                match op with
-                | "+" -> x + y
-                | "-" -> x - y
-                | "*" -> x * y
-                | "/" -> x / y
-                | "**" -> (int)(Math.Pow(x,y))
-                | _ -> failwith "Binop op not supported %s" op
-            Int result
-        | _ -> failwith "Binop types other than int not supported for now"*)
         Binop (l, op, r)
 
     | Array elements -> elements |> List.map (typecheck_internal scope) |> Array

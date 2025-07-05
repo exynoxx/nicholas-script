@@ -32,7 +32,7 @@ let eval_std_function (name:string, args: AST list) =
     | "str.trim" ->
         let input = match args with | [String x] -> x | _ -> failwith "Argument not string"
         Some (String (input.Trim()))
-     | "print" ->
+    | "print" ->
         match args.Head with
         | String s -> printfn $"{s}"
         | Int s -> printfn $"{s}"
