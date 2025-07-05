@@ -11,11 +11,11 @@ let main argv =
     //run_tests()
     
     let preinput = "# = std.size;$ = io.stdin.line;% = str.split;"
-    let input = preinput + "[1,10**4] | #";
+    let input = preinput + "[1,2,3,4] {10 ** $1}";
     try
         let raw = parse input
         printfn $"Result: %A{raw}"
-        let ast = typecheck raw
+        let ast = typecheck raw 
         printfn $"typechecked: %A{ast}"
         eval ast
     with ex ->
