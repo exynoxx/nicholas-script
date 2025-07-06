@@ -16,6 +16,8 @@ type token =
   | EQ
   | COMMA
   | SEMICOLON
+  | IF
+  | ELSE
   | EOF
   | OPEQ of (string)
   | OP of (string)
@@ -38,6 +40,8 @@ type tokenId =
     | TOKEN_EQ
     | TOKEN_COMMA
     | TOKEN_SEMICOLON
+    | TOKEN_IF
+    | TOKEN_ELSE
     | TOKEN_EOF
     | TOKEN_OPEQ
     | TOKEN_OP
@@ -51,9 +55,11 @@ type nonTerminalId =
     | NONTERM_main
     | NONTERM_expr
     | NONTERM_pipe_expr
+    | NONTERM_pipe_entry
     | NONTERM_arr
     | NONTERM_element_list
-    | NONTERM_func
+    | NONTERM_funcblock
+    | NONTERM_block
     | NONTERM_body_list
     | NONTERM_call
     | NONTERM_arg_list

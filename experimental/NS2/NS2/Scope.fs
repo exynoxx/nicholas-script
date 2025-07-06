@@ -8,7 +8,7 @@ open NS2.StdLib
 type Scope (parent: Scope option) =
     
     let vars = Dictionary<string, AST>()
-    let funcs = Dictionary<string, AST list>()
+    let funcs = Dictionary<string, AST>()
     let alias = Dictionary<string, string>()
 
     member this.GetVariable(name: string) : AST option =
@@ -19,7 +19,7 @@ type Scope (parent: Scope option) =
             | Some p -> p.GetVariable(name)
             | None -> None
             
-    member this.GetFunction(name: string) : AST list option =
+    member this.GetFunction(name: string) : AST option =
         match funcs.ContainsKey name with
         | true -> Some funcs[name]
         | _ ->
@@ -34,11 +34,9 @@ type Scope (parent: Scope option) =
             match parent with
             | Some p -> p.GetAlias(name)
             | None -> None
-
-   
     
     member this.SetVar(name: string, value: AST)= vars[name] <- value
-    member this.SetFunc(name: string, value: AST list)= funcs[name] <- value
+    member this.SetFunc(name: string, value: AST)= funcs[name] <- value
     member this.SetAlias(name: string, value: string)= alias[name] <- value
     member this.Push() : Scope = Scope(Some this)
     static member Empty = Scope(None)

@@ -39,24 +39,21 @@ let ssa_transform (tree: AST) =
         | Root body ->
             let scope = SSA_Scope.Empty()
             body |> List.map (transform scope) |> Root
-
-        | Id name -> Id (scope.GetId name)
         
+        | Block b ->
+            let scope = scope.Spawn()
+            b |> List.map (transform scope) |> Block
+        
+        | Id name -> Id (scope.GetId name)
         | Assign (Id id, rhs) ->
             let trhs = transform scope rhs
             let newName = scope.NewId id
             Assign(Id newName, trhs)
-
-        | Func fbody ->
-            let scope = scope.Spawn()
-            fbody |> List.map (transform scope) |> Func
-
+        | Func fbody -> Func (transform scope fbody)
         | FuncCalled (args, body) ->
             let targs = args |> List.map (transform scope)
-            let scope = scope.Spawn()
-            let tbody = body |> List.map (transform scope)
+            let tbody = (transform scope body)
             FuncCalled(targs, tbody)
-
         | Binop (l, op, r) -> Binop(transform scope l, op, transform scope r)
         | Unaryop (op, r) -> Unaryop(op, transform scope r)
         | Array elements -> elements |> List.map (transform scope) |> Array 
@@ -65,7 +62,7 @@ let ssa_transform (tree: AST) =
         | Index (arr, idx) -> Index (transform scope arr, transform scope idx)
         | Map (Array a, Func f) ->
             let na = a |> List.map (transform scope) |> Array
-            let nf = f |> List.map (transform scope) |> Func
+            let nf = transform scope (Func f)
             Map (na,nf)
         | Int _ | String _ | Nop -> ast
         | x -> failwith $"SSA unknown %A{x}"

@@ -55,7 +55,7 @@ let test_array_index () =
 
 let test_func () =
     let input = "{10;a}"
-    let expected = Func [Int 10; Id "a"]
+    let expected = Func (Block [Int 10; Id "a"])
     assert_same (input, expected)
     
 let run_tests() =

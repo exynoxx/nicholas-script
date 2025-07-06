@@ -2,11 +2,11 @@
 
 open NS2.Ast
 open NS2.Scope
-open NS2.StdLib
 
 let rec typecheck_internal (scope:Scope) (tree:AST) =
     match tree with
     | Root body -> body |> List.map (typecheck_internal scope) |> Root
+    | Block body -> body |> List.map (typecheck_internal scope) |> Block
     | Int n -> Int n
     | String x -> String x
     | Id name ->
@@ -18,10 +18,10 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
         match (scope, real_name) with
         | IsStdFunction -> Call (real_name, [])
         | Function _ -> Call (real_name, [])
-        | Variable v -> v
+        | Variable value -> Id name
+        | _ when name.StartsWith "$" -> Id name
         | _ -> failwith $"typecheck_internal Unbound identifier: {real_name}({name})"
         
-    
     | Assign (Id id, Id other) ->
         
         match (scope, other) with
@@ -53,21 +53,15 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
 
     | Array elements -> elements |> List.map (typecheck_internal scope) |> Array
     | Pipe elements -> elements |> List.map (typecheck_internal scope) |> Pipe
-
     | Index (arrExpr, indexExpr) ->
         let arr = typecheck_internal scope arrExpr
         let i = typecheck_internal scope indexExpr
         Index (arr, i)
 
-    | Func fbody ->
-        let nested = scope.Push()
-        let tbody = fbody |> List.map (typecheck_internal nested)
-        Func tbody
-       
+    | Func fbody -> Func (typecheck_internal scope fbody)
     | FuncCalled (args, fbody) ->
         let targs = args |> List.map (typecheck_internal scope)
-        let nested = scope.Push()
-        let tbody = fbody |> List.map (typecheck_internal nested)
+        let tbody = typecheck_internal scope fbody
         FuncCalled (targs, tbody)
             
     | Call (id, args) ->
@@ -79,7 +73,7 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
         | _ -> failwith $"Function {id} not found"
         Call(id,targs)
         
-    | Map ( Array a , Func f) -> a |> List.map (fun x -> FuncCalled ([x], f)) |> Array
+    | Map ( Array a , Func f) -> a |> List.map (fun x -> FuncCalled ([x], Func f)) |> Array
     | Map (arr, func) -> failwith "Can only map an array with a function"
     | Nop -> Nop
     

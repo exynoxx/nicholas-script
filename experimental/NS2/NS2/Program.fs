@@ -12,7 +12,7 @@ let main argv =
     //run_tests()
     
     let preinput = "# = std.size;$ = io.stdin.line;" //% = str.split;
-    let input = preinput + "a=0;b=a;a=[1,2,3];b=a;b";
+    let input = preinput + "a={10**$1}; b = a 4; c = b";
     try
         let raw = parse input
         printfn $"Result: %A{raw}"

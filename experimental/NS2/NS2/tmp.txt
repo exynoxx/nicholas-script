@@ -1,0 +1,12 @@
+﻿if_expr:
+      IF LPAREN expr RPAREN block               { If ($3,$5,None) } 
+    | IF LPAREN expr RPAREN expr                { If ($3,[$5],None) } 
+    | IF LPAREN expr RPAREN block ELSE block    { If ($3,$5, Some $7) } 
+    | IF LPAREN expr RPAREN expr ELSE block    { If ($3,[$5], Some $7) } 
+    | IF LPAREN expr RPAREN block ELSE expr    { If ($3,$5, Some [$7]) } 
+    | IF LPAREN expr RPAREN expr ELSE expr    { If ($3,[$5], Some [$7]) } 
+    
+    
+    
+	| if_expr                           { $1 }
+    

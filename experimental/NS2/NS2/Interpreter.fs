@@ -79,30 +79,29 @@ let rec eval_internal (scope: Scope) (ast: AST) =
                 | Some _ -> eval_internal scope (Call (real_name, [acc]))
                 | None -> failwith $"Pipeting to variable does not makesense"
                 
-            | Func f -> eval_internal scope (FuncCalled ([acc], f))
+            | Func f -> eval_internal scope (FuncCalled ([acc], Func f))
             | Call (id,args) -> eval_internal scope (Call (id, args@[acc]))
             | x -> failwith $"eval pipe stage not supported %A{x}"
         
         let first =  eval_internal scope x
         xs |> List.fold folder first
         
-    | FuncCalled (args, fbody) ->
+    | FuncCalled (args, Func (Block body)) ->
         let bodyScope = scope.Push()
         args |> List.mapi (fun i x -> bodyScope.SetVar($"${i+1}", x)) |> ignore
-        let results = fbody |> List.map (eval_internal bodyScope)
+        let results = body |> List.map (eval_internal bodyScope)
         results |> List.last
-            
+        
+    | FuncCalled _ -> failwith "eval this funccall not supported"
+     
     | Call (id, args) ->
         let callArgs = args |> List.map (eval_internal scope)
+
         match eval_std_function (id, callArgs) with
         | Some result -> result
         | None -> 
             match scope.GetFunction id with
-            | Some fbody ->
-                let bodyScope = scope.Push()
-                args |> List.map (eval_internal bodyScope) |> List.mapi (fun i x -> bodyScope.SetVar($"${i+1}", x)) |> ignore
-                let results = fbody |> List.map (eval_internal bodyScope)
-                results |> List.last
+            | Some fbody -> eval_internal scope (FuncCalled (callArgs, Func fbody))
             | None -> failwith $"Function {id} not found"
 
     | Func _ -> failwith "Func should not exist in this stage"

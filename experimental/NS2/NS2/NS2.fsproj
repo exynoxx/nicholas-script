@@ -31,6 +31,7 @@
         
         <Compile Include="UnitTests.fs" />
         <Compile Include="Program.fs"/>
+        <Content Include="tmp.txt" />
         
         
     </ItemGroup>

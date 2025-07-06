@@ -16,6 +16,8 @@ let compound_assign = ['+' '-' '*' '/' '%' '&' '|' '^' '<' '>' '?']+ '='
 
 rule tokenize = parse
 | whitespace        { tokenize lexbuf }
+| "if"              { IF }
+| "else"            { ELSE }
 | ['-']?digit+      { INT ( System.Int32.Parse( lexeme lexbuf ) ) }
 | '='               { EQ }
 | '+'               { PLUS }
