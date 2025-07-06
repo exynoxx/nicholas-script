@@ -5,6 +5,7 @@ type AST =
     | Block of AST list
     | Int of int
     | String of string
+    | Bool of bool
     | Id of string
     | Binop of AST * string * AST    
     | Unaryop of string * AST    
@@ -17,6 +18,7 @@ type AST =
     | Map of AST * AST
     | Assign of AST * AST
     | Pipe of AST list
+    | If of AST*AST*AST option
     | Nop
     
     

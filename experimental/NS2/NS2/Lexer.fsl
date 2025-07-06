@@ -11,7 +11,7 @@ let whitespace = [' ' '\t']
 let letter     = ['a'-'z' 'A'-'Z']
 let ident_char = letter | '_' | '.' | '$' | digit
 let string_char = [^ '"' '\\']
-let operators = ['#' '%' '&' '|' '!' '?' '*']
+let operators = ['#' '%' '&' '|' '!' '?' '*' '<' '>']
 let compound_assign = ['+' '-' '*' '/' '%' '&' '|' '^' '<' '>' '?']+ '='
 
 rule tokenize = parse
@@ -36,6 +36,7 @@ rule tokenize = parse
 | '}'               { RCURLY }
 | ','               { COMMA }
 | ';'               { SEMICOLON }
+| ':'               { COLON }
 | '"' (string_char)* '"'  { 
     let s = lexeme lexbuf
     let unquoted = s.Substring(1, s.Length - 2)

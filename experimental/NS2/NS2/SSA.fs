@@ -55,6 +55,9 @@ let ssa_transform (tree: AST) =
             let tbody = (transform scope body)
             FuncCalled(targs, tbody)
         | Binop (l, op, r) -> Binop(transform scope l, op, transform scope r)
+        //TODO insert phi node
+        | If (c, b, Some e) -> If(transform scope c, b, Some (transform scope e))
+        | If (c, b, None) -> If(transform scope c, b, None)
         | Unaryop (op, r) -> Unaryop(op, transform scope r)
         | Array elements -> elements |> List.map (transform scope) |> Array 
         | Pipe elements -> elements |> List.map (transform scope) |> Pipe

@@ -44,15 +44,15 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         let r = eval_internal scope right
         match (l, r) with
         | Int x, Int y ->
-            let result = 
-                match op with
-                | "+" -> x + y
-                | "-" -> x - y
-                | "*" -> x * y
-                | "/" -> x / y
-                | "**" -> (int)(Math.Pow(x,y)) //TODO move to std lib
-                | _ -> failwith "Binop op not supported %s" op
-            Int result
+             match op with
+                | "+" -> Int (x + y)
+                | "-" -> Int (x - y)
+                | "*" -> Int (x * y)
+                | "/" -> Int (x / y)
+                | ">" -> Bool (x > y)
+                | "<" -> Bool (x < y)
+                | "**" -> Int (int(Math.Pow(x,y))) //TODO move to std lib
+                | _ -> failwith $"Binop op not supported %A{op}" 
         | _ -> failwith "Binop types other than int not supported for now"
 
     | Array elements -> elements |> List.map (eval_internal scope) |> Array
@@ -112,6 +112,28 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         | IsStdFunction -> eval_std_function (id, callArgs) |> Option.get
         | _ -> failwith $"Function {id} not found"
 
+    | If (c, b, Some e) ->
+        let condition =
+            match eval_internal scope c with
+            | Bool b -> b
+            | _ -> failwith "If condition not boolean"
+            
+        if condition then
+            eval_internal scope b
+        else 
+            eval_internal scope e
+
+    | If (c, b, None) ->
+        let condition =
+            match eval_internal scope c with
+            | Bool b -> b
+            | _ -> failwith "If condition not boolean"
+            
+        if condition then
+            eval_internal scope b
+        else 
+            Nop
+    
     | Func _ -> failwith "Func should not exist in this stage"
     | Map _ -> failwith "Map should not exist in this stage"
     | Nop -> Nop
