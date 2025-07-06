@@ -12,19 +12,24 @@ let rec eval_internal (scope: Scope) (ast: AST) =
     | Int n -> Int n
     | String x -> String x
     | Id name ->
-        
         let real_name =
             match scope.GetAlias name with
             | Some alias -> alias
             | None -> name
         
-        match scope.GetVariable real_name with
-        | Some v -> v
-        | None ->
+        match (scope, real_name) with
+        | Variable value -> value
+        | Function _ -> eval_internal scope (Call (real_name, []))
+        | IsStdFunction _ -> eval_internal scope (Call (real_name, []))
+        | _ -> failwith $"eval_internal Unbound identifier: {real_name}({name})"
 
-            match scope.GetFunction real_name with
-            | Some _ -> eval_internal scope (Call (real_name, []))
-            | None -> failwith $"eval_internal Unbound identifier: {real_name}({name})"
+    | Assign (Id id, Id other) ->
+        match (scope, other) with
+        | IsStdFunction -> ()
+        | Function _ -> scope.SetAlias(id,other)
+        | Variable value -> scope.SetVar(id, value)
+        | _ -> failwith $"Variable {other} does not exist"
+        Assign (Id id, Id other)
         
     | Assign (Id id, bodyExpr) ->
         let body = eval_internal scope bodyExpr
@@ -97,12 +102,15 @@ let rec eval_internal (scope: Scope) (ast: AST) =
     | Call (id, args) ->
         let callArgs = args |> List.map (eval_internal scope)
 
-        match eval_std_function (id, callArgs) with
-        | Some result -> result
-        | None -> 
-            match scope.GetFunction id with
-            | Some fbody -> eval_internal scope (FuncCalled (callArgs, Func fbody))
-            | None -> failwith $"Function {id} not found"
+        let real_name =
+            match scope.GetAlias id with
+            | Some alias -> alias
+            | None -> id
+        
+        match (scope, real_name) with
+        | Function f -> eval_internal scope (FuncCalled (callArgs, Func f))
+        | IsStdFunction -> eval_std_function (id, callArgs) |> Option.get
+        | _ -> failwith $"Function {id} not found"
 
     | Func _ -> failwith "Func should not exist in this stage"
     | Map _ -> failwith "Map should not exist in this stage"

@@ -29,7 +29,7 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
         | Function _ -> scope.SetAlias(id,other)
         | Variable value -> scope.SetVar(id, value)
         | _ -> failwith $"Variable {other} does not exist"
-        Nop
+        Assign (Id id, Id other)
         
     | Assign (Id id, body) ->
         let tbody = typecheck_internal scope body
