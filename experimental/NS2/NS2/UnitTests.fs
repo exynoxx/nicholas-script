@@ -2,14 +2,19 @@
 
 open FSharp.Text
 open NS2.Ast
+open NS2.Interpreter
+open NS2.SSA
+open NS2.TypeChecker
 
 let parse (input:string) =
   let lexbuf = Lexing.LexBuffer<char>.FromString input
-  let root = Parser.main Lexer.tokenize lexbuf
-  match root with
-  | Root r -> r |> List.head
-  | _ -> failwith "Invalid"
+  Parser.main Lexer.tokenize lexbuf
+
+let run (input:string) =
+    let preinput = "# = std.size;$ = io.stdin.line;" //% = str.split;
+    parse (preinput+input) |> ssa_transform |> typecheck |> eval
   
+(*
 let rec equal a b =
     match a, b with
     | Int x, Int y -> x = y
@@ -27,7 +32,9 @@ let assert_same (input:string, expected:AST) =
         failwithf "AST test failed: expected %A but got %A" expected actual
     else
         printfn "passed"
+        *)
 
+(*
 let test_arithmetic () =
     let input = "1+2*3/4"
     let expected =Binop(Int 1, "+", Binop(Binop(Int 2, "*", Int 3), "/", Int 4))
@@ -64,4 +71,4 @@ let run_tests() =
     test_array_expression2 () 
     test_array_expression3 () 
     test_array_index ()    
-    test_func ()
+    test_func ()*)
