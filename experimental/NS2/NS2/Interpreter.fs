@@ -48,6 +48,7 @@ let rec eval_internal (scope: Scope) (ast: AST) =
                 | "+" -> Int (x + y)
                 | "-" -> Int (x - y)
                 | "*" -> Int (x * y)
+                | "%" -> Int (x % y)
                 | "/" -> Int (x / y)
                 | ">" -> Bool (x > y)
                 | "<" -> Bool (x < y)
@@ -139,16 +140,24 @@ let rec eval_internal (scope: Scope) (ast: AST) =
             Nop
             
     | While (c, b) ->
-        let condition =
+        
+        let computeCond c =
             match eval_internal scope c with
             | Bool b -> b
             | _ -> failwith "If condition not boolean"
-            
+                
+        let mutable condition = computeCond c
+
         while condition do
-            eval_internal scope b
-        
+            eval_internal scope b |> ignore
+            condition <- computeCond c
         Nop
     
+    | Block b ->
+        let blockscope = scope.Push()
+        for x in b do
+            eval_internal blockscope x |> ignore
+        Nop
     | Func _ -> failwith "Func should not exist in this stage"
     | Map _ -> failwith "Map should not exist in this stage"
     | Nop -> Nop

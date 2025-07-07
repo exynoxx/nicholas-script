@@ -18,8 +18,11 @@ open NS2.Ast
 	IF ELSE WHILE
 	EOF
 
+%left AND OR
+%left GE LE GEQ LEQ EQEQ NEQ
 %left PLUS MINUS
-%left TIMES DIVIDE
+%left TIMES DIVIDE MODULO
+%right NOT
 %left AT
 
 %%
@@ -35,6 +38,18 @@ expr:
 	| expr MINUS expr					{ Binop ($1, "-", $3) }
 	| expr TIMES expr					{ Binop ($1, "*", $3) }
 	| expr DIVIDE expr 					{ Binop ($1, "/", $3) }
+	| expr MODULO expr                  { Binop($1, "%", $3) }
+    
+    | expr EQEQ expr                    { Binop($1, "==", $3) }
+    | expr NEQ expr                     { Binop($1, "!=", $3) }
+    | expr GE expr                      { Binop($1, ">",  $3) }
+    | expr LE expr                      { Binop($1, "<",  $3) }
+    | expr GEQ expr                     { Binop($1, ">=", $3) }
+    | expr LEQ expr                     { Binop($1, "<=", $3) }
+
+    | expr AND expr                     { Binop($1, "&&", $3) }
+    | expr OR expr                      { Binop($1, "||", $3) }
+	
 	| expr AT expr 						{ Index ($1, $3) }
 	| expr OPEQ expr                    { Assign ($1, Binop($1, $2[..$2.Length-2], $3))}
 	| expr EQ expr                      { Assign ($1, $3)}
@@ -52,17 +67,8 @@ expr:
 	| ID								{ Id $1 }
 	
 op:
-      EQEQ      { "==" }
-    | NEQ       { "!=" }
-    | GE        { ">"  }
-    | LE        { "<"  }
-    | GEQ       { ">=" }
-    | LEQ       { "<=" }
-    | AND       { "&&" }
-    | OR        { "||" }
     | HASH      { "#"  }
     | NOT       { "!"  }
-    | MODULO    { "%"  }
 
 while_expr:
     WHILE LPAREN expr RPAREN while_body { While ($3,$5) }
