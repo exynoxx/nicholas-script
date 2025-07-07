@@ -1,6 +1,4 @@
-﻿open System.Text.RegularExpressions
-open FSharp.Text
-open NS2.Ast
+﻿open FSharp.Text
 open NS2.Interpreter
 open NS2.SSA
 open NS2.TypeChecker

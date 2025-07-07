@@ -39,7 +39,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
 
     | Assign (Id name, rhs) ->
         let rhs_reg = codegen_expr state rhs
-        let ptr = $"%{name}"
+        let ptr = $"%%{name}"
         if not (state.Vars.ContainsKey(name)) then
             emit state $"{ptr} = alloca i32"
             state.Vars.[name] <- ptr
@@ -76,18 +76,18 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         let elseLabel = nextLabel state
         let endLabel = nextLabel state
 
-        emit state $"br i1 {zero}, label %{thenLabel}, label %{elseLabel}"
+        emit state $"br i1 {zero}, label %%{thenLabel}, label %%{elseLabel}"
         emit state $"{thenLabel}:"
         let then_val = codegen_expr state thenBranch
-        emit state $"br label %{endLabel}"
+        emit state $"br label %%{endLabel}"
 
         emit state $"{elseLabel}:"
         let else_val = codegen_expr state elseBranch
-        emit state $"br label %{endLabel}"
+        emit state $"br label %%{endLabel}"
 
         emit state $"{endLabel}:"
         let phi = nextReg state
-        emit state $"{phi} = phi i32 [{then_val}, %{thenLabel}], [{else_val}, %{elseLabel}]"
+        emit state $"{phi} = phi i32 [{then_val}, %%{thenLabel}], [{else_val}, %%{elseLabel}]"
         phi
 
     | Block exprs ->

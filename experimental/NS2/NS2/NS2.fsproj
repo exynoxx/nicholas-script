@@ -26,13 +26,14 @@
         <Compile Include="SSA.fs" />
 		<Compile Include="TypeChecker.fs" />
         <Compile Include="Interpreter.fs" />
+        <Compile Include="CodeGen.fs" />
+        
         <Content Include="roadmap.txt" />
         
         
         <Compile Include="UnitTests.fs" />
         <Compile Include="Program.fs"/>
         <Content Include="tmp.txt" />
-        <Compile Include="CodeGen.fs" />
         
         
     </ItemGroup>
