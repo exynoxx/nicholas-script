@@ -22,6 +22,11 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
         | _ when name.StartsWith "$" -> Id name
         | _ -> failwith $"typecheck_internal Unbound identifier: {real_name}({name})"
         
+    | Assign (Id id, Block body) ->
+        let tbody = typecheck_internal scope (Block body)
+        scope.SetFunc(id,tbody)
+        NamedFunc (id, tbody)
+       
     | Assign (Id id, Id other) ->
         
         match (scope, other) with
@@ -34,9 +39,7 @@ let rec typecheck_internal (scope:Scope) (tree:AST) =
     | Assign (Id id, body) ->
         let tbody = typecheck_internal scope body
         match tbody with
-        | Func tb -> 
-            scope.SetFunc(id,tb)
-            NamedFunc (id, tb)
+        | Func _ -> failwith "assign not possible"
         | _ ->
             scope.SetVar(id, tbody)
             Assign (Id id, tbody)

@@ -80,14 +80,10 @@ type nonTerminalId =
     | NONTERM_expr
     | NONTERM_op
     | NONTERM_while_expr
-    | NONTERM_while_body
     | NONTERM_if_expr
-    | NONTERM_if_body
     | NONTERM_pipe_expr
-    | NONTERM_pipe_entry
     | NONTERM_arr
     | NONTERM_element_list
-    | NONTERM_funcblock
     | NONTERM_block
     | NONTERM_body_list
     | NONTERM_call
