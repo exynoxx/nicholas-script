@@ -12,7 +12,8 @@ let main argv =
     //run_tests()
     
     let preinput = "# = std.size;$ = io.stdin.line;" //% = str.split;
-    let input = preinput + "a=-5; b = if (a < 0) 0 else a;b;";
+    //let input = preinput + "x=1001; while (x != 1) { if (x%2==0) {x=x/2} else {x=x*3+1} };";
+    let input = preinput + "x=1001; while (x != 1) { if (x%2==0) {x=x/2} else {x=x*3+1} };";
     try
         let raw = parse input
         printfn $"Result: %A{raw}"

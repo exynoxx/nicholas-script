@@ -51,6 +51,10 @@ let rec eval_internal (scope: Scope) (ast: AST) =
                 | "/" -> Int (x / y)
                 | ">" -> Bool (x > y)
                 | "<" -> Bool (x < y)
+                | "<=" -> Bool (x <= y)
+                | ">=" -> Bool (x >= y)
+                | "==" -> Bool (x = y)
+                | "!=" -> Bool (x <> y)
                 | "**" -> Int (int(Math.Pow(x,y))) //TODO move to std lib
                 | _ -> failwith $"Binop op not supported %A{op}" 
         | _ -> failwith "Binop types other than int not supported for now"
@@ -133,6 +137,17 @@ let rec eval_internal (scope: Scope) (ast: AST) =
             eval_internal scope b
         else 
             Nop
+            
+    | While (c, b) ->
+        let condition =
+            match eval_internal scope c with
+            | Bool b -> b
+            | _ -> failwith "If condition not boolean"
+            
+        while condition do
+            eval_internal scope b
+        
+        Nop
     
     | Func _ -> failwith "Func should not exist in this stage"
     | Map _ -> failwith "Map should not exist in this stage"
@@ -150,7 +165,7 @@ let rec toString (scope: Scope) (ast:AST) : string =
     | Id name ->
         match scope.GetVariable name with
         | Some v -> toString scope v
-        | None -> failwith "%A not defined" name
+        | None -> failwith $"%A{name} not defined" 
      
     | Nop -> ""
     | Binop (left, op, right) -> failwith "Unsupported"

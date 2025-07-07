@@ -19,6 +19,7 @@ type AST =
     | Assign of AST * AST
     | Pipe of AST list
     | If of AST*AST*AST option
+    | While of AST*AST
     | Nop
     
     

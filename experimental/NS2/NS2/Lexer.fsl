@@ -7,17 +7,17 @@ let lexeme lexbuf = LexBuffer<_>.LexemeString lexbuf
 }
 
 let digit = ['0'-'9']
-let whitespace = [' ' '\t']
+let whitespace = [' ' '\t' '\n']
 let letter     = ['a'-'z' 'A'-'Z']
 let ident_char = letter | '_' | '.' | '$' | digit
 let string_char = [^ '"' '\\']
-let operators = ['#' '%' '&' '|' '!' '?' '*' '<' '>']
-let compound_assign = ['+' '-' '*' '/' '%' '&' '|' '^' '<' '>' '?']+ '='
+let compound_assign = ['+' '-' '*' '/' '%' '&' '|' '^']+ '='
 
 rule tokenize = parse
 | whitespace        { tokenize lexbuf }
 | "if"              { IF }
 | "else"            { ELSE }
+| "while"           { WHILE }
 | ['-']?digit+      { INT ( System.Int32.Parse( lexeme lexbuf ) ) }
 | '='               { EQ }
 | '+'               { PLUS }
@@ -25,8 +25,18 @@ rule tokenize = parse
 | '*'               { TIMES }
 | '@'               { AT }
 | '|'               { PIPE }
+| '#'               { HASH }
+| '!'               { NOT }
+| '%'               { MODULO }
+| "&&"              { AND }
+| "||"              { OR }
+| '>'               { GE }
+| '<'               { LE }
+| "<="              { LEQ }
+| ">="              { GEQ }
+| "!="              { NEQ }
+| "=="              { EQEQ }
 | compound_assign   { OPEQ (lexeme lexbuf) }
-| operators+        { OP (lexeme lexbuf) }
 | '/'               { DIVIDE }
 | '('               { LPAREN }
 | ')'               { RPAREN }

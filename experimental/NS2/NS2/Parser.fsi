@@ -7,21 +7,32 @@ type token =
   | DIVIDE
   | AT
   | PIPE
+  | HASH
+  | EQ
+  | NEQ
+  | EQEQ
+  | GE
+  | LE
+  | GEQ
+  | LEQ
+  | AND
+  | OR
+  | NOT
+  | MODULO
   | LPAREN
   | RPAREN
   | LBRACK
   | RBRACK
   | LCURLY
   | RCURLY
-  | EQ
   | COMMA
   | SEMICOLON
   | COLON
   | IF
   | ELSE
+  | WHILE
   | EOF
   | OPEQ of (string)
-  | OP of (string)
   | STRING of (string)
   | ID of (string)
   | INT of (int)
@@ -32,21 +43,32 @@ type tokenId =
     | TOKEN_DIVIDE
     | TOKEN_AT
     | TOKEN_PIPE
+    | TOKEN_HASH
+    | TOKEN_EQ
+    | TOKEN_NEQ
+    | TOKEN_EQEQ
+    | TOKEN_GE
+    | TOKEN_LE
+    | TOKEN_GEQ
+    | TOKEN_LEQ
+    | TOKEN_AND
+    | TOKEN_OR
+    | TOKEN_NOT
+    | TOKEN_MODULO
     | TOKEN_LPAREN
     | TOKEN_RPAREN
     | TOKEN_LBRACK
     | TOKEN_RBRACK
     | TOKEN_LCURLY
     | TOKEN_RCURLY
-    | TOKEN_EQ
     | TOKEN_COMMA
     | TOKEN_SEMICOLON
     | TOKEN_COLON
     | TOKEN_IF
     | TOKEN_ELSE
+    | TOKEN_WHILE
     | TOKEN_EOF
     | TOKEN_OPEQ
-    | TOKEN_OP
     | TOKEN_STRING
     | TOKEN_ID
     | TOKEN_INT
@@ -56,6 +78,9 @@ type nonTerminalId =
     | NONTERM__startmain
     | NONTERM_main
     | NONTERM_expr
+    | NONTERM_op
+    | NONTERM_while_expr
+    | NONTERM_while_body
     | NONTERM_if_expr
     | NONTERM_if_body
     | NONTERM_pipe_expr
