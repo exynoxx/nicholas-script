@@ -14,7 +14,7 @@ open NS2.Ast
 	PLUS MINUS TIMES DIVIDE AT PIPE HASH 
 	EQ NEQ EQEQ GE LE GEQ LEQ AND OR NOT MODULO
 	LPAREN RPAREN LBRACK RBRACK LCURLY RCURLY
-	COMMA SEMICOLON COLON
+	COMMA SEMICOLON COLON NEWLINE
 	IF ELSE WHILE
 	EOF
 
@@ -30,9 +30,11 @@ open NS2.Ast
 main:
 	  body_list             { Root $1 }
 	| body_list SEMICOLON   { Root $1 }
+	| body_list NEWLINE     { Root $1 }
 
 expr:
       LPAREN expr RPAREN 				{ $2 }
+    | NEWLINE expr                      { $2 }
 	| expr op expr	 				    { Binop ($1, $2, $3) }
 	| expr PLUS expr	 				{ Binop ($1, "+", $3) }
 	| expr MINUS expr					{ Binop ($1, "-", $3) }
@@ -96,7 +98,9 @@ block:
 body_list:
 	  expr								{ [$1] }
 	| expr SEMICOLON					{ [$1] }
+	| expr NEWLINE					    { [$1] }
 	| expr SEMICOLON body_list 			{ $1 :: $3 }
+	| expr NEWLINE body_list 			{ $1 :: $3 }
 	
 call:
     ID COLON arg_list                         { Call ($1, $3)}

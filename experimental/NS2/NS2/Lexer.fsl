@@ -7,7 +7,8 @@ let lexeme lexbuf = LexBuffer<_>.LexemeString lexbuf
 }
 
 let digit = ['0'-'9']
-let whitespace = [' ' '\t' '\n']
+let newline = "\r\n" | "\n" | "\r"
+let whitespace = [' ' '\t']
 let letter     = ['a'-'z' 'A'-'Z']
 let ident_char = letter | '_' | '.' | '$' | digit
 let string_char = [^ '"' '\\']
@@ -15,6 +16,7 @@ let compound_assign = ['+' '-' '*' '/' '%' '&' '|' '^']+ '='
 
 rule tokenize = parse
 | whitespace        { tokenize lexbuf }
+| newline           { NEWLINE }
 | "if"              { IF }
 | "else"            { ELSE }
 | "while"           { WHILE }

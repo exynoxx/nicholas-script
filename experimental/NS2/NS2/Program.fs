@@ -6,7 +6,7 @@ open NS2.SSA
 open NS2.TypeChecker
 
 let parse (input:string) =
-    let cleaned = Regex.Replace(input.ReplaceLineEndings "", @"[ \t]+", " ")
+    let cleaned = input.Trim()
     let lexbuf = Lexing.LexBuffer<char>.FromString cleaned
     try
         Parser.main Lexer.tokenize lexbuf
@@ -20,10 +20,20 @@ let main argv =
     //run_tests()
     
     let preinput = "# = std.size;$ = io.stdin.line;" //% = str.split;
-    let input = preinput + "b={$1}; x=1001; while (x != 1) { if (x%2==0) {x=x/2} else {x=x*3+1} };";
-    //let code =" x=5; while (x != 1){ if (x%2==0) {x=x/2} else {x=x*3+1};print: x; } "
+    let code =
+        """
+            b={$1}
+            x=1001
+            while (x != 1) {
+                if (x%2==0) {
+                    x=x/2
+                } else {
+                    x=x*3+1
+                }
+            }
+        """.Trim()
     
-   // let input = preinput + code;
+    let input = preinput + code;
     try
         let raw = parse input
         printfn $"Result: %A{raw}"

@@ -28,6 +28,7 @@ type token =
   | COMMA
   | SEMICOLON
   | COLON
+  | NEWLINE
   | IF
   | ELSE
   | WHILE
@@ -64,6 +65,7 @@ type tokenId =
     | TOKEN_COMMA
     | TOKEN_SEMICOLON
     | TOKEN_COLON
+    | TOKEN_NEWLINE
     | TOKEN_IF
     | TOKEN_ELSE
     | TOKEN_WHILE
