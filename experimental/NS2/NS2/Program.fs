@@ -20,20 +20,19 @@ let main argv =
     //run_tests()
     
     let preinput = "# = std.size;$ = io.stdin.line;" //% = str.split;
+    //let input = preinput + "b={$1}; x=1001; while (x != 1) { if (x%2==0) {x=x/2} else {x=x*3+1} };";
     let code =
         """
-            b={$1}
-            x=1001
-            while (x != 1) {
-                if (x%2==0) {
-                    x=x/2
-                } else {
-                    x=x*3+1
-                }
+            x=13 ;
+            while (x != 1)   {
+            
+                if (x%2==0) x = x/2 else x = x*3+1;
+                print: x;
+            
             }
-        """.Trim()
+        """
     
-    let input = preinput + code;
+    let input = preinput + code.Trim();
     try
         let raw = parse input
         printfn $"Result: %A{raw}"

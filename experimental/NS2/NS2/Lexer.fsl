@@ -16,7 +16,7 @@ let compound_assign = ['+' '-' '*' '/' '%' '&' '|' '^']+ '='
 
 rule tokenize = parse
 | whitespace        { tokenize lexbuf }
-| newline           { NEWLINE }
+| newline           { tokenize lexbuf }
 | "if"              { IF }
 | "else"            { ELSE }
 | "while"           { WHILE }

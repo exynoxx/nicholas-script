@@ -117,7 +117,7 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         | IsStdFunction -> eval_std_function (id, callArgs) |> Option.get
         | _ -> failwith $"Function {id} not found"
 
-    | If (c, b, Some e) ->
+    | If (c, b, Some e) -> //TODO not work since phi node missing
         let condition =
             match eval_internal scope c with
             | Bool b -> b

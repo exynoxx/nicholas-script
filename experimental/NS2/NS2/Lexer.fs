@@ -141,7 +141,7 @@ and tokenize  lexbuf =
           )
   | 1 -> ( 
 # 19 "Lexer.fsl"
-                                     NEWLINE 
+                                     tokenize lexbuf 
 # 145 "Lexer.fs"
           )
   | 2 -> ( 
