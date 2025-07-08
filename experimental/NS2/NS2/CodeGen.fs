@@ -43,10 +43,10 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
     | String s ->
         let r = nextReg state
         let const_name = nextSpecialLabel state "@str"
-        let line = $"{const_name} = private unnamed_addr constant [{s.Length} x i8] c\"{s}\00\", align 1"
+        let line = $"{const_name} = private unnamed_addr constant [{s.Length+1} x i8] c\"{s}\00\", align 1"
         
         state.StringConstants <- line::state.StringConstants
-        emit state $"{r} = getelementptr [{s.Length} x i8], [{s.Length} x i8]* {const_name}, i32 0, i32 0"
+        emit state $"{r} = getelementptr [{s.Length+1} x i8], [{s.Length+1} x i8]* {const_name}, i32 0, i32 0"
         r
 
     | Id name ->
@@ -128,7 +128,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
 
 let codegen (program: AST) : string =
     let state =
-        { Reg = 0
+        { Reg = 1
           Label = 0
           Vars = Dictionary()
           Code = []

@@ -2,6 +2,7 @@
 open NS2
 open NS2.CodeGen
 open NS2.Interpreter
+open NS2.PostLLVMGen
 open NS2.SSA
 open NS2.TypeChecker
 
@@ -40,6 +41,8 @@ let main argv =
         //eval ast
         let llvm = codegen ast
         printfn $"LLVM: %A{llvm}"
+        
+        call_llvm llvm
     with ex ->
         printfn $"ERROR: %s{ex.Message}"
     0

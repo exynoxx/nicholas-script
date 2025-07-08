@@ -27,9 +27,9 @@
 		<Compile Include="TypeChecker.fs" />
         <Compile Include="Interpreter.fs" />
         <Compile Include="CodeGen.fs" />
+        <Compile Include="PostLLVMGen.fs" />
         
         <Content Include="roadmap.txt" />
-        
         
         <Compile Include="UnitTests.fs" />
         <Compile Include="Program.fs"/>
