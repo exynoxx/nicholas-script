@@ -23,9 +23,10 @@ let main argv =
     //let input = preinput + "b={$1}; x=1001; while (x != 1) { if (x%2==0) {x=x/2} else {x=x*3+1} };";
     let code =
         """
-            a = 100;
+            a = "str";
             b = 1;
-            if(a>=0) b = a else b = 0;
+            res = "";
+            if(b>=0) {res = b;b+=1} else res = a;
         """
     
     let input = preinput + code.Trim();

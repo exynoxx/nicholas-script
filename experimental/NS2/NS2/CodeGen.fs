@@ -7,7 +7,8 @@ type CodegenState =
     { mutable Reg: int
       mutable Label: int
       Vars: Dictionary<string, string>
-      mutable Code: string list }
+      mutable Code: string list
+      mutable StringConstants: string list }
 
 let nextReg (st: CodegenState) =
     let r = st.Reg
@@ -37,6 +38,15 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
     | Int n ->
         let r = nextReg state
         emit state $"{r} = add i32 0, {n}"
+        r
+        
+    | String s ->
+        let r = nextReg state
+        let const_name = nextSpecialLabel state "@str"
+        let line = $"{const_name} = private unnamed_addr constant [{s.Length} x i8] c\"{s}\00\", align 1"
+        
+        state.StringConstants <- line::state.StringConstants
+        emit state $"{r} = getelementptr [{s.Length} x i8], [{s.Length} x i8]* {const_name}, i32 0, i32 0"
         r
 
     | Id name ->
@@ -121,11 +131,14 @@ let codegen (program: AST) : string =
         { Reg = 0
           Label = 0
           Vars = Dictionary()
-          Code = [] }
+          Code = []
+          StringConstants = []
+          }
 
+    
     emit state "define i32 @main() {"
     let result_reg = codegen_expr state program
     emit state $"ret i32 {result_reg}"
     emit state "}"
 
-    String.concat "\n" state.Code
+    String.concat "\n" state.StringConstants + "\n" + String.concat "\n" state.Code
