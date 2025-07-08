@@ -19,6 +19,10 @@ let nextLabel (st: CodegenState) =
     st.Label <- st.Label + 1
     $"label{l}"
 
+let nextSpecialLabel (st: CodegenState) (label:string)=
+    let l = st.Label
+    st.Label <- st.Label + 1
+    $"{label}{l}"
 let emit (st: CodegenState) (line: string) =
     st.Code <- st.Code @ [line]
 
@@ -78,9 +82,9 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         let zero = nextReg state
         emit state $"{zero} = icmp ne i32 {cond_reg}, 0"
 
-        let thenLabel = nextLabel state
-        let elseLabel = nextLabel state
-        let endLabel = nextLabel state
+        let thenLabel = nextSpecialLabel state "then"
+        let elseLabel = nextSpecialLabel state "else"
+        let endLabel = nextSpecialLabel state "endif"
 
         emit state $"br i1 {zero}, label %%{thenLabel}, label %%{elseLabel}"
         emit state $"{thenLabel}:"
