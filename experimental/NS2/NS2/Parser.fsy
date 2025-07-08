@@ -68,8 +68,8 @@ expr:
 	| ID								{ Id $1 }
 	
 op:
-    | HASH      { "#"  }
-    | NOT       { "!"  }
+    | HASH                              { "#"  }
+    | NOT                               { "!"  }
 
 while_expr:
     WHILE LPAREN expr RPAREN expr { While ($3,$5) }

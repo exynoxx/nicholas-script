@@ -1,4 +1,6 @@
 ﻿open FSharp.Text
+open NS2
+open NS2.CodeGen
 open NS2.Interpreter
 open NS2.SSA
 open NS2.TypeChecker
@@ -17,17 +19,11 @@ let parse (input:string) =
 let main argv =
     //run_tests()
     
-    let preinput = "# = std.size;$ = io.stdin.line;" //% = str.split;
+    let preinput = ""//"# = std.size;$ = io.stdin.line;" //% = str.split;
     //let input = preinput + "b={$1}; x=1001; while (x != 1) { if (x%2==0) {x=x/2} else {x=x*3+1} };";
     let code =
         """
-            x=13 ;
-            while (x != 1)   {
-            
-                if (x%2==0) x = x/2 else x = x*3+1;
-                print: x;
-            
-            }
+            a=0;if(a>0) a = 1000 else a = 1;
         """
     
     let input = preinput + code.Trim();
@@ -38,8 +34,9 @@ let main argv =
         printfn $"SSA: %A{ssa}"
         let ast = typecheck ssa 
         printfn $"typechecked: %A{ast}"
-        eval ast
-    
+        //eval ast
+        let llvm = codegen ast
+        printfn $"LLVM: %A{llvm}"
     with ex ->
         printfn $"ERROR: %s{ex.Message}"
     0

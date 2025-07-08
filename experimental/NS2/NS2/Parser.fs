@@ -737,7 +737,7 @@ let _fsyacc_reductions = lazy [|
                 (
                    (
 # 71 "Parser.fsy"
-                                       "#"  
+                                                               "#"  
                    )
 # 71 "Parser.fsy"
                  : 'gentype_op));
@@ -747,7 +747,7 @@ let _fsyacc_reductions = lazy [|
                 (
                    (
 # 72 "Parser.fsy"
-                                       "!"  
+                                                               "!"  
                    )
 # 72 "Parser.fsy"
                  : 'gentype_op));

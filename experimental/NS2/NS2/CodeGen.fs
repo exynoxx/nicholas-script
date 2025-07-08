@@ -24,6 +24,12 @@ let emit (st: CodegenState) (line: string) =
 
 let rec codegen_expr (state: CodegenState) (ast: AST) : string =
     match ast with
+    | Root block ->
+        let mutable last = ""
+        for e in block do
+            last <- codegen_expr state e
+        last
+        
     | Int n ->
         let r = nextReg state
         emit state $"{r} = add i32 0, {n}"
