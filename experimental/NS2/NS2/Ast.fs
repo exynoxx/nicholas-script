@@ -8,7 +8,7 @@ type AST =
     | Bool of bool
     | Id of string
     | Binop of AST * string * AST    
-    | Unaryop of string * AST    
+    | Unop of string * AST    
     | Index of AST * AST    
     | Array of AST list
     | Call of string * AST list

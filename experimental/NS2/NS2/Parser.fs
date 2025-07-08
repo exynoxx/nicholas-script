@@ -605,7 +605,7 @@ let _fsyacc_reductions = lazy [|
                 (
                    (
 # 57 "Parser.fsy"
-                                                            Unaryop (_1, _2)
+                                                            Unop (_1, _2)
                    )
 # 57 "Parser.fsy"
                  : 'gentype_expr));

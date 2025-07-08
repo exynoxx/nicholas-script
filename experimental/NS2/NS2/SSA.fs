@@ -59,7 +59,7 @@ let ssa_transform (tree: AST) =
         | If (c, b, Some e) -> If(transform scope c, transform scope b, Some (transform scope e))
         | If (c, b, None) -> If(transform scope c, transform scope b, None)
         | While (c, b) -> While(transform scope c, transform scope b)
-        | Unaryop (op, r) -> Unaryop(op, transform scope r)
+        | Unop (op, r) -> Unop(op, transform scope r)
         | Array elements -> elements |> List.map (transform scope) |> Array 
         | Pipe elements -> elements |> List.map (transform scope) |> Pipe
         | Call (id, args) -> Call(scope.GetId id, args |> List.map (transform scope))

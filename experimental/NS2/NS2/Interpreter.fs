@@ -36,7 +36,7 @@ let rec eval_internal (scope: Scope) (ast: AST) =
         scope.SetVar(id, body)
         Nop
 
-    | Unaryop (op, right) ->
+    | Unop (op, right) ->
         failwith "Unary not implemented"
         
     | Binop (left, op, right) ->
