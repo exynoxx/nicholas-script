@@ -47,6 +47,14 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         else
             failwith $"Undefined variable: {name}"
 
+    | Assign (Id name, Int rhs) ->
+        let ptr = $"%%{name}"
+        if not (state.Vars.ContainsKey(name)) then
+            emit state $"{ptr} = alloca i32"
+            state.Vars.[name] <- ptr
+        emit state $"store i32 {rhs}, i32* {ptr}"
+        ""
+        
     | Assign (Id name, rhs) ->
         let rhs_reg = codegen_expr state rhs
         let ptr = $"%%{name}"
