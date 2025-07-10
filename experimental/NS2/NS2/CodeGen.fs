@@ -141,4 +141,4 @@ let codegen (program: AST) : string =
     emit state $"ret i32 {result_reg}"
     emit state "}"
 
-    String.concat "\n" state.StringConstants + "\n" + String.concat "\n" state.Code
+    "\n############\n" + (String.concat "\n" (List.rev state.StringConstants)) + "\n" + String.concat "\n" state.Code

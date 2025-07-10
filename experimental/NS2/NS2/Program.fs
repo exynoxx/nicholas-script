@@ -25,10 +25,15 @@ let main argv =
     let code =
         """
             a = "str";
-            b = 1;
-            res = "";
-            if(b>=0) {res = b;b+=1} else res = a;
+            b = "rr";
         """
+        
+    (*"""
+            a = "str";
+            b = 1;
+            res = "rr";
+            if(b>=0) {res = b;b+=1} else res = a;
+        """*)
     
     let input = preinput + code.Trim();
     try
