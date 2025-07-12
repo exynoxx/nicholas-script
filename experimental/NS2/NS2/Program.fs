@@ -45,7 +45,7 @@ let main argv =
         printfn $"typechecked: %A{ast}"
         //eval ast
         let llvm = codegen ast
-        printfn $"LLVM: %A{llvm}"
+        printfn $"LLVM: \n############## \n%s{llvm}"
         
         call_llvm llvm
     with ex ->

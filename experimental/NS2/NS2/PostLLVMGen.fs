@@ -6,7 +6,7 @@ open System.IO
 let call_llvm(llvm:string) =
     File.WriteAllText("program.ll", llvm)
 
-    let psi = new ProcessStartInfo("clang.exe", "-S program.ll -o program.s")
+    let psi = new ProcessStartInfo("clang.exe", "program.ll")
     psi.RedirectStandardOutput <- true
     psi.RedirectStandardError <- true
     psi.UseShellExecute <- false
