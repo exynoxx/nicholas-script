@@ -23,14 +23,13 @@ let TypedToTuple =
 let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
     match tree with
     | Root body ->
-        let root = body |> List.map (typecheck_internal scope) |> List.map GetNode
+        let root = body |> List.map (typecheck_internal scope)
         Typed (Root root, AnyType)
         
     | Block body ->
         let typed = body |> List.map (typecheck_internal scope)
         let last_typ = List.last typed |> GetType
-        let elements = typed |> List.map GetNode
-        Typed (Block elements, last_typ)
+        Typed (Block typed, last_typ)
         
     | Int n -> Typed (tree, IntType)
     | String x -> Typed (tree, StringType)
@@ -78,38 +77,36 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
         let (b,t) = typecheck_internal scope body |> TypedToTuple
         scope.SetVar(id, b)
         scope.SetType(id, t)
-        Typed (Assign (Id id, b), VoidType)
+        Typed (Assign (Id id, Typed (b,t)), VoidType)
 
     | Unop (op, right) ->
         let (rr,t) = typecheck_internal scope right |> TypedToTuple
-        Typed (Unop (op, rr), t)
+        Typed (Unop (op, Typed (rr,t)), t)
         
     | Binop (left, op, right) ->
-        let l,lt = typecheck_internal scope left |> TypedToTuple
-        let r,rt = typecheck_internal scope right |> TypedToTuple
+        let ll = typecheck_internal scope left
+        let rr = typecheck_internal scope right
         //TODO op is std or custom that exists
-        Typed (Binop (l, op, r), lt) //TODO
+        Typed (Binop (ll, op, rr), GetType ll)
 
     //TODO int array, any array
     | Array elements ->
-        let typed = elements |> List.map (typecheck_internal scope) |> List.map GetNode
+        let typed = elements |> List.map (typecheck_internal scope)
         Typed (Array typed, ArrayType)
         
     //| Pipe elements -> elements |> List.map (typecheck_internal scope) |> TypedPipe
-    
     | Index (arr, idx) ->
-        let arr,t = typecheck_internal scope arr |> TypedToTuple
-        let i,_ = typecheck_internal scope idx |> TypedToTuple
-        Typed (Index (arr, i), t)
+        let tarr = typecheck_internal scope arr
+        let i = typecheck_internal scope idx |> GetNode
+        Typed (Index (tarr, i), GetType tarr)
 
-    //| Func fbody -> TypedFunc (typecheck_internal scope fbody)
     (*| FuncCalled (args, fbody) ->
         let targs = args |> List.map (typecheck_internal scope) |> List.map fst
         let tbody = typecheck_internal scope fbody
         FuncCalled (targs, tbody)*)
             
     | Call (id, args) ->
-        let targs = args |> List.map (typecheck_internal scope) |> List.map GetNode
+        let targs = args |> List.map (typecheck_internal scope)
 
         let real_name =
             match scope.GetAlias id with
@@ -128,19 +125,20 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
         Typed (Call(id,targs), typ)
         
     | If (c, b, Some e) ->
-        let cc,ct = typecheck_internal scope c |> TypedToTuple
-        let bb,bt = typecheck_internal scope b |> TypedToTuple
-        let ee,et = typecheck_internal scope e |> TypedToTuple
+        let cc = typecheck_internal scope c
+        let bb = typecheck_internal scope b
+        let ee = typecheck_internal scope e
+        //TODO compute final type
         Typed (If(cc, bb, Some ee), AnyType)
         
     | If (c, b, None) ->
-        let (cc,ct) = typecheck_internal scope c |> TypedToTuple
-        let bb,bt = typecheck_internal scope b |> TypedToTuple
+        let cc = typecheck_internal scope c
+        let bb = typecheck_internal scope b
         Typed (If(cc, bb, None), AnyType)
         
     | While (c, b) ->
-        let cc,ct = typecheck_internal scope c |> TypedToTuple
-        let bb,bt = typecheck_internal scope b |> TypedToTuple
+        let cc = typecheck_internal scope c
+        let bb = typecheck_internal scope b
         
         Typed (While(cc,bb), VoidType)
     //| Map ( Array a , Func f) -> failwith "not implemented" // a |> List.map (fun x -> FuncCalled ([x], Func f)) |> TypedArray
