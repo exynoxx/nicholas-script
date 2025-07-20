@@ -1,5 +1,7 @@
 ﻿module NS2.Ast
 
+open NS2.Type
+
 type AST =
     | Root of AST list
     | Block of AST list
@@ -19,5 +21,6 @@ type AST =
     | Pipe of AST list
     | If of AST*AST*AST option
     | While of AST*AST
+    | Typed of AST * Type
     | Nop
     
