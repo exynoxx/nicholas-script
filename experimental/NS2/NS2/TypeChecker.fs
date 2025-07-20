@@ -46,7 +46,7 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST*Type =
         let (b,t) = typecheck_internal scope (Block body)
         scope.SetFunc(id, b)
         scope.SetType(id, FunctionType t )
-        (NamedFunc (id, b), VoidType)
+        (Func (id, b), VoidType)
        
     | Assign (Id id, Id other) ->
         

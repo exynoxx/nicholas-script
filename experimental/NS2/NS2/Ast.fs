@@ -13,7 +13,7 @@ type AST =
     | Array of AST list
     | Call of string * AST list
     | FuncCalled of AST list * AST
-    | NamedFunc of string * AST
+    | Func of string * AST
     | Map of AST * AST
     | Assign of AST * AST
     | Pipe of AST list
