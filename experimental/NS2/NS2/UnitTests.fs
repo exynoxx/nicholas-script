@@ -12,7 +12,7 @@ let parse (input:string) =
 
 let run (input:string) =
     let preinput = "# = std.size;$ = io.stdin.line;" //% = str.split;
-    parse (preinput+input) |> ssa_transform |> typecheck |> eval
+    parse (preinput+input) |> ssa_transform |> typecheck (*|> eval*)
   
 (*
 let rec equal a b =

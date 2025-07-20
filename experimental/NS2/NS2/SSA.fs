@@ -49,7 +49,6 @@ let ssa_transform (tree: AST) =
             let trhs = transform scope rhs
             let newName = scope.NewId id
             Assign(Id newName, trhs)
-        | Func fbody -> Func (transform scope fbody)
         | FuncCalled (args, body) ->
             let targs = args |> List.map (transform scope)
             let tbody = (transform scope body)
@@ -64,10 +63,10 @@ let ssa_transform (tree: AST) =
         | Pipe elements -> elements |> List.map (transform scope) |> Pipe
         | Call (id, args) -> Call(scope.GetId id, args |> List.map (transform scope))
         | Index (arr, idx) -> Index (transform scope arr, transform scope idx)
-        | Map (Array a, Func f) ->
+        (*| Map (Array a, Func f) ->
             let na = a |> List.map (transform scope) |> Array
             let nf = transform scope (Func f)
-            Map (na,nf)
+            Map (na,nf)*)
         | Int _ | String _ | Nop -> ast
         | x -> failwith $"SSA unknown %A{x}"
 

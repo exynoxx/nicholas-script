@@ -3,6 +3,7 @@
 open System.Collections.Generic
 open NS2.Ast
 open NS2.StdLib
+open NS2.Type
 
 
 type Scope (parent: Scope option) =
@@ -10,6 +11,7 @@ type Scope (parent: Scope option) =
     let vars = Dictionary<string, AST>()
     let funcs = Dictionary<string, AST>()
     let alias = Dictionary<string, string>()
+    let typ = Dictionary<string, Type>()
 
     member this.GetVariable(name: string) : AST option =
         match vars.ContainsKey name with
@@ -35,9 +37,18 @@ type Scope (parent: Scope option) =
             | Some p -> p.GetAlias(name)
             | None -> None
     
+    member this.GetType(name: string) : Type option =
+        match typ.ContainsKey name with
+        | true -> Some typ[name]
+        | _ ->
+            match parent with
+            | Some p -> p.GetType(name)
+            | None -> None
+    
     member this.SetVar(name: string, value: AST)= vars[name] <- value
     member this.SetFunc(name: string, value: AST)= funcs[name] <- value
     member this.SetAlias(name: string, value: string)= alias[name] <- value
+    member this.SetType(name: string, t: Type)= typ[name] <- t
     member this.Push() : Scope = Scope(Some this)
     static member Empty = Scope(None)
 

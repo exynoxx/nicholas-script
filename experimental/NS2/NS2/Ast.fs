@@ -12,7 +12,6 @@ type AST =
     | Index of AST * AST    
     | Array of AST list
     | Call of string * AST list
-    | Func of AST
     | FuncCalled of AST list * AST
     | NamedFunc of string * AST
     | Map of AST * AST

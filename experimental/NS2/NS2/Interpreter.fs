@@ -7,6 +7,7 @@ open NS2.StdLib
 
 
 
+(*
 let rec eval_internal (scope: Scope) (ast: AST) =
     match ast with
     | Int n -> Int n
@@ -192,3 +193,4 @@ let rec eval =
         
         printfn "%s" (toString scope result)
     | _ -> failwith "Eval of non root node"
+    *)
