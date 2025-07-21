@@ -12,7 +12,7 @@ type Scope (parent: Scope option) =
     let funcs = Dictionary<string, AST>()
     let alias = Dictionary<string, string>()
     let typ = Dictionary<string, Type>()
-
+    
     member this.GetVariable(name: string) : AST option =
         match vars.ContainsKey name with
         | true -> Some vars[name]
@@ -20,6 +20,8 @@ type Scope (parent: Scope option) =
             match parent with
             | Some p -> p.GetVariable(name)
             | None -> None
+            
+    member this.GetScopeAssign () = vars.Keys |> Seq.map (fun k -> KeyValuePair(k,typ[k])) |> Dictionary
             
     member this.GetFunction(name: string) : AST option =
         match funcs.ContainsKey name with

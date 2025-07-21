@@ -3,22 +3,19 @@
 open System.Collections.Generic
 open NS2.Ast
 
-type SSA_Scope (parent: SSA_Scope option) =
+type SSA_Scope () =
     let counter = Dictionary<string, int>()
     
     member this.Version (id:string) =
         match counter.TryGetValue(id) with
             | true, v -> v
-            | false, _ ->
-                match parent with
-                | Some p -> p.Version id
-                | None -> 0
+            | false, _ -> 0
                 
     member this.GetId (id:string) : string =
         match this.Version id with
         | 0 -> id
         | 1 -> id
-        | version -> $"{id}_{version}"
+        | version -> $"_ssa_{id}_{version}"
     
     member this.NewId (id:string) : string =
         let current = this.Version id
@@ -27,10 +24,9 @@ type SSA_Scope (parent: SSA_Scope option) =
 
         match current with
         | 0 -> id
-        | _ -> $"{id}_{next}"
-    
-    member this.Spawn() = SSA_Scope(Some this)
-    static member Empty() = SSA_Scope(None)
+        | _ -> $"_ssa_{id}_{next}"
+
+    static member Empty() = SSA_Scope()
     
 
 let ssa_transform (tree: AST) =
@@ -39,11 +35,7 @@ let ssa_transform (tree: AST) =
         | Root body ->
             let scope = SSA_Scope.Empty()
             body |> List.map (transform scope) |> Root
-        
-        | Block b ->
-            let scope = scope.Spawn()
-            b |> List.map (transform scope) |> Block
-        
+        | Block b -> b |> List.map (transform scope) |> Block
         | Id name -> Id (scope.GetId name)
         | Assign (Id id, rhs) ->
             let trhs = transform scope rhs

@@ -1,5 +1,7 @@
 ﻿module NS2.TypeChecker
 
+open System.Collections.Generic
+open System.Reflection.Metadata
 open NS2.Ast
 open NS2.Scope
 open NS2.Type
@@ -19,6 +21,13 @@ let TypedToTuple =
     | Typed(a,b) -> (a,b)
     | _ -> failwith "GetNode not called with Typed"
 
+let dictionary_diff (a:Dictionary<string,Type>) (b:Dictionary<string,Type>) =
+    let keys1 = a.Keys |> Set.ofSeq
+    let keys2 = b.Keys |> Set.ofSeq
+    
+    let diff = Set.union keys1 keys2 - Set.intersect keys1 keys2
+    diff
+
 
 let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
     match tree with
@@ -26,7 +35,7 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
         let root = body |> List.map (typecheck_internal scope)
         Typed (Root root, AnyType)
         
-    | Block body ->
+    | Block body -> 
         let typed = body |> List.map (typecheck_internal scope)
         let last_typ = List.last typed |> GetType
         Typed (Block typed, last_typ)
@@ -74,6 +83,7 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
         | Variable value ->
             scope.SetVar(id, value)
             let typ = scope.GetType other |> Option.get
+            scope.SetType(id, typ)
             Typed (Assign (Id id, Typed (Id other, typ)), VoidType)
         | _ -> failwith $"Variable {other} does not exist"
         
@@ -139,6 +149,55 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
         Typed (Call(id,targs), typ)
         
     | If (c, b, Some e) ->
+        
+        (*let to_block =
+            function
+            | Block body -> Block body
+            | x -> Block [x]
+        
+        let process_block =
+            function
+            | Block block -> 
+                let scope = scope.Push()
+                let typed = block |> List.map (typecheck_internal scope)
+                let last_typ = List.last typed |> GetType
+                let assigns = scope.GetScopeAssign ()
+                (typed, last_typ, assigns)
+            | _ -> failwith "Not possible"
+            
+        let (then_elements, then_typ, then_assigns) = process_block (to_block b)
+        let (else_elements, else_typ, else_assigns) = process_block (to_block e)
+        
+        let thenset = then_assigns.Keys |> Set.ofSeq
+        let elseset = else_assigns.Keys |> Set.ofSeq
+        
+        let phis = Set<>()
+        let vars =
+            Set.union thenset elseset
+            |> Set.filter (fun k -> k.StartsWith "_ssa_")
+            |> Set.map (fun k -> k.Substring(5).Split("_")[0])
+        
+        for var in vars do
+            if not (thenset.Contains var && elseset.Contains var) then
+                //only one branch contains
+                //default value
+            else
+                let then_ty = then_assigns[var]
+                let else_ty = else_assigns[var]
+                if then_ty <> else_ty then
+                    StringType
+                else
+                    then_ty
+        
+        
+        //insert phi nodes
+        
+        let keys = Set.union () (else_assigns.Keys |> Set.ofSeq)
+        
+        
+        process_block (to_block e)
+        *)
+        
         let cc = typecheck_internal scope c
         let bb = typecheck_internal scope b
         let ee = typecheck_internal scope e
