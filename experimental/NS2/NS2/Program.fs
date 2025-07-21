@@ -3,6 +3,7 @@ open NS2
 open NS2.CodeGen
 open NS2.Interpreter
 open NS2.PostLLVMGen
+open NS2.Print
 open NS2.SSA
 open NS2.TypeChecker
 
@@ -37,13 +38,13 @@ let main argv =
     let input = preinput + code.Trim();
     try
         let raw = parse input
-        printfn $"Result: %A{raw}"
+        printfn "Parse: %s" (printAst 4 raw)
         
-        let ast = typecheck raw 
-        printfn $"typechecked: %A{ast}"
-        
+        let ast = typecheck raw
+        printfn "Typechecked: %s" (printAst 4 ast)
+
         let ssa = ssa_transform ast
-        printfn $"SSA: %A{ssa}"
+        printfn "SSA: %s" (printAst 4 ssa)
         
         //eval ast
         let llvm = codegen ssa
