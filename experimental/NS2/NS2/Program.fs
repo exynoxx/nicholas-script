@@ -24,8 +24,9 @@ let main argv =
     //let input = preinput + "b={$1}; x=1001; while (x != 1) { if (x%2==0) {x=x/2} else {x=x*3+1} };";
     let code =
         """
+            x = 5;
             a = "str";
-            b = "rr";
+            b = a;
         """
         
     (*"""

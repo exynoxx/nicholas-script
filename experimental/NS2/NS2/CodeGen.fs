@@ -2,6 +2,7 @@
 
 open NS2.Ast
 open System.Collections.Generic
+open NS2.Type
 
 type CodegenState =
     { mutable Reg: int
@@ -28,51 +29,44 @@ let emit (st: CodegenState) (line: string) =
     st.Code <- st.Code @ [line]
 
 let rec codegen_expr (state: CodegenState) (ast: AST) : string =
-    match ast with
+    
+    let node, t =
+        match ast with
+        | Typed (x,t) -> (x,t)
+        | x -> (x,AnyType)
+
+    match node with
     | Root block ->
         let mutable last = ""
         for e in block do
             last <- codegen_expr state e
         last
         
-    | Int n ->
-        let r = nextReg state
-        emit state $"{r} = add i32 0, {n}"
-        r
-        
+    | Int n -> n.ToString()
     | String s ->
         let r = nextReg state
         let const_name = nextSpecialLabel state "@str"
         let line = $"{const_name} = private unnamed_addr constant [{s.Length+1} x i8] c\"{s}\00\", align 1"
         
         state.StringConstants <- line::state.StringConstants
-        emit state $"{r} = getelementptr [{s.Length+1} x i8], [{s.Length+1} x i8]* {const_name}, i32 0, i32 0"
-        r
+        $"getelementptr [{s.Length+1} x i8], [{s.Length+1} x i8]* {const_name}, i32 0, i32 0"
 
     | Id name ->
-        if state.Vars.ContainsKey(name) then
-            let reg = nextReg state
-            emit state $"{reg} = load i32, i32* {state.Vars.[name]}"
-            reg
-        else
-            failwith $"Undefined variable: {name}"
+       let typ =
+            match t with
+            | StringType -> "i8*"
+            | IntType -> "i32"
+            | _ -> failwith $"CodeGen: type not supported {t}"
+       $"{typ} %%{name}"
 
-    | Assign (Id name, Int rhs) ->
-        let ptr = $"%%{name}"
-        if not (state.Vars.ContainsKey(name)) then
-            emit state $"{ptr} = alloca i32"
-            state.Vars.[name] <- ptr
-        emit state $"store i32 {rhs}, i32* {ptr}"
+    | Assign (Id name, Typed(Int rhs,_)) ->
+        emit state $"%%{name} = add i32 0, {rhs}"
         ""
         
     | Assign (Id name, rhs) ->
         let rhs_reg = codegen_expr state rhs
-        let ptr = $"%%{name}"
-        if not (state.Vars.ContainsKey(name)) then
-            emit state $"{ptr} = alloca i32"
-            state.Vars.[name] <- ptr
-        emit state $"store i32 {rhs_reg}, i32* {ptr}"
-        rhs_reg
+        emit state $"%%{name} = {rhs_reg}"
+        ""
 
     | Binop (left, op, right) ->
         let l = codegen_expr state left

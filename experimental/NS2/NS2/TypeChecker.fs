@@ -64,14 +64,18 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
         Typed (Func (id, b), VoidType)
        
     | Assign (Id id, Id other) ->
-        
         match (scope, other) with
-        | IsStdFunction -> ()
-        | Function _ -> scope.SetAlias(id, other)
-        | Variable value -> scope.SetVar(id, value)
+        | IsStdFunction ->
+            scope.SetAlias(id, other)
+            Nop
+        | Function _ ->
+            scope.SetAlias(id, other)
+            Nop
+        | Variable value ->
+            scope.SetVar(id, value)
+            let typ = scope.GetType other |> Option.get
+            Typed (Assign (Id id, Typed (Id other, typ)), VoidType)
         | _ -> failwith $"Variable {other} does not exist"
-        
-        Typed (tree, VoidType)
         
     | Assign (Id id, body) ->
         let (b,t) = typecheck_internal scope body |> TypedToTuple
