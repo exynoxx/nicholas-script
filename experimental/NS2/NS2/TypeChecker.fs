@@ -90,8 +90,18 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
     | Binop (left, op, right) ->
         let ll = typecheck_internal scope left
         let rr = typecheck_internal scope right
-        //TODO op is std or custom that exists
-        Typed (Binop (ll, op, rr), GetType ll)
+        
+        let typ =
+            match op with
+            | "==" -> BoolType
+            | "!=" -> BoolType
+            | "<" -> BoolType
+            | "<=" -> BoolType
+            | ">" -> BoolType
+            | ">=" -> BoolType
+            | _ -> GetType ll
+        
+        Typed (Binop (ll, op, rr), typ)
 
     //TODO int array, any array
     | Array elements ->
