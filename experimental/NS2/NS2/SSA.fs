@@ -55,6 +55,7 @@ let ssa_transform (tree: AST) =
         | Pipe elements -> elements |> List.map (transform scope) |> Pipe
         | Call (id, args) -> Call(scope.GetId id, args |> List.map (transform scope))
         | Index (arr, idx) -> Index (transform scope arr, transform scope idx)
+        | Typed (x, t) -> Typed (transform scope x, t)
         (*| Map (Array a, Func f) ->
             let na = a |> List.map (transform scope) |> Array
             let nf = transform scope (Func f)

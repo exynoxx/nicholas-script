@@ -137,16 +137,19 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
             | Some alias -> alias
             | None -> id
             
-        let typ =
-            match scope.GetType real_name with
-            | Some (FunctionType t) -> t
-            | _ -> failwith $"No type known for {id}"
+        
         
         match (scope, id) with
-        | IsStdFunction -> ()
-        | Function _ -> ()
+        | IsStdFunction ->
+            Typed (Call(id,targs), VoidType) //TODO hack
+        | Function _ ->
+            let typ =
+                match scope.GetType real_name with
+                | Some (FunctionType t) -> t
+                | _ -> failwith $"No type known for {id}"
+            Typed (Call(id,targs), typ)
         | _ -> failwith $"Function {id} not found"
-        Typed (Call(id,targs), typ)
+        
         
     | If (c, b, Some e) ->
         

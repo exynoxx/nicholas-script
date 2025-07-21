@@ -24,6 +24,7 @@ let main argv =
     //let input = preinput + "b={$1}; x=1001; while (x != 1) { if (x%2==0) {x=x/2} else {x=x*3+1} };";
     let code =
         """
+                b = 0;
                 res = "";
                 if(b>=0) {
                     res = "high";
@@ -37,12 +38,15 @@ let main argv =
     try
         let raw = parse input
         printfn $"Result: %A{raw}"
-        let ssa = ssa_transform raw
-        printfn $"SSA: %A{ssa}"
-        let ast = typecheck ssa 
+        
+        let ast = typecheck raw 
         printfn $"typechecked: %A{ast}"
+        
+        let ssa = ssa_transform ast
+        printfn $"SSA: %A{ssa}"
+        
         //eval ast
-        let llvm = codegen ast
+        let llvm = codegen ssa
         printfn $"LLVM: \n############## \n%s{llvm}"
         
         call_llvm llvm
