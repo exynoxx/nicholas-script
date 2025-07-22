@@ -28,7 +28,7 @@ let main argv =
                 b = 0;
                 res = "";
                 if(b>=0) {
-                    res = "high";
+                    res = 1;
                 } else
                     res = 0;
                     

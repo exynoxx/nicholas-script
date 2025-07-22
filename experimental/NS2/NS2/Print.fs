@@ -64,5 +64,15 @@ let rec printAst (indentSize: int) (ast: AST) =
             indent + $"Typed ({typ})\n" +
             print (level + 1) expr
         | Nop -> indent + "Nop\n"
+        | IfPhi(cond, thenBranch, elseOpt, phis) ->
+            indent + "IfPhi\n" +
+            print (level + 1) cond +
+            print (level + 1) thenBranch +
+            (match elseOpt with
+             | Some e -> print (level + 1) e
+             | None -> indent + String.replicate indentSize " " + "Else: None\n") +
+            printList "Phis:" phis
+        | Phi(s, s1, s2) -> indent + $"Phi({s},{s1},{s2})\n"
+        | x -> failwith $"print not recognized: %A{x}"
 
     print 0 ast

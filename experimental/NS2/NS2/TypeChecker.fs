@@ -153,7 +153,7 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
         
     | If (c, b, Some e) ->
         
-        (*let to_block =
+        let to_block =
             function
             | Block body -> Block body
             | x -> Block [x]
@@ -174,38 +174,23 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
         let thenset = then_assigns.Keys |> Set.ofSeq
         let elseset = else_assigns.Keys |> Set.ofSeq
         
-        let phis = Set<>()
-        let vars =
-            Set.union thenset elseset
-            |> Set.filter (fun k -> k.StartsWith "_ssa_")
-            |> Set.map (fun k -> k.Substring(5).Split("_")[0])
-        
-        for var in vars do
+        let phis = HashSet<AST>() 
+        for var in Set.union thenset elseset do
             if not (thenset.Contains var && elseset.Contains var) then
                 //only one branch contains
                 //default value
+                ()
             else
                 let then_ty = then_assigns[var]
                 let else_ty = else_assigns[var]
                 if then_ty <> else_ty then
-                    StringType
+                    failwith $"variable {var} has different types in different branches" //TODO StringType
                 else
-                    then_ty
-        
-        
-        //insert phi nodes
-        
-        let keys = Set.union () (else_assigns.Keys |> Set.ofSeq)
-        
-        
-        process_block (to_block e)
-        *)
+                    phis.Add (Typed(Phi (var,var,var), then_ty)) |> ignore
         
         let cc = typecheck_internal scope c
-        let bb = typecheck_internal scope b
-        let ee = typecheck_internal scope e
         //TODO compute final type
-        Typed (If(cc, bb, Some ee), AnyType)
+        Typed (IfPhi(cc, Typed (Block then_elements,VoidType), Some (Typed (Block else_elements,VoidType)), List.ofSeq phis), VoidType)
         
     | If (c, b, None) ->
         let cc = typecheck_internal scope c

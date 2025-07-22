@@ -15,7 +15,7 @@ type SSA_Scope () =
         match this.Version id with
         | 0 -> id
         | 1 -> id
-        | version -> $"_ssa_{id}_{version}"
+        | version -> $"{id}_{version}"
     
     member this.NewId (id:string) : string =
         let current = this.Version id
@@ -24,7 +24,7 @@ type SSA_Scope () =
 
         match current with
         | 0 -> id
-        | _ -> $"_ssa_{id}_{next}"
+        | _ -> $"{id}_{next}"
 
     static member Empty() = SSA_Scope()
     
@@ -46,9 +46,12 @@ let ssa_transform (tree: AST) =
             let tbody = (transform scope body)
             FuncCalled(targs, tbody)
         | Binop (l, op, r) -> Binop(transform scope l, op, transform scope r)
-        //TODO insert phi node
-        | If (c, b, Some e) -> If(transform scope c, transform scope b, Some (transform scope e))
-        | If (c, b, None) -> If(transform scope c, transform scope b, None)
+        | If (c, b, e) -> If(transform scope c, transform scope b, Option.map (transform scope) e)
+        | IfPhi (c, b, e, phis) -> IfPhi(transform scope c, transform scope b, Option.map (transform scope) e, phis |> List.map (transform scope))
+        | Phi (var, _, _) ->
+            let latest = scope.Version var
+            let newName = scope.NewId var
+            Phi (newName, $"{var}_{latest-1}", $"{var}_{latest}")
         | While (c, b) -> While(transform scope c, transform scope b)
         | Unop (op, r) -> Unop(op, transform scope r)
         | Array elements -> elements |> List.map (transform scope) |> Array 

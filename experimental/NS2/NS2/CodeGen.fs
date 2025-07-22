@@ -28,6 +28,12 @@ let nextSpecialLabel (st: CodegenState) (label:string)=
 let emit (st: CodegenState) (line: string) =
     st.Code <- st.Code @ [line]
 
+let TypeToLLVM =
+    function
+    | StringType -> "i8*"
+    | IntType -> "i32"
+    | _ -> failwith "type unknown"
+
 let rec codegen_expr (state: CodegenState) (ast: AST) : string =
     
     let node, t =
@@ -53,12 +59,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         $"i8* {tmp}"
 
     | Id name ->
-       let typ =
-            match t with
-            | StringType -> "i8*"
-            | IntType -> "i32"
-            | _ -> failwith $"CodeGen: type not supported {t}"
-            
+       let typ = TypeToLLVM t
        let tmp = nextReg state
        emit state $"{tmp} = load {typ}, {typ}* %%{name}, align 4"    
        $"{typ} {tmp}"
@@ -66,11 +67,15 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
     | Assign (Id name, Typed(node,ty)) ->
         
         let rhs = codegen_expr state (Typed(node,ty))
+        let isInt = match node with | Int _ -> true | _ -> false
         
         match ty with
         | StringType ->
             emit state $"%%{name} = alloca i8*, align 8"
             emit state $"store {rhs}, i8** %%{name}, align 8"
+        | IntType when isInt -> 
+            emit state $"%%{name} = alloca i32, align 4"
+            emit state $"store i32 {rhs}, i32* %%{name}, align 4"
         | IntType -> 
             emit state $"%%{name} = alloca i32, align 4"
             emit state $"store {rhs}, i32* %%{name}, align 4"
@@ -104,7 +109,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         emit state $"{result} = {op_instr} {l}, {r}"
         $"{typ} {result}"
 
-    | If (cond, thenBranch, Some elseBranch) ->
+    | IfPhi (cond, thenBranch, Some elseBranch, phis) ->
         let cond_reg = codegen_expr state cond
         let zero = nextReg state
         emit state $"{zero} = icmp ne {cond_reg}, 0"
@@ -123,9 +128,10 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         emit state $"br label %%{endLabel}"
 
         emit state $"{endLabel}:"
-        let phi = nextReg state
-        emit state $"{phi} = phi i32 [{then_val}, %%{thenLabel}], [{else_val}, %%{elseLabel}]"
-        phi
+        for Typed (Phi(var, thenvar, elsevar),t) in phis do
+            let typ = TypeToLLVM t
+            emit state $"%%{var} = phi {typ}* [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
+        ""
 
     | Block exprs ->
         let mutable last = ""
@@ -133,7 +139,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
             last <- codegen_expr state e
         last
 
-    | _ -> failwith $"Unsupported node in codegen: {ast}"
+    | x -> $"Unsupported %s{x.GetType().Name}"
 
 let codegen (program: AST) : string =
     let state =
