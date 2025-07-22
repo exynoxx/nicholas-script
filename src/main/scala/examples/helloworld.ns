@@ -1,5 +1,0 @@
-concat := (x:string, y:string):string => ?$ return format!("{}{}", x, y) ?$;
-
-world := "world";
-println: (concat: "hello" world);
-println: 1024 % 10;
