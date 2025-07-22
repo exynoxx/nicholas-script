@@ -7,6 +7,16 @@ open NS2.Print
 open NS2.SSA
 open NS2.TypeChecker
 
+let StandardLibDeclare =
+    """
+        declare void @_ns_print_int(i32)
+        declare void @_ns_print_string(i8*)
+        declare i8* @_ns_int_to_string(i32)
+        declare i8* @_ns_string_concat(i8*, i32)
+        declare i32 @_ns_pow_int(i32, i32)
+    """
+
+
 let parse (input:string) =
     let cleaned = input.Trim()
     let lexbuf = Lexing.LexBuffer<char>.FromString cleaned
