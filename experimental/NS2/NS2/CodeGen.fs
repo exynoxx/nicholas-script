@@ -32,6 +32,7 @@ let TypeToLLVM =
     function
     | StringType -> "i8*"
     | IntType -> "i32"
+    | BoolType -> "i1"
     | _ -> failwith "type unknown"
 
 let rec codegen_expr (state: CodegenState) (ast: AST) : string =
@@ -82,13 +83,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         ""
 
     | Binop (left, op, right) ->
-        let typ =
-            match t with
-            | StringType -> "i8*"
-            | IntType -> "i32"
-            | BoolType -> "i1"
-            | _ -> failwith $"CodeGen: Binop type not supported {t}"
-            
+        let typ = TypeToLLVM t
         let l = codegen_expr state left
         let r = codegen_expr state right
         let result = nextReg state
