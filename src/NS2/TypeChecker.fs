@@ -50,7 +50,7 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
             | None -> name
             
         match (scope, real_name) with
-        | IsStdFunction -> failwith "Id IsStdFunction" //Call (real_name, [])
+        | StdFunction -> failwith "Id IsStdFunction" //Call (real_name, [])
         | Function _ -> failwith "Id Function" //Call (real_name, [])
         | Variable _ -> Id name
         | _ when name.StartsWith "$" -> Id name
@@ -75,7 +75,7 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
        
     | Assign (Id id, Id other) ->
         match (scope, other) with
-        | IsStdFunction ->
+        | StdFunction _ ->
             scope.SetAlias(id, other)
             Nop
         | Function _ ->
@@ -140,8 +140,7 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
             | None -> id
             
         match (scope, id) with
-        | StdFunction ret_typ ->
-            Typed (Call(translate_std_function id type_of_args, targs), ret_typ)
+        | StdFunction ret_typ -> Typed (Call(translate_std_function id type_of_args, targs), ret_typ)
         | Function _ ->
             let typ =
                 match scope.GetType real_name with
@@ -152,7 +151,6 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
         
         
     | If (c, b, Some e) ->
-        
         let to_block =
             function
             | Block body -> Block body
