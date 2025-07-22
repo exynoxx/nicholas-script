@@ -11,14 +11,15 @@ let reverse input =
 
 let lookup_std_function (name:string) =
     match name with
-    | "std.size" -> true
-    | "str.rev" -> true
-    | "str.trim" -> true
     | "print" -> true
-    | "io.stdin.line" -> true
-    | "io.stdin.all" -> true
     | _ -> false
 
+let translate_std_function (name:string, args: Type list) =
+    match name with
+    | "print" -> "_ns_print_int"
+    | _ -> failwith $"Cannot translate {name}"
+
+(*
 let eval_std_function (name:string, args: AST list) =
     match name with
     | "std.size" ->
@@ -41,3 +42,5 @@ let eval_std_function (name:string, args: AST list) =
     | "io.stdin.line" -> Some (String (stdin.ReadLine()))
     | "io.stdin.all" -> Some (String (stdin.ReadToEnd()))
     | _ -> None
+    *)
+    
