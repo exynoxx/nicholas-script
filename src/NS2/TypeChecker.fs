@@ -29,15 +29,15 @@ let dictionary_diff (a:Dictionary<string,Type>) (b:Dictionary<string,Type>) =
     let diff = Set.union keys1 keys2 - Set.intersect keys1 keys2
     diff
 
-
 let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
     match tree with
     | Root body ->
         let root = body |> List.map (typecheck_internal scope)
         Typed (Root root, AnyType)
         
-    | Block body -> 
-        let typed = body |> List.map (typecheck_internal scope)
+    | Block body ->
+        let block_scope = scope.Push()
+        let typed = body |> List.map (typecheck_internal block_scope)
         let last_typ = List.last typed |> GetType
         Typed (Block typed, last_typ)
         

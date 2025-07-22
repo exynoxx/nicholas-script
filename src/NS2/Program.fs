@@ -36,11 +36,11 @@ let main argv =
     let code =
         """
                 b = 0;
-                res = 0;
+                res = "init";
                 if(b>=0) {
                     res = 1000;
                 } else
-                    res = 1;
+                    res = "nope";
                     
                 print: res;
             """
