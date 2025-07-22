@@ -4,6 +4,7 @@ open System.Collections.Generic
 open System.Reflection.Metadata
 open NS2.Ast
 open NS2.Scope
+open NS2.StdLib
 open NS2.Type
 
 let GetType =
@@ -131,17 +132,16 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
             
     | Call (id, args) ->
         let targs = args |> List.map (typecheck_internal scope)
+        let type_of_args = args |> List.map (typecheck_internal scope) |> List.map GetType
 
         let real_name =
             match scope.GetAlias id with
             | Some alias -> alias
             | None -> id
             
-        
-        
         match (scope, id) with
-        | IsStdFunction ->
-            Typed (Call(id,targs), VoidType) //TODO hack
+        | StdFunction ret_typ ->
+            Typed (Call(translate_std_function id type_of_args, targs), ret_typ)
         | Function _ ->
             let typ =
                 match scope.GetType real_name with

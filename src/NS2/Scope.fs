@@ -54,11 +54,11 @@ type Scope (parent: Scope option) =
     member this.Push() : Scope = Scope(Some this)
     static member Empty = Scope(None)
 
- let (|IsStdFunction|Function|Variable|Unknown|) (scope:Scope, id: string) =
+ let (|StdFunction|Function|Variable|Unknown|) (scope:Scope, id: string) =
     match lookup_std_function id with
-    | true ->
-        IsStdFunction
-    | false ->
+    | Some t ->
+        StdFunction t
+    | None ->
         match scope.GetFunction id with
         | Some f -> Function f
         | None ->

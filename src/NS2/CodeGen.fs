@@ -49,6 +49,12 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
             last <- codegen_expr state e
         last
         
+    | Block exprs ->
+        let mutable last = ""
+        for e in exprs do
+            last <- codegen_expr state e
+        last
+    
     | Int n -> n.ToString()
     | String s ->
         let const_name = nextSpecialLabel state "@str"
@@ -127,13 +133,20 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
             let typ = TypeToLLVM t
             emit state $"%%{var} = phi {typ}* [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
         ""
-
-    | Block exprs ->
-        let mutable last = ""
-        for e in exprs do
-            last <- codegen_expr state e
-        last
-
+    
+    | Call (id, args) ->
+        let targs = args |> List.map (codegen_expr state)
+        let code_args = String.concat ", " targs
+        match t with
+        | VoidType ->
+            emit state $"call void @{id} ({code_args})"
+            ""
+        | _ ->
+            let ret_typ = TypeToLLVM t
+            let tmp = nextReg state
+            emit state $"{tmp} = call {ret_typ} @{id} ({code_args})"
+            tmp
+            
     | x -> $"Unsupported %s{x.GetType().Name}"
 
 let codegen (program: AST) : string =
@@ -148,7 +161,7 @@ let codegen (program: AST) : string =
     
     emit state "define i32 @main() {"
     let result_reg = codegen_expr state program
-    emit state $"ret i32 {result_reg}"
+    emit state $"ret i32 0"
     emit state "}"
 
     (String.concat "\n" (List.rev state.StringConstants)) + "\n" + String.concat "\n" state.Code

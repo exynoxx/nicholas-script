@@ -14,7 +14,7 @@ let StandardLibDeclare =
         declare i8* @_ns_int_to_string(i32)
         declare i8* @_ns_string_concat(i8*, i32)
         declare i32 @_ns_pow_int(i32, i32)
-    """
+    """.Replace("  ", "")
 
 
 let parse (input:string) =
@@ -36,11 +36,11 @@ let main argv =
     let code =
         """
                 b = 0;
-                res = "";
+                res = 0;
                 if(b>=0) {
-                    res = 1;
+                    res = 1000;
                 } else
-                    res = 0;
+                    res = 1;
                     
                 print: res;
             """
@@ -58,9 +58,9 @@ let main argv =
         
         //eval ast
         let llvm = codegen ssa
-        printfn $"LLVM: \n############## \n%s{llvm}"
+        printfn $"LLVM: \n############## \n%s{StandardLibDeclare}\n%s{llvm}"
         
-        call_llvm llvm
+        call_llvm (StandardLibDeclare+llvm)
     with ex ->
         printfn $"ERROR: %s{ex.Message}"
     0

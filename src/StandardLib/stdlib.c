@@ -4,6 +4,9 @@
 #include <string.h>
 #include <math.h>
 
+void _ns_print_string(const char* s) {
+    printf("%s\n", s);
+}
 void _ns_print_int(int x) {
     printf("%d\n", x);
 }

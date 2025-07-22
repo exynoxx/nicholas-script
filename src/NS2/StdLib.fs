@@ -2,6 +2,7 @@
 
 open System
 open NS2.Ast
+open NS2.Type
 
 let reverse input =
     input
@@ -9,12 +10,12 @@ let reverse input =
     |> Seq.toArray
     |> System.String
 
-let lookup_std_function (name:string) =
+let lookup_std_function (name:string) : Type option =
     match name with
-    | "print" -> true
-    | _ -> false
+    | "print" -> Some VoidType
+    | _ -> None
 
-let translate_std_function (name:string, args: Type list) =
+let translate_std_function (name:string) (args: Type list) =
     match name with
     | "print" -> "_ns_print_int"
     | _ -> failwith $"Cannot translate {name}"

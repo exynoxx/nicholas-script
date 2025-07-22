@@ -7,7 +7,7 @@ open System.Threading
 let call_llvm(llvm:string) =
     File.WriteAllText("program.ll", llvm)
 
-    let psi = new ProcessStartInfo("clang.exe", "-c -S program.ll")
+    let psi = new ProcessStartInfo("clang.exe", "-c program.ll")
     psi.RedirectStandardOutput <- true
     psi.RedirectStandardError <- true
     psi.UseShellExecute <- false
