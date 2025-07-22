@@ -1,0 +1,59 @@
+﻿{
+open System
+open FSharp.Text.Lexing
+open Parser
+
+let lexeme lexbuf = LexBuffer<_>.LexemeString lexbuf
+}
+
+let digit = ['0'-'9']
+let newline = "\r\n" | "\n" | "\r"
+let whitespace = [' ' '\t']
+let letter     = ['a'-'z' 'A'-'Z']
+let ident_char = letter | '_' | '.' | '$' | digit
+let string_char = [^ '"' '\\']
+let compound_assign = ['+' '-' '*' '/' '%' '&' '|' '^']+ '='
+
+rule tokenize = parse
+| whitespace        { tokenize lexbuf }
+| newline           { tokenize lexbuf }
+| "if"              { IF }
+| "else"            { ELSE }
+| "while"           { WHILE }
+| ['-']?digit+      { INT ( System.Int32.Parse( lexeme lexbuf ) ) }
+| '='               { EQ }
+| '+'               { PLUS }
+| '-'               { MINUS }
+| '*'               { TIMES }
+| '@'               { AT }
+| '|'               { PIPE }
+| '#'               { HASH }
+| '!'               { NOT }
+| '%'               { MODULO }
+| "&&"              { AND }
+| "||"              { OR }
+| '>'               { GE }
+| '<'               { LE }
+| "<="              { LEQ }
+| ">="              { GEQ }
+| "!="              { NEQ }
+| "=="              { EQEQ }
+| compound_assign   { OPEQ (lexeme lexbuf) }
+| '/'               { DIVIDE }
+| '('               { LPAREN }
+| ')'               { RPAREN }
+| '['               { LBRACK }
+| ']'               { RBRACK }
+| '{'               { LCURLY }
+| '}'               { RCURLY }
+| ','               { COMMA }
+| ';'               { SEMICOLON }
+| ':'               { COLON }
+| '"' (string_char)* '"'  { 
+    let s = lexeme lexbuf
+    let unquoted = s.Substring(1, s.Length - 2)
+    STRING unquoted
+}
+| ident_char*		{ ID (lexeme lexbuf) }
+| eof               { EOF }
+| _                 { lexeme lexbuf |> sprintf "lEXER Parsing error: %s" |> failwith }

@@ -1,0 +1,88 @@
+﻿if_expr:
+      IF LPAREN expr RPAREN block               { If ($3,$5,None) } 
+    | IF LPAREN expr RPAREN expr                { If ($3,[$5],None) } 
+    | IF LPAREN expr RPAREN block ELSE block    { If ($3,$5, Some $7) } 
+    | IF LPAREN expr RPAREN expr ELSE block    { If ($3,[$5], Some $7) } 
+    | IF LPAREN expr RPAREN block ELSE expr    { If ($3,$5, Some [$7]) } 
+    | IF LPAREN expr RPAREN expr ELSE expr    { If ($3,[$5], Some [$7]) } 
+    
+    
+    
+	| if_expr                           { $1 }
+    
+    
+    
+define void @retain(%Array* %arr) {
+  %ref = getelementptr %Array, %Array* %arr, i32 0, i32 0
+  %val = load i32, i32* %ref
+  %inc = add i32 %val, 1
+  store i32 %inc, i32* %ref
+  ret void
+}
+
+define void @release(%Array* %arr) {
+  %ref = getelementptr %Array, %Array* %arr, i32 0, i32 0
+  %val = load i32, i32* %ref
+  %dec = sub i32 %val, 1
+  store i32 %dec, i32* %ref
+
+  %is_zero = icmp eq i32 %dec, 0
+  br i1 %is_zero, label %free_block, label %done
+
+free_block:
+  %datap = getelementptr %Array, %Array* %arr, i32 0, i32 2
+  %buf = load i8*, i8** %datap
+  call void @free(i8* %buf)
+  %raw = bitcast %Array* %arr to i8*
+  call void @free(i8* %raw)
+  br label %done
+
+done:
+  ret void
+}
+
+//alloc
+; sizeof(Array) = 12 bytes (3 * i32)
+%raw = call i8* @malloc(i64 12)
+%arr = bitcast i8* %raw to %Array*
+
+; set ref_count = 1
+%ref_ptr = getelementptr %Array, %Array* %arr, i32 0, i32 0
+store i32 1, i32* %ref_ptr
+
+; set length = N
+%len_ptr = getelementptr %Array, %Array* %arr, i32 0, i32 1
+store i32 %length, i32* %len_ptr
+
+; set data_ptr = malloc(N * sizeof(T))
+%data_bytes = mul i32 %length, 4    ; if T = i32
+%data_buf = call i8* @malloc(i64 %data_bytes)
+%data_ptr = getelementptr %Array, %Array* %arr, i32 0, i32 2
+store i8* %data_buf, i8** %data_ptr
+
+//single malloc version
+
+; total size = size of Array + N * sizeof(i32)
+%elemsize = mul i32 %length, 4                  ; 4 bytes per i32
+%base_size = add i32 12, %elemsize              ; 12 = sizeof(%Array)
+%total_size = zext i32 %base_size to i64        ; malloc takes i64
+%raw = call i8* @malloc(i64 %total_size)        ; one malloc
+
+; bitcast to %Array*
+%arr = bitcast i8* %raw to %Array*
+
+; store ref_count = 1
+%ref_ptr = getelementptr %Array, %Array* %arr, i32 0, i32 0
+store i32 1, i32* %ref_ptr
+
+; store length
+%len_ptr = getelementptr %Array, %Array* %arr, i32 0, i32 1
+store i32 %length, i32* %len_ptr
+
+; compute data_ptr = (i8*)arr + 12
+%base_i8 = bitcast %Array* %arr to i8*
+%data_i8 = getelementptr i8, i8* %base_i8, i32 12
+
+; store data_ptr
+%data_ptr_ptr = getelementptr %Array, %Array* %arr, i32 0, i32 2
+store i8* %data_i8, i8** %data_ptr_ptr
