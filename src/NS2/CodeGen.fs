@@ -1,15 +1,19 @@
 ﻿module NS2.CodeGen
 
+open System
+open System.Text
 open NS2.Ast
 open System.Collections.Generic
 open NS2.Type
 
 type CodegenState =
-    { mutable Reg: int
+    {
+      mutable Reg: int
       mutable Label: int
       Vars: Dictionary<string, string>
-      mutable Code: string list
-      mutable StringConstants: string list }
+      Code: StringBuilder
+      StringConstants: StringBuilder
+    }
 
 let nextReg (st: CodegenState) =
     let r = st.Reg
@@ -25,8 +29,8 @@ let nextSpecialLabel (st: CodegenState) (label:string)=
     let l = st.Label
     st.Label <- st.Label + 1
     $"{label}{l}"
-let emit (st: CodegenState) (line: string) =
-    st.Code <- st.Code @ [line]
+    
+let emit (st: CodegenState) (line: string) = st.Code.AppendLine(line) |> ignore
 
 let TypeToLLVM =
     function
@@ -60,7 +64,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         let const_name = nextSpecialLabel state "@str"
         let line = $"{const_name} = private unnamed_addr constant [{s.Length+1} x i8] c\"{s}\00\", align 1"
         
-        state.StringConstants <- line::state.StringConstants
+        state.StringConstants.AppendLine line |> ignore
         let tmp = nextReg state
         emit state $"{tmp} = getelementptr [{s.Length+1} x i8], [{s.Length+1} x i8]* {const_name}, i32 0, i32 0"
         $"i8* {tmp}"
@@ -151,12 +155,13 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
 
 let codegen (program: AST) : string =
     let state =
-        { Reg = 1
+        {
+          Reg = 1
           Label = 0
           Vars = Dictionary()
-          Code = []
-          StringConstants = []
-          }
+          Code = StringBuilder()
+          StringConstants = StringBuilder()
+        }
 
     
     emit state "define i32 @main() {"
@@ -164,4 +169,4 @@ let codegen (program: AST) : string =
     emit state $"ret i32 0"
     emit state "}"
 
-    (String.concat "\n" (List.rev state.StringConstants)) + "\n" + String.concat "\n" state.Code
+    state.StringConstants.ToString() + "\n" + state.Code.ToString()
