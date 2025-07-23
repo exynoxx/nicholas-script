@@ -22,7 +22,9 @@ type AST =
     | If of AST*AST*AST option
     | IfPhi of AST*AST*AST option*AST list
     | While of AST*AST
+    
     | Typed of AST * Type
     | Phi of string * string * string
+    | Contract
     | Nop
     

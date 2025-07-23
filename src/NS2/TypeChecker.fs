@@ -29,20 +29,31 @@ let dictionary_diff (a:Dictionary<string,Type>) (b:Dictionary<string,Type>) =
     let diff = Set.union keys1 keys2 - Set.intersect keys1 keys2
     diff
 
-let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
+let rec typecheck_block (scope:Scope) list=
+    let rec inner i =
+        function
+        | [] -> []
+        | x::xs ->
+            let typed = typecheck_internal scope x list i
+            match typed with
+            | [x;Contract] -> [x]
+            | x -> x @ inner (i+1) xs
+    inner 0 list
+
+and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : AST list =
     match tree with
     | Root body ->
-        let root = body |> List.map (typecheck_internal scope)
-        Typed (Root root, AnyType)
+        let elements = typecheck_block scope body
+        [Typed (Root elements, VoidType)]
         
     | Block body ->
         let block_scope = scope.Push()
-        let typed = body |> List.map (typecheck_internal block_scope)
-        let last_typ = List.last typed |> GetType
-        Typed (Block typed, last_typ)
+        let elements = typecheck_block scope body
+        let last_typ = List.last elements |> GetType
+        [Typed (Block elements, last_typ)]
         
-    | Int n -> Typed (tree, IntType)
-    | String x -> Typed (tree, StringType)
+    | Int n -> [Typed (tree, IntType)]
+    | String x -> [Typed (tree, StringType)]
     | Id name ->
         (*let real_name =
             match scope.GetAlias name with
@@ -65,42 +76,42 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
             match scope.GetType real_name with
             | Some t -> t
             | None -> failwith $"No type known for {name}"
-        Typed (tree, typ)
+        [Typed (tree, typ)]
     
     | Assign (Id id, Block body) ->
-        let (b,t) = typecheck_internal scope (Block body) |> TypedToTuple
+        let (b,t) = typecheck_internal scope (Block body) blockrest i |> List.head |> TypedToTuple
         scope.SetFunc(id, b)
         scope.SetType(id, FunctionType t )
-        Typed (Func (id, b), VoidType)
+        [Typed (Func (id, b), VoidType)]
        
     | Assign (Id id, Id other) ->
         match (scope, other) with
         | StdFunction _ ->
             scope.SetAlias(id, other)
-            Nop
+            []
         | Function _ ->
             scope.SetAlias(id, other)
-            Nop
+            []
         | Variable value ->
             scope.SetVar(id, value)
             let typ = scope.GetType other |> Option.get
             scope.SetType(id, typ)
-            Typed (Assign (Id id, Typed (Id other, typ)), VoidType)
+            [Typed (Assign (Id id, Typed (Id other, typ)), VoidType)]
         | _ -> failwith $"Variable {other} does not exist"
         
     | Assign (Id id, body) ->
-        let (b,t) = typecheck_internal scope body |> TypedToTuple
+        let (b,t) = typecheck_internal scope body blockrest i |> List.head |> TypedToTuple
         scope.SetVar(id, b)
         scope.SetType(id, t)
-        Typed (Assign (Id id, Typed (b,t)), VoidType)
+        [Typed (Assign (Id id, Typed (b,t)), VoidType)]
 
     | Unop (op, right) ->
-        let (rr,t) = typecheck_internal scope right |> TypedToTuple
-        Typed (Unop (op, Typed (rr,t)), t)
+        let (rr,t) = typecheck_internal scope right blockrest i |> List.head |> TypedToTuple
+        [Typed (Unop (op, Typed (rr,t)), t)]
         
     | Binop (left, op, right) ->
-        let ll = typecheck_internal scope left
-        let rr = typecheck_internal scope right
+        let ll = typecheck_internal scope left blockrest i |> List.head
+        let rr = typecheck_internal scope right blockrest i |> List.head
         
         let typ =
             match op with
@@ -112,18 +123,18 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
             | ">=" -> BoolType
             | _ -> GetType ll
         
-        Typed (Binop (ll, op, rr), typ)
+        [Typed (Binop (ll, op, rr), typ)]
 
     //TODO int array, any array
     | Array elements ->
-        let typed = elements |> List.map (typecheck_internal scope)
-        Typed (Array typed, ArrayType)
+        let typed = elements |> List.collect (fun x -> typecheck_internal scope x blockrest i)
+        [Typed (Array typed, ArrayType)]
         
     //| Pipe elements -> elements |> List.map (typecheck_internal scope) |> TypedPipe
     | Index (arr, idx) ->
-        let tarr = typecheck_internal scope arr
-        let i = typecheck_internal scope idx |> GetNode
-        Typed (Index (tarr, i), GetType tarr)
+        let tarr = typecheck_internal scope arr blockrest i  |> List.head
+        let i = typecheck_internal scope idx blockrest i |> List.head |> GetNode
+        [Typed (Index (tarr, i), GetType tarr)]
 
     (*| FuncCalled (args, fbody) ->
         let targs = args |> List.map (typecheck_internal scope) |> List.map fst
@@ -131,8 +142,8 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
         FuncCalled (targs, tbody)*)
             
     | Call (id, args) ->
-        let targs = args |> List.map (typecheck_internal scope)
-        let type_of_args = args |> List.map (typecheck_internal scope) |> List.map GetType
+        let targs = args |> List.map (fun x -> typecheck_internal scope x blockrest i |> List.head)
+        let type_of_args = targs |> List.map GetType
 
         let real_name =
             match scope.GetAlias id with
@@ -140,15 +151,15 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
             | None -> id
             
         match (scope, id) with
-        | StdFunction ret_typ -> Typed (Call(translate_std_function id type_of_args, targs), ret_typ)
+        | StdFunction ret_typ ->
+            [Typed (Call(translate_std_function id type_of_args, targs), ret_typ)]
         | Function _ ->
             let typ =
                 match scope.GetType real_name with
                 | Some (FunctionType t) -> t
                 | _ -> failwith $"No type known for {id}"
-            Typed (Call(id,targs), typ)
+            [Typed (Call(id,targs), typ)]
         | _ -> failwith $"Function {id} not found"
-        
         
     | If (c, b, Some e) ->
         let to_block =
@@ -160,11 +171,16 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
             function
             | Block block -> 
                 let scope = scope.Push()
-                let typed = block |> List.map (typecheck_internal scope)
+                let typed = block |> List.map (fun x -> typecheck_internal scope x blockrest i |> List.head)
                 let last_typ = List.last typed |> GetType
                 let assigns = scope.GetScopeAssign ()
                 (typed, last_typ, assigns)
             | _ -> failwith "Not possible"
+            
+        let extend_block block elems = 
+            match block with
+            | Block body -> Block (body @ elems)
+            | x -> Block (x::elems)
             
         let (then_elements, then_typ, then_assigns) = process_block (to_block b)
         let (else_elements, else_typ, else_assigns) = process_block (to_block e)
@@ -172,7 +188,8 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
         let thenset = then_assigns.Keys |> Set.ofSeq
         let elseset = else_assigns.Keys |> Set.ofSeq
         
-        let phis = HashSet<AST>() 
+        let phis = HashSet<AST>()
+        let mutable swallow = false
         for var in Set.union thenset elseset do
             if not (thenset.Contains var && elseset.Contains var) then
                 //only one branch contains
@@ -181,31 +198,42 @@ let rec typecheck_internal (scope:Scope) (tree:AST) : AST =
             else
                 let then_ty = then_assigns[var]
                 let else_ty = else_assigns[var]
-                if then_ty <> else_ty then
-                    failwith $"variable {var} has different types in different branches" //TODO StringType
-                else
+                if then_ty = else_ty then
                     phis.Add (Typed(Phi (var,var,var), then_ty)) |> ignore
+                else
+                    swallow <- true
+                    (* if assigned types varies the rest of scope is swallowed into each branch *)
+                    
+        let cc = typecheck_internal scope c blockrest i |> List.head
         
-        let cc = typecheck_internal scope c
-        //TODO compute final type
-        Typed (IfPhi(cc, Typed (Block then_elements,VoidType), Some (Typed (Block else_elements,VoidType)), List.ofSeq phis), VoidType)
+        if swallow then
+            let remaining = blockrest[i+1..]
+            
+            let (then_elements, then_typ, _) = process_block (extend_block b remaining)
+            let (else_elements, else_typ, _) = process_block (extend_block e remaining)
+            let ret = Typed (IfPhi(cc, Typed (Block then_elements,VoidType), Some (Typed (Block else_elements,VoidType)), List.ofSeq phis), VoidType)
+            [ret; Contract]
+            
+        else
+            //TODO compute final type
+            [Typed (IfPhi(cc, Typed (Block then_elements,VoidType), Some (Typed (Block else_elements,VoidType)), List.ofSeq phis), VoidType)]
         
     | If (c, b, None) ->
-        let cc = typecheck_internal scope c
-        let bb = typecheck_internal scope b
-        Typed (If(cc, bb, None), AnyType)
+        let cc = typecheck_internal scope c blockrest i |> List.head
+        let bb = typecheck_internal scope b blockrest i |> List.head
+        [Typed (If(cc, bb, None), AnyType)]
         
     | While (c, b) ->
-        let cc = typecheck_internal scope c
-        let bb = typecheck_internal scope b
+        let cc = typecheck_internal scope c blockrest i |> List.head
+        let bb = typecheck_internal scope b blockrest i |> List.head
         
-        Typed (While(cc,bb), VoidType)
+        [Typed (While(cc,bb), VoidType)]
+        
     //| Map ( Array a , Func f) -> failwith "not implemented" // a |> List.map (fun x -> FuncCalled ([x], Func f)) |> TypedArray
     //| Map (arr, func) -> failwith "Can only map an array with a function"
-    | Nop -> Typed (Nop, VoidType)
-    
+    | Nop -> []
     | _ -> failwith $"typecheck_internal unsupported %A{tree}"
     
 let typecheck (tree:AST) =
     let scope = Scope.Empty
-    typecheck_internal scope tree
+    typecheck_internal scope tree [] 0 |> List.head
