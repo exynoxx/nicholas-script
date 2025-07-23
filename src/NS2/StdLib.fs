@@ -17,7 +17,8 @@ let lookup_std_function (name:string) : Type option =
 
 let translate_std_function (name:string) (args: Type list) =
     match name with
-    | "print" -> "_ns_print_int"
+    | "print" when args[0] = IntType -> "_ns_print_int"
+    | "print" when args[0] = StringType -> "_ns_print_string"
     | _ -> failwith $"Cannot translate {name}"
 
 (*
