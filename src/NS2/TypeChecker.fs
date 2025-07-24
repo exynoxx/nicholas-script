@@ -180,16 +180,23 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
                 //assign in both branches
                 let then_ty = then_assigns[var]
                 let else_ty = else_assigns[var]
-                if then_ty = else_ty then
-                    phis.Add (Typed(Phi (var,var,var), then_ty)) |> ignore
+                let ty = scope.GetType var |> Option.get
+                if then_ty = else_ty && then_ty = ty then
+                    phis.Add (Typed(Phi (var,var,var), ty)) |> ignore
                 else
                     swallow <- true
             else
-                //assign in only 1 branch
-                
-                failwith "this kind of if not supported yet"
-                //let assign_type = if (then_assigns.ContainsKey var) then then_assigns[var] else else_assigns[var]
-                ()
+                //assign in 1 branch
+                let ty = scope.GetType var |> Option.get
+                if then_assigns.ContainsKey var && then_assigns[var] = ty  then 
+                    phis.Add (Typed(Phi (var,var,var), ty)) |> ignore
+                if then_assigns.ContainsKey var && then_assigns[var] <> ty  then 
+                    swallow <- true
+                    
+                if else_assigns.ContainsKey var && else_assigns[var] = ty  then 
+                    phis.Add (Typed(Phi (var,var,var), ty)) |> ignore
+                if else_assigns.ContainsKey var && else_assigns[var] <> ty  then 
+                    swallow <- true
                 
         if swallow then
             let remaining = blockrest[i+1..]

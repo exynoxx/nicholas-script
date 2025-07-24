@@ -59,7 +59,13 @@ let ssa_transform (tree: AST) =
             let latest = scope.Version var
             let newName = scope.NewId var
             Phi (newName, $"{var}_{latest-1}", $"{var}_{latest}")
-        | While (c, b) -> While(transform scope c, transform scope b)
+        | While (c, Typed(Block body, _)) ->
+            
+            let body_scope = scope.Spawn()
+            let bb = body |> List.map (transform body_scope) |> Block
+            let cc = transform body_scope c
+            
+            While(cc,bb)
         | Unop (op, r) -> Unop(op, transform scope r)
         | Array elements -> elements |> List.map (transform scope) |> Array 
         | Pipe elements -> elements |> List.map (transform scope) |> Pipe
