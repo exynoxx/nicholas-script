@@ -36,7 +36,7 @@ let main argv =
     let code =
         """
         
-            b = 1
+            b = 0
             res = 0
             if(b > 0)
                 res = "hello"

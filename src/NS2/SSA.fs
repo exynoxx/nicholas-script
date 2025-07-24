@@ -3,30 +3,35 @@
 open System.Collections.Generic
 open NS2.Ast
 
-type SSA_Scope () =
-    let counter = Dictionary<string, int>()
+type SSA_Scope (parent:SSA_Scope option, version_counter:Dictionary<string, int>) =
+    
+    let local_version = Dictionary<string, int>()
     
     member this.Version (id:string) =
-        match counter.TryGetValue(id) with
+        match local_version.TryGetValue(id) with
             | true, v -> v
-            | false, _ -> 0
+            | false, _ ->
+                match parent with
+                | Some p -> p.Version id
+                | None -> 0
                 
     member this.GetId (id:string) : string =
         match this.Version id with
         | 0 -> id
-        | 1 -> id
         | version -> $"{id}_{version}"
     
     member this.NewId (id:string) : string =
         let current = this.Version id
         let next = current+1
-        counter[id] <- next
+        version_counter[id] <- next
+        local_version[id] <- next
 
-        match current with
+        match next with
         | 0 -> id
         | _ -> $"{id}_{next}"
 
-    static member Empty() = SSA_Scope()
+    static member Empty() = SSA_Scope(None, Dictionary<string,int>())
+    member this.Spawn() = SSA_Scope(Some this, version_counter)
     
 
 let ssa_transform (tree: AST) =
@@ -35,7 +40,9 @@ let ssa_transform (tree: AST) =
         | Root body ->
             let scope = SSA_Scope.Empty()
             body |> List.map (transform scope) |> Root
-        | Block b -> b |> List.map (transform scope) |> Block
+        | Block b ->
+            let bock_scope = scope.Spawn()
+            b |> List.map (transform bock_scope) |> Block
         | Id name -> Id (scope.GetId name)
         | Assign (Id id, rhs) ->
             let trhs = transform scope rhs
