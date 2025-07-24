@@ -7,7 +7,7 @@ open System.Threading
 let call_llvm(llvm:string) =
     File.WriteAllText("program.ll", llvm)
 
-    let psi = new ProcessStartInfo("clang.exe", "-c program.ll")
+    (*let psi = new ProcessStartInfo("clang.exe", "-c program.ll")
     psi.RedirectStandardOutput <- true
     psi.RedirectStandardError <- true
     psi.UseShellExecute <- false
@@ -19,4 +19,4 @@ let call_llvm(llvm:string) =
     printfn "Clang err: %s" (proc.StandardError.ReadToEnd())
 
     let asm = File.ReadAllText("program.s")
-    printfn "Generated assembly:\n\n%s" asm
+    printfn "Generated assembly:\n\n%s" asm*)

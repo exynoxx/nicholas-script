@@ -162,28 +162,17 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
         | _ -> failwith $"Function {id} not found"
         
     | If (c, b, Some e) ->
-        let to_block =
-            function
-            | Block body -> Block body
-            | x -> Block [x]
-        
-        let process_block =
-            function
-            | Block block -> 
-                let scope = scope.Push()
-                let typed = block |> List.map (fun x -> typecheck_internal scope x blockrest i |> List.head)
-                let last_typ = List.last typed |> GetType
-                let assigns = scope.GetScopeAssign ()
-                (typed, last_typ, assigns)
-            | _ -> failwith "Not possible"
-            
         let extend_block block elems = 
             match block with
             | Block body -> Block (body @ elems)
             | x -> Block (x::elems)
             
-        let (then_elements, then_typ, then_assigns) = process_block (to_block b)
-        let (else_elements, else_typ, else_assigns) = process_block (to_block e)
+        let cc = typecheck_internal scope c blockrest i |> List.head
+        let bb = typecheck_internal scope b blockrest i |> List.head
+        let ee = typecheck_internal scope e blockrest i |> List.head
+        
+        let then_assigns = Helpers.find_assigns scope bb
+        let else_assigns = Helpers.find_assigns scope ee
         
         let thenset = then_assigns.Keys |> Set.ofSeq
         let elseset = else_assigns.Keys |> Set.ofSeq
@@ -204,19 +193,18 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
                     swallow <- true
                     (* if assigned types varies the rest of scope is swallowed into each branch *)
                     
-        let cc = typecheck_internal scope c blockrest i |> List.head
-        
         if swallow then
             let remaining = blockrest[i+1..]
             
-            let (then_elements, then_typ, _) = process_block (extend_block b remaining)
-            let (else_elements, else_typ, _) = process_block (extend_block e remaining)
-            let ret = Typed (IfPhi(cc, Typed (Block then_elements,VoidType), Some (Typed (Block else_elements,VoidType)), List.ofSeq phis), VoidType)
+            let bbb = typecheck_internal scope (extend_block b remaining) blockrest i |> List.head
+            let eee = typecheck_internal scope (extend_block e remaining) blockrest i |> List.head
+            
+            let ret = Typed (IfPhi(cc, bbb, Some eee, List.ofSeq phis), VoidType)
             [ret; Contract]
             
         else
             //TODO compute final type
-            [Typed (IfPhi(cc, Typed (Block then_elements,VoidType), Some (Typed (Block else_elements,VoidType)), List.ofSeq phis), VoidType)]
+            [Typed (IfPhi(cc, bb, Some ee, List.ofSeq phis), VoidType)]
         
     | If (c, b, None) ->
         let cc = typecheck_internal scope c blockrest i |> List.head
