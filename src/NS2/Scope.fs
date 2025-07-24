@@ -51,7 +51,7 @@ type Scope (parent: Scope option) =
     member this.SetFunc(name: string, value: AST)= funcs[name] <- value
     member this.SetAlias(name: string, value: string)= alias[name] <- value
     member this.SetType(name: string, t: Type)= typ[name] <- t
-    member this.Push() : Scope = Scope(Some this)
+    member this.Spawn() : Scope = Scope(Some this)
     static member Empty = Scope(None)
 
  let (|StdFunction|Function|Variable|Unknown|) (scope:Scope, id: string) =

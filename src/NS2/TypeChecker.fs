@@ -36,7 +36,7 @@ let rec typecheck_block (scope:Scope) list=
         | x::xs ->
             let typed = typecheck_internal scope x list i
             match typed with
-            | [x;Contract] -> [x]
+            | [x;Contract] -> [x]       //swallow functionality
             | x -> x @ inner (i+1) xs
     inner 0 list
 
@@ -47,8 +47,8 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
         [Typed (Root elements, VoidType)]
         
     | Block body ->
-        let block_scope = scope.Push()
-        let elements = typecheck_block scope body
+        let block_scope = scope.Spawn()
+        let elements = typecheck_block block_scope body
         let last_typ = List.last elements |> GetType
         [Typed (Block elements, last_typ)]
         
@@ -161,15 +161,11 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
             [Typed (Call(id,targs), typ)]
         | _ -> failwith $"Function {id} not found"
         
+    //TODO dont change variables in c
     | If (c, b, Some e) ->
-        let extend_block block elems = 
-            match block with
-            | Block body -> Block (body @ elems)
-            | x -> Block (x::elems)
-            
         let cc = typecheck_internal scope c blockrest i |> List.head
-        let bb = typecheck_internal scope b blockrest i |> List.head
-        let ee = typecheck_internal scope e blockrest i |> List.head
+        let bb = typecheck_internal scope (Helpers.to_block b) blockrest i |> List.head
+        let ee = typecheck_internal scope (Helpers.to_block e) blockrest i |> List.head
         
         let then_assigns = Helpers.find_assigns scope bb
         let else_assigns = Helpers.find_assigns scope ee
@@ -180,40 +176,67 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
         let phis = HashSet<AST>()
         let mutable swallow = false
         for var in Set.union thenset elseset do
-            if not (thenset.Contains var && elseset.Contains var) then
-                //only one branch contains
-                //default value
-                ()
-            else
+            if thenset.Contains var && elseset.Contains var then
+                //assign in both branches
                 let then_ty = then_assigns[var]
                 let else_ty = else_assigns[var]
                 if then_ty = else_ty then
                     phis.Add (Typed(Phi (var,var,var), then_ty)) |> ignore
                 else
                     swallow <- true
-                    (* if assigned types varies the rest of scope is swallowed into each branch *)
-                    
+            else
+                //assign in only 1 branch
+                
+                failwith "this kind of if not supported yet"
+                //let assign_type = if (then_assigns.ContainsKey var) then then_assigns[var] else else_assigns[var]
+                ()
+                
         if swallow then
             let remaining = blockrest[i+1..]
             
-            let bbb = typecheck_internal scope (extend_block b remaining) blockrest i |> List.head
-            let eee = typecheck_internal scope (extend_block e remaining) blockrest i |> List.head
+            let bbb = typecheck_internal scope (Helpers.extend_block b remaining) blockrest i |> List.head
+            let eee = typecheck_internal scope (Helpers.extend_block e remaining) blockrest i |> List.head
             
-            let ret = Typed (IfPhi(cc, bbb, Some eee, List.ofSeq phis), VoidType)
+            let ret = Typed (IfPhi(cc, bbb, Some eee, []), VoidType)
             [ret; Contract]
             
         else
             //TODO compute final type
             [Typed (IfPhi(cc, bb, Some ee, List.ofSeq phis), VoidType)]
         
+    //TODO dont change variables in c
+    //TODO return type
     | If (c, b, None) ->
         let cc = typecheck_internal scope c blockrest i |> List.head
-        let bb = typecheck_internal scope b blockrest i |> List.head
-        [Typed (If(cc, bb, None), AnyType)]
+        let bb = typecheck_internal scope (Helpers.to_block b) blockrest i |> List.head
+        let then_assigns = Helpers.find_assigns scope bb
+        
+        let phis = HashSet<AST>()
+        let mutable swallow = false
+        for var in then_assigns.Keys do
+            let then_ty = then_assigns[var]
+            match scope.GetType var with
+            | None -> failwith "if-should not be possible"
+            | Some ty ->
+                if ty = then_ty then
+                    phis.Add (Typed(Phi (var,var,var), then_ty)) |> ignore
+                else
+                    swallow <- true
+
+        if swallow then
+            let remaining = blockrest[i+1..]
+            
+            let bbb = typecheck_internal scope (Helpers.extend_block b remaining) blockrest i |> List.head
+            let eee = typecheck_internal scope (Block remaining) blockrest i |> List.head
+            
+            let ret = Typed (IfPhi(cc, bbb, Some eee, []), VoidType)
+            [ret; Contract]
+        else
+            [Typed (IfPhi(cc, bb, None, List.ofSeq phis), VoidType)]
         
     | While (c, b) ->
         let cc = typecheck_internal scope c blockrest i |> List.head
-        let bb = typecheck_internal scope b blockrest i |> List.head
+        let bb = typecheck_internal scope (Helpers.to_block b) blockrest i |> List.head
         
         [Typed (While(cc,bb), VoidType)]
         

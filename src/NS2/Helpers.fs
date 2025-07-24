@@ -5,6 +5,17 @@ open NS2.Ast
 open NS2.Scope
 open NS2.Type
 
+
+let to_block ast= 
+    match ast with
+    | Block _ -> ast
+    | x -> (Block [x])
+
+let extend_block block elems = 
+    match block with
+    | Block body -> Block (body @ elems)
+    | x -> Block (x::elems)
+
 let rec find_assigns (scope:Scope) ast =
     let set = Dictionary<string, Type>()
     
