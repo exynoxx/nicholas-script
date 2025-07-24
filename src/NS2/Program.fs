@@ -37,7 +37,7 @@ let main argv =
         """
                 b = 0;
                 res = "init";
-                if(b>=0) {
+                if(b > 0) {
                     res = 1000;
                 } else
                     res = "nope";

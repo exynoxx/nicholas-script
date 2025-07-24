@@ -116,14 +116,12 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
 
     | IfPhi (cond, thenBranch, Some elseBranch, phis) ->
         let cond_reg = codegen_expr state cond
-        let zero = nextReg state
-        emit state $"{zero} = icmp ne {cond_reg}, 0"
 
         let thenLabel = nextSpecialLabel state "then"
         let elseLabel = nextSpecialLabel state "else"
         let endLabel = nextSpecialLabel state "endif"
 
-        emit state $"br i1 {zero}, label %%{thenLabel}, label %%{elseLabel}"
+        emit state $"br {cond_reg}, label %%{thenLabel}, label %%{elseLabel}"
         emit state $"{thenLabel}:"
         let then_val = codegen_expr state thenBranch
         emit state $"br label %%{endLabel}"
