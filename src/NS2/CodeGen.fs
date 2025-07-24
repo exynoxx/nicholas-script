@@ -135,6 +135,24 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
             let typ = TypeToLLVM t
             emit state $"%%{var} = phi {typ}* [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
         ""
+        
+    | While(c, b) ->
+        let condLabel = nextSpecialLabel state "cond"
+        let loopLabel = nextSpecialLabel state "loop"
+        let exitLabel = nextSpecialLabel state "exit"
+
+        emit state $"br label %%{condLabel}"
+
+        emit state $"{condLabel}:"
+        let cond_reg = codegen_expr state c
+        emit state $"br {cond_reg}, label {loopLabel}, label {exitLabel}"
+
+        emit state $"{loopLabel}:"
+        codegen_expr state b
+        emit state $"br label %%{condLabel}"
+        emit state $"{exitLabel}:"
+        ""
+
     
     | Call (id, args) ->
         let targs = args |> List.map (codegen_expr state)

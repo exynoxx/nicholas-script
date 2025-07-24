@@ -35,21 +35,19 @@ let main argv =
     //let input = preinput + "b={$1}; x=1001; while (x != 1) { if (x%2==0) {x=x/2} else {x=x*3+1} };";
     let code =
         """
-        
-            b = 0
-            res = 0
-            if(b > 0)
-                res = "hello"
+            x = 0
             
-            print: res;
+            a = 0;
+            b = 0;
+            c = 0;
+            while (a+b < 10)
+            {
+                a+=1;
+                c+=1;
+                if (x>0) b+=1 else a+=1
+            }
             
         """
-        
-        
-        (*
-        if(b>0) res = "hello" else res = 0
-        
-        *)
     
     let input = preinput + code.Trim();
     try
