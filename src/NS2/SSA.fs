@@ -3,9 +3,7 @@
 open System.Collections.Generic
 open NS2.Ast
 
-type SSA_Scope (parent:SSA_Scope option, version_counter:Dictionary<string, int>) =
-    
-    let local_version = Dictionary<string, int>()
+type SSA_Scope (parent:SSA_Scope option, local_version: Dictionary<string,int>, global_version:Dictionary<string, int>) =
     
     member this.Version (id:string) =
         match local_version.TryGetValue(id) with
@@ -20,18 +18,24 @@ type SSA_Scope (parent:SSA_Scope option, version_counter:Dictionary<string, int>
         | 0 -> id
         | version -> $"{id}_{version}"
     
+    member this.GetIdGlobal (id:string) : string =
+        match global_version.GetValueOrDefault(id,0) with
+        | 0 -> id
+        | version -> $"{id}_{version}"
+    
     member this.NewId (id:string) : string =
-        let current = this.Version id
-        let next = current+1
-        version_counter[id] <- next
+        let next = global_version.GetValueOrDefault(id,0)+1
+        global_version[id] <- next
         local_version[id] <- next
 
         match next with
         | 0 -> id
         | _ -> $"{id}_{next}"
 
-    static member Empty() = SSA_Scope(None, Dictionary<string,int>())
-    member this.Spawn() = SSA_Scope(Some this, version_counter)
+    static member Empty() = SSA_Scope(None, Dictionary<string,int>(), Dictionary<string,int>())
+    member this.Spawn() = SSA_Scope(Some this, Dictionary<string,int>(), global_version)
+    
+    member this.Copy() = SSA_Scope(parent, local_version |> Dictionary, global_version |> Dictionary)
     
 
 let ssa_transform (tree: AST) =
@@ -53,12 +57,32 @@ let ssa_transform (tree: AST) =
             let tbody = (transform scope body)
             FuncCalled(targs, tbody)
         | Binop (l, op, r) -> Binop(transform scope l, op, transform scope r)
-        | If (c, b, e) -> If(transform scope c, transform scope b, Option.map (transform scope) e)
-        | IfPhi (c, b, e, phis) -> IfPhi(transform scope c, transform scope b, Option.map (transform scope) e, phis |> List.map (transform scope))
-        | Phi (var, _, _) ->
-            let latest = scope.Version var
-            let newName = scope.NewId var
-            Phi (newName, $"{var}_{latest-1}", $"{var}_{latest}")
+        //| If (c, b, e) -> If(transform scope c, transform scope b, Option.map (transform scope) e)
+        | IfPhi (c, b, Some e, phis) ->
+            let cc = transform scope c
+            let bb = transform scope b
+            let bb_scope = scope.Copy()
+            let ee = transform scope e
+            let ee_scope = scope.Copy()
+            
+            let merge =
+                function
+                | Typed(Phi(var,_,_), phi_typ) ->
+                    let newName = scope.NewId var
+                    Typed(Phi(newName, bb_scope.GetIdGlobal var, ee_scope.GetIdGlobal var), phi_typ)
+                | _ -> failwith "merge phi invalid"
+            
+            let pp = phis |> List.map merge
+            
+            IfPhi(cc,bb,Some ee,pp)
+            
+        | IfPhi (c, b, None, phis) -> //TODO fix
+            let b_scope = scope.Spawn()
+            let cc = transform scope c
+            let bb = transform b_scope b
+            let pp = phis |> List.map (transform b_scope)
+            IfPhi(cc,bb,None,pp)
+
         | While (c, Typed(Block body, _)) ->
             
             let body_scope = scope.Spawn()
