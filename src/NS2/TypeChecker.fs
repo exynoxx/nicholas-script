@@ -246,7 +246,7 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
         let bb = typecheck_internal scope (Helpers.to_block b) blockrest i |> List.head
         
         let cond_vars = Helpers.find_usage scope cc
-        let assigns = (Helpers.find_assigns scope bb)
+        let assigns = Helpers.find_assigns scope bb
         
         let condPhi, bodyPhi = assigns.Keys |> List.ofSeq |> List.partition cond_vars.Contains
         let cond_phi = condPhi |> List.map (fun var -> Typed(PhiSingle(var,null,null), assigns[var]))

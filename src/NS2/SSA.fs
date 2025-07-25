@@ -99,20 +99,38 @@ let ssa_transform (tree: AST) =
             IfPhi(cc,bb,None,pp)
 
         | WhilePhi (condPhi, c, b, bodyPhi) ->
-            let mergeCond = function
-                        | Typed(PhiSingle(var,null,null), phi_typ) ->
-                            let entryVar = scope.GetId var
-                            let newName = scope.NewId var
-                            let varInBody = scope.NextId var
-                            Typed(Phi(newName, varInBody, entryVar), phi_typ)
-                        | _ -> failwith "single while assign not possible"
-                        
-            let cond_phi = condPhi |> List.map mergeCond
-            let cc = transform scope c
             
+            (*
+            cond:
+                a_2 = [entry: a1, loop: a3]
+                a_2 < ...
+            loop:
+                a_3 = a_2 + 1
+                a_4 = a_3 ...
+            *)
+            
+            //reserve a2
+            //find last(a_4) in body run
+            //compute phi
+            
+            let unwrap = function | Typed(PhiSingle(var,_,_), _) -> var | _ -> failwith "WhilePhi.Unwrap fail"
+            let initial_vars = condPhi |> List.map unwrap
+            
+            let init_var_lookup = initial_vars |> List.map (fun var -> KeyValuePair(var,scope.GetId var)) |> Dictionary
+            let cond_var_lookup = initial_vars |> List.map (fun var -> KeyValuePair(var,scope.NewId var)) |> Dictionary
+
             let bb_scope = scope.Spawn()
             let bb = transform bb_scope b
             
+            let cond_phi = condPhi |> List.map (function
+                                                | Typed(PhiSingle(var,null,null), phi_typ) ->
+                                                    let newName = cond_var_lookup[var]
+                                                    let entryVar = init_var_lookup[var]
+                                                    let lastNameBody = bb_scope.GetId var
+                                                    Typed(Phi(newName, lastNameBody, entryVar), phi_typ)
+                                                | _ -> failwith "single while assign not possible")
+            
+            let cc = transform scope c
             let merge = function
                         | Typed(PhiSingle(var,null,null), phi_typ) ->
                             let entryVar = scope.GetId var

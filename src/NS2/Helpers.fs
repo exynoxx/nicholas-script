@@ -24,7 +24,7 @@ let rec find_assigns (scope:Scope) ast =
         | Block body ->
             for x in body do
                 inner x
-        | Assign (Id id, Block body) -> ()
+        | Assign (Id id, Block body) -> inner (Block body)
         | Assign (Id id, Typed (_,t)) ->
             if scope.GetVariable id <> None then
                 set[id] <- t
@@ -32,7 +32,13 @@ let rec find_assigns (scope:Scope) ast =
             inner b
             inner e
         | If (c, b, None) -> inner b
+        | IfPhi (c, b, Some e,_) ->
+            inner b
+            inner e
+        | IfPhi (c, b, None,_) ->
+            inner b
         | While (c, b) -> inner b
+        | WhilePhi (_,c, b,_) -> inner b
         | Typed (x,t) -> inner x
         | Int n -> ()
         | String x -> ()
@@ -60,8 +66,22 @@ let rec find_usage (scope:Scope) ast =
         | If (c, b, Some e) ->
             inner b
             inner e
-        | If (c, b, None) -> inner b
-        | While (c, b) -> inner b
+        | If (c, b, None) ->
+            inner c
+            inner b
+        | IfPhi (c, b, Some e,_) ->
+            inner c
+            inner b
+            inner e
+        | IfPhi (c, b, None,_) ->
+            inner c
+            inner b
+        | While (c, b) ->
+            inner c
+            inner b
+        | WhilePhi (_, c, b, _) ->
+            inner c
+            inner b
         | Typed (x,t) -> inner x
         | Int n -> ()
         | String x -> ()

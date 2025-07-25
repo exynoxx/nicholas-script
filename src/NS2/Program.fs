@@ -42,11 +42,11 @@ let main argv =
             c = 0;
             ten = 10;
             print: "before loop";
-            while (a+c < 10)
+            while (a+b < ten)
             {
-                a+=1;
-                b+=1;
+                if ((a+b)%2==0) a+=1 else b+=1;
                 print: a;
+                print: b;
             }
             
         """
