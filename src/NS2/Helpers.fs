@@ -47,3 +47,36 @@ let rec find_assigns (scope:Scope) ast =
         
     inner ast
     set
+    
+let rec find_usage (scope:Scope) ast =
+    let set = HashSet<string>()
+    
+    let rec inner = 
+        function
+        | Block body ->
+            for x in body do
+                inner x
+        | Assign (Id id, x) -> inner x
+        | If (c, b, Some e) ->
+            inner b
+            inner e
+        | If (c, b, None) -> inner b
+        | While (c, b) -> inner b
+        | Typed (x,t) -> inner x
+        | Int n -> ()
+        | String x -> ()
+        | Id name -> set.Add name |> ignore
+        | Unop (op, right) -> inner right
+        | Binop (left, op, right) ->
+            inner left
+            inner right
+        | Array elements ->
+            for x in elements do
+                inner x
+        | Index (arr, idx) -> ()
+        | Call (id, args) -> ()
+        | Nop -> ()
+        | x -> failwith $"find_assigns unsupported %A{x}"
+        
+    inner ast
+    set

@@ -49,7 +49,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
     let node, t =
         match ast with
         | Typed (x,t) -> (x,t)
-        | x -> failwith "codegen not typed"
+        | x -> (x,AnyType)
 
     match node with
     | Root block ->
@@ -142,14 +142,21 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
             emit state $"%%{var} = phi {typ}* [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
         ""
         
-    | While(c, b) ->
+    | WhilePhi(c, b, cond_phi, body_phi) ->
+        let entryLabel = nextSpecialLabel state "entry"
         let condLabel = nextSpecialLabel state "cond"
         let loopLabel = nextSpecialLabel state "loop"
         let exitLabel = nextSpecialLabel state "exit"
 
+        emit state $"br label %%{entryLabel}"
+        emit state $"{entryLabel}:"
         emit state $"br label %%{condLabel}"
 
         emit state $"{condLabel}:"
+        for Typed (Phi(var, loopvar, entryvar),t) in cond_phi do
+            let typ = TypeToLLVM t
+            emit state $"%%{var} = phi {typ}* [%%{entryvar}, %%{entryLabel}], [%%{loopvar}, %%{loopLabel}]"
+            
         let cond_reg = codegen_expr state c
         emit state $"br i1 {cond_reg}, label %%{loopLabel}, label %%{exitLabel}"
 
@@ -157,6 +164,9 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         codegen_expr state b
         emit state $"br label %%{condLabel}"
         emit state $"{exitLabel}:"
+        for Typed (Phi(var, loopvar, entryvar),t) in body_phi do
+            let typ = TypeToLLVM t
+            emit state $"%%{var} = phi {typ}* [%%{entryvar}, %%{entryLabel}], [%%{loopvar}, %%{loopLabel}]"
         ""
     
     | Call (id, args) ->

@@ -85,25 +85,33 @@ let ssa_transform (tree: AST) =
         | IfPhi (c, b, None, phis) ->
             let cc = transform scope c
             let bb = transform scope b
-            let bb_scope = scope.Copy()
             
             let merge = function
-                        | Typed(PhiSingle(_,var,null), phi_typ) ->
+                        | Typed(PhiSingle(var,null,null), phi_typ) ->
                             let lastVar = scope.GetId var
                             let newName = scope.NewId var
-                            Typed(Phi(newName, bb_scope.GetIdGlobal var, lastVar), phi_typ)
+                            Typed(Phi(newName, scope.GetIdGlobal var, lastVar), phi_typ)
                         | _ -> failwith "single if single assign not possible"
 
             let pp = phis |> List.map merge
             IfPhi(cc,bb,None,pp)
 
-        | While (c, Typed(Block body, _)) ->
+        | WhilePhi (c, b, condPhi, bodyPhi) ->
+            let bb = transform scope b
+            let cc = transform scope c
             
-            let body_scope = scope.Spawn()
-            let bb = body |> List.map (transform body_scope) |> Block
-            let cc = transform body_scope c
+            let merge = function
+                        | Typed(PhiSingle(var,null,null), phi_typ) ->
+                            let entryVar = scope.GetId var
+                            let postBodyVar = scope.GetIdGlobal var
+                            let newName = scope.NewId var
+                            Typed(Phi(newName, postBodyVar, entryVar), phi_typ)
+                        | _ -> failwith "single while assign not possible"
+                        
+            let cond_phi = condPhi |> List.map merge
+            let body_phi = bodyPhi |> List.map merge
             
-            While(cc,bb)
+            WhilePhi(cc,bb,cond_phi, body_phi)
         | Unop (op, r) -> Unop(op, transform scope r)
         | Array elements -> elements |> List.map (transform scope) |> Array 
         | Pipe elements -> elements |> List.map (transform scope) |> Pipe

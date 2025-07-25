@@ -60,6 +60,12 @@ let rec printAst (indentSize: int) (ast: AST) =
             indent + "While\n" +
             print (level + 1) cond +
             print (level + 1) body
+        | WhilePhi (cond, body, condphi, bodyphi) ->
+            indent + "WhilePhi\n" +
+            print (level + 1) cond +
+            print (level + 1) body +
+            printList "condphi:" condphi +
+            printList "bodyphi:" bodyphi
         | Typed (expr, typ) ->
             indent + $"Typed ({typ})\n" +
             print (level + 1) expr

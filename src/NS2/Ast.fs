@@ -20,10 +20,11 @@ type AST =
     | Assign of AST * AST
     | Pipe of AST list
     | If of AST*AST*AST option
-    | IfPhi of AST*AST*AST option*AST list
     | While of AST*AST
     
     | Typed of AST * Type
+    | IfPhi of AST*AST*AST option*AST list
+    | WhilePhi of AST*AST*AST list*AST list
     | Phi of string * string * string
     | PhiSingle of string * string * string
     | Contract

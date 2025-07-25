@@ -41,11 +41,11 @@ let main argv =
             b = 0;
             c = 0;
             ten = 10;
-            while (a+b < ten)
+            print: "before loop";
+            while (a+c < ten)
             {
                 a+=1;
-                c+=1;
-                if (x>0) a+=1 else b+=1;
+                b+=1;
                 print: a;
             }
             
