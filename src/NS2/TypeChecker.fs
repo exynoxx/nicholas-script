@@ -252,7 +252,7 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
         let cond_phi = condPhi |> List.map (fun var -> Typed(PhiSingle(var,null,null), assigns[var]))
         let body_phi = bodyPhi |> List.map (fun var -> Typed(PhiSingle(var,null,null), assigns[var]))
         
-        [Typed (WhilePhi(cc,bb, cond_phi, body_phi), VoidType)]
+        [Typed (WhilePhi(cond_phi, cc, bb, body_phi), VoidType)]
         
     //| Map ( Array a , Func f) -> failwith "not implemented" // a |> List.map (fun x -> FuncCalled ([x], Func f)) |> TypedArray
     //| Map (arr, func) -> failwith "Can only map an array with a function"

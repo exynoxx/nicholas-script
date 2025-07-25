@@ -17,12 +17,7 @@ type SSA_Scope (parent:SSA_Scope option, local_version: Dictionary<string,int>, 
         match this.Version id with
         | 0 -> id
         | version -> $"{id}_{version}"
-    
-    member this.GetIdGlobal (id:string) : string =
-        match global_version.GetValueOrDefault(id,0) with
-        | 0 -> id
-        | version -> $"{id}_{version}"
-    
+
     member this.NewId (id:string) : string =
         let next = global_version.GetValueOrDefault(id,0)+1
         global_version[id] <- next
@@ -32,6 +27,13 @@ type SSA_Scope (parent:SSA_Scope option, local_version: Dictionary<string,int>, 
         | 0 -> id
         | _ -> $"{id}_{next}"
 
+    member this.NextId (id:string) : string =
+        let next = global_version.GetValueOrDefault(id,0)+1
+
+        match next with
+        | 0 -> id
+        | _ -> $"{id}_{next}"
+    
     static member Empty() = SSA_Scope(None, Dictionary<string,int>(), Dictionary<string,int>())
     member this.Spawn() = SSA_Scope(Some this, Dictionary<string,int>(), global_version)
     
@@ -45,8 +47,7 @@ let ssa_transform (tree: AST) =
             let scope = SSA_Scope.Empty()
             body |> List.map (transform scope) |> Root
         | Block b ->
-            let bock_scope = scope.Spawn()
-            b |> List.map (transform bock_scope) |> Block
+            b |> List.map (transform scope) |> Block
         | Id name -> Id (scope.GetId name)
         | Assign (Id id, rhs) ->
             let trhs = transform scope rhs
@@ -59,24 +60,24 @@ let ssa_transform (tree: AST) =
         | Binop (l, op, r) -> Binop(transform scope l, op, transform scope r)
         | IfPhi (c, b, Some e, phis) ->
             let cc = transform scope c
-            let bb = transform scope b
-            let bb_scope = scope.Copy()
-            let ee = transform scope e
-            let ee_scope = scope.Copy()
+            let bb_scope = scope.Spawn()
+            let bb = transform bb_scope b
+            let ee_scope = scope.Spawn()
+            let ee = transform ee_scope e
             
             let merge = function
                         | Typed(Phi(var,_,_), phi_typ) ->
                             let newName = scope.NewId var
-                            Typed(Phi(newName, bb_scope.GetIdGlobal var, ee_scope.GetIdGlobal var), phi_typ)
+                            Typed(Phi(newName, bb_scope.GetId var, ee_scope.GetId var), phi_typ)
                         | Typed(PhiSingle(_,var,null), phi_typ) ->
                             let lastVar = scope.GetId var
                             let newName = scope.NewId var
-                            Typed(Phi(newName, bb_scope.GetIdGlobal var, lastVar), phi_typ)
+                            Typed(Phi(newName, bb_scope.GetId var, lastVar), phi_typ)
                             
                         | Typed(PhiSingle(_,null,var), phi_typ) ->
                             let lastVar = scope.GetId var
                             let newName = scope.NewId var
-                            Typed(Phi(newName, lastVar, ee_scope.GetIdGlobal var), phi_typ)
+                            Typed(Phi(newName, lastVar, ee_scope.GetId var), phi_typ)
             
             let pp = phis |> List.map merge
             
@@ -84,34 +85,44 @@ let ssa_transform (tree: AST) =
             
         | IfPhi (c, b, None, phis) ->
             let cc = transform scope c
-            let bb = transform scope b
+            let bb_scope = scope.Spawn()
+            let bb = transform bb_scope b
             
             let merge = function
                         | Typed(PhiSingle(var,null,null), phi_typ) ->
                             let lastVar = scope.GetId var
                             let newName = scope.NewId var
-                            Typed(Phi(newName, scope.GetIdGlobal var, lastVar), phi_typ)
+                            Typed(Phi(newName, bb_scope.GetId var, lastVar), phi_typ)
                         | _ -> failwith "single if single assign not possible"
 
             let pp = phis |> List.map merge
             IfPhi(cc,bb,None,pp)
 
-        | WhilePhi (c, b, condPhi, bodyPhi) ->
-            let bb = transform scope b
+        | WhilePhi (condPhi, c, b, bodyPhi) ->
+            let mergeCond = function
+                        | Typed(PhiSingle(var,null,null), phi_typ) ->
+                            let entryVar = scope.GetId var
+                            let newName = scope.NewId var
+                            let varInBody = scope.NextId var
+                            Typed(Phi(newName, varInBody, entryVar), phi_typ)
+                        | _ -> failwith "single while assign not possible"
+                        
+            let cond_phi = condPhi |> List.map mergeCond
             let cc = transform scope c
+            
+            let bb_scope = scope.Spawn()
+            let bb = transform bb_scope b
             
             let merge = function
                         | Typed(PhiSingle(var,null,null), phi_typ) ->
                             let entryVar = scope.GetId var
-                            let postBodyVar = scope.GetIdGlobal var
                             let newName = scope.NewId var
-                            Typed(Phi(newName, postBodyVar, entryVar), phi_typ)
+                            let varInBody = bb_scope.GetId var
+                            Typed(Phi(newName, varInBody, entryVar), phi_typ)
                         | _ -> failwith "single while assign not possible"
-                        
-            let cond_phi = condPhi |> List.map merge
             let body_phi = bodyPhi |> List.map merge
             
-            WhilePhi(cc,bb,cond_phi, body_phi)
+            WhilePhi(cond_phi, cc,bb,body_phi)
         | Unop (op, r) -> Unop(op, transform scope r)
         | Array elements -> elements |> List.map (transform scope) |> Array 
         | Pipe elements -> elements |> List.map (transform scope) |> Pipe

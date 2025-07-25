@@ -142,7 +142,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
             emit state $"%%{var} = phi {typ}* [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
         ""
         
-    | WhilePhi(c, b, cond_phi, body_phi) ->
+    | WhilePhi(cond_phi, c, b, body_phi) ->
         let entryLabel = nextSpecialLabel state "entry"
         let condLabel = nextSpecialLabel state "cond"
         let loopLabel = nextSpecialLabel state "loop"

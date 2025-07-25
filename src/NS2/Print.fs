@@ -60,7 +60,7 @@ let rec printAst (indentSize: int) (ast: AST) =
             indent + "While\n" +
             print (level + 1) cond +
             print (level + 1) body
-        | WhilePhi (cond, body, condphi, bodyphi) ->
+        | WhilePhi (condphi, cond, body, bodyphi) ->
             indent + "WhilePhi\n" +
             print (level + 1) cond +
             print (level + 1) body +

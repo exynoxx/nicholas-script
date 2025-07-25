@@ -42,7 +42,7 @@ let main argv =
             c = 0;
             ten = 10;
             print: "before loop";
-            while (a+c < ten)
+            while (a+c < 10)
             {
                 a+=1;
                 b+=1;
