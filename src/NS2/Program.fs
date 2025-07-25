@@ -40,14 +40,23 @@ let main argv =
             a = 0;
             b = 0;
             c = 0;
-            while (a+b < 10)
+            ten = 10;
+            while (a+b < ten)
             {
                 a+=1;
                 c+=1;
-                if (x>0) b+=1 else a+=1
+                if (x>0) a+=1 else b+=1;
+                print: a;
             }
             
         """
+        
+    (*let code =
+        """
+            a = 0;
+            if (a>0) a+=1 else a+=1;
+            print: a;            
+        """*)
     
     let input = preinput + code.Trim();
     try

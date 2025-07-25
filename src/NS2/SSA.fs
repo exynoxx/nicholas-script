@@ -57,7 +57,6 @@ let ssa_transform (tree: AST) =
             let tbody = (transform scope body)
             FuncCalled(targs, tbody)
         | Binop (l, op, r) -> Binop(transform scope l, op, transform scope r)
-        //| If (c, b, e) -> If(transform scope c, transform scope b, Option.map (transform scope) e)
         | IfPhi (c, b, Some e, phis) ->
             let cc = transform scope c
             let bb = transform scope b
@@ -65,22 +64,37 @@ let ssa_transform (tree: AST) =
             let ee = transform scope e
             let ee_scope = scope.Copy()
             
-            let merge =
-                function
-                | Typed(Phi(var,_,_), phi_typ) ->
-                    let newName = scope.NewId var
-                    Typed(Phi(newName, bb_scope.GetIdGlobal var, ee_scope.GetIdGlobal var), phi_typ)
-                | _ -> failwith "merge phi invalid"
+            let merge = function
+                        | Typed(Phi(var,_,_), phi_typ) ->
+                            let newName = scope.NewId var
+                            Typed(Phi(newName, bb_scope.GetIdGlobal var, ee_scope.GetIdGlobal var), phi_typ)
+                        | Typed(PhiSingle(_,var,null), phi_typ) ->
+                            let lastVar = scope.GetId var
+                            let newName = scope.NewId var
+                            Typed(Phi(newName, bb_scope.GetIdGlobal var, lastVar), phi_typ)
+                            
+                        | Typed(PhiSingle(_,null,var), phi_typ) ->
+                            let lastVar = scope.GetId var
+                            let newName = scope.NewId var
+                            Typed(Phi(newName, lastVar, ee_scope.GetIdGlobal var), phi_typ)
             
             let pp = phis |> List.map merge
             
             IfPhi(cc,bb,Some ee,pp)
             
-        | IfPhi (c, b, None, phis) -> //TODO fix
-            let b_scope = scope.Spawn()
+        | IfPhi (c, b, None, phis) ->
             let cc = transform scope c
-            let bb = transform b_scope b
-            let pp = phis |> List.map (transform b_scope)
+            let bb = transform scope b
+            let bb_scope = scope.Copy()
+            
+            let merge = function
+                        | Typed(PhiSingle(_,var,null), phi_typ) ->
+                            let lastVar = scope.GetId var
+                            let newName = scope.NewId var
+                            Typed(Phi(newName, bb_scope.GetIdGlobal var, lastVar), phi_typ)
+                        | _ -> failwith "single if single assign not possible"
+
+            let pp = phis |> List.map merge
             IfPhi(cc,bb,None,pp)
 
         | While (c, Typed(Block body, _)) ->

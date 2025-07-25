@@ -73,6 +73,7 @@ let rec printAst (indentSize: int) (ast: AST) =
              | None -> indent + String.replicate indentSize " " + "Else: None\n") +
             printList "Phis:" phis
         | Phi(s, s1, s2) -> indent + $"Phi({s},{s1},{s2})\n"
+        | PhiSingle(s, s1, s2) -> indent + $"PhiSingle({s},{s1},{s2})\n"
         | x -> failwith $"print not recognized: %A{x}"
 
     print 0 ast

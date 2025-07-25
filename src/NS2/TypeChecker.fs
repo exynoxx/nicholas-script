@@ -189,12 +189,12 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
                 //assign in 1 branch
                 let ty = scope.GetType var |> Option.get
                 if then_assigns.ContainsKey var && then_assigns[var] = ty  then 
-                    phis.Add (Typed(Phi (var,var,var), ty)) |> ignore
+                    phis.Add (Typed(PhiSingle (var,var,null), ty)) |> ignore
                 if then_assigns.ContainsKey var && then_assigns[var] <> ty  then 
                     swallow <- true
                     
                 if else_assigns.ContainsKey var && else_assigns[var] = ty  then 
-                    phis.Add (Typed(Phi (var,var,var), ty)) |> ignore
+                    phis.Add (Typed(PhiSingle (var,null,var), ty)) |> ignore
                 if else_assigns.ContainsKey var && else_assigns[var] <> ty  then 
                     swallow <- true
                 
@@ -226,7 +226,7 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
             | None -> failwith "if-should not be possible"
             | Some ty ->
                 if ty = then_ty then
-                    phis.Add (Typed(Phi (var,var,var), then_ty)) |> ignore
+                    phis.Add (Typed(PhiSingle (var,var,null), then_ty)) |> ignore
                 else
                     swallow <- true
 

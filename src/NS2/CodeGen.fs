@@ -30,6 +30,11 @@ let nextSpecialLabel (st: CodegenState) (label:string)=
     st.Label <- st.Label + 1
     $"{label}{l}"
     
+let typeof =
+    function
+    | Typed(_,t) -> t
+    | _ -> failwith "typeof node not Typed"
+    
 let emit (st: CodegenState) (line: string) = st.Code.AppendLine(line) |> ignore
 
 let TypeToLLVM =
@@ -37,14 +42,14 @@ let TypeToLLVM =
     | StringType -> "i8*"
     | IntType -> "i32"
     | BoolType -> "i1"
-    | _ -> failwith "type unknown"
+    | x -> failwith $"TypeToLLVM: type unknown {x}"
 
 let rec codegen_expr (state: CodegenState) (ast: AST) : string =
     
     let node, t =
         match ast with
         | Typed (x,t) -> (x,t)
-        | x -> (x,AnyType)
+        | x -> failwith "codegen not typed"
 
     match node with
     | Root block ->
@@ -67,13 +72,13 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         state.StringConstants.AppendLine line |> ignore
         let tmp = nextReg state
         emit state $"{tmp} = getelementptr [{s.Length+1} x i8], [{s.Length+1} x i8]* {const_name}, i32 0, i32 0"
-        $"i8* {tmp}"
+        tmp
 
     | Id name ->
        let typ = TypeToLLVM t
        let tmp = nextReg state
        emit state $"{tmp} = load {typ}, {typ}* %%{name}, align 4"    
-       $"{typ} {tmp}"
+       tmp
 
     | Assign (Id name, Typed(node,ty)) ->
         
@@ -83,17 +88,18 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         match ty with
         | StringType ->
             emit state $"%%{name} = alloca i8*, align 8"
-            emit state $"store {rhs}, i8** %%{name}, align 8"
+            emit state $"store i8* {rhs}, i8** %%{name}, align 8"
         | IntType when isInt -> 
             emit state $"%%{name} = alloca i32, align 4"
             emit state $"store i32 {rhs}, i32* %%{name}, align 4"
         | IntType -> 
             emit state $"%%{name} = alloca i32, align 4"
-            emit state $"store {rhs}, i32* %%{name}, align 4"
+            emit state $"store i32 {rhs}, i32* %%{name}, align 4"
         ""
 
     | Binop (left, op, right) ->
-        let typ = TypeToLLVM t
+        let typ = left |> typeof |> TypeToLLVM
+
         let l = codegen_expr state left
         let r = codegen_expr state right
         let result = nextReg state
@@ -111,8 +117,8 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
             | ">" -> "icmp sgt"
             | ">=" -> "icmp sge"
             | _ -> failwith $"Unsupported op: {op}"
-        emit state $"{result} = {op_instr} {l}, {r}"
-        $"{typ} {result}"
+        emit state $"{result} = {op_instr} {typ} {l}, {r}"
+        result
 
     | IfPhi (cond, thenBranch, Some elseBranch, phis) ->
         let cond_reg = codegen_expr state cond
@@ -121,7 +127,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         let elseLabel = nextSpecialLabel state "else"
         let endLabel = nextSpecialLabel state "endif"
 
-        emit state $"br {cond_reg}, label %%{thenLabel}, label %%{elseLabel}"
+        emit state $"br i1 {cond_reg}, label %%{thenLabel}, label %%{elseLabel}"
         emit state $"{thenLabel}:"
         let then_val = codegen_expr state thenBranch
         emit state $"br label %%{endLabel}"
@@ -145,18 +151,24 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
 
         emit state $"{condLabel}:"
         let cond_reg = codegen_expr state c
-        emit state $"br {cond_reg}, label {loopLabel}, label {exitLabel}"
+        emit state $"br i1 {cond_reg}, label %%{loopLabel}, label %%{exitLabel}"
 
         emit state $"{loopLabel}:"
         codegen_expr state b
         emit state $"br label %%{condLabel}"
         emit state $"{exitLabel}:"
         ""
-
     
     | Call (id, args) ->
-        let targs = args |> List.map (codegen_expr state)
-        let code_args = String.concat ", " targs
+        
+        let gen_arg =
+            function
+            | Typed(x, argt) ->
+                let typ = TypeToLLVM argt
+                let reg = codegen_expr state (Typed(x, argt))
+                $"{typ} {reg}"
+        
+        let code_args = args |> List.map gen_arg |> String.concat ", "
         match t with
         | VoidType ->
             emit state $"call void @{id} ({code_args})"

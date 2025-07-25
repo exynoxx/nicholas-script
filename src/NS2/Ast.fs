@@ -25,6 +25,7 @@ type AST =
     
     | Typed of AST * Type
     | Phi of string * string * string
+    | PhiSingle of string * string * string
     | Contract
     | Nop
     
