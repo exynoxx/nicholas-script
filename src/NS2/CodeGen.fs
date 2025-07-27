@@ -74,27 +74,19 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         emit state $"{tmp} = getelementptr [{s.Length+1} x i8], [{s.Length+1} x i8]* {const_name}, i32 0, i32 0"
         tmp
 
-    | Id name ->
+    | PtrId name ->
        let typ = TypeToLLVM t
        let tmp = nextReg state
        emit state $"{tmp} = load {typ}, {typ}* %%{name}, align 4"    
        tmp
-
+       
+    | Id name -> $"%%{name}"
+    | Assign (Id name, Typed(Int i,_)) ->
+        emit state $"%%{name} = add i32 {i}, 0"   
+        ""
     | Assign (Id name, Typed(node,ty)) ->
-        
         let rhs = codegen_expr state (Typed(node,ty))
-        let isInt = match node with | Int _ -> true | _ -> false
-        
-        match ty with
-        | StringType ->
-            emit state $"%%{name} = alloca i8*, align 8"
-            emit state $"store i8* {rhs}, i8** %%{name}, align 8"
-        | IntType when isInt -> 
-            emit state $"%%{name} = alloca i32, align 4"
-            emit state $"store i32 {rhs}, i32* %%{name}, align 4"
-        | IntType -> 
-            emit state $"%%{name} = alloca i32, align 4"
-            emit state $"store i32 {rhs}, i32* %%{name}, align 4"
+        emit state $"%%{name} = {rhs}"   
         ""
 
     | Binop (left, op, right) ->
@@ -141,7 +133,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
             match p with
             | Typed (Phi(var, thenvar, elsevar),t) -> 
                 let typ = TypeToLLVM t
-                emit state $"%%{var} = phi {typ}* [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
+                emit state $"%%{var} = phi {typ} [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
             | x -> codegen_expr state x |> ignore
             
         ""
@@ -176,18 +168,20 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         | IntType ->  emit state $"%%{id} = alloca i32, align 4"
         ""
       
+    (*
     | Store (Id id, Typed (Id other,ty)) ->
         match ty with
         | StringType -> emit state $"store i8* {other}, i8** %%{id}, align 8"
-        | IntType ->  emit state $"store i32* {other}, i32** %%{id}, align 4"
+        | IntType ->  emit state $"store i32 {other}, i32* %%{id}, align 4"
         ""
+        *)
         
     | Store (Id id, Typed(node,ty)) ->
         let rhs = codegen_expr state (Typed(node,ty))
         
         match ty with
         | StringType -> emit state $"store i8* {rhs}, i8** %%{id}, align 8"
-        | IntType ->  emit state $"store i32* {rhs}, i32** %%{id}, align 4"
+        | IntType ->  emit state $"store i32 {rhs}, i32* %%{id}, align 4"
         ""
         
     | Call (id, args) ->

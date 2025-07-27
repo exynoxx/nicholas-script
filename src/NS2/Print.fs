@@ -24,6 +24,7 @@ let rec printAst (indentSize: int) (ast: AST) =
         | String s -> indent + $"String \"{s}\"\n"
         | Bool b -> indent + $"Bool {b}\n"
         | Id s -> indent + $"Id({t}) {s}\n"
+        | PtrId s -> indent + $"PtrId({t}) {s}\n"
         | Binop (lhs, op, rhs) ->
             indent + $"Binop({t}) '{op}'\n" +
             print (level + 1) lhs +

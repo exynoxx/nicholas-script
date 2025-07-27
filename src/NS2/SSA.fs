@@ -59,7 +59,8 @@ type SSA_Scope (parent:SSA_Scope option, local_version: Dictionary<string,int>, 
     
     member this.Copy() = SSA_Scope(parent, local_version |> Dictionary, global_version |> Dictionary, reverse |> Dictionary)
     
-let rec replace_assigns (scope:SSA_Scope) (a_to_hoist:Dictionary<string,string>) ast =
+//last variable version inside loop is stored in global variable. all reads are loaded (PtrId)
+let rec store_load_transform (scope:SSA_Scope) (a_to_hoist:Dictionary<string,string>) ast =
     match ast with
     | Typed(Phi(var,x, y), typ) ->
         if scope.IsLastVersion var then
@@ -78,34 +79,41 @@ let rec replace_assigns (scope:SSA_Scope) (a_to_hoist:Dictionary<string,string>)
             let replacement = a_to_hoist[unversioned]
             [Store (Id replacement, Typed(rhs,typ))]
         else
-            [ast]
+            let body = store_load_transform scope a_to_hoist rhs |> List.head
+            [Assign (Id var, Typed(body, typ))]
             
-    | Root body ->  [ body |> List.collect (replace_assigns scope a_to_hoist) |> Root ]
-    | Block b -> [ b |> List.collect (replace_assigns scope a_to_hoist) |> Block ]
-    | Id name -> [Id (scope.GetId name)]  
+    | Root body ->  [ body |> List.collect (store_load_transform scope a_to_hoist) |> Root ]
+    | Block b -> [ b |> List.collect (store_load_transform scope a_to_hoist) |> Block ]
+    | Id name ->
+        let unversioned = scope.Reverse name
+        if name = a_to_hoist[unversioned] then
+            [PtrId name]
+        else
+            [Id name]
+            
     | Binop (l, op, r) ->
-        let ll = replace_assigns scope a_to_hoist l |> List.head
-        let rr = replace_assigns scope a_to_hoist r |> List.head
+        let ll = store_load_transform scope a_to_hoist l |> List.head
+        let rr = store_load_transform scope a_to_hoist r |> List.head
         [Binop(ll, op, rr)]
     | Unop (op, r) ->
-        let rr = replace_assigns scope a_to_hoist r |> List.head
+        let rr = store_load_transform scope a_to_hoist r |> List.head
         [Unop(op, rr)]
     | IfPhi (c, b, Some e, phis) ->
-        let cc = replace_assigns scope a_to_hoist c |> List.head
-        let bb = replace_assigns scope a_to_hoist b |> List.head
-        let ee = replace_assigns scope a_to_hoist e |> List.head
-        let pp = phis |> List.collect (replace_assigns scope a_to_hoist)
+        let cc = store_load_transform scope a_to_hoist c |> List.head
+        let bb = store_load_transform scope a_to_hoist b |> List.head
+        let ee = store_load_transform scope a_to_hoist e |> List.head
+        let pp = phis |> List.collect (store_load_transform scope a_to_hoist)
         [IfPhi(cc,bb,Some ee,pp)]
     | IfPhi (c, b, None, phis) ->
-        let cc = replace_assigns scope a_to_hoist c |> List.head
-        let bb = replace_assigns scope a_to_hoist b |> List.head
-        let pp = phis |> List.collect (replace_assigns scope a_to_hoist)
+        let cc = store_load_transform scope a_to_hoist c |> List.head
+        let bb = store_load_transform scope a_to_hoist b |> List.head
+        let pp = phis |> List.collect (store_load_transform scope a_to_hoist)
         [IfPhi(cc,bb,None,pp)]
-    | Array elements -> [elements |> List.collect (replace_assigns scope a_to_hoist) |> Array ]
-    | Pipe elements -> [elements |> List.collect (replace_assigns scope a_to_hoist) |> Pipe]
-    | Call (id, args) -> [Call(scope.GetId id, args |> List.collect (replace_assigns scope a_to_hoist))]
-    | Index (arr, idx) -> [Index (replace_assigns scope a_to_hoist arr |> List.head, replace_assigns scope a_to_hoist idx |> List.head)]
-    | Typed (x, t) -> replace_assigns scope a_to_hoist x |> List.map(fun xx -> Typed(xx,t))
+    | Array elements -> [elements |> List.collect (store_load_transform scope a_to_hoist) |> Array ]
+    | Pipe elements -> [elements |> List.collect (store_load_transform scope a_to_hoist) |> Pipe]
+    | Call (id, args) -> [Call(scope.GetId id, args |> List.collect (store_load_transform scope a_to_hoist))]
+    | Index (arr, idx) -> [Index (store_load_transform scope a_to_hoist arr |> List.head, store_load_transform scope a_to_hoist idx |> List.head)]
+    | Typed (x, t) -> store_load_transform scope a_to_hoist x |> List.map(fun xx -> Typed(xx,t))
     | Int _ | String _ | Nop -> [ast]
     | x -> failwith $"SSA replace_assigns unknown %A{x}"
 
@@ -186,11 +194,12 @@ let ssa_transform (tree: AST) =
             
             let b_scope = scope.Spawn()
             let bb = transform b_scope b
-
-            let bbb = replace_assigns scope newName bb |> List.head
-            let cc = transform scope c
+            let bbb = store_load_transform scope newName bb |> List.head
             
-            WhilePhi(cc, bbb, pre_assigns)
+            let cc = transform scope c
+            let ccc =  store_load_transform scope newName cc |> List.head
+            
+            WhilePhi(ccc, bbb, pre_assigns)
 
         | Unop (op, r) -> Unop(op, transform scope r)
         | Array elements -> elements |> List.map (transform scope) |> Array 

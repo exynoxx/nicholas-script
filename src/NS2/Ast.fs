@@ -30,6 +30,7 @@ type AST =
     | Phi of string * string * string
     | PhiSingle of string * string * string
     | Store of AST * AST
+    | PtrId of string
     | CreatePtr of AST * Type
     | Contract
     | Nop
