@@ -186,59 +186,10 @@ let ssa_transform (tree: AST) =
             
             let pre_assigns = pre_assign_b |> Seq.collect assignInstructions |> List.ofSeq
 
-            (*
-            let replacer (var_version:string) (local_scope:SSA_Scope)  =
-                function
-                | Typed(x,typ) ->
-                    let [|var;version|] = var_version.Split("_")
-                    if Int32.Parse version = local_scope.Version var then
-                        let ssa_id = scope.GetId var
-                        let tmp = scope.NewId var
-                        pre_assign <- pre_assign @ [ CreatePtr (Id tmp, typ);  Store (Id tmp, Typed(Id ssa_id, typ)) ]
-                        Typed(Store (Id tmp, Typed(x,typ)), VoidType)
-                    else
-                        Typed(x,typ)
-            
-            let bbb = replace_assigns scope replacer bb*)
             let cc = transform b_scope c
             
             WhilePhi(cc, bbb, pre_assigns)
 
-            (*let unwrap = function | Typed(PhiSingle(var,_,_), _) -> var | _ -> failwith "WhilePhi.Unwrap fail"
-            let initial_vars = condPhi |> List.map unwrap
-            
-            let init_var_lookup = initial_vars |> List.map (fun var -> KeyValuePair(var,scope.GetId var)) |> Dictionary
-            let cond_var_lookup = initial_vars |> List.map (fun var -> KeyValuePair(var,scope.NewId var)) |> Dictionary
-
-            let bb_scope = scope.Spawn()
-            let bb = transform bb_scope b
-            
-            let cond_phi = condPhi |> List.map (function
-                                                | Typed(PhiSingle(var,null,null), phi_typ) ->
-                                                    let newName = cond_var_lookup[var]
-                                                    let entryVar = init_var_lookup[var]
-                                                    let lastNameBody = bb_scope.GetId var
-                                                    Typed(Phi(newName, lastNameBody, entryVar), phi_typ)
-                                                    
-                                                | _ -> failwith "single while assign not possible")*)
-            
-            (*let merge = function
-                        | Typed(PhiSingle(var,null,null), phi_typ) ->
-                            let entryVar = scope.GetId var
-                            let newName = scope.NewId var
-                            let varInBody = bb_scope.GetId var
-                            Typed(Phi(newName, varInBody, entryVar), phi_typ)
-                            
-                        | _ -> failwith "single while assign not possible"
-                        
-            let body_phi = bodyPhi |> List.map merge
-            *)
-        
-         (*
-                let assigns = Helpers.find_assigns scope b
-                let hoists = assigns.Keys |> Seq.map (fun var -> KeyValuePair(var,scope.NewId var)) |> Dictionary
-            *)
-            
         | Unop (op, r) -> Unop(op, transform scope r)
         | Array elements -> elements |> List.map (transform scope) |> Array 
         | Pipe elements -> elements |> List.map (transform scope) |> Pipe
