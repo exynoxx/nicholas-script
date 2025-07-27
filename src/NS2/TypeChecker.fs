@@ -245,14 +245,16 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
         let cc = typecheck_internal scope c blockrest i |> List.head
         let bb = typecheck_internal scope (Helpers.to_block b) blockrest i |> List.head
         
+        (*
         let cond_vars = Helpers.find_usage scope cc
         let assigns = Helpers.find_assigns scope bb
         
         let condPhi, bodyPhi = assigns.Keys |> List.ofSeq |> List.partition cond_vars.Contains
         let cond_phi = condPhi |> List.map (fun var -> Typed(PhiSingle(var,null,null), assigns[var]))
         let body_phi = bodyPhi |> List.map (fun var -> Typed(PhiSingle(var,null,null), assigns[var]))
+        *)
         
-        [Typed (WhilePhi(cond_phi, cc, bb, body_phi), VoidType)]
+        [Typed (While(cc, bb), VoidType)]
         
     //| Map ( Array a , Func f) -> failwith "not implemented" // a |> List.map (fun x -> FuncCalled ([x], Func f)) |> TypedArray
     //| Map (arr, func) -> failwith "Can only map an array with a function"

@@ -142,7 +142,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
             emit state $"%%{var} = phi {typ}* [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
         ""
         
-    | WhilePhi(cond_phi, c, b, body_phi) ->
+    | WhilePhi(c, b, pre_assign) ->
         let entryLabel = nextSpecialLabel state "entry"
         let condLabel = nextSpecialLabel state "cond"
         let loopLabel = nextSpecialLabel state "loop"
@@ -150,13 +150,13 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
 
         emit state $"br label %%{entryLabel}"
         emit state $"{entryLabel}:"
+        
+        for x in pre_assign do
+            codegen_expr state x
+        
         emit state $"br label %%{condLabel}"
 
         emit state $"{condLabel}:"
-        for Typed (Phi(var, loopvar, entryvar),t) in cond_phi do
-            let typ = TypeToLLVM t
-            emit state $"%%{var} = phi {typ}* [%%{entryvar}, %%{entryLabel}], [%%{loopvar}, %%{loopLabel}]"
-            
         let cond_reg = codegen_expr state c
         emit state $"br i1 {cond_reg}, label %%{loopLabel}, label %%{exitLabel}"
 
@@ -164,11 +164,22 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         codegen_expr state b
         emit state $"br label %%{condLabel}"
         emit state $"{exitLabel}:"
-        for Typed (Phi(var, loopvar, entryvar),t) in body_phi do
-            let typ = TypeToLLVM t
-            emit state $"%%{var} = phi {typ}* [%%{entryvar}, %%{entryLabel}], [%%{loopvar}, %%{loopLabel}]"
         ""
-    
+        
+    | CreatePtr (Id id, ty) -> 
+        match ty with
+        | StringType -> emit state $"%%{id} = alloca i8*, align 8"
+        | IntType ->  emit state $"%%{id} = alloca i32, align 4"
+        ""
+        
+    | Store (Id id, Typed(node,ty)) ->
+        let rhs = codegen_expr state (Typed(node,ty))
+        
+        match ty with
+        | StringType -> emit state $"store i8* {rhs}, i8** %%{id}, align 8"
+        | IntType ->  emit state $"store i32 {rhs}, i32* %%{id}, align 4"
+        ""
+        
     | Call (id, args) ->
         
         let gen_arg =
@@ -189,7 +200,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
             emit state $"{tmp} = call {ret_typ} @{id} ({code_args})"
             tmp
             
-    | x -> $"Unsupported %s{x.GetType().Name}"
+    | x -> failwith $"Unsupported %s{x.GetType().Name}"
 
 let codegen (program: AST) : string =
     let state =

@@ -24,9 +24,9 @@
         <Compile Include="Parser.fsi" />
         <Compile Include="Parser.fs" />
         <Compile Include="Lexer.fs" />
+        <Compile Include="Helpers.fs" />
         <Compile Include="SSA.fs" />
         <Compile Include="Print.fs" />
-        <Compile Include="Helpers.fs" />
 		<Compile Include="TypeChecker.fs" />
         <Compile Include="Interpreter.fs" />
         <Compile Include="CodeGen.fs" />

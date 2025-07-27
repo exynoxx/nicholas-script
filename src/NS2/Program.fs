@@ -35,18 +35,12 @@ let main argv =
     //let input = preinput + "b={$1}; x=1001; while (x != 1) { if (x%2==0) {x=x/2} else {x=x*3+1} };";
     let code =
         """
-            x = 0
-            
             a = 0;
-            b = 0;
-            c = 0;
-            ten = 10;
             print: "before loop";
-            while (a+b < ten)
+            while (a < 10)
             {
-                if ((a+b)%2==0) a+=1 else b+=1;
+                if (a>5) a+=1 else a+=1;
                 print: a;
-                print: b;
             }
             
         """

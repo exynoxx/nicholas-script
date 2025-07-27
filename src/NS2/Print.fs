@@ -1,6 +1,7 @@
 ﻿module NS2.Print
 
 open NS2.Ast
+open NS2.Type
 
 let rec printAst (indentSize: int) (ast: AST) =
     let rec print (level: int) (node: AST) =
@@ -11,19 +12,24 @@ let rec printAst (indentSize: int) (ast: AST) =
             indent + tag + newline +
             (items |> List.map (print (level + 1)) |> String.concat "")
 
-        match node with
+        let x,t =
+            match node with
+            | Typed(x,t) -> (x,t)
+            | x -> (x, AnyType)
+        
+        match x with
         | Root lst -> printList "Root" lst
         | Block lst -> printList "Block" lst
         | Int i -> indent + $"Int {i}\n"
         | String s -> indent + $"String \"{s}\"\n"
         | Bool b -> indent + $"Bool {b}\n"
-        | Id s -> indent + $"Id {s}\n"
+        | Id s -> indent + $"Id({t}) {s}\n"
         | Binop (lhs, op, rhs) ->
-            indent + $"Binop '{op}'\n" +
+            indent + $"Binop({t}) '{op}'\n" +
             print (level + 1) lhs +
             print (level + 1) rhs
         | Unop (op, value) ->
-            indent + $"Unop '{op}'\n" +
+            indent + $"Unop({t}) '{op}'\n" +
             print (level + 1) value
         | Index (arr, idx) ->
             indent + "Index\n" +
@@ -44,9 +50,8 @@ let rec printAst (indentSize: int) (ast: AST) =
             indent + "Map\n" +
             print (level + 1) key +
             print (level + 1) value
-        | Assign (lhs, rhs) ->
-            indent + "Assign\n" +
-            print (level + 1) lhs +
+        | Assign (Id id, rhs) ->
+            indent + $"Assign({id})\n" +
             print (level + 1) rhs
         | Pipe items -> printList "Pipe" items
         | If (cond, thenBranch, elseOpt) ->
@@ -60,12 +65,11 @@ let rec printAst (indentSize: int) (ast: AST) =
             indent + "While\n" +
             print (level + 1) cond +
             print (level + 1) body
-        | WhilePhi (condphi, cond, body, bodyphi) ->
+        | WhilePhi (cond, body, pre_assign) ->
             indent + "WhilePhi\n" +
             print (level + 1) cond +
             print (level + 1) body +
-            printList "condphi:" condphi +
-            printList "bodyphi:" bodyphi
+            printList "pre_assign:" pre_assign
         | Typed (expr, typ) ->
             indent + $"Typed ({typ})\n" +
             print (level + 1) expr
@@ -78,8 +82,13 @@ let rec printAst (indentSize: int) (ast: AST) =
              | Some e -> print (level + 1) e
              | None -> indent + String.replicate indentSize " " + "Else: None\n") +
             printList "Phis:" phis
-        | Phi(s, s1, s2) -> indent + $"Phi({s},{s1},{s2})\n"
-        | PhiSingle(s, s1, s2) -> indent + $"PhiSingle({s},{s1},{s2})\n"
+        | Phi(s, s1, s2) -> indent + $"Phi({t})({s},{s1},{s2})\n"
+        | PhiSingle(s, s1, s2) -> indent + $"PhiSingle({t})({s},{s1},{s2})\n"
+        | CreatePtr (Id id, typ) -> indent + $"CreatePtr({id},{typ})\n"
+        | Store (Id id, body) ->
+            indent + $"Store({t}, {id})\n" +
+            print (level + 1) body
+            
         | x -> failwith $"print not recognized: %A{x}"
 
     print 0 ast

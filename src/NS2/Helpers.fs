@@ -38,7 +38,7 @@ let rec find_assigns (scope:Scope) ast =
         | IfPhi (c, b, None,_) ->
             inner b
         | While (c, b) -> inner b
-        | WhilePhi (_,c, b,_) -> inner b
+        | WhilePhi (c, b,_) -> inner b
         | Typed (x,t) -> inner x
         | Int n -> ()
         | String x -> ()
@@ -79,7 +79,7 @@ let rec find_usage (scope:Scope) ast =
         | While (c, b) ->
             inner c
             inner b
-        | WhilePhi (_, c, b, _) ->
+        | WhilePhi (c, b, _) ->
             inner c
             inner b
         | Typed (x,t) -> inner x

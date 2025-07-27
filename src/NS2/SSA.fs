@@ -1,9 +1,12 @@
 ﻿module NS2.SSA
 
+open System
+open System.Collections
 open System.Collections.Generic
 open NS2.Ast
+open NS2.Type
 
-type SSA_Scope (parent:SSA_Scope option, local_version: Dictionary<string,int>, global_version:Dictionary<string, int>) =
+type SSA_Scope (parent:SSA_Scope option, local_version: Dictionary<string,int>, global_version:Dictionary<string, int>, reverse:Dictionary<string, string>) =
     
     member this.Version (id:string) =
         match local_version.TryGetValue(id) with
@@ -23,22 +26,90 @@ type SSA_Scope (parent:SSA_Scope option, local_version: Dictionary<string,int>, 
         global_version[id] <- next
         local_version[id] <- next
 
-        match next with
-        | 0 -> id
-        | _ -> $"{id}_{next}"
+        let newId =
+            match next with
+            | 0 -> id
+            | _ -> $"{id}_{next}"
+            
+        reverse[newId] <- id
+        newId
 
+    member this.Reverse(id:string) = reverse[id]
+    
+    (*
     member this.NextId (id:string) : string =
         let next = global_version.GetValueOrDefault(id,0)+1
 
         match next with
         | 0 -> id
         | _ -> $"{id}_{next}"
+        *)
     
-    static member Empty() = SSA_Scope(None, Dictionary<string,int>(), Dictionary<string,int>())
-    member this.Spawn() = SSA_Scope(Some this, Dictionary<string,int>(), global_version)
+    static member Empty() = SSA_Scope(None, Dictionary<string,int>(), Dictionary<string,int>(), Dictionary<string,string>())
+    member this.Spawn() = SSA_Scope(Some this, Dictionary<string,int>(), global_version, reverse)
     
-    member this.Copy() = SSA_Scope(parent, local_version |> Dictionary, global_version |> Dictionary)
+    member this.Copy() = SSA_Scope(parent, local_version |> Dictionary, global_version |> Dictionary, reverse |> Dictionary)
     
+let rec replace_assigns (scope:SSA_Scope) (pre_assigns:ResizeArray<string*Type>) ast =
+    match ast with
+    | Root body ->  [ body |> List.collect (replace_assigns scope pre_assigns) |> Root ]
+    | Block b -> [ b |> List.collect (replace_assigns scope pre_assigns) |> Block ]
+    | Id name -> [Id (scope.GetId name)]  
+    | Binop (l, op, r) ->
+        let ll = replace_assigns scope pre_assigns l |> List.head
+        let rr = replace_assigns scope pre_assigns r |> List.head
+        [Binop(ll, op, rr)]
+        
+    | Unop (op, r) ->
+        let rr = replace_assigns scope pre_assigns r |> List.head
+        [Unop(op, rr)]
+
+    | IfPhi (c, b, Some e, phis) ->
+        let cc = replace_assigns scope pre_assigns c |> List.head
+        let bb = replace_assigns scope pre_assigns b |> List.head
+        let ee = replace_assigns scope pre_assigns e |> List.head
+        let pp = phis |> List.collect (replace_assigns scope pre_assigns)
+        [IfPhi(cc,bb,Some ee,pp)]
+        
+    | IfPhi (c, b, None, phis) ->
+        let cc = replace_assigns scope pre_assigns c |> List.head
+        let bb = replace_assigns scope pre_assigns b |> List.head
+        let pp = phis |> List.collect (replace_assigns scope pre_assigns)
+        [IfPhi(cc,bb,None,pp)]
+        
+    | Typed(Phi(var,x, y), typ) ->
+        let unversioned = scope.Reverse var
+        
+        if var = $"{unversioned}_{scope.Version unversioned}" then 
+
+            let tmp = scope.NewId unversioned
+            pre_assigns.Add((tmp,typ))
+
+            [
+                Typed(Phi(var,x, y), typ) 
+                Typed(Store (Id tmp, Id var), typ)
+            ]
+            
+        else
+            [ast]
+
+    | Assign (Id id, Typed(rhs,typ)) ->
+        
+        let unversioned = scope.Reverse id
+        if id = $"{unversioned}_{scope.Version unversioned}" then
+            let tmp = scope.NewId id
+            pre_assigns.Add((tmp,typ))
+            [Store (Id tmp, Typed(rhs,typ))]
+        else
+            [ast]
+            
+    | Array elements -> [elements |> List.collect (replace_assigns scope pre_assigns) |> Array ]
+    | Pipe elements -> [elements |> List.collect (replace_assigns scope pre_assigns) |> Pipe]
+    | Call (id, args) -> [Call(scope.GetId id, args |> List.collect (replace_assigns scope pre_assigns))]
+    | Index (arr, idx) -> [Index (replace_assigns scope pre_assigns arr |> List.head, replace_assigns scope pre_assigns idx |> List.head)]
+    | Typed (x, t) -> replace_assigns scope pre_assigns x |> List.map(fun xx -> Typed(xx,t))
+    | Int _ | String _ | Nop -> [ast]
+    | x -> failwith $"SSA replace_assigns unknown %A{x}"
 
 let ssa_transform (tree: AST) =
     let rec transform (scope:SSA_Scope) ast =
@@ -98,22 +169,42 @@ let ssa_transform (tree: AST) =
             let pp = phis |> List.map merge
             IfPhi(cc,bb,None,pp)
 
-        | WhilePhi (condPhi, c, b, bodyPhi) ->
+        | While (c, b) ->
+            let pre_assign_b = ResizeArray<string*Type>()
+            let b_scope = scope.Spawn()
+            let bb = transform b_scope b
+            let bbb = replace_assigns b_scope pre_assign_b bb |> List.head
             
+            let assignInstructions (tmp,typ) =
+                let unversioned = scope.Reverse tmp
+                let initial_var = scope.GetId unversioned
+                                
+                [
+                    CreatePtr (Id tmp, typ)
+                    Store (Id tmp, Typed(Id initial_var, typ))
+                ]
+            
+            let pre_assigns = pre_assign_b |> Seq.collect assignInstructions |> List.ofSeq
+
             (*
-            cond:
-                a_2 = [entry: a1, loop: a3]
-                a_2 < ...
-            loop:
-                a_3 = a_2 + 1
-                a_4 = a_3 ...
-            *)
+            let replacer (var_version:string) (local_scope:SSA_Scope)  =
+                function
+                | Typed(x,typ) ->
+                    let [|var;version|] = var_version.Split("_")
+                    if Int32.Parse version = local_scope.Version var then
+                        let ssa_id = scope.GetId var
+                        let tmp = scope.NewId var
+                        pre_assign <- pre_assign @ [ CreatePtr (Id tmp, typ);  Store (Id tmp, Typed(Id ssa_id, typ)) ]
+                        Typed(Store (Id tmp, Typed(x,typ)), VoidType)
+                    else
+                        Typed(x,typ)
             
-            //reserve a2
-            //find last(a_4) in body run
-            //compute phi
+            let bbb = replace_assigns scope replacer bb*)
+            let cc = transform b_scope c
             
-            let unwrap = function | Typed(PhiSingle(var,_,_), _) -> var | _ -> failwith "WhilePhi.Unwrap fail"
+            WhilePhi(cc, bbb, pre_assigns)
+
+            (*let unwrap = function | Typed(PhiSingle(var,_,_), _) -> var | _ -> failwith "WhilePhi.Unwrap fail"
             let initial_vars = condPhi |> List.map unwrap
             
             let init_var_lookup = initial_vars |> List.map (fun var -> KeyValuePair(var,scope.GetId var)) |> Dictionary
@@ -128,24 +219,32 @@ let ssa_transform (tree: AST) =
                                                     let entryVar = init_var_lookup[var]
                                                     let lastNameBody = bb_scope.GetId var
                                                     Typed(Phi(newName, lastNameBody, entryVar), phi_typ)
-                                                | _ -> failwith "single while assign not possible")
+                                                    
+                                                | _ -> failwith "single while assign not possible")*)
             
-            let cc = transform scope c
-            let merge = function
+            (*let merge = function
                         | Typed(PhiSingle(var,null,null), phi_typ) ->
                             let entryVar = scope.GetId var
                             let newName = scope.NewId var
                             let varInBody = bb_scope.GetId var
                             Typed(Phi(newName, varInBody, entryVar), phi_typ)
+                            
                         | _ -> failwith "single while assign not possible"
+                        
             let body_phi = bodyPhi |> List.map merge
+            *)
+        
+         (*
+                let assigns = Helpers.find_assigns scope b
+                let hoists = assigns.Keys |> Seq.map (fun var -> KeyValuePair(var,scope.NewId var)) |> Dictionary
+            *)
             
-            WhilePhi(cond_phi, cc,bb,body_phi)
         | Unop (op, r) -> Unop(op, transform scope r)
         | Array elements -> elements |> List.map (transform scope) |> Array 
         | Pipe elements -> elements |> List.map (transform scope) |> Pipe
         | Call (id, args) -> Call(scope.GetId id, args |> List.map (transform scope))
         | Index (arr, idx) -> Index (transform scope arr, transform scope idx)
+        | Store (id, x) -> Store (id, transform scope x)
         | Typed (x, t) -> Typed (transform scope x, t)
         (*| Map (Array a, Func f) ->
             let na = a |> List.map (transform scope) |> Array
