@@ -61,31 +61,6 @@ type SSA_Scope (parent:SSA_Scope option, local_version: Dictionary<string,int>, 
     
 let rec replace_assigns (scope:SSA_Scope) (lastVersionReplaces:Dictionary<string,string>) ast =
     match ast with
-    | Root body ->  [ body |> List.collect (replace_assigns scope lastVersionReplaces) |> Root ]
-    | Block b -> [ b |> List.collect (replace_assigns scope lastVersionReplaces) |> Block ]
-    | Id name -> [Id (scope.GetId name)]  
-    | Binop (l, op, r) ->
-        let ll = replace_assigns scope lastVersionReplaces l |> List.head
-        let rr = replace_assigns scope lastVersionReplaces r |> List.head
-        [Binop(ll, op, rr)]
-        
-    | Unop (op, r) ->
-        let rr = replace_assigns scope lastVersionReplaces r |> List.head
-        [Unop(op, rr)]
-
-    | IfPhi (c, b, Some e, phis) ->
-        let cc = replace_assigns scope lastVersionReplaces c |> List.head
-        let bb = replace_assigns scope lastVersionReplaces b |> List.head
-        let ee = replace_assigns scope lastVersionReplaces e |> List.head
-        let pp = phis |> List.collect (replace_assigns scope lastVersionReplaces)
-        [IfPhi(cc,bb,Some ee,pp)]
-        
-    | IfPhi (c, b, None, phis) ->
-        let cc = replace_assigns scope lastVersionReplaces c |> List.head
-        let bb = replace_assigns scope lastVersionReplaces b |> List.head
-        let pp = phis |> List.collect (replace_assigns scope lastVersionReplaces)
-        [IfPhi(cc,bb,None,pp)]
-        
     | Typed(Phi(var,x, y), typ) ->
         if scope.IsLastVersion var then
             let unversioned = scope.Reverse var
@@ -105,6 +80,27 @@ let rec replace_assigns (scope:SSA_Scope) (lastVersionReplaces:Dictionary<string
         else
             [ast]
             
+    | Root body ->  [ body |> List.collect (replace_assigns scope lastVersionReplaces) |> Root ]
+    | Block b -> [ b |> List.collect (replace_assigns scope lastVersionReplaces) |> Block ]
+    | Id name -> [Id (scope.GetId name)]  
+    | Binop (l, op, r) ->
+        let ll = replace_assigns scope lastVersionReplaces l |> List.head
+        let rr = replace_assigns scope lastVersionReplaces r |> List.head
+        [Binop(ll, op, rr)]
+    | Unop (op, r) ->
+        let rr = replace_assigns scope lastVersionReplaces r |> List.head
+        [Unop(op, rr)]
+    | IfPhi (c, b, Some e, phis) ->
+        let cc = replace_assigns scope lastVersionReplaces c |> List.head
+        let bb = replace_assigns scope lastVersionReplaces b |> List.head
+        let ee = replace_assigns scope lastVersionReplaces e |> List.head
+        let pp = phis |> List.collect (replace_assigns scope lastVersionReplaces)
+        [IfPhi(cc,bb,Some ee,pp)]
+    | IfPhi (c, b, None, phis) ->
+        let cc = replace_assigns scope lastVersionReplaces c |> List.head
+        let bb = replace_assigns scope lastVersionReplaces b |> List.head
+        let pp = phis |> List.collect (replace_assigns scope lastVersionReplaces)
+        [IfPhi(cc,bb,None,pp)]
     | Array elements -> [elements |> List.collect (replace_assigns scope lastVersionReplaces) |> Array ]
     | Pipe elements -> [elements |> List.collect (replace_assigns scope lastVersionReplaces) |> Pipe]
     | Call (id, args) -> [Call(scope.GetId id, args |> List.collect (replace_assigns scope lastVersionReplaces))]
