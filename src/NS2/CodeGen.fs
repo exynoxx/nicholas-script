@@ -1,6 +1,7 @@
 ﻿module NS2.CodeGen
 
 open System
+open System.Diagnostics.Metrics
 open System.Text
 open NS2.Ast
 open System.Collections.Generic
@@ -8,22 +9,20 @@ open NS2.Type
 
 type CodegenState =
     {
-      mutable Reg: int
-      mutable Label: int
-      Vars: Dictionary<string, string>
+      Counters: Dictionary<string, int>
       Code: StringBuilder
       StringConstants: StringBuilder
     }
 
 let nextReg (st: CodegenState) =
-    let r = st.Reg
-    st.Reg <- st.Reg + 1
+    let r = st.Counters.GetValueOrDefault("reg",0)+1
+    st.Counters["reg"] <- r
     $"%%{r}"
 
 let nextLabel (st: CodegenState) (label:string)=
-    let l = st.Label
-    st.Label <- st.Label + 1
-    $"{label}{l}"
+    let r = st.Counters.GetValueOrDefault(label,0)+1
+    st.Counters[label] <- r
+    $"{label}{r}"
     
 let typeof =
     function
@@ -204,9 +203,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
 let codegen (program: AST) : string =
     let state =
         {
-          Reg = 1
-          Label = 0
-          Vars = Dictionary()
+          Counters = Dictionary()
           Code = StringBuilder()
           StringConstants = StringBuilder()
         }
