@@ -39,6 +39,7 @@ type Scope (parent: Scope option) =
             | Some p -> p.GetAlias(name)
             | None -> None
     
+    member this.GetTypes() = typ
     member this.GetType(name: string) : Type option =
         match typ.ContainsKey name with
         | true -> Some typ[name]

@@ -137,11 +137,15 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         emit state $"br label %%{endLabel}"
 
         emit state $"{endLabel}:"
-        for Typed (Phi(var, thenvar, elsevar),t) in phis do
-            let typ = TypeToLLVM t
-            emit state $"%%{var} = phi {typ}* [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
+        for p in phis do
+            match p with
+            | Typed (Phi(var, thenvar, elsevar),t) -> 
+                let typ = TypeToLLVM t
+                emit state $"%%{var} = phi {typ}* [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
+            | x -> codegen_expr state x |> ignore
+            
         ""
-        
+    
     | WhilePhi(c, b, pre_assign) ->
         let entryLabel = nextSpecialLabel state "entry"
         let condLabel = nextSpecialLabel state "cond"
@@ -171,13 +175,19 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         | StringType -> emit state $"%%{id} = alloca i8*, align 8"
         | IntType ->  emit state $"%%{id} = alloca i32, align 4"
         ""
+      
+    | Store (Id id, Typed (Id other,ty)) ->
+        match ty with
+        | StringType -> emit state $"store i8* {other}, i8** %%{id}, align 8"
+        | IntType ->  emit state $"store i32* {other}, i32** %%{id}, align 4"
+        ""
         
     | Store (Id id, Typed(node,ty)) ->
         let rhs = codegen_expr state (Typed(node,ty))
         
         match ty with
         | StringType -> emit state $"store i8* {rhs}, i8** %%{id}, align 8"
-        | IntType ->  emit state $"store i32 {rhs}, i32* %%{id}, align 4"
+        | IntType ->  emit state $"store i32* {rhs}, i32** %%{id}, align 4"
         ""
         
     | Call (id, args) ->
@@ -200,7 +210,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
             emit state $"{tmp} = call {ret_typ} @{id} ({code_args})"
             tmp
             
-    | x -> failwith $"Unsupported %s{x.GetType().Name}"
+    | x -> failwith $"CodeGen_expr unsupported %A{x}"
 
 let codegen (program: AST) : string =
     let state =

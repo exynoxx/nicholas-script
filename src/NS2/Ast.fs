@@ -1,5 +1,6 @@
 ﻿module NS2.Ast
 
+open System.Collections.Generic
 open NS2.Type
 
 type AST =
@@ -24,6 +25,7 @@ type AST =
     
     | Typed of AST * Type
     | IfPhi of AST*AST*AST option*AST list
+    | WhileExtra of AST*AST*Dictionary<string,Type>
     | WhilePhi of AST*AST*AST list
     | Phi of string * string * string
     | PhiSingle of string * string * string

@@ -67,9 +67,14 @@ let rec printAst (indentSize: int) (ast: AST) =
             print (level + 1) body
         | WhilePhi (cond, body, pre_assign) ->
             indent + "WhilePhi\n" +
+            indent + printList "pre_assign:" pre_assign +
             print (level + 1) cond +
-            print (level + 1) body +
-            printList "pre_assign:" pre_assign
+            print (level + 1) body
+        | WhileExtra (cond, body, types) ->
+            indent + "WhileExtra\n" +
+            print (level + 1) cond +
+            print (level + 1) body
+            //printList "types:" types |> List.ofSeq
         | Typed (expr, typ) ->
             indent + $"Typed ({typ})\n" +
             print (level + 1) expr
