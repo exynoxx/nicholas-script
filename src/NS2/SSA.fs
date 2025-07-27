@@ -73,14 +73,15 @@ let rec store_load_transform (scope:SSA_Scope) (a_to_hoist:Dictionary<string,str
         else
             [ast]
 
-    | Assign (Id var, Typed(rhs,typ)) ->
-        if scope.IsLastVersion var then
-            let unversioned = scope.Reverse var
-            let replacement = a_to_hoist[unversioned]
-            [Store (Id replacement, Typed(rhs,typ))]
-        else
-            let body = store_load_transform scope a_to_hoist rhs |> List.head
-            [Assign (Id var, Typed(body, typ))]
+    | Assign (Id var, rhs) when scope.IsLastVersion var ->
+        let body = store_load_transform scope a_to_hoist rhs |> List.head
+        let unversioned = scope.Reverse var
+        let replacement = a_to_hoist[unversioned]
+        [Store (Id replacement, body)]
+        
+    | Assign (Id var, rhs) ->
+        let body = store_load_transform scope a_to_hoist rhs |> List.head
+        [Assign (Id var, body)]
             
     | Root body ->  [ body |> List.collect (store_load_transform scope a_to_hoist) |> Root ]
     | Block b -> [ b |> List.collect (store_load_transform scope a_to_hoist) |> Block ]
@@ -95,6 +96,7 @@ let rec store_load_transform (scope:SSA_Scope) (a_to_hoist:Dictionary<string,str
         let ll = store_load_transform scope a_to_hoist l |> List.head
         let rr = store_load_transform scope a_to_hoist r |> List.head
         [Binop(ll, op, rr)]
+        
     | Unop (op, r) ->
         let rr = store_load_transform scope a_to_hoist r |> List.head
         [Unop(op, rr)]
