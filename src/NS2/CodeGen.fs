@@ -20,12 +20,7 @@ let nextReg (st: CodegenState) =
     st.Reg <- st.Reg + 1
     $"%%{r}"
 
-let nextLabel (st: CodegenState) =
-    let l = st.Label
-    st.Label <- st.Label + 1
-    $"label{l}"
-
-let nextSpecialLabel (st: CodegenState) (label:string)=
+let nextLabel (st: CodegenState) (label:string)=
     let l = st.Label
     st.Label <- st.Label + 1
     $"{label}{l}"
@@ -66,7 +61,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
     
     | Int n -> n.ToString()
     | String s ->
-        let const_name = nextSpecialLabel state "@str"
+        let const_name = nextLabel state "@str"
         let line = $"{const_name} = private unnamed_addr constant [{s.Length+1} x i8] c\"{s}\00\", align 1"
         
         state.StringConstants.AppendLine line |> ignore
@@ -115,9 +110,9 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
     | IfPhi (cond, thenBranch, Some elseBranch, phis) ->
         let cond_reg = codegen_expr state cond
 
-        let thenLabel = nextSpecialLabel state "then"
-        let elseLabel = nextSpecialLabel state "else"
-        let endLabel = nextSpecialLabel state "endif"
+        let thenLabel = nextLabel state "then"
+        let elseLabel = nextLabel state "else"
+        let endLabel = nextLabel state "endif"
 
         emit state $"br i1 {cond_reg}, label %%{thenLabel}, label %%{elseLabel}"
         emit state $"{thenLabel}:"
@@ -139,10 +134,10 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         ""
     
     | WhilePhi(c, b, pre_assign) ->
-        let entryLabel = nextSpecialLabel state "entry"
-        let condLabel = nextSpecialLabel state "cond"
-        let loopLabel = nextSpecialLabel state "loop"
-        let exitLabel = nextSpecialLabel state "exit"
+        let entryLabel = nextLabel state "entry"
+        let condLabel = nextLabel state "cond"
+        let loopLabel = nextLabel state "loop"
+        let exitLabel = nextLabel state "exit"
 
         emit state $"br label %%{entryLabel}"
         emit state $"{entryLabel}:"
