@@ -38,6 +38,20 @@ let TypeToLLVM =
     | BoolType -> "i1"
     | x -> failwith $"TypeToLLVM: type unknown {x}"
 
+let codegen_op =
+    function
+    | "+" -> "add"
+    | "-" -> "sub"
+    | "*" -> "mul"
+    | "/" -> "sdiv"
+    | "%" -> "srem"
+    | "==" -> "icmp eq"
+    | "!=" -> "icmp ne"
+    | "<" -> "icmp slt"
+    | "<=" -> "icmp sle"
+    | ">" -> "icmp sgt"
+    | ">=" -> "icmp sge"
+    | op -> failwith $"Unsupported op: {op}"
 let rec codegen_expr (state: CodegenState) (ast: AST) : string =
     
     let node, t =
@@ -68,41 +82,38 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         emit state $"{tmp} = getelementptr [{s.Length+1} x i8], [{s.Length+1} x i8]* {const_name}, i32 0, i32 0"
         tmp
 
+    | Id name -> $"%%{name}"
     | PtrId name ->
        let typ = TypeToLLVM t
        let tmp = nextReg state
        emit state $"{tmp} = load {typ}, {typ}* %%{name}, align 4"    
        tmp
        
-    | Id name -> $"%%{name}"
     | Assign (Id name, Typed(Int i,_)) ->
         emit state $"%%{name} = add i32 {i}, 0"   
         ""
-    | Assign (Id name, Typed(node,ty)) ->
-        let rhs = codegen_expr state (Typed(node,ty))
-        emit state $"%%{name} = {rhs}"   
+        
+    | Assign (PtrId name, Typed(Int i,_)) ->
+        let typ = TypeToLLVM t
+        emit state $"%%{name} = load {typ}, {typ}* %%{name}, align 4"    
         ""
-
+        
+    | Assign(Id name, Typed(Binop (left, op, right), typ)) ->
+        let l = codegen_expr state left
+        let r = codegen_expr state right
+        let op_instr = codegen_op op
+        emit state $"%%{name} = {op_instr} {TypeToLLVM typ} {l}, {r}"
+        ""
+        
+    | Assign (Id name, x) ->
+        failwith "codegen handle assign explicit"
+        
     | Binop (left, op, right) ->
         let typ = left |> typeof |> TypeToLLVM
-
         let l = codegen_expr state left
         let r = codegen_expr state right
         let result = nextReg state
-        let op_instr =
-            match op with
-            | "+" -> "add"
-            | "-" -> "sub"
-            | "*" -> "mul"
-            | "/" -> "sdiv"
-            | "%" -> "srem"
-            | "==" -> "icmp eq"
-            | "!=" -> "icmp ne"
-            | "<" -> "icmp slt"
-            | "<=" -> "icmp sle"
-            | ">" -> "icmp sgt"
-            | ">=" -> "icmp sge"
-            | _ -> failwith $"Unsupported op: {op}"
+        let op_instr = codegen_op op
         emit state $"{result} = {op_instr} {typ} {l}, {r}"
         result
 
