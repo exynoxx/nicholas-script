@@ -43,7 +43,7 @@ let main argv =
             {
                 c = 0;
                 if (a<5) {a++;c++;d++} else b++;
-                print: a;
+                print: b;
             }
             
         """

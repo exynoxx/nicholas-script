@@ -190,12 +190,9 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
                 let ty = scope.GetType var |> Option.get
                 if then_assigns.ContainsKey var && then_assigns[var] = ty  then 
                     phis.Add (Typed(PhiSingle (var,var,null), ty)) |> ignore
-                if then_assigns.ContainsKey var && then_assigns[var] <> ty  then 
-                    swallow <- true
-                    
-                if else_assigns.ContainsKey var && else_assigns[var] = ty  then 
+                elif else_assigns.ContainsKey var && else_assigns[var] = ty  then 
                     phis.Add (Typed(PhiSingle (var,null,var), ty)) |> ignore
-                if else_assigns.ContainsKey var && else_assigns[var] <> ty  then 
+                else
                     swallow <- true
                 
         if swallow then
@@ -222,13 +219,11 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
         let mutable swallow = false
         for var in then_assigns.Keys do
             let then_ty = then_assigns[var]
-            match scope.GetType var with
-            | None -> failwith "if-should not be possible"
-            | Some ty ->
-                if ty = then_ty then
-                    phis.Add (Typed(PhiSingle (var,var,null), then_ty)) |> ignore
-                else
-                    swallow <- true
+            let ty = scope.GetType var |> Option.get
+            if then_ty = ty then
+                phis.Add (Typed(PhiSingle (var,var,null), then_ty)) |> ignore
+            else
+                swallow <- true
 
         if swallow then
             let remaining = blockrest[i+1..]
