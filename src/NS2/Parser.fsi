@@ -8,6 +8,8 @@ type token =
   | AT
   | PIPE
   | HASH
+  | PLUSPLUS
+  | MINUSMINUS
   | EQ
   | NEQ
   | EQEQ
@@ -45,6 +47,8 @@ type tokenId =
     | TOKEN_AT
     | TOKEN_PIPE
     | TOKEN_HASH
+    | TOKEN_PLUSPLUS
+    | TOKEN_MINUSMINUS
     | TOKEN_EQ
     | TOKEN_NEQ
     | TOKEN_EQEQ

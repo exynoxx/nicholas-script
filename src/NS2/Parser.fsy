@@ -12,6 +12,7 @@ open NS2.Ast
 %token <string> OPEQ
 %token 
 	PLUS MINUS TIMES DIVIDE AT PIPE HASH 
+	PLUSPLUS MINUSMINUS
 	EQ NEQ EQEQ GE LE GEQ LEQ AND OR NOT MODULO
 	LPAREN RPAREN LBRACK RBRACK LCURLY RCURLY
 	COMMA SEMICOLON COLON NEWLINE
@@ -50,11 +51,14 @@ expr:
 
     | expr AND expr                     { Binop($1, "&&", $3) }
     | expr OR expr                      { Binop($1, "||", $3) }
+    
+    | expr PLUSPLUS                     { Assign ($1, Binop($1, "+", Int 1)) }
+    | expr MINUSMINUS                   { Assign ($1, Binop($1, "-", Int 1)) }
 	
 	| expr AT expr 						{ Index ($1, $3) }
-	| expr OPEQ expr                    { Assign ($1, Binop($1, $2[..$2.Length-2], $3))}
-	| expr EQ expr                      { Assign ($1, $3)}
-	| op expr                           { Unaryop ($1, $2)}
+	| expr OPEQ expr                    { Assign ($1, Binop($1, $2[..$2.Length-2], $3)) }
+	| expr EQ expr                      { Assign ($1, $3) }
+	| op expr                           { Unop ($1, $2) }
 	| if_expr                           { $1 }
 	| while_expr                        { $1 }
 	| arr 								{ $1 }

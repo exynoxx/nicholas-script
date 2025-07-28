@@ -38,6 +38,8 @@ rule tokenize = parse
 | ">="              { GEQ }
 | "!="              { NEQ }
 | "=="              { EQEQ }
+| "++"              { PLUSPLUS }
+| "--"              { MINUSMINUS }
 | compound_assign   { OPEQ (lexeme lexbuf) }
 | '/'               { DIVIDE }
 | '('               { LPAREN }
