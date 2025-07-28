@@ -36,10 +36,11 @@ let main argv =
     let code =
         """
             a = 0;
+            b = 0;
             print: "before loop";
-            while (a < 10)
+            while (a+b < 10)
             {
-                if (a>5) a+=1 else a+=1;
+                if (a<5) a+=1 else b+=1;
                 print: a;
             }
             

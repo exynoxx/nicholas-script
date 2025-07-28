@@ -20,21 +20,24 @@ type SSA_Scope (parent:SSA_Scope option, local_version: Dictionary<string,int>, 
                 
     member this.GetId (id:string) : string =
         match this.Version id with
-        | 0 -> id
+        | 0 | -1 -> id
         | version -> $"{id}_{version}"
 
     member this.NewId (id:string) : string =
-        let next = global_version.GetValueOrDefault(id,0)+1
-        global_version[id] <- next
-        local_version[id] <- next
+        if this.IsLocked id then
+            id
+        else
+            let next = global_version.GetValueOrDefault(id,0)+1
+            global_version[id] <- next
+            local_version[id] <- next
 
-        let newId =
-            match next with
-            | 0 -> id
-            | _ -> $"{id}_{next}"
-            
-        reverse[newId] <- id
-        newId
+            let newId =
+                match next with
+                | 0 -> id
+                | _ -> $"{id}_{next}"
+                
+            reverse[newId] <- id
+            newId
 
     member this.Reverse(id:string) = reverse[id]
     member this.IsLastVersion(id:string) =
@@ -42,11 +45,24 @@ type SSA_Scope (parent:SSA_Scope option, local_version: Dictionary<string,int>, 
          id = $"{unversioned}_{this.Global_version[unversioned]}" 
     
     member this.NextId (id:string) : string =
-        let next = global_version.GetValueOrDefault(id,0)+1
-
-        match next with
-        | 0 -> id
-        | _ -> $"{id}_{next}"
+        if this.IsLocked id then
+            id
+        else
+            let next = global_version.GetValueOrDefault(id,0)+1
+            match next with
+            | 0 -> id
+            | _ -> $"{id}_{next}"
+        
+    member this.IsLocked(id:string) =
+        match local_version.TryGetValue(id) with
+            | true, v -> v = -1
+            | false, _ ->
+                match parent with
+                | Some p -> p.IsLocked id
+                | None -> false
+                
+    member this.Lock(id:string) =
+        local_version[id] <- -1
     
     static member FindModified(first: SSA_Scope, second:SSA_Scope) =
         first.Global_version.Keys
@@ -62,35 +78,36 @@ type SSA_Scope (parent:SSA_Scope option, local_version: Dictionary<string,int>, 
 //last variable version inside loop is stored in global variable. all reads are loaded (PtrId)
 let rec store_load_transform (scope:SSA_Scope) (a_to_hoist:Dictionary<string,string>) ast =
     match ast with
-    | Typed(Phi(var,x, y), typ) ->
-        if scope.IsLastVersion var then
-            let unversioned = scope.Reverse var
-            let replacement = a_to_hoist[unversioned]
-            [
-                Typed(Phi(var,x, y), typ) 
-                Typed(Store (Id replacement, Typed(Id var, typ)), VoidType)
-            ]
+    | Typed(PhiSingle(var, _,_), typ) ->
+        if a_to_hoist.ContainsKey var then
+            []
         else
             [ast]
 
-    | Assign (Id var, rhs) when scope.IsLastVersion var ->
+    | Typed(Phi(var,x, y), typ) ->
+        if a_to_hoist.ContainsKey var then
+            []
+        else
+            [ast]
+
+    | Assign (Id var, rhs)  ->
         let body = store_load_transform scope a_to_hoist rhs |> List.head
-        let unversioned = scope.Reverse var
-        let replacement = a_to_hoist[unversioned]
-        [Store (Id replacement, body)]
         
-    | Assign (Id var, rhs) ->
-        let body = store_load_transform scope a_to_hoist rhs |> List.head
-        [Assign (Id var, body)]
+        if a_to_hoist.ContainsKey var then
+            let replacement = a_to_hoist[var]
+            [Store (Id replacement, body)]
+        else
+            [Assign (Id var, body)]
+    
+    | Id name ->
+        if a_to_hoist.ContainsKey name then
+            let replacement = a_to_hoist[name]
+            [PtrId replacement]
+        else
+            [Id name]
             
     | Root body ->  [ body |> List.collect (store_load_transform scope a_to_hoist) |> Root ]
     | Block b -> [ b |> List.collect (store_load_transform scope a_to_hoist) |> Block ]
-    | Id name ->
-        let unversioned = scope.Reverse name
-        if name = a_to_hoist[unversioned] then
-            [PtrId name]
-        else
-            [Id name]
             
     | Binop (l, op, r) ->
         let ll = store_load_transform scope a_to_hoist l |> List.head
@@ -186,6 +203,9 @@ let ssa_transform (tree: AST) =
             let modified = SSA_Scope.FindModified(before,scope)
             let oldName = modified |> Seq.map (fun var -> KeyValuePair(var,scope.GetId var)) |> Dictionary
             let newName = modified |> Seq.map (fun var -> KeyValuePair(var,scope.NewId var)) |> Dictionary
+            for x in modified do
+                scope.Lock x
+                
             let pre_assigns = modified
                               |> Seq.collect (fun var ->
                                             [
