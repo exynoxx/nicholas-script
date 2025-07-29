@@ -39,21 +39,40 @@ let main argv =
     let input = code;
     try
         let raw = parse input
-        //printfn "Parse: %s" (printAst 4 raw)
+        printfn "Parse: %s" (printAst 4 raw)
         
         let ast = typecheck raw
-        //printfn "Typechecked: %s" (printAst 4 ast)
+        printfn "Typechecked: %s" (printAst 4 ast)
 
         let ssa = ssa_transform ast
-        //printfn "SSA: %s" (printAst 4 ssa)
+        printfn "SSA: %s" (printAst 4 ssa)
         
         //eval ast
         let llvm = codegen ssa
-        //printfn $"LLVM: \n############## \n%s{StandardLibDeclare}\n%s{llvm}"
+        printfn $"LLVM: \n############## \n%s{StandardLibDeclare}\n%s{llvm}"
         printfn $"%s{StandardLibDeclare}\n%s{llvm}"
         
         //call_llvm (StandardLibDeclare+llvm) argv[0]
         write_llvm (StandardLibDeclare+llvm)
+        
+    with ex ->
+        printfn $"ERROR: %s{ex.Message}"
+    0
+    
+(*
+[<EntryPoint>]
+let main argv =
+    let code =
+        match argv.Length with
+        | 0 -> failwith "Usage: NS <file>"
+        | 1 ->
+            File.ReadAllText(argv[0]).Trim()
+            
+    let input = code;
+    try
+        let llvm = input |> parse |> typecheck |> ssa_transform |> codegen
+        write_llvm (StandardLibDeclare+llvm)
+        
     with ex ->
         printfn $"ERROR: %s{ex.Message}"
     0
@@ -65,3 +84,4 @@ let main argv =
         with ex ->
             printfn "Parse error: %s" ex.Message
     0*)
+    *)
