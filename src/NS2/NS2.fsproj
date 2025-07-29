@@ -37,10 +37,17 @@
         <Compile Include="UnitTests.fs" />
         <Compile Include="Program.fs"/>
         <Content Include="tmp.txt" />
-        
-        
+        <Content Include="test.ns">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="NSC">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="StdLib\stdlib.o">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <ClCompile Include="StdLib\stdlib.c" />
     </ItemGroup>
-
     <ItemGroup>
       <PackageReference Include="FsLexYacc" Version="11.3.0" />
       <PackageReference Include="FsLexYacc.Runtime" Version="11.3.0" />

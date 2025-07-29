@@ -1,4 +1,5 @@
-﻿open FSharp.Text
+﻿open System.IO
+open FSharp.Text
 open NS2
 open NS2.CodeGen
 open NS2.Interpreter
@@ -29,52 +30,30 @@ let parse (input:string) =
 
 [<EntryPoint>]
 let main argv =
-    //run_tests()
-    
-    let preinput = ""//"# = std.size;$ = io.stdin.line;" //% = str.split;
-    //let input = preinput + "b={$1}; x=1001; while (x != 1) { if (x%2==0) {x=x/2} else {x=x*3+1} };";
     let code =
-        """
-            a = 0;
-            b = 0;
-            while (a+b < 10)
-            {
-                result = 0;
-                if (a<5) {
-                    result = a
-                    a++;
-                } else {
-                    result = "a > 5"
-                    b++;
-                }
-                print: result;
-            }
+        match argv.Length with
+        | 0 -> failwith "Usage: NS <file>"
+        | 1 ->
+            File.ReadAllText(argv[0]).Trim()
             
-        """
-        
-    (*let code =
-        """
-            a = 0;
-            if (a>0) a+=1 else a+=1;
-            print: a;            
-        """*)
-    
-    let input = preinput + code.Trim();
+    let input = code;
     try
         let raw = parse input
-        printfn "Parse: %s" (printAst 4 raw)
+        //printfn "Parse: %s" (printAst 4 raw)
         
         let ast = typecheck raw
-        printfn "Typechecked: %s" (printAst 4 ast)
+        //printfn "Typechecked: %s" (printAst 4 ast)
 
         let ssa = ssa_transform ast
-        printfn "SSA: %s" (printAst 4 ssa)
+        //printfn "SSA: %s" (printAst 4 ssa)
         
         //eval ast
         let llvm = codegen ssa
-        printfn $"LLVM: \n############## \n%s{StandardLibDeclare}\n%s{llvm}"
+        //printfn $"LLVM: \n############## \n%s{StandardLibDeclare}\n%s{llvm}"
+        printfn $"%s{StandardLibDeclare}\n%s{llvm}"
         
-        call_llvm (StandardLibDeclare+llvm)
+        //call_llvm (StandardLibDeclare+llvm) argv[0]
+        write_llvm (StandardLibDeclare+llvm)
     with ex ->
         printfn $"ERROR: %s{ex.Message}"
     0
