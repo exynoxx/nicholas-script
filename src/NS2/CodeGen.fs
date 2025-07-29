@@ -7,30 +7,49 @@ open NS2.Ast
 open System.Collections.Generic
 open NS2.Type
 
-type CodegenState =
-    {
-      Counters: Dictionary<string, int>
-      Code: StringBuilder
-      StringConstants: StringBuilder
-    }
-
-let nextReg (st: CodegenState) =
-    let r = st.Counters.GetValueOrDefault("reg",0)+1
-    st.Counters["reg"] <- r
-    $"%%{r}"
-
-let nextLabel (st: CodegenState) (label:string)=
-    let r = st.Counters.GetValueOrDefault(label,0)+1
-    st.Counters[label] <- r
-    $"{label}{r}"
+type CodegenState (code: StringBuilder, stringConstants: StringBuilder, counters: Dictionary<string, int>) =
+    
+    let mutable Lazy = None
+    member this.FlushLazy () =
+        match Lazy with
+        | Some (var,rhs) ->
+            Lazy <- None
+            code.AppendLine $"{var} = {rhs}" |> ignore
+        | None -> ()
+    
+    member this.EmitAssign(var:string, rhs:string) =
+        this.FlushLazy ()
+        Lazy <- Some (var,rhs)
+        
+    member this.FlushLazyNewVar (var:string) =
+        match Lazy with
+        | None -> failwith "emit lazy none"
+        | Some (_,rhs) ->
+            Lazy <- None
+            code.AppendLine $"{var} = {rhs}" |> ignore
+            let r = counters.GetValueOrDefault("reg",0)-1
+            counters["reg"] <- r
+        
+    member this.Emit(s:string) =
+        this.FlushLazy ()
+        code.AppendLine s |> ignore
+    member this.EmitConstant(s:string) = stringConstants.AppendLine s |> ignore
+    member this.NextLabel (label:string) =
+        let r = counters.GetValueOrDefault(label,0)+1
+        counters[label] <- r
+        $"{label}{r}"
+    member this.NextReg ()=
+        let r = counters.GetValueOrDefault("reg",0)+1
+        counters["reg"] <- r
+        $"%%{r}"
+        
+    member this.Final() = stringConstants.ToString() + "\n" + code.ToString()
     
 let typeof =
     function
     | Typed(_,t) -> t
     | _ -> failwith "typeof node not Typed"
     
-let emit (st: CodegenState) (line: string) = st.Code.AppendLine(line) |> ignore
-
 let TypeToLLVM =
     function
     | StringType -> "i8*"
@@ -74,119 +93,107 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
     
     | Int n -> n.ToString()
     | String s ->
-        let const_name = nextLabel state "@str"
+        let const_name = state.NextLabel "@str"
         let line = $"{const_name} = private unnamed_addr constant [{s.Length+1} x i8] c\"{s}\00\", align 1"
         
-        state.StringConstants.AppendLine line |> ignore
-        let tmp = nextReg state
-        emit state $"{tmp} = getelementptr [{s.Length+1} x i8], [{s.Length+1} x i8]* {const_name}, i32 0, i32 0"
+        state.EmitConstant line
+        let tmp = state.NextReg()
+        state.EmitAssign(tmp, $"getelementptr [{s.Length+1} x i8], [{s.Length+1} x i8]* {const_name}, i32 0, i32 0")
         tmp
 
     | Id name -> $"%%{name}"
     | PtrId name ->
-       let typ = TypeToLLVM t
-       let tmp = nextReg state
-       emit state $"{tmp} = load {typ}, {typ}* %%{name}, align 4"    
-       tmp
+        let typ = TypeToLLVM t
+        let tmp = state.NextReg()
+
+        state.EmitAssign(tmp, $"load {typ}, {typ}* %%{name}, align 4")
+        tmp
        
     | Assign (Id name, Typed(Int i,_)) ->
-        emit state $"%%{name} = add i32 {i}, 0"   
+        state.Emit $"%%{name} = add i32 {i}, 0"   
         ""
         
-    | Assign (PtrId name, Typed(Int i,_)) ->
-        let typ = TypeToLLVM t
-        emit state $"%%{name} = load {typ}, {typ}* %%{name}, align 4"    
+    | Assign (Id name, body) ->
+        let _ = codegen_expr state body
+        state.FlushLazyNewVar $"%%{name}"
         ""
         
-    | Assign(Id name, Typed(Binop (left, op, right), typ)) ->
-        let l = codegen_expr state left
-        let r = codegen_expr state right
-        let op_instr = codegen_op op
-        emit state $"%%{name} = {op_instr} {TypeToLLVM typ} {l}, {r}"
-        ""
-        
-    | Assign (Id name, x) ->
-        failwith "codegen handle assign explicit"
+    | Assign (PtrId name, body) ->
+        let rewrite = Store (Id name, body)
+        codegen_expr state rewrite
         
     | Binop (left, op, right) ->
         let typ = left |> typeof |> TypeToLLVM
         let l = codegen_expr state left
         let r = codegen_expr state right
-        let result = nextReg state
+        let result = state.NextReg()
         let op_instr = codegen_op op
-        emit state $"{result} = {op_instr} {typ} {l}, {r}"
+        state.EmitAssign(result, $"{op_instr} {typ} {l}, {r}")
         result
 
     | IfPhi (cond, thenBranch, Some elseBranch, phis) ->
         let cond_reg = codegen_expr state cond
 
-        let thenLabel = nextLabel state "then"
-        let elseLabel = nextLabel state "else"
-        let endLabel = nextLabel state "endif"
-
-        emit state $"br i1 {cond_reg}, label %%{thenLabel}, label %%{elseLabel}"
-        emit state $"{thenLabel}:"
+        let thenLabel = state.NextLabel "then"
+        let elseLabel = state.NextLabel "else"
+        let endLabel = state.NextLabel "endif"
+        
+        state.Emit $"br i1 {cond_reg}, label %%{thenLabel}, label %%{elseLabel}"
+        state.Emit $"{thenLabel}:"
         let then_val = codegen_expr state thenBranch
-        emit state $"br label %%{endLabel}"
+        state.Emit $"br label %%{endLabel}"
 
-        emit state $"{elseLabel}:"
+        state.Emit $"{elseLabel}:"
         let else_val = codegen_expr state elseBranch
-        emit state $"br label %%{endLabel}"
+        state.Emit $"br label %%{endLabel}"
 
-        emit state $"{endLabel}:"
+        state.Emit $"{endLabel}:"
         for p in phis do
             match p with
             | Typed (Phi(var, thenvar, elsevar),t) -> 
                 let typ = TypeToLLVM t
-                emit state $"%%{var} = phi {typ} [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
+                state.Emit $"%%{var} = phi {typ} [%%{thenvar}, %%{thenLabel}], [%%{elsevar}, %%{elseLabel}]"
             | x -> codegen_expr state x |> ignore
             
         ""
     
     | WhilePhi(c, b, pre_assign) ->
-        let entryLabel = nextLabel state "entry"
-        let condLabel = nextLabel state "cond"
-        let loopLabel = nextLabel state "loop"
-        let exitLabel = nextLabel state "exit"
+        let entryLabel = state.NextLabel "entry"
+        let condLabel = state.NextLabel "cond"
+        let loopLabel = state.NextLabel "loop"
+        let exitLabel = state.NextLabel "exit"
 
-        emit state $"br label %%{entryLabel}"
-        emit state $"{entryLabel}:"
+        state.Emit $"br label %%{entryLabel}"
+        state.Emit $"{entryLabel}:"
         
         for x in pre_assign do
             codegen_expr state x
         
-        emit state $"br label %%{condLabel}"
+        state.Emit $"br label %%{condLabel}"
 
-        emit state $"{condLabel}:"
+        state.Emit $"{condLabel}:"
         let cond_reg = codegen_expr state c
-        emit state $"br i1 {cond_reg}, label %%{loopLabel}, label %%{exitLabel}"
+        state.Emit $"br i1 {cond_reg}, label %%{loopLabel}, label %%{exitLabel}"
 
-        emit state $"{loopLabel}:"
+        state.Emit $"{loopLabel}:"
         codegen_expr state b
-        emit state $"br label %%{condLabel}"
-        emit state $"{exitLabel}:"
+        state.Emit $"br label %%{condLabel}"
+        state.Emit $"{exitLabel}:"
         ""
         
     | CreatePtr (Id id, ty) -> 
         match ty with
-        | StringType -> emit state $"%%{id} = alloca i8*, align 8"
-        | IntType ->  emit state $"%%{id} = alloca i32, align 4"
+        | StringType -> state.Emit $"%%{id} = alloca i8*, align 8"
+        | IntType ->  state.Emit $"%%{id} = alloca i32, align 4"
         ""
-      
-    (*
-    | Store (Id id, Typed (Id other,ty)) ->
-        match ty with
-        | StringType -> emit state $"store i8* {other}, i8** %%{id}, align 8"
-        | IntType ->  emit state $"store i32 {other}, i32* %%{id}, align 4"
-        ""
-        *)
+
         
     | Store (Id id, Typed(node,ty)) ->
         let rhs = codegen_expr state (Typed(node,ty))
         
         match ty with
-        | StringType -> emit state $"store i8* {rhs}, i8** %%{id}, align 8"
-        | IntType ->  emit state $"store i32 {rhs}, i32* %%{id}, align 4"
+        | StringType -> state.Emit $"store i8* {rhs}, i8** %%{id}, align 8"
+        | IntType ->  state.Emit $"store i32 {rhs}, i32* %%{id}, align 4"
         ""
         
     | Call (id, args) ->
@@ -201,28 +208,23 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         let code_args = args |> List.map gen_arg |> String.concat ", "
         match t with
         | VoidType ->
-            emit state $"call void @{id} ({code_args})"
+            state.Emit $"call void @{id} ({code_args})"
             ""
         | _ ->
             let ret_typ = TypeToLLVM t
-            let tmp = nextReg state
-            emit state $"{tmp} = call {ret_typ} @{id} ({code_args})"
+            let tmp = state.NextReg()
+            state.Emit $"{tmp} = call {ret_typ} @{id} ({code_args})"
             tmp
             
     | x -> failwith $"CodeGen_expr unsupported %A{x}"
 
 let codegen (program: AST) : string =
-    let state =
-        {
-          Counters = Dictionary()
-          Code = StringBuilder()
-          StringConstants = StringBuilder()
-        }
-
     
-    emit state "define i32 @main() {"
+    let state = CodegenState(StringBuilder(),StringBuilder(),Dictionary())
+    
+    state.Emit "define i32 @main() {"
     let result_reg = codegen_expr state program
-    emit state $"ret i32 0"
-    emit state "}"
+    state.Emit $"ret i32 0"
+    state.Emit "}"
 
-    state.StringConstants.ToString() + "\n" + state.Code.ToString()
+    state.Final()

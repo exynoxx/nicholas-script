@@ -37,13 +37,17 @@ let main argv =
         """
             a = 0;
             b = 0;
-            d = 0;
-            print: "before loop";
             while (a+b < 10)
             {
-                c = 0;
-                if (a<5) {a++;c++;d++} else b++;
-                print: b;
+                result = 0;
+                if (a<5) {
+                    result = a
+                    a++;
+                } else {
+                    result = "a > 5"
+                    b++;
+                }
+                print: result;
             }
             
         """
