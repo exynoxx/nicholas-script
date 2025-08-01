@@ -57,8 +57,7 @@ type Scope (parent: Scope option) =
 
  let (|StdFunction|Function|Variable|Unknown|) (scope:Scope, id: string) =
     match lookup_std_function id with
-    | Some t ->
-        StdFunction t
+    | Some t -> StdFunction t
     | None ->
         match scope.GetFunction id with
         | Some f -> Function f

@@ -1,25 +1,27 @@
 ﻿module NS2.StdLib
 
 open System
+open System.Collections.Generic
 open NS2.Ast
 open NS2.Type
 
-let reverse input =
-    input
-    |> Seq.rev
-    |> Seq.toArray
-    |> System.String
+let variants = Dictionary<string, Type list list>()
+let variant_to_native = Dictionary<string*Type list,string>()
+let ret_type = Dictionary<string,Type>()
 
-let lookup_std_function (name:string) : Type option =
-    match name with
-    | "print" -> Some VoidType
-    | _ -> None
+let register (name:string, input:Type list, native:string, ret: Type) =
+    variants[name] <- variants.GetValueOrDefault(name, []) @ [input]
+    variant_to_native[(name,input)] <- native
+    ret_type[name] <- ret
+let lookup_std_function (name:string)=
+    match ret_type.ContainsKey name with
+    | true -> Some ret_type[name]
+    | false -> None
+let translate_std_function (name:string) (args: Type list) = variant_to_native[(name, args)]
 
-let translate_std_function (name:string) (args: Type list) =
-    match name with
-    | "print" when args[0] = IntType -> "_ns_print_int"
-    | "print" when args[0] = StringType -> "_ns_print_string"
-    | _ -> failwith $"Cannot translate {name}"
+register("print", [StringType], "_ns_print_string", VoidType)
+register("print", [IntType], "_ns_print_int", VoidType)
+register("io.stdin", [] , "_ns_print_int", VoidType)
 
 let LLVM_declares =
     """
