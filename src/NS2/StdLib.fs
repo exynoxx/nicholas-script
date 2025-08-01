@@ -30,6 +30,7 @@ let LLVM_declares =
         declare i8* @_ns_int_to_string(i32)
         declare i8* @_ns_string_concat(i8*, i32)
         declare i32 @_ns_pow_int(i32, i32)
+        declare i8* @_ns_readline()
         
         declare noalias i8* @malloc(i64)
         declare void @free(i8*)

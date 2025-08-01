@@ -31,3 +31,9 @@ char* _ns_string_concat(const char* s, int times) {
 int _ns_pow_int(int base, int exp) {
     return (int)pow((double)base, (double)exp);
 }
+
+char *_ns_readline()
+{
+    char* buffer = (char*)malloc(256);
+    return fgets(buffer, 256, stdin);
+}
