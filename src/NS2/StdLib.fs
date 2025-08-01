@@ -33,6 +33,8 @@ let LLVM_declares =
         declare void @free(i8*)
         
         %_ns_array = type { i32, i32, i32* }
+        @_ns_struct_size = constant i64 ptrtoint (%_ns_array* getelementptr (%_ns_array, %_ns_array* null, i32 1) to i64)
+
     """.Replace("  ", "")
     
 let llvm_std_functions =
@@ -40,8 +42,7 @@ let llvm_std_functions =
         
         define %_ns_array* @_ns_create_array(i32 %len) {
         entry:
-            %_ns_struct_size_ptr = getelementptr %_ns_array, %_ns_array* null, i32 1
-            %_ns_struct_size = ptrtoint %_ns_array* %_ns_struct_size_ptr to i64
+            %_ns_struct_size = load i64, i64* @_ns_struct_size
         
             ; array size in bytes
             %arr_size = sext i32 %len to i64
