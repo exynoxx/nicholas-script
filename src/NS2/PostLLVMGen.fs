@@ -58,4 +58,9 @@ let call_llvm(llvm:string) (input_path:string)=
     printfn $"Created binary in {wslFinalPath}"
     *)
 
-let write_llvm(llvm:string) = File.WriteAllText("program.ll", llvm)
+let print_llvm(llvm:string) =
+    let text = StdLib.LLVM_declares+"\n"+StdLib.llvm_std_functions+llvm
+    printfn $"{text}"    
+let write_llvm(llvm:string) =
+    let text = StdLib.LLVM_declares+"\n"+StdLib.llvm_std_functions+llvm
+    File.WriteAllText("program.ll", text)

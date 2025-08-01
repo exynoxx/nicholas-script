@@ -5,6 +5,6 @@ type Type =
     | IntType
     | StringType
     | BoolType
-    | ArrayType
+    | ArrayType of Type
     | FunctionType of Type
     | AnyType

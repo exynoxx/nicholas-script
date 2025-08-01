@@ -5,34 +5,25 @@ open System.Diagnostics.Metrics
 open System.Text
 open NS2.Ast
 open System.Collections.Generic
+open NS2.Scope
 open NS2.Type
 
 type CodegenState (code: StringBuilder, stringConstants: StringBuilder, counters: Dictionary<string, int>) =
     
-    let mutable Lazy = None
-    member this.FlushLazy () =
-        match Lazy with
-        | Some (var,rhs) ->
-            Lazy <- None
-            code.AppendLine $"{var} = {rhs}" |> ignore
-        | None -> ()
+    let mutable ParentAssign = None
     
-    member this.EmitAssign(var:string, rhs:string) =
-        this.FlushLazy ()
-        Lazy <- Some (var,rhs)
-        
-    member this.FlushLazyNewVar (var:string) =
-        match Lazy with
-        | None -> failwith "emit lazy none"
-        | Some (_,rhs) ->
-            Lazy <- None
-            code.AppendLine $"{var} = {rhs}" |> ignore
-            let r = counters.GetValueOrDefault("reg",0)-1
-            counters["reg"] <- r
+    member this.SetAssign str= ParentAssign <- Some str
+    
+    member this.ReturningReg () =
+        match ParentAssign with
+        | Some p ->
+            ParentAssign <- None
+            $"%%{p}"
+        | None -> this.NextReg()
         
     member this.Emit(s:string) =
-        this.FlushLazy ()
         code.AppendLine s |> ignore
+        
     member this.EmitConstant(s:string) = stringConstants.AppendLine s |> ignore
     member this.NextLabel (label:string) =
         let r = counters.GetValueOrDefault(label,0)+1
@@ -97,8 +88,8 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         let line = $"{const_name} = private unnamed_addr constant [{s.Length+1} x i8] c\"{s}\00\", align 1"
         
         state.EmitConstant line
-        let tmp = state.NextReg()
-        state.EmitAssign(tmp, $"getelementptr [{s.Length+1} x i8], [{s.Length+1} x i8]* {const_name}, i32 0, i32 0")
+        let tmp = state.ReturningReg()
+        state.Emit($"{tmp} = getelementptr [{s.Length+1} x i8], [{s.Length+1} x i8]* {const_name}, i32 0, i32 0")
         tmp
 
     | Id name -> $"%%{name}"
@@ -106,7 +97,7 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         let typ = TypeToLLVM t
         let tmp = state.NextReg()
 
-        state.EmitAssign(tmp, $"load {typ}, {typ}* %%{name}, align 4")
+        state.Emit($"{tmp} = load {typ}, {typ}* %%{name}, align 4")
         tmp
        
     | Assign (Id name, Typed(Int i,_)) ->
@@ -114,8 +105,8 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         ""
         
     | Assign (Id name, body) ->
+        state.SetAssign name
         let _ = codegen_expr state body
-        state.FlushLazyNewVar $"%%{name}"
         ""
         
     | Assign (PtrId name, body) ->
@@ -126,11 +117,48 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         let typ = left |> typeof |> TypeToLLVM
         let l = codegen_expr state left
         let r = codegen_expr state right
-        let result = state.NextReg()
+        let result = state.ReturningReg()
         let op_instr = codegen_op op
-        state.EmitAssign(result, $"{op_instr} {typ} {l}, {r}")
+        state.Emit($"{result} = {op_instr} {typ} {l}, {r}")
         result
 
+    | Array elements ->
+        let len = elements.Length
+        let struct_ptr = state.ReturningReg()
+        let data_ptr = state.NextReg()
+        let array_ptr = state.NextReg()
+        
+        state.Emit($"{struct_ptr} = call %%_ns_array* @_ns_create_array(i32 {len})")
+        state.Emit($"{data_ptr} = getelementptr inbounds %%_ns_array, %%_ns_array* {struct_ptr}, i32 0, i32 2")
+        state.Emit($"{array_ptr} = load i32*, i32** {data_ptr}")
+        
+        let mutable i = 0
+        for elem in elements do
+            let x =
+                match elem with
+                | Typed(Int i,_) -> i
+                | x -> failwith $"array element not int not supported: %A{x}"
+                
+            let ptr = state.NextReg()
+            state.Emit($"{ptr} = getelementptr i32, i32* {array_ptr}, i32 {i}")
+            state.Emit($"store i32 {x}, i32* {ptr}")
+            i <- i + 1
+    
+        struct_ptr
+        
+    | Index (arr,i) ->
+        let struct_reg = codegen_expr state arr
+        let i_code = codegen_expr state i
+        let data_ptr_ptr = state.NextReg()
+        let data_ptr = state.NextReg()
+        let element_ptr = state.NextReg()
+        let result = state.ReturningReg()
+        state.Emit($"{data_ptr_ptr} = getelementptr inbounds %%_ns_array, %%_ns_array* {struct_reg}, i32 0, i32 2")
+        state.Emit($"{data_ptr} = load i32*, i32** {data_ptr_ptr}")
+        state.Emit($"{element_ptr} = getelementptr inbounds i32, i32* {data_ptr}, i32 {i_code}")
+        state.Emit($"{result} = load i32, i32* {element_ptr}")
+        result
+    
     | IfPhi (cond, thenBranch, Some elseBranch, phis) ->
         let cond_reg = codegen_expr state cond
 

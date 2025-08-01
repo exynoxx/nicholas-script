@@ -33,7 +33,7 @@ let rec printAst (indentSize: int) (ast: AST) =
             indent + $"Unop({t}) '{op}'\n" +
             print (level + 1) value
         | Index (arr, idx) ->
-            indent + "Index\n" +
+            indent + $"Index({t})\n" +
             print (level + 1) arr +
             print (level + 1) idx
         | Array items -> printList "Array" items

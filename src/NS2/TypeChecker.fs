@@ -128,13 +128,15 @@ and typecheck_internal (scope:Scope) (tree:AST) (blockrest:AST list) (i:int) : A
     //TODO int array, any array
     | Array elements ->
         let typed = elements |> List.collect (fun x -> typecheck_internal scope x blockrest i)
-        [Typed (Array typed, ArrayType)]
+        let ty = match List.head typed with | Typed(_,ty) -> ty | _ -> failwith "array element not typed"
+        [Typed (Array typed, ArrayType ty)]
         
     //| Pipe elements -> elements |> List.map (typecheck_internal scope) |> TypedPipe
     | Index (arr, idx) ->
         let tarr = typecheck_internal scope arr blockrest i  |> List.head
         let i = typecheck_internal scope idx blockrest i |> List.head |> GetNode
-        [Typed (Index (tarr, i), GetType tarr)]
+        let typ = match tarr with | Typed(_,ArrayType t) -> t | _ -> failwith "Index on non array"
+        [Typed (Index (tarr, i), typ)]
 
     (*| FuncCalled (args, fbody) ->
         let targs = args |> List.map (typecheck_internal scope) |> List.map fst

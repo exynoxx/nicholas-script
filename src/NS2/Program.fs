@@ -8,16 +8,6 @@ open NS2.Print
 open NS2.SSA
 open NS2.TypeChecker
 
-let StandardLibDeclare =
-    """
-        declare void @_ns_print_int(i32)
-        declare void @_ns_print_string(i8*)
-        declare i8* @_ns_int_to_string(i32)
-        declare i8* @_ns_string_concat(i8*, i32)
-        declare i32 @_ns_pow_int(i32, i32)
-    """.Replace("  ", "")
-
-
 let parse (input:string) =
     let cleaned = input.Trim()
     let lexbuf = Lexing.LexBuffer<char>.FromString cleaned
@@ -28,15 +18,13 @@ let parse (input:string) =
         failwith "Parsing error"
   
 
-[<EntryPoint>]
+(*[<EntryPoint>]
 let main argv =
-    let code =
+    let input =
         match argv.Length with
         | 0 -> failwith "Usage: NS <file>"
-        | 1 ->
-            File.ReadAllText(argv[0]).Trim()
+        | 1 -> File.ReadAllText(argv[0]).Trim()
             
-    let input = code;
     try
         let raw = parse input
         printfn "Parse: %s" (printAst 4 raw)
@@ -49,17 +37,15 @@ let main argv =
         
         //eval ast
         let llvm = codegen ssa
-        printfn $"LLVM: \n############## \n%s{StandardLibDeclare}\n%s{llvm}"
-        printfn $"%s{StandardLibDeclare}\n%s{llvm}"
+        printfn $"LLVM: \n############## \n%s{llvm}"
         
         //call_llvm (StandardLibDeclare+llvm) argv[0]
-        write_llvm (StandardLibDeclare+llvm)
+        write_llvm (llvm)
         
     with ex ->
-        printfn $"ERROR: %s{ex.Message}"
-    0
+        printfn $"ERROR: %s{ex.Message}: \n {ex.StackTrace}"
+    0*)
     
-(*
 [<EntryPoint>]
 let main argv =
     let code =
@@ -68,20 +54,8 @@ let main argv =
         | 1 ->
             File.ReadAllText(argv[0]).Trim()
             
-    let input = code;
     try
-        let llvm = input |> parse |> typecheck |> ssa_transform |> codegen
-        write_llvm (StandardLibDeclare+llvm)
-        
+        code |> parse |> typecheck |> ssa_transform |> codegen |> print_llvm
     with ex ->
         printfn $"ERROR: %s{ex.Message}"
     0
-    (*printfn ""
-    while true do
-        printf "Enter expression: "
-        try
-            stdin.ReadLine() |> parse |> typecheck |> eval
-        with ex ->
-            printfn "Parse error: %s" ex.Message
-    0*)
-    *)
