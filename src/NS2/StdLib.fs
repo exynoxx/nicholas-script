@@ -29,10 +29,10 @@ let LLVM_declares =
         declare i8* @_ns_string_concat(i8*, i32)
         declare i32 @_ns_pow_int(i32, i32)
         
-        declare noalias i8* @malloc(i32)
+        declare noalias i8* @malloc(i64)
         declare void @free(i8*)
         
-        %_ns_array = type { i32, i32, i32* } 
+        %_ns_array = type { i32, i32, i32* }
     """.Replace("  ", "")
     
 let llvm_std_functions =
@@ -40,24 +40,31 @@ let llvm_std_functions =
         
         define %_ns_array* @_ns_create_array(i32 %len) {
         entry:
-            %arr_size = mul i32 %len, 4
-            %total_size = add i32 %arr_size, 12 ;12=sizeof(struct)
+            %_ns_struct_size_ptr = getelementptr %_ns_array, %_ns_array* null, i32 1
+            %_ns_struct_size = ptrtoint %_ns_array* %_ns_struct_size_ptr to i64
+        
+            ; array size in bytes
+            %arr_size = sext i32 %len to i64
+            %elem_size = mul i64 %arr_size, 4
+            %total_size = add i64 %_ns_struct_size, %elem_size
 
-            %raw_mem = call noalias i8* @malloc(i32 %total_size)
+            ; allocate memory
+            %raw_mem = call noalias i8* @malloc(i64 %total_size)
             %struct_ptr = bitcast i8* %raw_mem to %_ns_array*
 
+            ; ref count = 1
             %ref_ptr = getelementptr inbounds %_ns_array, %_ns_array* %struct_ptr, i32 0, i32 0
             store i32 1, i32* %ref_ptr
 
+            ; len
             %len_ptr = getelementptr inbounds %_ns_array, %_ns_array* %struct_ptr, i32 0, i32 1
             store i32 %len, i32* %len_ptr
 
-            ; array pointer = raw_mem + 12
-            %base_ptr = bitcast %_ns_array* %struct_ptr to i8*
-            %array_offset = getelementptr i8, i8* %base_ptr, i32 12
-            %arr_ptr = bitcast i8* %array_offset to i32*
+            ; compute array start after struct
+            %array_start = getelementptr i8, i8* %raw_mem, i64 %_ns_struct_size
+            %arr_ptr = bitcast i8* %array_start to i32*
 
-            ; store array pointer in struct
+            ; store pointer
             %data_ptr = getelementptr inbounds %_ns_array, %_ns_array* %struct_ptr, i32 0, i32 2
             store i32* %arr_ptr, i32** %data_ptr
 
