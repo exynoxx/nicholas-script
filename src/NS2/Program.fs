@@ -57,5 +57,5 @@ let main argv =
     try
         code |> parse |> typecheck |> ssa_transform |> codegen |> print_llvm
     with ex ->
-        printfn $"ERROR: %s{ex.Message}"
+        printfn $"ERROR: %s{ex.Message}: \n {ex.StackTrace}"
     0

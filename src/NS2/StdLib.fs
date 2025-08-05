@@ -35,7 +35,8 @@ let LLVM_declares =
         declare noalias i8* @malloc(i64)
         declare void @free(i8*)
         
-        %_ns_array = type { i32, i32, i32* }
+        ;ref, type, size, capacity
+        %_ns_array = type { i32, i8, i32, i32, i8* }
         @_ns_struct_size = constant i64 ptrtoint (%_ns_array* getelementptr (%_ns_array, %_ns_array* null, i32 1) to i64)
 
     """.Replace("  ", "")
@@ -43,7 +44,7 @@ let LLVM_declares =
 let llvm_std_functions =
     """
         
-        define %_ns_array* @_ns_create_array(i32 %len) {
+        define %_ns_array* @_ns_create_array(i8 %typ, i32 %len) {
         entry:
             %_ns_struct_size = load i64, i64* @_ns_struct_size
         
@@ -60,17 +61,19 @@ let llvm_std_functions =
             %ref_ptr = getelementptr inbounds %_ns_array, %_ns_array* %struct_ptr, i32 0, i32 0
             store i32 1, i32* %ref_ptr
 
-            ; len
-            %len_ptr = getelementptr inbounds %_ns_array, %_ns_array* %struct_ptr, i32 0, i32 1
-            store i32 %len, i32* %len_ptr
+            ; type
+            %typ_ptr = getelementptr inbounds %_ns_array, %_ns_array* %struct_ptr, i32 0, i32 1
+            store i8 %typ, i8* %typ_ptr
 
+            ; len
+            %len_ptr = getelementptr inbounds %_ns_array, %_ns_array* %struct_ptr, i32 0, i32 2
+            store i32 %len, i32* %len_ptr
+            
             ; compute array start after struct
             %array_start = getelementptr i8, i8* %raw_mem, i64 %_ns_struct_size
-            %arr_ptr = bitcast i8* %array_start to i32*
 
-            ; store pointer
-            %data_ptr = getelementptr inbounds %_ns_array, %_ns_array* %struct_ptr, i32 0, i32 2
-            store i32* %arr_ptr, i32** %data_ptr
+            %data_ptr = getelementptr inbounds %_ns_array, %_ns_array* %struct_ptr, i32 0, i32 4
+            store i8* %array_start, i8** %data_ptr
 
             ret %_ns_array* %struct_ptr
         }

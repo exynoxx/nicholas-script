@@ -124,24 +124,44 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
 
     | Array elements ->
         let len = elements.Length
+        
+        let arr_typ =
+            match t with
+            | ArrayType elem_typ -> elem_typ
+            | _ -> failwith "Codegen array not array typed"
+        
+        let to_enum_typ =
+            function
+            | IntType -> 0
+            | StringType -> 1
+        
         let struct_ptr = state.ReturningReg()
         let data_ptr = state.NextReg()
+        let raw_ptr = state.NextReg()
         let array_ptr = state.NextReg()
         
-        state.Emit($"{struct_ptr} = call %%_ns_array* @_ns_create_array(i32 {len})")
-        state.Emit($"{data_ptr} = getelementptr inbounds %%_ns_array, %%_ns_array* {struct_ptr}, i32 0, i32 2")
-        state.Emit($"{array_ptr} = load i32*, i32** {data_ptr}")
+        state.Emit($"{struct_ptr} = call %%_ns_array* @_ns_create_array(i8 {to_enum_typ arr_typ}, i32 {len})")
+        state.Emit($"{data_ptr} = getelementptr inbounds %%_ns_array, %%_ns_array* {struct_ptr}, i32 0, i32 4")
+        state.Emit($"{raw_ptr} = load i8*, i8** {data_ptr}")
         
-        let mutable i = 0
+        match arr_typ with
+        | IntType -> state.Emit($"{array_ptr} = bitcast i8* {raw_ptr} to i32*")
+        | StringType -> state.Emit($"{array_ptr} = bitcast i8* {raw_ptr} to i8**")
+        
+        let mutable i = 0 
         for elem in elements do
-            let x =
-                match elem with
-                | Typed(Int i,_) -> i
-                | x -> failwith $"array element not int not supported: %A{x}"
+            let x = codegen_expr state elem
                 
             let ptr = state.NextReg()
-            state.Emit($"{ptr} = getelementptr i32, i32* {array_ptr}, i32 {i}")
-            state.Emit($"store i32 {x}, i32* {ptr}")
+            
+            match arr_typ with
+            | IntType ->
+                state.Emit($"{ptr} = getelementptr i32, i32* {array_ptr}, i32 {i}")
+                state.Emit($"store i32 {x}, i32* {ptr}")
+            | StringType ->
+                state.Emit($"{ptr} = getelementptr i8*, i8** {array_ptr}, i32 {i}")
+                state.Emit($"store i8* {x}, i8** {ptr}")
+            
             i <- i + 1
     
         struct_ptr
@@ -151,12 +171,23 @@ let rec codegen_expr (state: CodegenState) (ast: AST) : string =
         let i_code = codegen_expr state i
         let data_ptr_ptr = state.NextReg()
         let data_ptr = state.NextReg()
+        let typed_ptr = state.NextReg()
         let element_ptr = state.NextReg()
         let result = state.ReturningReg()
-        state.Emit($"{data_ptr_ptr} = getelementptr inbounds %%_ns_array, %%_ns_array* {struct_reg}, i32 0, i32 2")
-        state.Emit($"{data_ptr} = load i32*, i32** {data_ptr_ptr}")
-        state.Emit($"{element_ptr} = getelementptr inbounds i32, i32* {data_ptr}, i32 {i_code}")
-        state.Emit($"{result} = load i32, i32* {element_ptr}")
+        state.Emit($"{data_ptr_ptr} = getelementptr inbounds %%_ns_array, %%_ns_array* {struct_reg}, i32 0, i32 4")
+        state.Emit($"{data_ptr} = load i8*, i8** {data_ptr_ptr}")
+
+        match t with
+        | IntType ->
+            state.Emit($"{typed_ptr} = bitcast i8* {data_ptr} to i32*")
+            state.Emit($"{element_ptr} = getelementptr inbounds i32, i32* {typed_ptr}, i32 {i_code}")
+            state.Emit($"{result} = load i32, i32* {element_ptr}")
+        
+        | StringType ->
+            state.Emit($"{typed_ptr} = bitcast i8* {data_ptr} to i8**")
+            state.Emit($"{element_ptr} = getelementptr inbounds i8*, i8** {typed_ptr}, i32 {i_code}")
+            state.Emit($"{result} = load i8*, i8** {element_ptr}")
+        
         result
     
     | IfPhi (cond, thenBranch, Some elseBranch, phis) ->
