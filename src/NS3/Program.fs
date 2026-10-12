@@ -58,6 +58,14 @@ let private pureLL (ll: string) : string =
     String.concat "\n" (Array.filter isHeader rtLines) + "\n\n; ---- NS3 program ----\n" + String.concat "\n" ours
     + "\n; ---- NS3 runtime ----\n" + String.concat "\n" (Array.filter (isHeader >> not) rtLines)
 
+/// LLVM 21+ vectorises filter->fold early exits in a way that is ~10x slower for NS loops; turn it off when clang knows the flag.
+let private noEarlyExitVec =
+    lazy
+        (let tmp = Path.Combine(Path.GetTempPath(), "ns-flagcheck.c")
+         File.WriteAllText(tmp, "int x;")
+         let code, _, _ = run "clang" (sprintf "-c -mllvm -enable-early-exit-vectorization=false \"%s\" -o /dev/null" tmp) None
+         if code = 0 then " -mllvm -enable-early-exit-vectorization=false" else "")
+
 /// Compiles a source file to a native binary at `exe`; returns an error message on failure.
 let private build (path: string) (exe: string) : string option =
     try
@@ -66,6 +74,7 @@ let private build (path: string) (exe: string) : string option =
         File.WriteAllText(ll, pureLL (pipeline "ll" path))
         // NS3_ASAN=1 builds with Address/LeakSanitizer to verify reference counting
         let asan = if Environment.GetEnvironmentVariable "NS3_ASAN" = "1" then "-g -fsanitize=address" else ""
+        let asan = asan + noEarlyExitVec.Force()
         let code, _, err = run "clang" (sprintf "-O2 -w %s \"%s\" -lm -o \"%s\"" asan ll exe) None
         if code = 0 then None else Some("clang failed:\n" + err)
     with

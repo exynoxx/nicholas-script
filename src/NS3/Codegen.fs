@@ -53,6 +53,9 @@ let generate (prog: Program) : string =
     let globals = prog.globals |> List.map fst |> set
     let instByName = prog.insts |> List.map (fun i -> i.name, i) |> dict
     let mutable c = Unchecked.defaultof<Ctx>
+    // top-level variables no function touches live in main's allocas (registers after mem2reg), not in globals
+    let fnGlobals = HashSet<string>()
+    let mutable inMain = false
 
     /// String literals are immortal objects {rc=-1, desc=null, bytes}; the operand points at the bytes.
     let strConst (s: string) =
@@ -78,7 +81,9 @@ let generate (prog: Program) : string =
         c.allocas.Append(sprintf "  %s = alloca %s\n" r ty) |> ignore
         r
     let ptrOf (u: string) =
-        if globals.Contains u then sprintf "@\"g.%s\"" u
+        if globals.Contains u && not (inMain && not (fnGlobals.Contains u)) then
+            fnGlobals.Add u |> ignore // functions are emitted before main
+            sprintf "@\"g.%s\"" u
         elif c.caps.Contains u then sprintf "%%\"c.%s\"" u
         else
             match c.locals.TryGetValue u with
@@ -86,7 +91,7 @@ let generate (prog: Program) : string =
             | _ ->
                 let ty = llty prog.varTy.[u]
                 let p = alloca ty
-                if ty = "ptr" then c.allocas.Append(sprintf "  store ptr null, ptr %s\n" p) |> ignore
+                c.allocas.Append(sprintf "  store %s zeroinitializer, ptr %s\n" ty p) |> ignore
                 c.locals.[u] <- p
                 p
     /// Calls a runtime function; args are (llvm type, operand) pairs.
@@ -159,7 +164,7 @@ let generate (prog: Program) : string =
                 match resolve x.t with
                 | TStr -> rt "ptr" "ns_str_at" [ "ptr", xv; "i64", iv ]
                 | TMap(k, _) -> fromSlot (rt "i64" "ns_map_get" [ "ptr", xv; "i64", toSlot iv k ]) e.t
-                | _ -> fromSlot (rt "i64" "ns_arr_get" [ "ptr", xv; "i64", iv ]) e.t
+                | _ -> fromSlot (rt "i64" "ns_arr_get" [ "ptr", xv; "i64", iv; d e.t ]) e.t
             drop (xv, xo) x.t
             drop (iv, io) i.t
             r
@@ -384,7 +389,7 @@ let generate (prog: Program) : string =
             let [ (xv, xo); (iv, io); (vv, vo) ] = exArgs 0 [ x; i; v ]
             match resolve x.t with
             | TMap(k, _) -> rt "void" "ns_map_set" [ "ptr", xv; "i64", toSlot iv k; "i64", toSlot vv v.t ] |> ignore
-            | _ -> rt "void" "ns_arr_set" [ "ptr", xv; "i64", iv; "i64", toSlot vv v.t ] |> ignore
+            | _ -> rt "void" "ns_arr_set" [ "ptr", xv; "i64", iv; "i64", toSlot vv v.t; d v.t ] |> ignore
             drop (xv, xo) x.t
             drop (iv, io) i.t
             drop (vv, vo) v.t
@@ -416,7 +421,10 @@ let generate (prog: Program) : string =
         fns.Append(sprintf "define %s @\"%s\"(%s) {\nentry:\n%s%s}\n\n" (llty inst.ret) inst.name (String.concat ", " ps) (string c.allocas) (string c.body)) |> ignore
 
     c <- newCtx Set.empty
+    inMain <- true
     stmts prog.main
+    for KeyValue(u, p) in List.ofSeq c.locals do // main's former globals: release like any function's locals
+        if isPtr prog.varTy.[u] then release (instr "load ptr, ptr %s" p) prog.varTy.[u]
     emit "ret i32 0"
     fns.Append(sprintf "define i32 @main() {\nentry:\n%s%s}\n" (string c.allocas) (string c.body)) |> ignore
 

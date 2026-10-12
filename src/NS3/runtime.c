@@ -81,9 +81,10 @@ static int64_t idx(int64_t i, int64_t n) {
   if (i < 0 || i >= n) ns_panic("index out of range");
   return i;
 }
-slot ns_arr_get(void *p, int64_t i) { Arr *a = p; return ret(HD(p)->d + 1, a->data[idx(i, a->len)]); }
-void ns_arr_set(void *p, int64_t i, slot x) {
-  Arr *a = p; const char *ed = HD(p)->d + 1; slot *e = &a->data[idx(i, a->len)];
+// ed: the element descriptor, passed by codegen as a constant so the pointer-kind check folds after inlining
+slot ns_arr_get(void *p, int64_t i, const char *ed) { Arr *a = p; return ret(ed, a->data[idx(i, a->len)]); }
+void ns_arr_set(void *p, int64_t i, slot x, const char *ed) {
+  Arr *a = p; slot *e = &a->data[idx(i, a->len)];
   ret(ed, x); rel(ed, *e); *e = x;
 }
 static void clamp(int64_t *a, int64_t *b, int64_t n) {
@@ -218,10 +219,12 @@ void *ns_map_new(const char *d) { // d = "M<k><v>" or "H<k>" (set: vd NULL)
   return m;
 }
 void *ns_set_new(const char *d) { return ns_map_new(d); }
+static inline uint64_t khash(Map *m, slot k) { return *m->kd == 'I' ? mix(k) : hash(m->kd, k); } // int keys inline
+static inline int keq(Map *m, slot a, slot b) { return *m->kd == 'I' ? a == b : ns_eq(m->kd, a, b); }
 static int64_t find(Map *m, slot k) {
-  for (uint64_t i = hash(m->kd, k) & (m->cap - 1);; i = (i + 1) & (m->cap - 1)) {
+  for (uint64_t i = khash(m, k) & (m->cap - 1);; i = (i + 1) & (m->cap - 1)) {
     if (m->st[i] == 0) return -1;
-    if (m->st[i] == 1 && ns_eq(m->kd, m->keys[i], k)) return (int64_t)i;
+    if (m->st[i] == 1 && keq(m, m->keys[i], k)) return (int64_t)i;
   }
 }
 static void insert(Map *m, slot k, slot v) { // k not present; no retain
@@ -233,7 +236,7 @@ static void insert(Map *m, slot k, slot v) { // k not present; no retain
     for (int64_t j = 0; j < old.cap; j++) if (old.st[j] == 1) insert(m, old.keys[j], old.vals[j]);
     free(old.keys); free(old.vals); free(old.st);
   }
-  uint64_t j = hash(m->kd, k) & (m->cap - 1);
+  uint64_t j = khash(m, k) & (m->cap - 1);
   while (m->st[j] == 1) j = (j + 1) & (m->cap - 1);
   if (m->st[j] == 0) m->used++;
   m->st[j] = 1; m->keys[j] = k; m->vals[j] = v; m->len++;
@@ -276,20 +279,28 @@ void ns_map_merge(void *p, void *q) {
 // ---------- Q (linked list) and PQ (binary min-heap) ----------
 void *ns_q_new(const char *d) { Queue *q = obj(d, sizeof(Queue)); q->d = d + 1; return q; } // q->d: element descriptor
 void *ns_pq_new(const char *d) { PQ *q = obj(d, sizeof(PQ)); q->d = d + 1; return q; }
+static inline int64_t qcmp(const char *d, slot a, slot b) { // fast paths for int and [int] elements, else generic
+  if (d[0] == 'A' && d[1] == 'I') {
+    Arr *x = (Arr *)S(a), *y = (Arr *)S(b);
+    for (int64_t i = 0; i < x->len && i < y->len; i++) if (x->data[i] != y->data[i]) return x->data[i] < y->data[i] ? -1 : 1;
+    return (x->len > y->len) - (x->len < y->len);
+  }
+  return d[0] == 'I' ? (a > b) - (a < b) : ns_cmp(d, a, b);
+}
 static void swap(slot *a, slot *b) { slot t = *a; *a = *b; *b = t; }
 static void pq_push(PQ *q, slot x) { // no retain
   if (q->len == q->cap) q->data = grow(q->data, (q->cap = q->cap ? q->cap * 2 : 8) * sizeof(slot));
   int64_t i = q->len++;
   q->data[i] = x;
-  for (; i && ns_cmp(q->d, q->data[i], q->data[(i - 1) / 2]) < 0; i = (i - 1) / 2) swap(&q->data[i], &q->data[(i - 1) / 2]);
+  for (; i && qcmp(q->d, q->data[i], q->data[(i - 1) / 2]) < 0; i = (i - 1) / 2) swap(&q->data[i], &q->data[(i - 1) / 2]);
 }
 static slot pq_pop(PQ *q) {
   slot top = q->data[0];
   q->data[0] = q->data[--q->len];
   for (int64_t i = 0;;) {
     int64_t l = 2 * i + 1, r = l + 1, m = i;
-    if (l < q->len && ns_cmp(q->d, q->data[l], q->data[m]) < 0) m = l;
-    if (r < q->len && ns_cmp(q->d, q->data[r], q->data[m]) < 0) m = r;
+    if (l < q->len && qcmp(q->d, q->data[l], q->data[m]) < 0) m = l;
+    if (r < q->len && qcmp(q->d, q->data[r], q->data[m]) < 0) m = r;
     if (m == i) break;
     swap(&q->data[i], &q->data[m]); i = m;
   }

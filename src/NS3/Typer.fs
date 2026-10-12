@@ -389,7 +389,13 @@ and private typeStmt (s: S) : S =
                 | _ -> store u (conv e varTy.[u])
         | None -> store (declare cur name e.t) e
 
-and private typeStmts (ss: S list) = List.map typeStmt ss
+and private typeStmts (ss: S list) =
+    // a map whose result is discarded (not the block's last statement) runs as `each`: no result array
+    let n = List.length ss
+    ss |> List.mapi (fun i s ->
+        match s with
+        | Do({ k = Iter it } as e) when i < n - 1 && it.kind = "map" -> typeStmt (Do { e with k = Iter { it with kind = "each" } })
+        | _ -> typeStmt s)
 
 // ---------- program ----------
 
