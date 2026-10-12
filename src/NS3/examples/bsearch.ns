@@ -1,8 +1,14 @@
-# Binary search (lower bound) in a while loop; -1 when the value is absent.
+# Binary search (lower bound), -1 when the value is absent: stdlib bsearch with a
+# condition block, checked against a hand-written while loop.
 xs = [1,3,5,7,9,11,13]
-bs = {
+lb = {t = _2; bsearch:_1,{>=t}}
+lw = {
   a = _1; t = _2; lo = 0; hi = #a
   lo<hi ~{ m = (lo+hi)/2; lo,hi = a@m<t ? [m+1,hi] : [lo,m] }
-  lo<#a & a@lo=t ? lo : -1
+  lo
 }
-[7,1,13,4,0,14]{print:"{_} -> {bs:xs,_}"}
+[7,1,13,4,0,14]{
+  i = lb:xs,_
+  (lw:xs,_)~=i ? print:"loop disagrees on {_}" : 0
+  print:"{_} -> {i<#xs & xs@i=_ ? i : -1}"
+}

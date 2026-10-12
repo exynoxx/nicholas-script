@@ -1,15 +1,15 @@
 # BFS shortest path on a grid read from stdin, S to E, '#' is a wall.
-# Cells are [row,col] pairs; neighbours come from broadcasting p+dir.
+# Cells are (row,col) tuples, located with find and used as map keys.
 h = int:read
 g = 0..h{read}
 w = #(g@0)
 z = g.join:""
-f = {ch=_; i=0..#z[(z@_)=ch]@0; [i/w,i%w]}
+f = {i = find:z,_; (i/w,i%w)}
 s = f:"S"; e = f:"E"
 d = [s->0]; q = Q[s]
 q ~{
-  p = q.pop
-  [[1,0],[-1,0],[0,1],[0,-1]]{p+_}[y=_@0; x=_@1; y>=0 & y<h & x>=0 & x<w & ~(d@?_) & (g@y)@x~="#"]{d@_ = d@p+1; q+=_}
+  p = q.pop; y,x = p
+  [(y+1,x),(y-1,x),(y,x+1),(y,x-1)][r=_@0; c=_@1; r>=0 & r<h & c>=0 & c<w & ~(d@?_) & (g@r)@c~="#"]{d@_ = d@p+1; q+=_}
 }
 print:d@?e ? "shortest S->E: {d@e}" : "unreachable"
 print:"reachable cells: {#d}"

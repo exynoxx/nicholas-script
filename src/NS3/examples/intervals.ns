@@ -1,7 +1,7 @@
 # Merge intervals: sort [start,end] pairs, then extend the last one or append.
 mg = {
   v = _.sort; r = [v@0]
-  (v@1..#v){t = r@-1; r = t@1<_@0 ? r++[_] : r@0..(#r-1)++[[t@0,[t@1,_@1]/>]]}
+  (v@1..#v){t = r@-1; r = t@1<_@0 ? r++[_] : r@0..(#r-1)++[[t@0,max:t@1,_@1]]}
   r
 }
 print:mg:[[1,3],[8,10],[2,6],[15,18],[17,20],[9,9]]

@@ -1,6 +1,6 @@
 # Sieve of Eratosthenes: primes below n, then their count and sum.
 n = 50
-s = 0..n{T}
+s = [T]*n
 s@0 = F; s@1 = F
 i = 2
 i*i<n ~{

@@ -1,8 +1,0 @@
-# Run-length encoding: find where runs start, get run lengths by broadcast
-# subtraction, then decode again (counts are single digits here).
-s = "aaabccddddde"
-b = 0..#s[~_ | s@_~=s@(_-1)]
-n = (b@1..#b ++ #s)-b
-r = b{s@_+n@@}.join:""
-print:r
-print:0..#r[~_%2]{r@_*(int:r@(_+1))}.join:""

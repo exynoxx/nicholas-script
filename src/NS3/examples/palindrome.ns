@@ -1,6 +1,0 @@
-# Reverse strings with a fold and test palindromes, ignoring case and punctuation.
-lo = {o=ord:_; o>64 & o<91 ? chr:o+32 : _}
-["racecar","hello","A man, a plan, a canal: Panama","No lemon, no melon","abc"]{
-  t = _{lo:_}[_>="a" & _<="z"].join:""
-  print:"{_/{_+$}} {t=t/{_+$}}"
-}
