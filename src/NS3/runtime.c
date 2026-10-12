@@ -564,6 +564,57 @@ void ns_release(void *p) {
   free(HD(p));
 }
 
+// ---------- extra stdlib ----------
+//@ hex (int) str
+char *ns_hex(int64_t v) { char b[17]; snprintf(b, sizeof b, "%llx", (unsigned long long)v); return str_n(b, strlen(b)); }
+//@ gcd (int,int) int
+int64_t ns_gcd(int64_t a, int64_t b) {
+  if (a < 0) a = -a;
+  if (b < 0) b = -b;
+  while (b) { int64_t t = a % b; a = b; b = t; }
+  return a;
+}
+//@ zip ([A],[B]) [(A,B)]
+void *ns_zip(const char *dA, const char *dB, void *a, void *b) { // stops at the shorter array
+  char d[64]; snprintf(d, sizeof d, "AU2%.*s%.*s", (int)(skip(dA) - dA), dA, (int)(skip(dB) - dB), dB);
+  const char *rd = intern(d[0], d + 1);
+  Arr *x = a, *y = b, *r = ns_arr_new(rd, 0);
+  int64_t n = x->len < y->len ? x->len : y->len;
+  for (int64_t i = 0; i < n; i++) {
+    void *t = ns_tup_new(rd + 1);
+    ns_tup_set(t, 0, x->data[i]); ns_tup_set(t, 1, y->data[i]);
+    apush(r, P(t));
+  }
+  return r;
+}
+//@ uniq ([T]) [T]
+void *ns_uniq(const char *dT, void *a) { // keeps first occurrences in order
+  const char *d = HD(a)->d;
+  Arr *x = a, *r = ns_arr_new(d, x->len);
+  void *seen = ns_set_new(intern('H', d + 1));
+  for (int64_t i = 0; i < x->len; i++)
+    if (!ns_has(HD(seen)->d, P(seen), x->data[i])) { ns_add(HD(seen)->d, seen, x->data[i]); ns_arr_push(r, x->data[i]); }
+  ns_release(seen);
+  return r;
+}
+//@ trim (str) str
+char *ns_trim(char *s) {
+  while (isspace((unsigned char)*s)) s++;
+  size_t n = strlen(s);
+  while (n && isspace((unsigned char)s[n - 1])) n--;
+  return str_n(s, n);
+}
+//@ replace (str,str,str) str
+char *ns_replace(char *s, char *a, char *b) { // every occurrence of a in s replaced by b
+  size_t m = strlen(a), k = strlen(b), cnt = 0;
+  if (!m) return str_n(s, strlen(s));
+  for (char *e = s; (e = strstr(e, a)); e += m) cnt++;
+  char *r = obj("S", strlen(s) - cnt * m + cnt * k + 1), *o = r;
+  for (char *e; (e = strstr(s, a)); s = e + m) { memcpy(o, s, e - s); o += e - s; memcpy(o, b, k); o += k; }
+  strcpy(o, s);
+  return r;
+}
+
 // ---------- stdlib: math, search, folds, block callbacks ----------
 typedef slot (*ns_fn)(void *env, slot x); // a compiled NS block: borrowed argument, owned result
 
@@ -596,6 +647,29 @@ int64_t ns_floor(double x) { return (int64_t)floor(x); }
 int64_t ns_ceil(double x) { return (int64_t)ceil(x); }
 //@ round (float) int
 int64_t ns_round(double x) { return (int64_t)round(x); }
+//@ lcm (int,int) int
+int64_t ns_lcm(int64_t a, int64_t b) { int64_t g = ns_gcd(a, b); return g ? ns_abs_i(a / g * b) : 0; }
+//@ rotl (int,int) int
+int64_t ns_rotl(int64_t x, int64_t n) { uint64_t u = x; n &= 63; return (int64_t)(n ? u << n | u >> (64 - n) : u); }
+//@ rotr (int,int) int
+int64_t ns_rotr(int64_t x, int64_t n) { uint64_t u = x; n &= 63; return (int64_t)(n ? u >> n | u << (64 - n) : u); }
+//@ popcount (int) int
+int64_t ns_popcount(int64_t x) { return __builtin_popcountll((uint64_t)x); }
+static slot fold(const char *dT, void *arr, int prod) { // sum/prod; an empty array gives 0 / 1
+  Arr *a = arr;
+  if (*dT == 'F') {
+    double r = prod;
+    for (int64_t i = 0; i < a->len; i++) { double x = f_of(a->data[i]); r = prod ? r * x : r + x; }
+    slot s; memcpy(&s, &r, sizeof s); return s;
+  }
+  int64_t r = prod;
+  for (int64_t i = 0; i < a->len; i++) r = prod ? r * a->data[i] : r + a->data[i];
+  return r;
+}
+//@ sum ([T]) T
+slot ns_sum(const char *dT, void *arr) { return fold(dT, arr, 0); }
+//@ prod ([T]) T
+slot ns_prod(const char *dT, void *arr) { return fold(dT, arr, 1); }
 //@ find ([T],T) int = ns_find_arr
 int64_t ns_find_arr(const char *dT, void *arr, slot x) { return ns_find(HD(arr)->d, P(arr), x); }
 //@ find (str,str) int = ns_find_str
@@ -609,4 +683,20 @@ int64_t ns_bsearch(const char *dT, void *arr, ns_fn f, void *env) { // first ind
   Arr *a = arr; int64_t lo = 0, hi = a->len;
   while (lo < hi) { int64_t m = lo + (hi - lo) / 2; if (f(env, a->data[m])) hi = m; else lo = m + 1; }
   return lo;
+}
+typedef struct { slot k, v; int64_t i; } KV;
+static const char *kv_d;
+static int kv_cmp(const void *x, const void *y) { // by key, then original position (stable)
+  const KV *a = x, *b = y; int64_t c = ns_cmp(kv_d, a->k, b->k);
+  return c ? (int)c : (a->i > b->i) - (a->i < b->i);
+}
+//@ sortby ([T], fn(T)->K) [T]
+void *ns_sortby(const char *dT, const char *dK, void *arr, ns_fn f, void *env) {
+  Arr *a = arr; KV *kv = alloc(a->len * sizeof(KV) + 1);
+  for (int64_t i = 0; i < a->len; i++) kv[i] = (KV){ f(env, a->data[i]), a->data[i], i };
+  kv_d = dK; qsort(kv, a->len, sizeof(KV), kv_cmp);
+  Arr *r = ns_arr_new(HD(arr)->d, a->len);
+  for (int64_t i = 0; i < a->len; i++) { ns_arr_push(r, kv[i].v); rel(dK, kv[i].k); }
+  free(kv);
+  return r;
 }

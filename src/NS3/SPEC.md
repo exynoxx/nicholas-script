@@ -206,12 +206,27 @@ a,b = b,a                  # parallel assignment
 expr                       # expression statement
 ```
 
-## 7. Built-ins (v1)
-Math: `min:a,b` `max:a,b` (or `max:xs`), `abs` `pow` `sqrt` `floor` `ceil` `round`. Strings: `lower` `upper`. Search: `find:xs,x` (index or -1), `bsearch:xs,{cond}` (first index where `cond` holds, cond false…true over xs; `#xs` if none).
+## 7. Built-ins and standard library
+Language primitives (in the compiler): `print`, casts `int float str bool`, `#` length, `@?` contains, ranges and slices,
+collection literals and `set: Q: PQ: arr:`, `pop`, `keys`, `vals`, tuples, `[x]*n`.
+
 Tuples: `(a,b)`, `(a,b,c)` … up to 9 elements of any types; immutable; `t@0` (literal index), `a,b = t`; compare lexicographically; usable as map keys, set and PQ elements.
 Repeat: `[x]*n` (a one-element array literal times an int) builds n copies; nested arrays are deep-copied.
 
-`print`, `read` (line from stdin, string; `""` at EOF), `lines` (all remaining stdin lines as `[string]`; zero-arg built-ins are called by bare name), `ord`, `chr`, `int`, `float`, `str`, `bool`, `sort`, `rev`, `split`, `join`.
+Everything else is the **standard library, implemented in `runtime.c`**. Each function is declared there by a signature line
+```
+//@ name (param, ...) result [= c_symbol]
+```
+using `int float str bool`, type variables (`T`, `K`, …), `[t]`, `(a,b)` and blocks `fn(t)->r`. Overloads are tried in order
+(an exact type match wins, otherwise the first one with conversions). Adding a function = writing it in C with its `//@` line;
+the compiler needs no change. A block argument is passed to C as a callback, e.g. `bsearch:xs,{>=5}`, `sortby:ws,{#_}`.
+
+Current library (see `grep '^//@' runtime.c`):
+- I/O: `read` (a line, `""` at EOF), `lines` (all remaining stdin lines); zero-argument functions are called by bare name
+- math: `min max` (two values or one array), `abs pow sqrt floor ceil round gcd lcm sum prod` (`sum/prod` of `[]` are 0/1)
+- bits: `rotl rotr popcount hex`; operators `& | ^ << >> >>>`; literals `0xff 0b101`
+- strings: `lower upper trim replace chars split join ord chr find`
+- arrays: `sort rev uniq zip find bsearch sortby`
 
 ## 8. Examples
 ```
