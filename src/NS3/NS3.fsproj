@@ -21,7 +21,13 @@
     <Compile Include="Typer.fs" />
     <Compile Include="Codegen.fs" />
     <Compile Include="Program.fs" />
-    <None Include="runtime.c" CopyToOutputDirectory="PreserveNewest" />
+    <!-- the runtime is precompiled to LLVM IR at build time and embedded; programs are merged with it -->
+    <EmbeddedResource Include="$(IntermediateOutputPath)runtime.ll" LogicalName="runtime.ll" />
   </ItemGroup>
+
+  <Target Name="CompileRuntime" BeforeTargets="BeforeBuild" Inputs="runtime.c" Outputs="$(IntermediateOutputPath)runtime.ll">
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <Exec Command="clang -S -emit-llvm -O2 -w runtime.c -o $(IntermediateOutputPath)runtime.ll" />
+  </Target>
 
 </Project>

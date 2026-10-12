@@ -5,8 +5,6 @@ open System.IO
 open System.Diagnostics
 open Ast
 
-let private runtimeC = Path.Combine(AppContext.BaseDirectory, "runtime.c")
-
 let private showTyped (p: Typer.Program) =
     let fns =
         p.insts
@@ -39,11 +37,11 @@ let private run (exe: string) (args: string) (stdin: string option) =
     p.WaitForExit()
     p.ExitCode, out.Result, err.Result
 
+/// runtime.c, precompiled to LLVM IR when the compiler was built (see NS3.fsproj).
 let private runtimeIR =
     lazy
-        (let code, ir, err = run "clang" (sprintf "-S -emit-llvm -O2 -w \"%s\" -o -" runtimeC) None
-         if code <> 0 then failwithf "clang failed on runtime.c:\n%s" err
-         ir)
+        (use s = Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream "runtime.ll"
+         (new StreamReader(s)).ReadToEnd())
 
 /// Self-contained module: our IR plus runtime.c compiled to IR, minus our declares of what the runtime provides.
 let private pureLL (ll: string) : string =
