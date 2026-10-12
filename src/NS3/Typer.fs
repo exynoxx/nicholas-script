@@ -1,0 +1,356 @@
+/// Stage 4: core -> typed core. Infers types, inserts conversions (left-operand rule),
+/// resolves scopes/captures, monomorphises function blocks, and lowers type-directed forms via Lower.
+module Typer
+
+open System.Collections.Generic
+open Ast
+open Core
+
+type Frame = { parent: Frame option; vars: Dictionary<string, string>; inst: Inst option }
+
+and Inst =
+    { name: string
+      mutable parms: (string * Ty) list
+      mutable caps: string list
+      mutable ret: Ty
+      mutable body: S list
+      mutable result: E
+      owned: HashSet<string>
+      calls: HashSet<string> }
+
+type Program =
+    { main: S list
+      globals: (string * Ty) list
+      insts: Inst list
+      varTy: Dictionary<string, Ty> }
+
+let private varTy = Dictionary<string, Ty>()
+let private globals = ResizeArray<string>()
+let private fnDefs = Dictionary<int, S list * Frame>()
+let private insts = Dictionary<string, Inst>()
+let private instList = ResizeArray<Inst>()
+let private global0 = { parent = None; vars = Dictionary(); inst = None }
+let mutable private cur = global0
+let mutable private line = 0
+/// Type of the then-branch while typing an else-branch; resolves `rec + rec` in recursive functions.
+let mutable private expect: Ty option = None
+let mutable private counter = 0
+let private err msg = fail line msg
+
+let newHole () = THole(ref None)
+let private typed k t = { k = k; t = t }
+let private isScalar t = match resolve t with TInt | TFloat | TStr | TBool -> true | _ -> false
+
+let rec private unify a b =
+    match resolve a, resolve b with
+    | THole r1, THole r2 when obj.ReferenceEquals(r1, r2) -> true
+    | THole r, t | t, THole r -> (r.Value <- Some t; true)
+    | TArr x, TArr y | TSet x, TSet y | TQ x, TQ y | TPQ x, TPQ y -> unify x y
+    | TMap(k1, v1), TMap(k2, v2) -> unify k1 k2 && unify v1 v2
+    | x, y -> x = y
+
+// ---------- scopes ----------
+
+let private declare (fr: Frame) (name: string) (ty: Ty) =
+    counter <- counter + 1
+    let u = sprintf "%s.%d" name counter
+    fr.vars.[name] <- u
+    varTy.[u] <- ty
+    match fr.inst with
+    | Some i -> i.owned.Add u |> ignore
+    | None -> globals.Add u
+    u
+
+/// Finds a variable lexically; a hit in an enclosing function frame becomes a capture of every frame in between.
+let private lookup (name: string) =
+    let rec find (f: Frame) path =
+        match f.vars.TryGetValue name with
+        | true, u -> Some(u, f, path)
+        | _ -> f.parent |> Option.bind (fun p -> find p (f :: path))
+    match find cur [] with
+    | Some(u, owner, path) ->
+        if owner.inst.IsSome then
+            for f in path do
+                let i = f.inst.Value
+                if not (List.contains u i.caps) then i.caps <- i.caps @ [ u ]
+        Some u
+    | None -> None
+
+// ---------- conversions ----------
+
+let private castName t =
+    match resolve t with
+    | TInt -> "int"
+    | TFloat -> "float"
+    | TStr -> "str"
+    | TBool -> "bool"
+    | t -> err (sprintf "no conversion to %s" (showTy t))
+
+/// Arrays are values: copy when a variable's array is stored somewhere else.
+let private own (e: E) =
+    match e.k, resolve e.t with
+    | Var _, TArr _ -> typed (Call("copy", [ e ])) e.t
+    | _ -> e
+
+let rec private conv (e: E) (ty: Ty) : E =
+    let a, b = resolve e.t, resolve ty
+    if unify a b then e
+    else
+        match a, b with
+        | _ when isScalar a && isScalar b -> typed (Conv e) b
+        | _, TStr | _, TBool -> typed (Conv e) b
+        | TArr _, TArr y when isScalar y -> typeE (Lower.convArr e (castName y))
+        | _ -> err (sprintf "cannot convert %s to %s" (showTy a) (showTy b))
+
+// ---------- expressions ----------
+
+and typeE (e: E) : E =
+    if e.t <> TUnk then e
+    else
+        match e.k with
+        | Int _ -> typed e.k TInt
+        | Float _ -> typed e.k TFloat
+        | Str _ -> typed e.k TStr
+        | Bool _ -> typed e.k TBool
+        | Var name ->
+            match lookup name with
+            | Some u -> typed (Var u) varTy.[u]
+            | None -> err (sprintf "undefined variable '%s'" name)
+        | Arr [] -> typed (Arr []) (TArr(newHole ()))
+        | Arr xs ->
+            let xs = List.map typeE xs
+            let el = xs.Head.t
+            typed (Arr(xs |> List.map (fun x -> own (conv x el)))) (TArr el)
+        | Bin(op, a, b) -> typeBin op (typeE a) (typeE b)
+        | If(c, a, b) ->
+            let c = conv (typeE c) TBool
+            let a = typeE a
+            let saved = expect
+            match resolve a.t with
+            | THole _ -> ()
+            | t -> expect <- Some t
+            let b = typeE b
+            expect <- saved
+            typed (If(c, a, conv b a.t)) a.t
+        | Call(name, args) ->
+            match lookup name with
+            | Some u when (match resolve varTy.[u] with TFn _ -> true | _ -> false) ->
+                let (TFn id) = resolve varTy.[u]
+                userCall id (List.map (typeE >> own) args)
+            | _ -> builtin name (List.map typeE args)
+        | Index(x, i) -> typeIndex (typeE x) (typeE i)
+        | Iter it ->
+            let src = typeE it.src
+            typeE (Lower.iter { it with src = src } (resolve src.t))
+        | Fn(id, body) ->
+            fnDefs.[id] <- (body, cur)
+            typed e.k (TFn id)
+        | Seq(ss, x) ->
+            let ss = typeStmts ss
+            let x = typeE x
+            typed (Seq(ss, x)) x.t
+        | Conv _ -> err "unexpected conversion"
+
+and private typeBin op (a: E) (b: E) : E =
+    let isArith = List.contains op [ "+"; "-"; "*"; "/"; "%"; "^^" ]
+    let isCmp = List.contains op [ "="; "~="; "<"; ">"; "<="; ">=" ]
+    match resolve a.t with
+    | THole _ when op = "++" ->
+        unify a.t (match resolve b.t with TArr _ -> b.t | t -> TArr t) |> ignore
+    | THole _ ->
+        unify a.t b.t |> ignore
+        match resolve a.t, expect with
+        | THole _, Some t -> unify a.t t |> ignore
+        | _ -> ()
+    | _ -> ()
+    let L = resolve a.t
+    let same x = typed (Bin(op, a, conv b L)) L
+    match op, L with
+    | _ when isCmp -> typed (Bin(op, a, conv b L)) TBool
+    | ("&" | "|" | "+" | "-"), TSet _ when (match resolve b.t with TSet _ -> true | _ -> false) ->
+        typeE (Lower.setOp op a (conv b L))
+    | ("&" | "|"), TInt -> same ()
+    | "&", _ -> typed (If(conv a TBool, conv b TBool, typed (Bool false) TBool)) TBool
+    | "|", _ -> typed (If(conv a TBool, typed (Bool true) TBool, conv b TBool)) TBool
+    | "++", TArr el ->
+        match resolve b.t with
+        | TArr _ -> typed (Call("concat", [ a; conv b L ])) L
+        | _ -> typed (Call("append", [ a; own (conv b el) ])) L
+    | "+", (TSet el | TQ el | TPQ el) -> typed (Call("add", [ a; own (conv b el) ])) L
+    | "-", TSet el -> typed (Call("del", [ a; conv b el ])) L
+    | "+", TMap _ -> typed (Call("merge", [ a; conv b L ])) L
+    | "-", TMap(k, _) -> typed (Call("del", [ a; conv b k ])) L
+    | _, TArr _ when isArith ->
+        let bIsArr = match resolve b.t with TArr _ -> true | _ -> false
+        typeE (Lower.broadcast op a b bIsArr)
+    | _, (TInt | TFloat) when isArith ->
+        match resolve b.t with
+        | TArr _ -> err "scalar op array: put the array on the left"
+        | _ -> same ()
+    | "+", TStr -> same ()
+    | "*", TStr -> typed (Bin("*", a, conv b TInt)) TStr
+    | ("+" | "-" | "*"), TBool -> same ()
+    | _ -> err (sprintf "operator %s not defined for %s" op (showTy L))
+
+and private typeIndex (x: E) (i: E) =
+    match resolve x.t with
+    | TArr el -> typed (Index(x, conv i TInt)) el
+    | TStr -> typed (Index(x, conv i TInt)) TStr
+    | TMap(k, v) -> typed (Index(x, conv i k)) v
+    | TQ el | TPQ el ->
+        match i.k with
+        | Int 0L -> typed (Call("peek", [ x ])) el
+        | _ -> typed (Index(typed (Call("arr", [ x ])) (TArr el), conv i TInt)) el
+    | t -> err (sprintf "cannot index %s" (showTy t))
+
+and private builtin name (args: E list) : E =
+    let call t = typed (Call(name, args)) t
+    let elemOf (x: E) =
+        match resolve x.t with
+        | TArr e | TSet e | TQ e | TPQ e -> e
+        | TStr -> TStr
+        | TMap(k, _) -> k
+        | t -> err (sprintf "%s: not a collection: %s" name (showTy t))
+    match name, args with
+    | "print", [ x ] -> typed (Call("print", [ x ])) x.t
+    | "read", [] -> call TStr
+    | ("int" | "float" | "str" | "bool"), [ x ] ->
+        conv x (match name with "int" -> TInt | "float" -> TFloat | "str" -> TStr | _ -> TBool)
+    | "neg", [ x ] ->
+        match resolve x.t with
+        | TInt | TFloat -> call x.t
+        | TArr _ -> typeE (Lower.broadcast "*" x (typed (Int -1L) TInt) false)
+        | _ -> typed (Call("neg", [ conv x TInt ])) TInt
+    | "not", [ x ] -> typed (Call("not", [ conv x TBool ])) TBool
+    | "len", [ x ] -> (elemOf x |> ignore; call TInt)
+    | "has", [ c; x ] -> typed (Call("has", [ c; conv x (elemOf c) ])) TBool
+    | "range", [ a; b ] -> typed (Call("range", [ conv a TInt; conv b TInt ])) (TArr TInt)
+    | "slice", [ x; a; b ] ->
+        match resolve x.t with
+        | TArr _ | TStr -> typed (Call("slice", [ x; conv a TInt; conv b TInt ])) x.t
+        | t -> err (sprintf "cannot slice %s" (showTy t))
+    | "mapof", [ ks; vs ] -> call (TMap(elemOf ks, elemOf vs))
+    | ("set" | "Q" | "PQ"), [ xs ] ->
+        let el = elemOf xs
+        let xs = if resolve xs.t = TStr then typed (Call("chars", [ xs ])) (TArr TStr) else xs
+        let t = match name with "set" -> TSet el | "Q" -> TQ el | _ -> TPQ el
+        typed (Call(name, [ (match resolve xs.t with TArr _ -> xs | _ -> typed (Call("arr", [ xs ])) (TArr el)) ])) t
+    | "pop", [ q ] ->
+        match resolve q.t with
+        | TQ el | TPQ el -> call el
+        | t -> err (sprintf "pop: not a queue: %s" (showTy t))
+    | "keys", [ m ] | "vals", [ m ] ->
+        match resolve m.t with
+        | TMap(k, v) -> call (TArr(if name = "keys" then k else v))
+        | t -> err (sprintf "%s: not a map: %s" name (showTy t))
+    | "arr", [ c ] -> call (TArr(elemOf c))
+    | "chars", [ s ] -> typed (Call("chars", [ conv s TStr ])) (TArr TStr)
+    | ("sort" | "rev"), [ a ] ->
+        match resolve a.t with
+        | TArr _ -> call a.t
+        | TStr when name = "rev" -> typed (Call("join", [ typed (Call("rev", [ typed (Call("chars", [ a ])) (TArr TStr) ])) (TArr TStr); typed (Str "") TStr ])) TStr
+        | t -> err (sprintf "%s: not an array: %s" name (showTy t))
+    | "split", [ s; sep ] -> typed (Call("split", [ conv s TStr; conv sep TStr ])) (TArr TStr)
+    | "join", [ a; sep ] ->
+        let a = if resolve a.t = TStr then typed (Call("chars", [ a ])) (TArr TStr) else a
+        elemOf a |> ignore
+        typed (Call("join", [ a; conv sep TStr ])) TStr
+    | "ord", [ s ] -> typed (Call("ord", [ conv s TStr ])) TInt
+    | "chr", [ i ] -> typed (Call("chr", [ conv i TInt ])) TStr
+    | "push", [ a; x ] ->
+        match resolve a.t with
+        | TArr el -> typed (Call("push", [ a; own (conv x el) ])) a.t
+        | t -> err (sprintf "push: not an array: %s" (showTy t))
+    | _ -> err (sprintf "unknown function '%s' with %d argument(s)" name args.Length)
+
+and private userCall id (args: E list) : E =
+    let tys = args |> List.map (fun a -> resolve a.t)
+    let key = sprintf "%d(%s)" id (tys |> List.map showTy |> String.concat ",")
+    let inst =
+        match insts.TryGetValue key with
+        | true, i -> i
+        | _ ->
+            let body, defFr = fnDefs.[id]
+            let inst =
+                { name = sprintf "f%d_%d" id instList.Count
+                  parms = []
+                  caps = []
+                  ret = newHole ()
+                  body = []
+                  result = typed (Int 0L) TInt
+                  owned = HashSet()
+                  calls = HashSet() }
+            let fr = { parent = Some defFr; vars = Dictionary(); inst = Some inst }
+            inst.parms <- tys |> List.mapi (fun i t -> declare fr (sprintf "_%d" (i + 1)) t, t)
+            insts.[key] <- inst
+            instList.Add inst
+            let saved, savedLine = cur, line
+            cur <- fr
+            let ss = typeStmts body
+            match List.rev ss with
+            | Do r :: rest ->
+                inst.result <- conv r inst.ret
+                inst.body <- List.rev rest
+            | _ -> err "function body has no value"
+            cur <- saved
+            line <- savedLine
+            inst
+    cur.inst |> Option.iter (fun c -> c.calls.Add inst.name |> ignore)
+    typed (Call("@" + inst.name, args)) inst.ret
+
+// ---------- statements ----------
+
+and private typeStmt (s: S) : S =
+    match s with
+    | Line n -> (line <- n; s)
+    | Do e -> Do(typeE e)
+    | While(c, body) ->
+        let c = conv (typeE c) TBool
+        While(c, typeStmts body)
+    | SetIdx(x, i, value) ->
+        let x = typeE x
+        let i, value = typeE i, typeE value
+        match resolve x.t with
+        | TArr el -> SetIdx(x, conv i TInt, own (conv value el))
+        | TMap(k, v) -> SetIdx(x, conv i k, own (conv value v))
+        | t -> err (sprintf "cannot assign into %s" (showTy t))
+    | Assign(name, e) ->
+        let e = typeE e
+        let generated = name.Contains '%'
+        let store u (e: E) = Assign(u, if generated then e else own e)
+        match lookup name with
+        | Some u ->
+            match e.k with
+            | Call("append", [ { k = Var src } as a; x ]) when src = u -> Do(typed (Call("push", [ a; x ])) e.t)
+            | _ ->
+                match resolve varTy.[u], resolve e.t with
+                | TFn a, TFn b when a <> b -> err "a function variable cannot be reassigned to another block"
+                | _ -> store u (conv e varTy.[u])
+        | None -> store (declare cur name e.t) e
+
+and private typeStmts (ss: S list) = List.map typeStmt ss
+
+// ---------- program ----------
+
+/// Callers must forward the captures of the functions they call.
+let private propagateCaptures () =
+    let byName = instList |> Seq.map (fun i -> i.name, i) |> dict
+    let mutable changed = true
+    while changed do
+        changed <- false
+        for i in instList do
+            for c in i.calls do
+                for cap in byName.[c].caps do
+                    if not (i.owned.Contains cap) && not (List.contains cap i.caps) then
+                        i.caps <- i.caps @ [ cap ]
+                        changed <- true
+
+let check (prog: S list) : Program =
+    varTy.Clear(); globals.Clear(); fnDefs.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear()
+    cur <- global0
+    let main = typeStmts prog
+    propagateCaptures ()
+    { main = main
+      globals = globals |> Seq.map (fun g -> g, varTy.[g]) |> List.ofSeq
+      insts = List.ofSeq instList
+      varTy = varTy }

@@ -1,0 +1,19 @@
+s = %[]
+[3,1,3,2,1]{s+=_}
+print:#s
+print:s.arr.sort
+print:s@?2
+s-=2
+print:s@?2
+t = s
+t+=9
+print:#s
+print:s{_*2}.arr.sort
+print:(%[1,2,3,4]|%[3,4,5]).arr.sort
+print:(%[1,2,3,4]&%[3,4,5]).arr.sort
+print:(%[1,2,3,4]-%[3,4,5]).arr.sort
+print:%[7]
+w = set:split:"a b a c"," "
+print:#w
+e = %[]
+print:e ? "full" : "empty"

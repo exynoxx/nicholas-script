@@ -1,0 +1,6 @@
+a = int:read
+b = int:read
+print:a+b
+name = read
+print:"hello {name}"
+print:read+1

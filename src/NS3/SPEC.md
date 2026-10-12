@@ -1,0 +1,254 @@
+# NS3 Language Spec (draft v1)
+
+A terse, golf-style, statically typed language compiled to LLVM IR and then to a native binary.
+Types are never written; every expression has one type known at compile time.
+
+## 1. Lexical
+
+| Token        | Form                                   | Notes |
+|--------------|----------------------------------------|-------|
+| int          | `42`                                   | 64-bit signed |
+| float        | `3.14`, `.5`                           | 64-bit double |
+| string       | `"abc"`, `"x={x}"`                     | `{expr}` inside is interpolation, `\{` escapes |
+| bool         | `T`, `F`                               | |
+| ident        | `[a-zA-Z][a-zA-Z0-9]*`                 | |
+| `_` `_1` `_2`| implicit block args                    | |
+| `$`          | fold accumulator                       | |
+| `@`          | index op / current index inside block  | |
+| comment      | `# ...` to end of line                 | `#` followed by space or end of line; otherwise `#` is length |
+
+### Statement termination
+- A **newline** ends a statement.
+- `;` ends a statement when several share one line: `a=1; b=2; print:a+b`.
+- A newline does **not** end a statement when inside open `(` or `[`, or when the line ends with a binary operator or `,`.
+- Inside `{ }` the same rules apply; statements in a block are separated by newline or `;`.
+
+## 2. Types
+
+v1 primitive types: `int` (i64), `float` (f64), `string`, `bool`.
+Composite: arrays `[T]` (homogeneous), functions (blocks).
+Deferred to v2: `uint`, `int8..int64`, explicit width ints.
+
+### Inference
+Each variable's type is fixed by its first assignment. Re-assigning a value of another type converts it to the variable's type (implicit conversion, below).
+
+### Implicit conversion — the left operand rules
+For any binary operator, **the left operand's type is the result type**; the right operand is converted to it.
+
+```
+"1"+1     # "11"   (int -> string, then concat)
+1+"1"     # 2      (string -> int, then add)
+1+2.7     # 3      (float -> int, truncates)
+1.0+2     # 3.0
+"a"*3     # "aaa"  (string * int = repeat)
+T+1       # T      (bool or)
+```
+
+Integer `/` and `%` are **floor** division/modulo (`-7/2 = -4`, `-7%2 = 1`). Division by zero is a runtime error.
+
+Comparisons (`= ~= < > <= >=`) convert the right side to the left type and return `bool`.
+
+### Conversion table (right side → left type)
+
+| from \ to | int                 | float        | string        | bool        |
+|-----------|---------------------|--------------|---------------|-------------|
+| int       | —                   | exact        | decimal text  | `≠0`        |
+| float     | truncate            | —            | shortest text | `≠0.0`      |
+| string    | `strtol`-style: skip whitespace, longest valid prefix, else `0` | same, `0.0` | — | non-empty |
+| bool      | `1`/`0`             | `1.0`/`0.0`  | `"T"`/`"F"`   | —           |
+
+### Explicit casts
+Casts are ordinary calls to built-in functions named after the type:
+```
+int:"42"      float:x     str:3.5     bool:n
+```
+
+## 3. Expressions
+
+### Precedence (high → low)
+
+| Level | Ops | Assoc |
+|-------|-----|-------|
+| 0 primary | `a..b` range (operands are atoms, optionally with prefix `-`/`#`; use parens otherwise) | none |
+| 1 postfix | `x{…}` map, `x[…]` filter, `x/{…}` `x/op` fold, `x\{…}` `x\op` scan, `x@i` index, `.name` method call | left |
+| 2 prefix  | `-x` `#x` (length) | right |
+| 3 power   | `^^` | right |
+| 4 mul     | `* / %` | left |
+| 5 add     | `+ - ++` | left |
+| 7 compare | `= ~= < > <= >=` | none |
+| 7.5 not   | `~x` (binds looser than compare, like Python `not`: `~_%2` = `~(_%2)`) | right |
+| 8 logic   | `&` then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
+| 9 ternary | `c ? a : b` | right |
+| 10 call   | `f:a,b` (args extend to end of statement / closing bracket). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary | right |
+| 11 assign | `x = e`, `a,b = b,a` | right |
+
+`=` in expression position is equality; at statement start with an lvalue on the left it is assignment.
+
+### Arrays and ranges
+```
+x = [1,2,3]
+r = 1..10        # range, end exclusive: 1..9
+x@0              # index; negative counts from end: x@-1
+x@1..3           # slice (elements 1,2); `@` takes a range operand
+#x               # length
+```
+
+### Collection operators
+
+| Op       | Syntax          | Example      | Meaning |
+|----------|-----------------|--------------|---------|
+| map      | `x{body}`       | `x{_^^2}`    | new array of body results |
+| filter   | `x[body]`       | `x[_>2]`     | keep items where body is truthy |
+| fold     | `x/{body}`      | `x/{$+_}`    | `$` = accumulator, seeded with first element; no seed syntax, folding an empty collection is a runtime error |
+| op-fold  | `x/op`          | `x/+`        | sum, `x/*` product, `x/>` max, `x/<` min, `x/&` all, `x/\|` any |
+| scan     | `x\{body}` `x\op` | `x\+`      | running fold, returns array |
+
+`/op` is a fold only when no operand follows the op (`x/-1` is division).
+Disambiguation: `[` directly after an expression (no space) is a filter; otherwise it starts a literal. `/` followed by `{` or an operator token is a fold; otherwise division.
+
+### Block shortcuts
+- **Operator section**: a block body starting with a binary operator gets `_` on its left: `x{*2}`, `x[>2]`, `x{^^2}`. `-` never starts a section (`x{-1}` is the constant -1).
+- Nested blocks: the innermost block owns `_`, `@`, `$`.
+- `_` current element, `@` (bare) current index, `$` fold accumulator.
+- `_1`, `_2`, … for multi-argument blocks.
+- Last expression in a block is its value.
+
+### Array concat / append
+`a++b` concatenates two arrays; `a++x` appends an element (converted to the element type). Arrays compare lexicographically with `= ~= < > <= >=` and return bool (comparisons do not broadcast).
+
+### Broadcasting
+Arithmetic between an array and a scalar, or two arrays of equal length, applies elementwise:
+`x*2`, `x+y`, `x^^2`. Left-operand conversion rules apply per element. Unequal lengths are a runtime error; `scalar op array` is a compile error.
+
+### Strings
+Strings are byte strings. They behave as arrays of 1-character strings for `{}`, `[]`, `/`, `\`, `@`, `#` only.
+Strings never broadcast: `+` concatenates, `*int` repeats. `ord:"a"` → 97, `chr:97` → `"a"`.
+`"hello"{_*2}` → `["hh","ee","ll","ll","oo"]`.
+
+### Hash maps, hash sets, queues, priority queues
+
+| Type        | Literal                 | Empty    | Notation in docs |
+|-------------|-------------------------|----------|------------------|
+| hash map    | `["a"->1, "b"->2]`      | `[->]`   | `{K:V}` |
+| hash set    | `%[1,2,3]`              | `%[]`    | `%T` |
+| FIFO queue (linked list) | `Q[1,2,3]` | `Q[]` | `Q T` |
+| priority queue (min-heap) | `PQ[3,1,2]` | `PQ[]` | `PQ T` |
+
+`%[` is only a literal in prefix position; in binary position `%` keeps its arithmetic meaning. `Q` and `PQ` are reserved words (like `T`/`F`) and cannot be variable names.
+For a max-heap, push negated priorities: `q+=[-p,v]`.
+The element type of an empty literal is inferred from its first use (`m@"x" = 1` fixes `[->]` to `{string:int}`).
+Keys/elements may be any hashable value: `int float string bool` and arrays of those.
+Arrays compare lexicographically, so a PQ of `[priority, value]` arrays orders by priority: `q+=[d,n]`.
+
+Maps, sets and queues are **reference types** (mutated in place, shared on assignment). Arrays and strings remain values.
+
+| Op                 | Map `m`             | Set `s`           | Queue / PQ `q`               |
+|--------------------|---------------------|-------------------|------------------------------|
+| get / peek         | `m@k` (zero value if missing) | —       | `q@0` front/top without removing (Q also: `q@-1` back) |
+| set / insert       | `m@k = v`           | `s+=x`            | `q+=x` (Q: push back; PQ: insert by priority) |
+| remove             | `m-=k`              | `s-=x`            | `q.pop` returns and removes front/top |
+| contains           | `m@?k`              | `s@?x`            | `q@?x` (linear scan)         |
+| size               | `#m`                | `#s`              | `#q`                         |
+| map / filter / fold| `m{…}` `m[…]` `m/…` | `s{…}` `s[…]` `s/…` | `q{…}` etc. (Q: front to back; PQ: priority order; non-destructive) |
+| union / inter / diff | —                 | `a\|b` `a&b` `a-b` | —                           |
+| keys / values      | `m.keys` `m.vals`   | —                 | —                            |
+
+In map blocks `_` is the value and bare `@` is the key (same as element/index for arrays).
+`m{…}` returns a map with the same keys; `s{…}` returns a set; `m[…]`/`s[…]` return the same kind.
+`@?` (contains) also works on arrays and strings: `"hello"@?"ll"`.
+Conversions: `set:arr`, `Q:arr`, `PQ:arr`, `arr:s` (to array; map → array of keys).
+Truthiness: an empty map/set/queue is falsy.
+
+```
+c = [->]; "hello"{c@_ = c@_+1}          # char counts
+s = %[]; [3,1,3]{s+=_}; print:#s         # 2
+q = PQ[[0,1]]; q ~{ d,n = q.pop; ... }    # Dijkstra skeleton
+```
+
+Lexing/typing rules for collections:
+- `%[`, `Q[`, `PQ[` are single tokens, only in operand position. `->` uses maximal munch. `@?` is one token only after an operand (`x{@?1:0}` is bare `@` then ternary).
+- Empty literals: the first use in source order fixes the element type. A literal that is never used with a type defaults to int. A use inside a block that is called at two different types is a compile error.
+- `| & -` keep their single precedence level, so mixed set expressions need parens. On sets, the right operand's type decides the meaning: a set means union/inter/diff, an element means add/remove.
+- `@` on a map takes a plain key: no negative indexes and no slices.
+- Maps iterate and print in hash order. Reading a missing key returns the zero value and does not insert it.
+- Popping or peeking an empty queue is a runtime error.
+- Destructuring: N lvalues with one array on the right unpack it (`d,n = q.pop`). All right-hand expressions are evaluated before any assignment.
+
+### Compound assignment
+`x op= e` for every binary op (`+= -= *= /= %= ^^= &= |=`), meaning `x = x op e`, except that on maps/sets/queues every `op=` mutates in place, so aliases see the change. `m+=n` merges map `n` into `m`.
+
+## 4. Functions
+```
+sq = {_^^2}
+add = {_1+_2}
+add:3,4            # call
+x.sq               # method call: sq:x
+x[>2]{*2}.sort.print
+```
+Blocks capture variables from the enclosing scope **by reference** (`s=0; x{s+=_}` updates `s`). In v1 blocks may not escape (be returned or stored in collections), so captures live on the stack.
+A name is bound before its block body is checked, so blocks can recurse: `f={_<2?_:f:_-1}`.
+A function's parameter types are inferred per call site (monomorphised at compile time).
+
+## 5. Control flow
+```
+c ? a : b                  # ternary
+1..10{print:_}             # for-each = map
+cond ~{ body }             # while statement: whole `cond` expression re-evaluated each pass
+```
+
+## 6. Statements
+```
+x = expr
+a,b = b,a                  # parallel assignment
+expr                       # expression statement
+```
+
+## 7. Built-ins (v1)
+`print`, `read` (line from stdin, string; zero-arg built-ins are called by bare name), `ord`, `chr`, `int`, `float`, `str`, `bool`, `sort`, `rev`, `split`, `join`.
+
+## 8. Examples
+```
+1..11[~_%2]{^^2}/+                                   # sum of squares of evens
+1..101{print: ~_%15?"FizzBuzz":~_%5?"Buzz":~_%3?"Fizz":_}
+n = int:read; print: 1..(n+1)/*                       # factorial
+```
+
+## 9. Grammar (EBNF)
+```
+program   = { stmt TERM } ;
+TERM      = NEWLINE | ";" ;
+stmt      = assign | while | expr ;
+while     = expr "~{" block "}" ;
+assign    = lvalues "=" exprlist ;
+lvalues   = lvalue { "," lvalue } ;
+lvalue    = IDENT { "@" prefix } ;
+exprlist  = expr { "," expr } ;
+expr      = call ;
+call      = FUNC ":" exprlist | ternary ;   (* FUNC = IDENT bound to block/built-in *)
+ternary   = logic [ "?" expr ":" expr ] ;
+logic     = not { ("&" | "|") not } ;
+not       = "~" not | compare ;
+compare   = add [ CMPOP add ] ;
+add       = mul { ("+" | "-") mul } ;
+mul       = pow { ("*" | "/" | "%") pow } ;
+pow       = prefix [ "^^" pow ] ;
+prefix    = ("-" | "#") prefix | postfix ;
+postfix   = primary { "{" block "}" | "[" block "]"
+                    | "/" ( "{" block "}" | BINOP )
+                    | "\" ( "{" block "}" | BINOP )
+                    | "@" prefix
+                    | "." IDENT } ;
+primary   = atom [ ".." atom ] ;
+atom      = [ "-" | "#" ] ( INT | IDENT | "(" expr ")" ) | base ;
+base      = INT | FLOAT | STRING | BOOL | IDENT | "_" | "_" INT | "$" | "@"
+          | "[" [ exprlist ] "]" | "[" pairs "]" | "[->]"
+          | ("%" | "Q" | "PQ") "[" [ exprlist ] "]"
+          | "(" expr ")" | "{" block "}" ;
+pairs     = expr "->" expr { "," expr "->" expr } ;
+block     = [ BINOP ] stmts ;      (* leading BINOP => operator section *)
+stmts     = stmt { TERM stmt } ;
+```
+
+## 10. Decisions log
+Resolved: exclusive ranges, no fold seed, floor int division, keep `^^`, by-reference capture, `~` below compare, range at primary level, `#` comment vs length, call-vs-ternary by binding.
+Remaining minor questions: `QUESTIONS.md`.

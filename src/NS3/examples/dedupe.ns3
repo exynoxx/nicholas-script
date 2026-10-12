@@ -1,0 +1,6 @@
+# Remove duplicates while keeping first-seen order, using a set of seen items.
+x = [3,1,3,2,1,5,2]
+s = %[]
+print:x[k=~(s@?_); s+=_; k]
+u = %[]
+print:"mississippi"[k=~(u@?_); u+=_; k].join:""

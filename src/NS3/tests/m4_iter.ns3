@@ -1,0 +1,15 @@
+x = 1..6
+print:x{*2}
+print:x[>2]
+print:x/+
+print:x/*
+print:x/>
+print:[4,9,2]/<
+print:x\+
+print:x\{$*_}
+print:x{_*@}
+print:x/{$*10+_}
+print:x[_%2]{^^2}/+
+print:x[~_%2]
+print:[[1,2],[3,4]]{_/+}
+print:[[1,2],[3,4]]{_{_+@}}

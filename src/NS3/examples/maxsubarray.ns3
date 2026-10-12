@@ -1,0 +1,14 @@
+# Maximum subarray (Kadane): a scan of best-sum-ending-here, then max-fold.
+# Then a while-loop version that also tracks which window wins.
+k = {_\{$+_>_?$+_:_}/>}
+x = [-2,1,-3,4,-1,2,1,-5,4]
+print:k:x
+print:k:[-3,-1,-2]
+print:k:[5,4,-1,7,8]
+b = x@0; c = 0; s = 0; l = 0; r = 1; i = 0
+i<#x ~{
+  c,s = c>0 ? [c+x@i, s] : [x@i, i]
+  b,l,r = c>b ? [c,s,i+1] : [b,l,r]
+  i+=1
+}
+print:"best {b} = {x@l..r}"

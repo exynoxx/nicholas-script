@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>ns3</AssemblyName>
+    <Nullable>disable</Nullable>
+    <WarningLevel>3</WarningLevel>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>FS0025</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Ast.fs" />
+    <Compile Include="Lexer.fs" />
+    <Compile Include="Parser.fs" />
+    <Compile Include="Core.fs" />
+    <Compile Include="Desugar.fs" />
+    <Compile Include="Lower.fs" />
+    <Compile Include="Typer.fs" />
+    <Compile Include="Codegen.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="runtime.c" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

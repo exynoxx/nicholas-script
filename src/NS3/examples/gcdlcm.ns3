@@ -1,0 +1,6 @@
+# GCD by recursive Euclid and LCM from it; folds extend both to whole lists.
+g = {~_2 ? _1 : g:_2,_1%_2}
+l = {_1/(g:_1,_2)*_2}
+[[12,18],[7,5],[100,75],[0,9]]{print:"gcd({_@0},{_@1}) = {g:_@0,_@1}, lcm = {l:_@0,_@1}"}
+print:[24,36,60]/{g:$,_}
+print:1..11/{l:$,_}

@@ -1,0 +1,10 @@
+name = "NS"; v = 3
+print:"hi {name}{v}"
+print:"{v}*{v}={v*v}"
+x = 2.5; ok = v>2
+print:"x={x} ok={ok}"
+s = "ab"+"cd"
+print:s*2
+print:"x"+1.5
+print:"b"+T
+print:"\{v}"

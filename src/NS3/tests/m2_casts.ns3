@@ -1,0 +1,14 @@
+n = int:"42"
+print:n+1
+print:int:"42"+1
+print:int:"  12abc"
+print:int:"abc"
+print:int:3.9
+print:int:-3.9
+print:int:T
+print:float:"2.5"
+print:float:7
+print:(str:7)+1
+print:bool:0
+print:bool:"x"
+print:bool:""

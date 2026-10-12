@@ -1,0 +1,12 @@
+# Climbing stairs (1 or 2 steps at a time): bottom-up DP by appending to an
+# array, then a memoized recursive version backed by a map.
+d = [1,1]
+2..11{d ++= d@-1+d@-2}
+print:d@1..11
+mm = [->]
+w = {
+  k = _
+  mm@k = k<2 ? 1 : mm@?k ? mm@k : (w:k-1)+(w:k-2)
+  mm@k
+}
+print:w:50

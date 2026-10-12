@@ -1,0 +1,8 @@
+# full line comment
+#
+a = 3 # trailing comment
+
+b = 4;c = a*b
+print:c   # 12
+print:c/5*5+c%5
+print:0-a-b

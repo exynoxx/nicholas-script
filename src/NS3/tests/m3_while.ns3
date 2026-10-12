@@ -1,0 +1,11 @@
+i = 0; s = 0
+i<5 ~{ s+=i; i+=1 }
+print:s
+print:i
+# collatz steps for 27
+n = 27; c = 0
+n>1 ~{
+  n = n%2 ? 3*n+1 : n/2
+  c+=1
+}
+print:c

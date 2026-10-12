@@ -1,0 +1,6 @@
+# Prefix sums with a scan; any range sum is a difference of two prefixes.
+x = [3,1,4,1,5,9,2,6]
+p = [0]++x\+
+print:p
+[[1,4],[0,8],[3,6]]{print:"sum x@{_@0}..{_@1} = {p@(_@1)-p@(_@0)}"}
+print:x\>

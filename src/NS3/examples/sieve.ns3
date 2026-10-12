@@ -1,0 +1,12 @@
+# Sieve of Eratosthenes: primes below n, then their count and sum.
+n = 50
+s = 0..n{T}
+s@0 = F; s@1 = F
+i = 2
+i*i<n ~{
+  (i*i)..n[~_%i]{s@_ = F}
+  i+=1
+}
+p = 0..n[s@_]
+print:p
+print:"{#p} primes below {n}, sum {p/+}"

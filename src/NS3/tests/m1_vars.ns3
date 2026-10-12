@@ -1,0 +1,7 @@
+# variables and statements
+x = 5
+y = x*2; z = y-x
+print:x+y+z    # 20
+x = x*x
+print:x
+a = 100; b = 7; print:a/b; print:a%b

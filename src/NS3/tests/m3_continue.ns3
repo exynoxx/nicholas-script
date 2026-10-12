@@ -1,0 +1,14 @@
+t = 1 +
+  2 +
+  3
+print:t
+u = (10
+  - 4)
+print:u
+a,b = 1,
+  2
+print:a+b
+x = 7; x*=3; x-=1; x/=4; x%=3; x^^=2
+print:x
+f = 2.0; f/=4
+print:f

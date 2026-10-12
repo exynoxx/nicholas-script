@@ -1,0 +1,9 @@
+f = {_<2?_:f:_-1}
+print:f:5
+fib = {_<2 ? _ : (fib:_-1)+(fib:_-2)}
+print:fib:15
+print:1..8{fib:_}
+fact = {_<2 ? 1 : _*(fact:_-1)}
+print:fact:10
+gcd = {_2 ? (gcd:_2,_1%_2) : _1}
+print:gcd:48,18

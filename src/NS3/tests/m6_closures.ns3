@@ -1,0 +1,16 @@
+s = 0
+[1,2,3]{s+=_}
+print:s
+n = 10
+addn = {_+n}
+print:addn:5
+n = 20
+print:addn:5
+c = 0
+bump = {c+=_}
+bump:2; bump:5
+print:c
+outer = {t = 0; 1.._{t+=_}; t}
+print:outer:5
+mk = {k = _; g = {_*k}; g:3}
+print:mk:7

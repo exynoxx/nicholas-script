@@ -1,0 +1,10 @@
+print:"1"+1
+print:1+"1"
+print:1+2.7
+print:1.0+2
+print:"a"*3
+print:T+1
+x = 5; x = 2.9
+print:x
+y = "n"; y = 4
+print:y+1

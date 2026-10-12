@@ -1,0 +1,6 @@
+# Valid parentheses: push the expected closer on an array stack, pop on a match.
+# Reads a count, then one bracket string per line.
+o = ["("->")", "["->"]", "\{"->"}"]
+v = {st=[""]; _{st = o@?_ ? st++o@_ : st@-1=_ ? st@0..(#st-1) : st++"!"}; #st=1}
+n = int:read
+n>0 ~{ s = read; print:"{s} {(v:s) ? "valid" : "invalid"}"; n-=1 }

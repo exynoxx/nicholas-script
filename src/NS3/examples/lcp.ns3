@@ -1,0 +1,3 @@
+# Longest common prefix: fold the words pairwise, shrinking the prefix in a while loop.
+p = {_/{a=$; b=_; i=0; i<#a & i<#b & a@i=b@i ~{i+=1}; a@0..i}}
+[["flower","flow","flight"],["dog","racecar","car"],["interspecies","interstellar","interstate"],["alone"]]{print:"'{p:_}'"}

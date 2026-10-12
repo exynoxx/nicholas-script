@@ -1,0 +1,11 @@
+# Top-k frequent: count with a map, push [-count, x] into a min-heap, pop k.
+# Strings can't share a pair with ints, so words go in as [-count, key index].
+x = [1,1,1,2,2,3,4,4,4,4,5,5]
+c = [->]; x{c@_+=1}
+q = PQ[]; c{q+=[-_,@]}
+print:0..3{q.pop@1}
+t = split:"the quick fox and the lazy dog and the fox"," "
+n = [->]; t{n@_+=1}
+ks = n.keys.sort
+p = PQ[]; ks{p+=[-(n@_),@]}
+print:0..3{ks@(p.pop@1)}.join:" "
