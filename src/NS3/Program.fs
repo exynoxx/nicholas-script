@@ -81,7 +81,8 @@ let private test (dir: string) =
     for f in files do
         let name = Path.GetFileNameWithoutExtension f
         let exe = Path.Combine(tmp, name)
-        let expected = File.ReadAllText(Path.ChangeExtension(f, ".out"))
+        let outFile = Path.ChangeExtension(f, ".out")
+        let expected = if File.Exists outFile then File.ReadAllText outFile else "<missing .out file>"
         let input = let p = Path.ChangeExtension(f, ".in") in if File.Exists p then Some(File.ReadAllText p) else None
         let result =
             match build f exe with
