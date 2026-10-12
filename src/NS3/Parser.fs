@@ -84,7 +84,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             | ID name when not (isFunc name) && not (name.StartsWith "_" || name = "@" || name = "$") ->
                 advance ()
                 let mutable e = EVar name
-                while accept "@" do e <- EIndex(e, p.Prefix())
+                while accept "@" do e <- EIndex(e, p.IndexOperand())
                 e
             | t -> fail (line ()) (sprintf "not an lvalue: %A" t)
         let first = one ()
@@ -175,8 +175,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             | SYM "\\{" -> (advance (); e <- EIter("scan", e, p.Block "}"))
             | FOLDOP op -> (advance (); e <- EIterOp("fold", e, op))
             | SCANOP op -> (advance (); e <- EIterOp("scan", e, op))
-            | SYM "@" -> (advance (); e <- EIndex(e, p.Prefix()))
-            | SYM "@?" -> (advance (); e <- EHas(e, p.Prefix()))
+            | SYM "@" -> (advance (); e <- EIndex(e, p.IndexOperand()))
+            | SYM "@?" -> (advance (); e <- EHas(e, p.IndexOperand()))
             | SYM "." ->
                 advance ()
                 match peek () with
@@ -187,6 +187,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                 | t -> fail (line ()) (sprintf "expected method name, found %A" t)
             | _ -> go <- false
         e
+
+    /// `x@i@j` is `(x@i)@j`: an index is a primary (maybe a range) with optional prefix - or #.
+    member p.IndexOperand() : Expr =
+        if accept "-" then EUn("-", p.IndexOperand())
+        elif accept "#" then EUn("#", p.IndexOperand())
+        else p.Primary()
 
     member p.Primary() =
         let e = p.Base()
