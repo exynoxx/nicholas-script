@@ -57,16 +57,16 @@ Optimisations:
 
 | problem | Rust s | NS s | Python s | slowdown vs Rust | speedup vs Python |
 |---|--:|--:|--:|--:|--:|
-| primes_sieve | 0.060 | 0.233 | 0.610 | 3.9x | 2.6x |
-| primes_trial | 0.036 | 0.050 | 0.781 | 1.4x | 15.6x |
-| collatz | 0.410 | 0.402 | 70.493* | 1.0x | 175.4x |
-| pipeline | 0.209 | 0.235 | 22.187* | 1.1x | 94.4x |
-| hashcount | 0.102 | 0.108 | 3.041 | 1.1x | 28.2x |
-| fib | 0.351 | 0.314 | 17.208* | 0.9x | 54.8x |
-| dijkstra | 0.222 | 0.681 | 6.440 | 3.1x | 9.5x |
+| primes_sieve | 0.064 | 0.139 | 0.616 | 2.2x | 4.4x |
+| primes_trial | 0.035 | 0.050 | 0.795 | 1.4x | 15.9x |
+| collatz | 0.408 | 0.430 | 71.718* | 1.1x | 166.8x |
+| pipeline | 0.201 | 0.266 | 20.510* | 1.3x | 77.1x |
+| hashcount | 0.104 | 0.116 | 2.869 | 1.1x | 24.7x |
+| fib | 0.338 | 0.284 | 15.567* | 0.8x | 54.8x |
+| dijkstra | 0.222 | 0.618 | 6.382 | 2.8x | 10.3x |
 
 \* python over 10 s: single run instead of best of 3
 
-Measured on Linux x86-64 with clang 22, rustc 1.90 and Python 3.
+Measured on Linux x86-64 with clang 22, rustc 1.90 and Python 3; all three languages in the same run (same power mode), so the ratios compare like with like.
 
-Integer loops, recursion, fused pipelines and int-keyed hash maps run at (or within ~10% of) Rust speed. The remaining gaps: the sieve stores bools as 64-bit slots (8x the memory traffic of Rust's bytes), and every Dijkstra heap entry is a separate refcounted tuple.
+Integer loops, recursion and int-keyed hash maps run at (or within ~10% of) Rust speed; fused pipelines within ~30%. The remaining gaps: the sieve's filter/count passes and Dijkstra's binary heap of (dist,node) value tuples, both bound by generic runtime paths (bounds checks, descriptor-driven heap compare) rather than allocation.
