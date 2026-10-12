@@ -20,3 +20,8 @@ q ~{ u = q.pop; g@u{d@_<0 ? (d@_ = d@u+1; q += _)} }
 print:d
 print:(1,2)
 print:(x=3)
+iv = sortby:[(8,10),(1,3),(2,6),(15,18)],{_@0}
+r = [iv@0]
+iv@1..#iv{a,b = r@-1; _@0<=b ? (r@-1 = (a,max:b,_@1);) : (r ++= [_];)}
+print:r
+print:"tea".sort

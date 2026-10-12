@@ -132,7 +132,10 @@ and typeE (e: E) : E =
             | t -> expect <- Some t
             let b = typeE b
             expect <- saved
-            typed (If(c, a, conv b a.t)) a.t
+            // branches with unrelated types (e.g. two statement groups) run as a statement whose value is 0
+            let asStmt (x: E) = typed (Seq([ Do x ], typed (Int 0L) TInt)) TInt
+            try typed (If(c, a, conv b a.t)) a.t
+            with CompileError _ -> typed (If(c, asStmt a, asStmt b)) TInt
         | Call(name, args) ->
             match lookup name with
             | Some u when (match resolve varTy.[u] with TFn _ -> true | _ -> false) ->

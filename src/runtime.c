@@ -742,6 +742,9 @@ int64_t ns_find_arr(const char *dT, void *arr, const void *x) { return ns_find(H
 int64_t ns_find_str(char *s, char *x) { return ns_find("S", s, &x); }
 //@ rev (str) str = ns_rev_s
 char *ns_rev_s(char *s) { size_t n = strlen(s); char *r = str_n(s, n); for (size_t i = 0; i < n; i++) r[i] = s[n - 1 - i]; return r; }
+//@ sort (str) str = ns_sort_s
+static int chr_cmp(const void *a, const void *b) { return *(unsigned char *)a - *(unsigned char *)b; }
+char *ns_sort_s(char *s) { size_t n = strlen(s); char *r = str_n(s, n); qsort(r, n, 1, chr_cmp); return r; }
 //@ join (str,str) str = ns_join_s
 char *ns_join_s(char *s, char *sep) { void *c = ns_chars(s); char *r = ns_join("S", c, sep); ns_release(c); return r; }
 //@ bsearch ([T], fn(T)->bool) int

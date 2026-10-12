@@ -79,7 +79,7 @@ int:"42"      float:x     str:3.5     bool:n
 | 7 compare | `= != < > <= >=` | none |
 | 7.5 not   | `!x` (binds looser than compare, like Python `not`: `!_%2` = `!(_%2)`) | right |
 | 8 logic   | `&` then `^` (xor) then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
-| 9 ternary | `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (value 0) | right |
+| 9 ternary | `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (value 0); branches of unrelated types run as a statement (value 0) | right |
 | 10 call   | `f:a,b` (args extend to end of statement / closing bracket). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary | right |
 | 11 assign | `x = e`, `a,b = b,a` | right |
 
