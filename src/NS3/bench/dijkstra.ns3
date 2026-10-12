@@ -1,0 +1,15 @@
+# Dijkstra on a 1500x1500 grid with LCG weights 1..9; distance corner to corner.
+n=1500; N=n*n
+x=1; w=0..N{x=(x*1103515245+12345)%2147483648; x/65536%9+1}
+d=0..N{4000000000000}; d@0=0
+q=PQ[[0,0]]
+q ~{
+  du,u=q.pop
+  ok = du=d@u
+  ok ~{
+    r=u/n; c=u%n
+    [r>0?u-n:-1, r<n-1?u+n:-1, c>0?u-1:-1, c<n-1?u+1:-1][_>=0]{v=_; nd=du+w@v; nd<d@v ~{ d@v=nd; q+=[nd,v] }}
+    ok=F
+  }
+}
+print:d@(N-1)

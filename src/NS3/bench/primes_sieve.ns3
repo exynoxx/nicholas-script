@@ -1,0 +1,11 @@
+# Primes below 10M: count and sum.
+n=10000000
+s=0..n{T}; s@0=F; s@1=F
+i=2
+i*i<n ~{
+  j = s@i ? i*i : n
+  j<n ~{ s@j=F; j+=i }
+  i+=1
+}
+p=0..n[s@_]
+print:"{#p} {p/+}"

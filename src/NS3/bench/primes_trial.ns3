@@ -1,0 +1,4 @@
+# Count primes below 300k by trial division up to sqrt.
+p={n=_; d=2; r=n>1; r & d*d<=n ~{ r = n%d; d+=1 }; r}
+c=2..300000[p:_]
+print:#c
