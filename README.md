@@ -1,72 +1,53 @@
-# NS
+<h1 align="center">NS</h1>
+<p align="center"><b>the fast golf language</b><br>
+terse like a golf language · statically typed · compiled to native code via LLVM</p>
 
-A terse, golf-style, statically typed language that compiles to LLVM IR and then to a native binary.
-Types are never written; every expression's type is inferred at compile time. Memory is reference counted.
+---
 
+```ns
+print:1..1000[~_%3|~_%5]/+                    # 233168          Project Euler #1
+print:2..50[p=_; ~2..p[~p%_]]                 # [2,3,5,7,11,…]  primes
+print:1..11\*                                 # [1,2,6,24,…]    running factorials
+print:(split:"the fast golf language"," ").sortby:{-#_}   # [language,fast,golf,the]
+1..101{print:~_%15?"FizzBuzz":~_%5?"Buzz":~_%3?"Fizz":_}
 ```
-1..11[~_%2]{^^2}/+                       # sum of squares of evens below 11 -> 220
-1..101{print: ~_%15?"FizzBuzz":~_%5?"Buzz":~_%3?"Fizz":_}
+
+```ns
 q = {p = #_ ? _@0 : 0; #_<2 ? _ : (q:_[<p])++_[=p]++(q:_[>p])}   # quicksort
 ```
 
-- Language: [SPEC.md](src/SPEC.md)
-- Examples: [src/examples/](src/examples) (common patterns and LeetCode-style problems)
+No type annotations, yet every expression is typed at compile time. `{}` maps, `[]` filters, `/` folds, `\` scans,
+and they fuse into a single loop. Memory is reference counted; there is no GC.
 
-## Usage
+**[Language spec](src/SPEC.md)** · **[Examples](src/examples)**: Dijkstra, BFS, SHA-512, top-k, quicksort, …
 
-Requires .NET 9 and clang. Install the `ns` command:
+## Install
+
+Needs the .NET 10 SDK and clang.
 
 ```shell
 dotnet publish src -c Release -o ~/.local/share/ns && ln -sf ~/.local/share/ns/ns ~/.local/bin/ns
 ```
 
 ```shell
-ns prog.ns                         # compile and run
-ns help
-ns run src/examples/quicksort.ns
-ns build prog.ns -o prog
-ns ll --pure prog.ns > prog.ll   # self-contained LLVM module
-ns test src/tests                 # golden tests (NS_ASAN=1 checks leaks)
+ns prog.ns                 # compile and run
+ns build prog.ns -o prog   # native binary
+ns ll --pure prog.ns       # self-contained LLVM IR
+ns help                    # all commands, incl. dumps of every compiler stage
 ```
 
-Every compiler stage can be printed: `tokens`, `ast`, `core`, `typed`, `ll`.
+## Speed
 
-## Compiler pipeline
+Best of 3 runs in seconds, with all three languages measured in the same session.
 
-`Lexer → Parser (surface AST) → Desugar (core) → Typer (inference, conversions, monomorphisation, closures, lowering) → Repr (layouts) → Codegen (LLVM IR)`.
-Every stage can be dumped (`ns tokens|ast|core|typed|repr|ll f.ns`). The program and its C runtime (precompiled to LLVM IR
-at build time) are compiled as one LLVM module, so runtime helpers inline. Memory is reference counted.
-
-**Representation (`src/Repr.fs`).** Layout is decided by rule per type: scalars live in registers; in containers a bool takes
-1 byte, other scalars and heap references 8; a tuple of only scalars is a *value* (an LLVM struct, stored inline, never
-boxed); other tuples and all collections are refcounted heap objects. Containers store elements inline at their storage
-size; the runtime receives generic values as pointers to their storage plus a type descriptor (`I F S B A M H Q P U V`).
-
-**Standard library.** Implemented in `src/runtime.c`; each function carries a `//@ name (params) result` signature that the
-compiler reads (`src/Stdlib.fs`). Calls go through one generic path; block arguments become C callbacks with their captures.
-
-Optimisations:
-- map/filter/fold chains are fused into a single loop;
-- ranges are iterated as counters;
-- variable reads that are only borrowed skip refcount traffic;
-- small arrays use a single allocation.
-
-## Benchmarks
-
-`src/bench/bench.sh` builds each problem in NS, Rust (`rustc -C opt-level=3`) and Python 3. It checks that all three print identical output and reports the best of 3 wall-clock runs, in seconds.
-
-| problem | Rust s | NS s | Python s | slowdown vs Rust | speedup vs Python |
+| problem | Rust | NS | Python | vs Rust | vs Python |
 |---|--:|--:|--:|--:|--:|
-| primes_sieve | 0.064 | 0.139 | 0.616 | 2.2x | 4.4x |
-| primes_trial | 0.035 | 0.050 | 0.795 | 1.4x | 15.9x |
-| collatz | 0.408 | 0.430 | 71.718* | 1.1x | 166.8x |
-| pipeline | 0.201 | 0.266 | 20.510* | 1.3x | 77.1x |
-| hashcount | 0.104 | 0.116 | 2.869 | 1.1x | 24.7x |
-| fib | 0.338 | 0.284 | 15.567* | 0.8x | 54.8x |
-| dijkstra | 0.222 | 0.618 | 6.382 | 2.8x | 10.3x |
+| primes_sieve | 0.064 | 0.139 | 0.616 | 2.2× slower | 4.4× faster |
+| primes_trial | 0.035 | 0.050 | 0.795 | 1.4× slower | 15.9× faster |
+| collatz | 0.408 | 0.430 | 71.718 | 1.1× slower | 166.8× faster |
+| pipeline | 0.201 | 0.266 | 20.510 | 1.3× slower | 77.1× faster |
+| hashcount | 0.104 | 0.116 | 2.869 | 1.1× slower | 24.7× faster |
+| fib | 0.338 | 0.284 | 15.567 | 1.2× faster | 54.8× faster |
+| dijkstra | 0.222 | 0.618 | 6.382 | 2.8× slower | 10.3× faster |
 
-\* python over 10 s: single run instead of best of 3
-
-Measured on Linux x86-64 with clang 22, rustc 1.90 and Python 3; all three languages in the same run (same power mode), so the ratios compare like with like.
-
-Integer loops, recursion and int-keyed hash maps run at (or within ~10% of) Rust speed; fused pipelines within ~30%. The remaining gaps: the sieve's filter/count passes and Dijkstra's binary heap of (dist,node) value tuples, both bound by generic runtime paths (bounds checks, descriptor-driven heap compare) rather than allocation.
+Sources and runner: [`src/bench`](src/bench).
