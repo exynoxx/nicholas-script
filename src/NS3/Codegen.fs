@@ -296,6 +296,13 @@ let generate (prog: Program) : string =
             t
         | "tget", [ _; { k = Int k } ] -> fromSlot (rt "i64" "ns_tup_get" [ "ptr", arg 0; "i64", string k ]) e.t
         | "repeat", [ x; _ ] -> rt "ptr" "ns_arr_repeat" [ d e.t; slot 0; "i64", arg 1 ]
+        | ("sqrt" | "floor" | "ceil" | "round"), _ ->
+            let fn = if f = "sqrt" then "sqrt" else f
+            decls.["llvm." + fn] <- sprintf "declare double @llvm.%s.f64(double)" fn
+            let r = instr "call double @llvm.%s.f64(double %s)" fn (arg 0)
+            if f = "sqrt" then r else instr "fptosi double %s to i64" r
+        | ("lower" | "upper"), _ -> rt "ptr" ("ns_" + f) [ "ptr", arg 0 ]
+        | "find", [ c; _ ] -> rt "i64" "ns_find" [ d c.t; slot 0; slot 1 ]
         | "panic", _ -> (rt "void" "ns_panic" [ "ptr", arg 0 ] |> ignore; "0")
         | "split", _ -> rt "ptr" "ns_split" [ "ptr", arg 0; "ptr", arg 1 ]
         | "join", [ a; _ ] -> rt "ptr" "ns_join" [ elemDesc a.t; "ptr", arg 0; "ptr", arg 1 ]

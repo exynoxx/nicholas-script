@@ -286,6 +286,26 @@ and private builtin name (args: E list) : E =
     | "panic", [ msg ] -> call TInt
     | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map own xs)) (TTup(xs |> List.map (fun x -> x.t)))
     | "repeat", [ x; n ] -> typed (Call("repeat", [ own x; conv n TInt ])) (TArr x.t)
+    | ("min" | "max"), [ a; b ] ->
+        let t1, t2 = Desugar.fresh "a", Desugar.fresh "b"
+        let v n = mk (Var n)
+        typeE (mk (Seq([ Assign(t1, a); Assign(t2, b) ], mk (If(mk (Bin((if name = "min" then "<" else ">"), v t1, v t2)), v t1, v t2)))))
+    | ("min" | "max"), [ xs ] ->
+        let el, ix, acc = Desugar.fresh "_", Desugar.fresh "@", Desugar.fresh "$"
+        let v n = mk (Var n)
+        let pick = mk (If(mk (Bin((if name = "min" then "<" else ">"), v acc, v el)), v acc, v el))
+        typeE (mk (Iter { kind = "fold"; src = xs; el = el; ix = ix; acc = acc; body = [ Do pick ] }))
+    | "abs", [ x ] ->
+        let t = Desugar.fresh "a"
+        let v = mk (Var t)
+        typeE (mk (Seq([ Assign(t, x) ], mk (If(mk (Bin("<", v, mk (Int 0L))), mk (Call("neg", [ v ])), v)))))
+    | "pow", [ a; b ] -> typeBin "^^" a b
+    | "sqrt", [ x ] -> typed (Call("sqrt", [ conv x TFloat ])) TFloat
+    | ("floor" | "ceil" | "round"), [ x ] -> typed (Call(name, [ conv x TFloat ])) TInt
+    | ("lower" | "upper"), [ s ] -> typed (Call(name, [ conv s TStr ])) TStr
+    | "find", [ c; x ] ->
+        let x = match resolve c.t with TStr -> conv x TStr | _ -> conv x (elemOf c)
+        typed (Call("find", [ c; x ])) TInt
     | _ -> err (sprintf "unknown function '%s' with %d argument(s)" name args.Length)
 
 and private userCall id (args: E list) : E =

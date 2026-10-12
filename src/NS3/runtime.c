@@ -336,6 +336,8 @@ void *ns_split(char *s, char *sep) {
   apush(r, P(str_n(s, strlen(s))));
   return r;
 }
+char *ns_lower(char *s) { char *r = str_n(s, strlen(s)); for (char *c = r; *c; c++) if (*c >= 'A' && *c <= 'Z') *c += 32; return r; }
+char *ns_upper(char *s) { char *r = str_n(s, strlen(s)); for (char *c = r; *c; c++) if (*c >= 'a' && *c <= 'z') *c -= 32; return r; }
 int64_t ns_ord(char *s) { return (unsigned char)s[0]; }
 char *ns_chr(int64_t c) { char ch = (char)c; return str_n(&ch, 1); }
 int64_t ns_s2i(char *s) { return strtoll(s, NULL, 10); } // skips space, longest prefix, 0 if none
@@ -457,11 +459,19 @@ void *ns_toarr(const char *d, slot coll) {
   }
 }
 
+int64_t ns_find(const char *d, slot coll, slot x) { // A: index of first equal element, S: byte index of substring; -1 if absent
+  if (*d == 'S') { char *e = strstr(S(coll), S(x)); return e ? e - S(coll) : -1; }
+  Arr *a = (Arr *)S(coll);
+  for (int64_t i = 0; i < a->len; i++) if (ns_eq(d + 1, a->data[i], x)) return i;
+  return -1;
+}
+
 int64_t ns_has(const char *d, slot coll, slot x) {
   switch (*d) {
   case 'S': return strstr(S(coll), S(x)) != NULL;
   case 'M': case 'H': return find((Map *)S(coll), x) >= 0;
-  default: { // A, Q, P: linear scan
+  case 'A': return ns_find(d, coll, x) >= 0; // no (deep) copy
+  default: { // Q, P: linear scan
     Arr *a = ns_toarr(d, coll); int64_t r = 0;
     for (int64_t i = 0; i < a->len && !r; i++) r = ns_eq(d + 1, a->data[i], x);
     ns_release(a);

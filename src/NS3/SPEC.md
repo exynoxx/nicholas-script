@@ -207,6 +207,7 @@ expr                       # expression statement
 ```
 
 ## 7. Built-ins (v1)
+Math: `min:a,b` `max:a,b` (or `max:xs`), `abs` `pow` `sqrt` `floor` `ceil` `round`. Strings: `lower` `upper`. Search: `find:xs,x` (index or -1).
 Tuples: `(a,b)`, `(a,b,c)` … up to 9 elements of any types; immutable; `t@0` (literal index), `a,b = t`; compare lexicographically; usable as map keys, set and PQ elements.
 Repeat: `[x]*n` (a one-element array literal times an int) builds n copies; nested arrays are deep-copied.
 
