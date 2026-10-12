@@ -25,6 +25,7 @@
     <Compile Include="Typer.fs" />
     <Compile Include="Repr.fs" />
     <Compile Include="Codegen.fs" />
+    <Compile Include="CGen.fs" />
     <Compile Include="Program.fs" />
     <!-- the runtime is precompiled to LLVM IR at build time and embedded; programs are merged with it -->
     <EmbeddedResource Include="$(IntermediateOutputPath)runtime.ll" LogicalName="runtime.ll" />

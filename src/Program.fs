@@ -28,6 +28,7 @@ let private pipeline (stage: string) (path: string) : string =
                 let typed = Typer.check core
                 if stage = "typed" then showTyped typed
                 elif stage = "repr" then Repr.describe typed
+                elif stage = "c" then CGen.generate typed
                 else Codegen.generate typed
 
 let private run (exe: string) (args: string) (stdin: string option) =
@@ -60,6 +61,17 @@ let private pureLL (ll: string) : string =
     String.concat "\n" (Array.filter isHeader rtLines) + "\n\n; ---- NS program ----\n" + String.concat "\n" ours
     + "\n; ---- NS runtime ----\n" + String.concat "\n" (Array.filter (isHeader >> not) rtLines)
 
+let private runtimeC =
+    lazy
+        (use s = Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream "runtime.c"
+         (new StreamReader(s)).ReadToEnd())
+
+/// Self-contained C file: runtime.c followed by the program.
+let private pureC (src: string) = runtimeC.Force() + "\n" + src
+
+/// --c: build through the C backend with $CC (default cc) instead of LLVM IR + clang.
+let mutable private useC = false
+
 /// LLVM 21+ vectorises filter->fold early exits in a way that is ~10x slower for NS loops; turn it off when clang knows the flag.
 let private noEarlyExitVec =
     lazy
@@ -71,6 +83,14 @@ let private noEarlyExitVec =
 /// Compiles a source file to a native binary at `exe`; returns an error message on failure.
 let private build (path: string) (exe: string) : string option =
     try
+      if useC then
+        let cf = Path.ChangeExtension(exe, ".c")
+        File.WriteAllText(cf, pureC (pipeline "c" path))
+        let asan = if Environment.GetEnvironmentVariable "NS_ASAN" = "1" then "-g -fsanitize=address" else ""
+        let cc = match Environment.GetEnvironmentVariable "CC" with null | "" -> "cc" | v -> v
+        let code, _, err = run cc ($"-O2 -w {asan} \"{cf}\" -lm -o \"{exe}\"") None
+        if code = 0 then None else Some(cc + " failed:\n" + err)
+      else
         let ll = Path.ChangeExtension(exe, ".ll")
         // whole-program module so LLVM can inline the runtime (array access, refcounts, ...)
         File.WriteAllText(ll, pureLL (pipeline "ll" path))
@@ -120,6 +140,7 @@ usage: ns <file.ns>                  compile and run
 commands:
   run <file>                 compile and run
   build <file> [-o <out>]    compile to a native binary (default: <file> without extension)
+  c <file>                   print self-contained C (runtime included):  ns c f.ns > f.c && cc f.c -lm
   ll <file> [--pure]         print LLVM IR; with --pure the runtime is included, giving a
                              self-contained module:  ns ll --pure f.ns > f.ll && clang f.ll -lm
   tokens <file>              dump stage 1: tokens
@@ -129,6 +150,9 @@ commands:
   repr <file>                dump stage 5: the layout chosen for each type (register, storage, size)
   test [dir]                 run golden tests: dir/*.ns vs *.out (stdin from *.in); default ./tests
   help                       show this page
+
+options:
+  --c                       build/run/test through the C backend ($CC, default cc) instead of LLVM
 
 environment:
   NS_ASAN=1                 build with Address/LeakSanitizer (checks reference counting)
@@ -160,6 +184,7 @@ let main argv =
         try f () with
         | CompileError(line, msg) -> (Console.Error.WriteLine($"{path}:{line}: error: {msg}"); 1)
         | ex -> (Console.Error.WriteLine($"{path}: error: {ex.Message}"); 1)
+    useC <- flag "--c"
     match positional with
     | [ path ] when path.EndsWith ".ns" -> runFile path
     | [ "test" ] -> test "tests"
@@ -175,6 +200,7 @@ let main argv =
             let ll = pipeline "ll" path
             Console.Write((if flag "--pure" then pureLL ll else ll))
             0)
+    | [ "c"; path ] -> report path (fun () -> (Console.Write(pureC (pipeline "c" path)); 0))
     | [ ("tokens" | "ast" | "core" | "typed" | "repr") as stage; path ] ->
         report path (fun () -> (Console.WriteLine((pipeline stage path)); 0))
     | [ "help" ] | [] when flag "-h" || flag "--help" || args.IsEmpty || positional = [ "help" ] ->

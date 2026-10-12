@@ -30,6 +30,7 @@ by the `CompileRuntime` target in `NS.fsproj`.
 | — | `Lower.fs` | | type-directed rewrites the typer invokes: `iter` (fuses map/filter/fold/scan chains into one loop), `broadcast` (array arithmetic), `convArr`, `setOp` |
 | 5 | `Repr.fs` | | memory layout per type: `llty` register type, `storage`/`esz` in containers, `desc` runtime descriptor, value vs boxed tuples |
 | 6 | `Codegen.fs` | typed core → LLVM IR text | `generate`; refcount retain/release, inline element access |
+| 6b | `CGen.fs` | typed core → C text | twin of `Codegen.fs` (same refcounting/layouts, goto control flow); `ns c f.ns`, `--c` on run/build/test, `$CC` (default `cc`) |
 | — | `Program.fs` | | CLI (`main`), `pipeline` stage dumps, `build` (clang), `test` runner, `help` |
 
 ## Runtime and stdlib
