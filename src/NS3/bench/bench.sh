@@ -10,7 +10,7 @@ echo "| name | rust s | ns3 s | python s | ns3/rust | python/rust |"
 echo "|---|--:|--:|--:|--:|--:|"
 slow=
 for n in primes_sieve primes_trial collatz pipeline hashcount fib dijkstra; do
-  dotnet "$NS3" build "$n.ns3" -o "$T/$n.ns3bin" >/dev/null
+  dotnet "$NS3" build "$n.ns" -o "$T/$n.ns3bin" >/dev/null
   rustc -C opt-level=3 -o "$T/$n.rsbin" "$n.rs"
   want=$("$T/$n.rsbin")
   [ "$("$T/$n.ns3bin")" = "$want" ] || echo "$n: NS3 OUTPUT MISMATCH" >&2

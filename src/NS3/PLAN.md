@@ -18,7 +18,7 @@ source ─Lexer→ tokens ─Parser→ Surface AST ─Desugar→ Core ─Typer�
 | 5 Lower | Lower.fs | typed Core → Core containing only codegen-able nodes | `lowered` |
 | 6 Emit | Codegen.fs | lowered Core → LLVM IR text | `ll` |
 
-CLI: `ns3 <tokens|ast|core|typed|lowered|ll|build|run> file.ns3` and `ns3 test [dir]`.
+CLI: `ns3 <tokens|ast|core|typed|lowered|ll|build|run> file.ns` and `ns3 test [dir]`.
 Surface AST dumps use F# `%A`. Core dumps use a small pretty-printer (Core.fs) that prints NS3-like syntax annotated with types.
 
 ## Files
@@ -26,7 +26,7 @@ Surface AST dumps use F# `%A`. Core dumps use a small pretty-printer (Core.fs) t
 ```
 NS3.fsproj   Ast.fs (Token + Surface AST)   Core.fs (Core AST, Ty, printer)
 Lexer.fs  Parser.fs  Desugar.fs  Typer.fs  Lower.fs  Codegen.fs  Program.fs
-runtime.c    tests/*.ns3 + *.out (+ *.in)    run_tests via `ns3 test`
+runtime.c    tests/*.ns + *.out (+ *.in)    run_tests via `ns3 test`
 ```
 
 ## Stage 1–2: Lexer and Parser

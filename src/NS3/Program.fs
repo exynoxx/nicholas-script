@@ -77,7 +77,7 @@ let private build (path: string) (exe: string) : string option =
 let private test (dir: string) =
     let tmp = Directory.CreateTempSubdirectory("ns3").FullName
     let mutable failed = 0
-    let files = Directory.GetFiles(dir, "*.ns3") |> Array.sort
+    let files = Directory.GetFiles(dir, "*.ns") |> Array.sort
     for f in files do
         let name = Path.GetFileNameWithoutExtension f
         let exe = Path.Combine(tmp, name)
@@ -105,18 +105,18 @@ let private test (dir: string) =
 
 let private help = """ns3 - compiler for the NS3 golf language (source -> LLVM IR -> native binary)
 
-usage: ns3 <command> [options] <file.ns3>
+usage: ns3 <command> [options] <file.ns>
 
 commands:
   run <file>                 compile and run
   build <file> [-o <out>]    compile to a native binary (default: <file> without extension)
   ll <file> [--pure]         print LLVM IR; with --pure the runtime is included, giving a
-                             self-contained module:  ns3 ll --pure f.ns3 > f.ll && clang f.ll -lm
+                             self-contained module:  ns3 ll --pure f.ns > f.ll && clang f.ll -lm
   tokens <file>              dump stage 1: tokens
   ast <file>                 dump stage 2: surface AST
   core <file>                dump stage 3: desugared core
   typed <file>               dump stage 4: typed core (functions, captures, conversions)
-  test [dir]                 run golden tests: dir/*.ns3 vs *.out (stdin from *.in); default ./tests
+  test [dir]                 run golden tests: dir/*.ns vs *.out (stdin from *.in); default ./tests
   help                       show this page
 
 environment:
