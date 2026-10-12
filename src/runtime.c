@@ -653,6 +653,11 @@ void *ns_zip(const char *dA, const char *dB, void *a, void *b) { // stops at the
   }
   return r;
 }
+//@ pairwise ([T]) [(T,T)]
+void *ns_pairwise(const char *dT, void *a) { // [1,2,3] -> [(1,2),(2,3)]
+  Arr *x = a; void *t = ns_arr_slice(a, 1, x->len), *r = ns_zip(dT, dT, a, t);
+  ns_release(t); return r;
+}
 //@ uniq ([T]) [T]
 void *ns_uniq(const char *dT, void *a) { // keeps first occurrences in order
   const char *d = HD(a)->d, *sd = intern('H', d + 1);
