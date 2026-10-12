@@ -1,0 +1,5 @@
+xs = [5,6,7]
+println:0..xs
+println:1..xs{xs@_}
+ys = [1,2,3,4,5]
+println:ys@1..xs

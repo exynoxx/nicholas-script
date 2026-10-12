@@ -229,6 +229,8 @@ and private typeIndex (x: E) (i: E) =
 
 and private builtin name (args: E list) : E =
     let call t = typed (Call(name, args)) t
+    // a range end that is an array means its length: 0..xs = 0..#xs
+    let bound (x: E) = match resolve x.t with TArr _ -> typed (Call("len", [ x ])) TInt | _ -> conv x TInt
     let elemOf (x: E) =
         match resolve x.t with
         | TArr e | TSet e | TQ e | TPQ e -> e
@@ -247,10 +249,10 @@ and private builtin name (args: E list) : E =
     | "not", [ x ] -> typed (Call("not", [ conv x TBool ])) TBool
     | "len", [ x ] -> (elemOf x |> ignore; call TInt)
     | "has", [ c; x ] -> typed (Call("has", [ c; conv x (elemOf c) ])) TBool
-    | "range", [ a; b ] -> typed (Call("range", [ conv a TInt; conv b TInt ])) (TArr TInt)
+    | "range", [ a; b ] -> typed (Call("range", [ bound a; bound b ])) (TArr TInt)
     | "slice", [ x; a; b ] ->
         match resolve x.t with
-        | TArr _ | TStr -> typed (Call("slice", [ x; conv a TInt; conv b TInt ])) x.t
+        | TArr _ | TStr -> typed (Call("slice", [ x; bound a; bound b ])) x.t
         | t -> err ($"cannot slice {showTy t}")
     | "mapof", [ ks; vs ] -> call (TMap(elemOf ks, elemOf vs))
     | ("set" | "Q" | "PQ"), [ xs ] ->

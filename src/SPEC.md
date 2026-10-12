@@ -91,6 +91,7 @@ x = [1,2,3]
 r = 1..10        # range, end exclusive: 1..9
 x@0              # index; negative counts from end: x@-1
 x@1..3           # slice (elements 1,2); `@` takes a range operand
+0..xs            # an array as a range end means its length: 0..#xs (also in slices)
 #x               # length
 ```
 
