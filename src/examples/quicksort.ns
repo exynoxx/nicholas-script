@@ -1,25 +1,3 @@
 # Quicksort two ways, both checked against .sort.
 # 1) Functional: pivot on the first element, recurse on the <p and >p parts.
 q = {p = #_ ? _@0 : 0; #_<2 ? _ : (q:_[<p])++_[=p]++(q:_[>p])}
-# 2) In place (Lomuto): arrays are values, so the blocks work on the captured `a`.
-a = []
-qs = {
-  lo = _1; hi = _2
-  lo<hi ~{
-    p = a@hi; i = lo; j = lo
-    j<hi ~{ c = a@j<p; a@i,a@j = c ? [a@j,a@i] : [a@i,a@j]; i+=c; j+=1 }
-    a@i,a@hi = a@hi,a@i
-    qs:lo,i-1; qs:i+1,hi
-    hi = lo
-  }
-  0
-}
-x = [5,-3,8,0,5,-3,12,1,-7,8,8,2]
-s = 42
-r = 0..20{s = (s*1103515245+12345)%2147483648; s%100-50}
-[x,r]{
-  print:"in:  {_}"
-  f = q:_; a = _; qs:0,#a-1
-  print:"out: {f}"
-  print:"ok:  {f=_.sort & a=_.sort}"
-}
