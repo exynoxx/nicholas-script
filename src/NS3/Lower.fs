@@ -15,11 +15,21 @@ let private splitBody (body: S list) =
     | Do e :: rest -> List.rev rest, e
     | _ -> body, i64 0L
 
-/// Map/filter/fold/scan/each as an index loop over an array snapshot of the source.
-let iter (it: Iter) (srcTy: Ty) : E =
+/// A chain of map/filter stages ending in map/filter/fold/scan/each (innermost first, the head's `src` is
+/// the source) becomes ONE index loop: no intermediate arrays. A single stage is the plain case.
+let iter (stages: Iter list) (srcTy: Ty) : E =
     let s, t, n, c, r, key = Desugar.fresh "s", Desugar.fresh "t", Desugar.fresh "n", Desugar.fresh "c", Desugar.fresh "r", Desugar.fresh "k"
-    let isMap = match srcTy with TMap _ -> true | _ -> false
-    let folding = it.kind = "fold" || it.kind = "scan"
+    let first = Desugar.fresh "first"
+    let it0, term = List.head stages, List.last stages
+    let fused = stages.Length > 1
+    let isMap = (match srcTy with TMap _ -> true | _ -> false) && not fused
+    let folding = term.kind = "fold" || term.kind = "scan"
+    // result kind: a single stage keeps the source's kind; a fused chain yields an array
+    // (or a string when only filters run over a string)
+    let resTy =
+        if not fused then srcTy
+        elif srcTy = TStr && stages |> List.forall (fun st -> st.kind = "filter") then TStr
+        else TArr TUnk
     let snapshot =
         match srcTy with
         | TArr _ -> v s
@@ -27,8 +37,7 @@ let iter (it: Iter) (srcTy: Ty) : E =
         | TMap _ when folding -> call "vals" [ v s ]
         | _ -> call "arr" [ v s ]
     // a range source is iterated as a counter (lo, lo+step, ...) instead of a materialised array
-    let range = match it.src.k with Call("range", [ a; b ]) -> Some(a, b) | _ -> None
-    let elemAt (i: E) = match range with Some _ -> bin "+" (v s) (bin "*" i (v t)) | None -> mk (Index(v t, i))
+    let range = match it0.src.k with Call("range", [ a; b ]) -> Some(a, b) | _ -> None
     let pre =
         match range with
         | Some(a, b) ->
@@ -36,40 +45,59 @@ let iter (it: Iter) (srcTy: Ty) : E =
             [ Assign(s, a); Assign(hi, b)
               Assign(t, mk (If(bin "<=" (v s) (v hi), i64 1L, i64 -1L)))
               Assign(n, bin "*" (bin "-" (v hi) (v s)) (v t)) ]
-        | None -> [ Assign(s, it.src); Assign(t, snapshot); Assign(n, call "len" [ v t ]) ]
-    let seed = // folding an empty collection is an error
-        Do(mk (If(bin "<" (v n) (i64 1L), call "panic" [ mk (Str "fold of empty collection") ], i64 0L)))
+        | None -> [ Assign(s, it0.src); Assign(t, snapshot); Assign(n, call "len" [ v t ]) ]
     let load =
-        if isMap && not folding then
-            [ Assign(key, mk (Index(v t, v c))); Assign(it.ix, v key); Assign(it.el, mk (Index(v s, v key))) ]
-        else [ Assign(it.el, elemAt (v c)); Assign(it.ix, v c) ]
-    let next = Assign(c, bin "+" (v c) (i64 1L))
-    let ss, value = splitBody it.body
-    let bodyE = seq ss value
-    let loop from (step: S list) = [ Assign(c, i64 from); While(bin "<" (v c) (v n), load @ step @ [ next ]) ]
-    let sameKind () =
-        match srcTy with
+        match range with
+        | _ when isMap && not folding ->
+            [ Assign(key, mk (Index(v t, v c))); Assign(it0.ix, v key); Assign(it0.el, mk (Index(v s, v key))) ]
+        | Some _ -> [ Assign(it0.el, bin "+" (v s) (bin "*" (v c) (v t))); Assign(it0.ix, v c) ]
+        | None -> [ Assign(it0.el, mk (Index(v t, v c))); Assign(it0.ix, v c) ]
+    let bodyE (st: Iter) = let ss, value = splitBody st.body in seq ss value
+    let skip = i64 0L
+    let when' cond (then': S list) = Do(mk (If(cond, seq then' skip, skip)))
+    let empty () =
+        match resTy with
         | TMap _ -> call "mapof" [ mk (Arr []); mk (Arr []) ]
         | TSet _ -> call "set" [ mk (Arr []) ]
         | TQ _ -> call "Q" [ mk (Arr []) ]
         | TPQ _ -> call "PQ" [ mk (Arr []) ]
         | _ -> mk (Arr [])
     let add (x: E) =
-        match srcTy with
+        match resTy with
         | TMap _ -> SetIdx(v r, v key, x)
         | TSet _ | TQ _ | TPQ _ -> Do(bin "+" (v r) x)
         | _ -> Do(call "push" [ v r; x ])
-    match it.kind with
-    | "map" -> seq (pre @ [ Assign(r, sameKind ()) ] @ loop 0L [ add bodyE ]) (v r)
-    | "filter" ->
-        let keep = mk (If(bodyE, seq [ add (v it.el) ] (i64 0L), i64 0L))
-        let result = if srcTy = TStr then call "join" [ v r; mk (Str "") ] else v r
-        seq (pre @ [ Assign(r, sameKind ()) ] @ loop 0L [ Do keep ]) result
-    | "fold" -> seq (pre @ [ seed; Assign(it.acc, elemAt (i64 0L)) ] @ loop 1L [ Assign(it.acc, bodyE) ]) (v it.acc)
-    | "scan" ->
-        let init = [ seed; Assign(it.acc, elemAt (i64 0L)); Assign(r, mk (Arr [])); Do(call "push" [ v r; v it.acc ]) ]
-        seq (pre @ init @ loop 1L [ Assign(it.acc, bodyE); Do(call "push" [ v r; v it.acc ]) ]) (v r)
-    | _ -> seq (pre @ loop 0L [ Do bodyE ]) (i64 0L) // "each"
+    let terminal =
+        match term.kind with
+        | "map" -> [ add (bodyE term) ]
+        | "filter" -> [ when' (bodyE term) [ add (v term.el) ] ]
+        | "fold" | "scan" ->
+            let push = if term.kind = "scan" then [ Do(call "push" [ v r; v term.acc ]) ] else []
+            [ Do(mk (If(v first, seq [ Assign(term.acc, v term.el); Assign(first, mk (Bool false)) ] skip,
+                        seq [ Assign(term.acc, bodyE term) ] skip))) ] @ push
+        | _ -> [ Do(bodyE term) ] // "each"
+    // stage i has its el/ix assigned; pass the element on to stage i+1 (with its own position counter)
+    let counters = stages |> List.map (fun _ -> Desugar.fresh "k")
+    let rec pipe i : S list =
+        if i = stages.Length - 1 then terminal
+        else
+            let st, nxt, k = stages.[i], stages.[i + 1], counters.[i + 1]
+            let pass (x: E) = [ Assign(nxt.el, x); Assign(nxt.ix, v k); Assign(k, bin "+" (v k) (i64 1L)) ] @ pipe (i + 1)
+            match st.kind with
+            | "map" -> pass (bodyE st)
+            | _ -> [ when' (bodyE st) (pass (v st.el)) ]
+    let init =
+        (counters |> List.tail |> List.map (fun k -> Assign(k, skip)))
+        @ (if term.kind = "fold" || term.kind = "scan" then [ Assign(first, mk (Bool true)) ] else [])
+        @ (if term.kind = "map" || term.kind = "filter" || term.kind = "scan" then [ Assign(r, empty ()) ] else [])
+    let loop = [ Assign(c, skip); While(bin "<" (v c) (v n), load @ pipe 0 @ [ Assign(c, bin "+" (v c) (i64 1L)) ]) ]
+    let emptyFold = [ when' (v first) [ Do(call "panic" [ mk (Str "fold of empty collection") ]) ] ]
+    match term.kind with
+    | "map" -> seq (pre @ init @ loop) (v r)
+    | "filter" -> seq (pre @ init @ loop) (if resTy = TStr then call "join" [ v r; mk (Str "") ] else v r)
+    | "fold" -> seq (pre @ init @ loop @ emptyFold) (v term.acc)
+    | "scan" -> seq (pre @ init @ loop @ emptyFold) (v r)
+    | _ -> seq (pre @ init @ loop) skip
 
 let private each src body =
     let el, ix, acc = Desugar.fresh "_", Desugar.fresh "@", Desugar.fresh "$"

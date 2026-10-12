@@ -140,8 +140,19 @@ and typeE (e: E) : E =
             | _ -> builtin name (List.map typeE args)
         | Index(x, i) -> typeIndex (typeE x) (typeE i)
         | Iter it ->
-            let src = typeE it.src
-            typeE (Lower.iter { it with src = src } (resolve src.t))
+            // collect a chain of map/filter stages feeding this one (innermost first)
+            let rec chain (it: Iter) acc =
+                match it.src.k with
+                | Iter inner when it.src.t = TUnk && (inner.kind = "map" || inner.kind = "filter") -> chain inner (it :: acc)
+                | _ -> it :: acc
+            let stages = chain it []
+            let src = typeE stages.Head.src
+            match resolve src.t with
+            | TArr _ | TStr when stages.Length > 1 ->
+                typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t))
+            | _ ->
+                // not fusable (maps/sets/queues keep their kind per stage): lower stage by stage
+                stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t))) src
         | Fn(id, body) ->
             fnDefs.[id] <- (body, cur)
             typed e.k (TFn id)

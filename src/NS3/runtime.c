@@ -29,7 +29,9 @@ typedef struct { int64_t rc; const char *d; } Hdr;
 #define HD(p) ((Hdr *)(p) - 1)
 static void *obj(const char *d, size_t n) { Hdr *h = alloc(sizeof(Hdr) + n); h->rc = 1; h->d = d; return h + 1; }
 static struct { Hdr h; char s[1]; } empty = {{-1, "S"}, ""}; // immortal ""
-static int ptrk(const char *d) { return strchr("SAMHQP", *d) && *d; }
+static inline int ptrk(const char *d) { // pointer kinds: S A M H Q P (I F B are plain slots)
+  switch (*d) { case 'S': case 'A': case 'M': case 'H': case 'Q': case 'P': return 1; default: return 0; }
+}
 void ns_retain(void *p) { if (p && HD(p)->rc >= 0) HD(p)->rc++; }
 void ns_release(void *p);
 static slot ret(const char *d, slot v) { if (ptrk(d)) ns_retain(S(v)); return v; } // retain slot if pointer kind
@@ -56,13 +58,18 @@ static const char *intern(char c, const char *d) {
 
 // ---------- arrays ----------
 void *ns_arr_new(const char *d, int64_t n) { // empty array with capacity n (len 0)
-  Arr *a = obj(d, sizeof(Arr));
-  a->cap = n > 4 ? n : 4;
-  a->data = alloc(a->cap * sizeof(slot));
+  int64_t cap = n > 4 ? n : 4;
+  Arr *a = obj(d, sizeof(Arr) + cap * sizeof(slot)); // data inline: one allocation per array
+  a->cap = cap;
+  a->data = (slot *)(a + 1);
   return a;
 }
 static void apush(Arr *a, slot x) { // no retain: x's reference moves into a
-  if (a->len == a->cap) a->data = grow(a->data, (a->cap *= 2) * sizeof(slot));
+  if (a->len == a->cap) { // move out of the inline area on first growth
+    slot *d = a->data == (slot *)(a + 1) ? memcpy(alloc(a->cap * 2 * sizeof(slot)), a->data, a->cap * sizeof(slot))
+                                          : grow(a->data, a->cap * 2 * sizeof(slot));
+    a->data = d; a->cap *= 2;
+  }
   a->data[a->len++] = x;
 }
 void ns_arr_push(void *p, slot x) { apush(p, ret(HD(p)->d + 1, x)); }
@@ -119,7 +126,7 @@ int64_t ns_cmp(const char *d, slot a, slot b) {
   case 'A': {
     Arr *x = (Arr *)S(a), *y = (Arr *)S(b);
     for (int64_t i = 0; i < x->len && i < y->len; i++) {
-      int64_t c = ns_cmp(d + 1, x->data[i], y->data[i]);
+      int64_t c = d[1] == 'I' ? (x->data[i] > y->data[i]) - (x->data[i] < y->data[i]) : ns_cmp(d + 1, x->data[i], y->data[i]);
       if (c) return c;
     }
     return (x->len > y->len) - (x->len < y->len);
@@ -479,7 +486,7 @@ void ns_release(void *p) {
   if (!p || HD(p)->rc < 0 || --HD(p)->rc) return;
   const char *d = HD(p)->d;
   switch (*d) {
-  case 'A': case 'P': { Arr *a = p; for (int64_t i = 0; i < a->len; i++) rel(d + 1, a->data[i]); free(a->data); break; }
+  case 'A': case 'P': { Arr *a = p; if (ptrk(d + 1)) for (int64_t i = 0; i < a->len; i++) ns_release(S(a->data[i])); if (a->data != (slot *)(a + 1)) free(a->data); break; }
   case 'M': case 'H': {
     Map *m = p;
     for (int64_t i = 0; i < m->cap; i++) if (m->st[i] == 1) { rel(m->kd, m->keys[i]); if (m->vd) rel(m->vd, m->vals[i]); }
