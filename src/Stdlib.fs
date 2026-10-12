@@ -103,4 +103,4 @@ let sigs : Sig list =
 let names = sigs |> List.map (fun s -> s.name) |> set
 let zeroArity = sigs |> List.filter (fun s -> s.parms.IsEmpty) |> List.map (fun s -> s.name) |> set
 let overloads name = sigs |> List.filter (fun s -> s.name = name)
-let bySym = sigs |> List.map (fun s -> s.csym, s) |> dict
+let bySym = sigs |> List.distinctBy (fun s -> s.csym) |> List.map (fun s -> s.csym, s) |> dict

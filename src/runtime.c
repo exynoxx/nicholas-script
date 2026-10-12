@@ -665,6 +665,20 @@ void *ns_uniq(const char *dT, void *a) { // keeps first occurrences in order
   ns_release(seen);
   return r;
 }
+//@ flatmap ([[T]]) [T]
+//@ flatmap ([(T,T)]) [T]
+//@ flatmap ([(T,T,T)]) [T]
+void *ns_flatmap(const char *dT, void *a) { // one level: [[1,2],[3]] and [(1,2),(3,4)] -> flat
+  Arr *x = a, *r = ns_arr_new(intern('A', dT), x->len);
+  const char *ed = HD(a)->d + 1;
+  for (int64_t i = 0; i < x->len; i++) {
+    const char *e = x->data + i * x->esz;
+    if (*ed == 'A') { Arr *y = ldp(e); for (int64_t j = 0; j < y->len; j++) ns_arr_push(r, y->data + j * y->esz); continue; }
+    const char *m = tup(ed, e); int64_t o = 0;
+    EACH_MEMBER(ed, me, o) ns_arr_push(r, m + o);
+  }
+  return r;
+}
 //@ trim (str) str
 char *ns_trim(char *s) {
   while (isspace((unsigned char)*s)) s++;

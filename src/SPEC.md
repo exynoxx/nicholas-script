@@ -230,7 +230,7 @@ Current library (see `grep '^//@' runtime.c`):
 - math: `min max` (two values or one array), `abs pow sqrt floor ceil round gcd lcm sum prod` (`sum/prod` of `[]` are 0/1)
 - bits: `rotl rotr popcount hex`; operators `& | ^ << >> >>>`; literals `0xff 0b101`
 - strings: `lower upper trim replace chars split join ord chr find`
-- arrays: `sort rev uniq zip find bsearch sortby`
+- arrays: `sort rev uniq zip find bsearch sortby flatmap`; `flatmap` flattens one level of an array of arrays or of same-typed pairs or triples: `[[1,2],[3]]` and `[(1,2),(3,4)]` → `[1,2,3,4]`
 
 ## 8. Examples
 ```
