@@ -26,7 +26,9 @@ let private pipeline (stage: string) (path: string) : string =
             if stage = "core" then Core.showStmts core
             else
                 let typed = Typer.check core
-                if stage = "typed" then showTyped typed else Codegen.generate typed
+                if stage = "typed" then showTyped typed
+                elif stage = "repr" then Repr.describe typed
+                else Codegen.generate typed
 
 let private run (exe: string) (args: string) (stdin: string option) =
     let psi = ProcessStartInfo(exe, args, RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = stdin.IsSome)
@@ -124,6 +126,7 @@ commands:
   ast <file>                 dump stage 2: surface AST
   core <file>                dump stage 3: desugared core
   typed <file>               dump stage 4: typed core (functions, captures, conversions)
+  repr <file>                dump stage 5: the layout chosen for each type (register, storage, size)
   test [dir]                 run golden tests: dir/*.ns vs *.out (stdin from *.in); default ./tests
   help                       show this page
 
@@ -172,7 +175,7 @@ let main argv =
             let ll = pipeline "ll" path
             printf "%s" (if flag "--pure" then pureLL ll else ll)
             0)
-    | [ ("tokens" | "ast" | "core" | "typed") as stage; path ] ->
+    | [ ("tokens" | "ast" | "core" | "typed" | "repr") as stage; path ] ->
         report path (fun () -> (printfn "%s" (pipeline stage path); 0))
     | [ "help" ] | [] when flag "-h" || flag "--help" || args.IsEmpty || positional = [ "help" ] ->
         printf "%s" help
