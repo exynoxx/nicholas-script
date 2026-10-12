@@ -71,7 +71,7 @@ let rec showTy t =
     | THole _ -> "?"
     | TUnk -> ""
 
-/// Prints core as NS3-like text; typed nodes get a `:type` suffix on variables, calls and conversions.
+/// Prints core as NS-like text; typed nodes get a `:type` suffix on variables, calls and conversions.
 let rec showE (e: E) : string =
     let ann s = if e.t = TUnk then s else s + ":" + showTy e.t
     match e.k with

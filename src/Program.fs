@@ -39,7 +39,7 @@ let private run (exe: string) (args: string) (stdin: string option) =
     p.WaitForExit()
     p.ExitCode, out.Result, err.Result
 
-/// runtime.c, precompiled to LLVM IR when the compiler was built (see NS3.fsproj).
+/// runtime.c, precompiled to LLVM IR when the compiler was built (see NS.fsproj).
 let private runtimeIR =
     lazy
         (use s = Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream "runtime.ll"
@@ -57,8 +57,8 @@ let private pureLL (ll: string) : string =
     let ours = ll.Split('\n') |> Array.filter (fun l -> not (l.StartsWith "declare " && provided.Contains(nameOf l)))
     let isHeader (l: string) = l.StartsWith "source_filename" || l.StartsWith "target " || l.StartsWith "; ModuleID"
     let rtLines = rtIR.Split('\n')
-    String.concat "\n" (Array.filter isHeader rtLines) + "\n\n; ---- NS3 program ----\n" + String.concat "\n" ours
-    + "\n; ---- NS3 runtime ----\n" + String.concat "\n" (Array.filter (isHeader >> not) rtLines)
+    String.concat "\n" (Array.filter isHeader rtLines) + "\n\n; ---- NS program ----\n" + String.concat "\n" ours
+    + "\n; ---- NS runtime ----\n" + String.concat "\n" (Array.filter (isHeader >> not) rtLines)
 
 /// LLVM 21+ vectorises filter->fold early exits in a way that is ~10x slower for NS loops; turn it off when clang knows the flag.
 let private noEarlyExitVec =
@@ -74,8 +74,8 @@ let private build (path: string) (exe: string) : string option =
         let ll = Path.ChangeExtension(exe, ".ll")
         // whole-program module so LLVM can inline the runtime (array access, refcounts, ...)
         File.WriteAllText(ll, pureLL (pipeline "ll" path))
-        // NS3_ASAN=1 builds with Address/LeakSanitizer to verify reference counting
-        let asan = if Environment.GetEnvironmentVariable "NS3_ASAN" = "1" then "-g -fsanitize=address" else ""
+        // NS_ASAN=1 builds with Address/LeakSanitizer to verify reference counting
+        let asan = if Environment.GetEnvironmentVariable "NS_ASAN" = "1" then "-g -fsanitize=address" else ""
         let asan = asan + noEarlyExitVec.Force()
         let code, _, err = run "clang" (sprintf "-O2 -w %s \"%s\" -lm -o \"%s\"" asan ll exe) None
         if code = 0 then None else Some("clang failed:\n" + err)
@@ -131,7 +131,7 @@ commands:
   help                       show this page
 
 environment:
-  NS3_ASAN=1                 build with Address/LeakSanitizer (checks reference counting)
+  NS_ASAN=1                 build with Address/LeakSanitizer (checks reference counting)
 """
 
 /// Compiles to a temp binary and runs it with this process's stdin/stdout.

@@ -1,4 +1,4 @@
-// NS3 runtime. Type-dependent operations are driven by descriptor strings:
+// NS runtime. Type-dependent operations are driven by descriptor strings:
 // I F S B, A<t>, M<k><v>, H<t>, Q<t>, P<t>, U<n><t1>..<tn> (boxed tuple), V<n><t1>..<tn> (value tuple,
 // members I F B only); n is one digit. Element storage size esz(d): B=1, I F=8, S A M H Q P U=8 (pointer), V=8n
 // (a bool member of V is stored as int64 0/1). Containers store elements inline at stride esz; boxed tuples

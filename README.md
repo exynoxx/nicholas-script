@@ -26,7 +26,7 @@ ns help
 ns run src/examples/quicksort.ns
 ns build prog.ns -o prog
 ns ll --pure prog.ns > prog.ll   # self-contained LLVM module
-ns test src/tests                 # golden tests (NS3_ASAN=1 checks leaks)
+ns test src/tests                 # golden tests (NS_ASAN=1 checks leaks)
 ```
 
 Every compiler stage can be printed: `tokens`, `ast`, `core`, `typed`, `ll`.
@@ -53,7 +53,7 @@ Optimisations:
 
 ## Benchmarks
 
-`src/bench/bench.sh` builds each problem in NS3, Rust (`rustc -C opt-level=3`) and Python 3. It checks that all three print identical output and reports the best of 3 wall-clock runs, in seconds.
+`src/bench/bench.sh` builds each problem in NS, Rust (`rustc -C opt-level=3`) and Python 3. It checks that all three print identical output and reports the best of 3 wall-clock runs, in seconds.
 
 | problem | Rust s | NS s | Python s | slowdown vs Rust | speedup vs Python |
 |---|--:|--:|--:|--:|--:|

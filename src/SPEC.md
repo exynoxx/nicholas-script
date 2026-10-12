@@ -1,4 +1,4 @@
-# NS3 Language Spec (draft v1)
+# NS Language Spec (draft v1)
 
 A terse, golf-style, statically typed language compiled to LLVM IR and then to a native binary.
 Types are never written; every expression has one type known at compile time.
