@@ -273,4 +273,3 @@ stmts     = stmt { TERM stmt } ;
 
 ## 10. Decisions log
 Resolved: exclusive ranges, no fold seed, floor int division, keep `^^`, by-reference capture, `~` below compare, range at primary level, `#` comment vs length, call-vs-ternary by binding.
-Remaining minor questions: `QUESTIONS.md`.

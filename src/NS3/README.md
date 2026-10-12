@@ -10,7 +10,6 @@ q = {p = #_ ? _@0 : 0; #_<2 ? _ : (q:_[<p])++_[=p]++(q:_[>p])}   # quicksort
 ```
 
 - Language: [SPEC.md](SPEC.md)
-- Compiler design: [PLAN.md](PLAN.md)
 - Examples: [examples/](examples) (common patterns and LeetCode-style problems)
 
 ## Usage
@@ -34,8 +33,17 @@ Every compiler stage can be printed: `tokens`, `ast`, `core`, `typed`, `ll`.
 
 ## Compiler pipeline
 
-`Lexer → Parser (surface AST) → Desugar (core) → Typer (inference, conversions, monomorphisation, closures, lowering) → Codegen (LLVM IR)`.
-The program and its C runtime are compiled as one LLVM module, so runtime helpers inline.
+`Lexer → Parser (surface AST) → Desugar (core) → Typer (inference, conversions, monomorphisation, closures, lowering) → Repr (layouts) → Codegen (LLVM IR)`.
+Every stage can be dumped (`ns tokens|ast|core|typed|repr|ll f.ns`). The program and its C runtime (precompiled to LLVM IR
+at build time) are compiled as one LLVM module, so runtime helpers inline. Memory is reference counted.
+
+**Representation (`Repr.fs`).** Layout is decided by rule per type: scalars live in registers; in containers a bool takes
+1 byte, other scalars and heap references 8; a tuple of only scalars is a *value* (an LLVM struct, stored inline, never
+boxed); other tuples and all collections are refcounted heap objects. Containers store elements inline at their storage
+size; the runtime receives generic values as pointers to their storage plus a type descriptor (`I F S B A M H Q P U V`).
+
+**Standard library.** Implemented in `runtime.c`; each function carries a `//@ name (params) result` signature that the
+compiler reads (`Stdlib.fs`). Calls go through one generic path; block arguments become C callbacks with their captures.
 
 Optimisations:
 - map/filter/fold chains are fused into a single loop;
