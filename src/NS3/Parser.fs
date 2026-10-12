@@ -82,7 +82,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         let one () =
             match peek () with
             // implicit names (_ _1 @ $) are never assigned, so `{_=p}` / `[=p]` compare
-            | ID name when not (isFunc name) && not (name.StartsWith "_" || name = "@" || name = "$") ->
+            // any name may be (re)defined, so user functions can shadow built-ins; implicit names never
+            | ID name when not (name.StartsWith "_" || name = "@" || name = "$") ->
                 advance ()
                 let mutable e = EVar name
                 while accept "@" do e <- EIndex(e, p.IndexOperand())
