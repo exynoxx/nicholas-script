@@ -9,7 +9,7 @@ let builtins =
           "pop"; "keys"; "vals"; "arr"; "set"; "Q"; "PQ"
           "min"; "max"; "abs"; "pow"; "sqrt"; "floor"; "ceil"; "round"; "lower"; "upper"; "find"; "bsearch" ]
 let private zeroArity = set [ "read"; "lines" ]
-let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>=" ]
+let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>=" ]
 
 /// Directory of the file being parsed, and every file already imported (each is included once).
 type private Imports = { dir: string; seen: HashSet<string> }
@@ -134,7 +134,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         let mutable go = true
         while go do
             match peek () with
-            | SYM ("<<" | ">>" as op) -> (advance (); e <- EBin(op, e, p.Add()))
+            | SYM ("<<" | ">>" | ">>>" as op) -> (advance (); e <- EBin(op, e, p.Add()))
             | _ -> go <- false
         e
 

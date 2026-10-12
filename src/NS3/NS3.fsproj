@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Compile Include="Ast.fs" />
+    <Compile Include="Stdlib.fs" />
     <Compile Include="Lexer.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Core.fs" />
@@ -23,6 +24,8 @@
     <Compile Include="Program.fs" />
     <!-- the runtime is precompiled to LLVM IR at build time and embedded; programs are merged with it -->
     <EmbeddedResource Include="$(IntermediateOutputPath)runtime.ll" LogicalName="runtime.ll" />
+    <!-- runtime.c's //@ lines declare the stdlib signatures -->
+    <EmbeddedResource Include="runtime.c" LogicalName="runtime.c" />
   </ItemGroup>
 
   <Target Name="CompileRuntime" BeforeTargets="BeforeBuild" Inputs="runtime.c" Outputs="$(IntermediateOutputPath)runtime.ll">

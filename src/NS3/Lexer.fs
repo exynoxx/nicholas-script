@@ -7,11 +7,11 @@ open System.Collections.Generic
 open Ast
 
 let private symbols =
-    [ "^^="; "++="; "<<="; ">>="; "^^"; "++"; "<<"; ">>"; "^="; "~="; "<="; ">="; ".."; "->"; "+="; "-="; "*="; "/="; "%="; "&="; "|="
+    [ ">>>="; ">>>"; "^^="; "++="; "<<="; ">>="; "^^"; "++"; "<<"; ">>"; "^="; "~="; "<="; ">="; ".."; "->"; "+="; "-="; "*="; "/="; "%="; "&="; "|="
       "+"; "-"; "*"; "/"; "%"; "="; "<"; ">"; "&"; "|"; "^"; "?"; ":"; ","; "."; "("; ")"; "["; "]"; "{"; "}"; "#"; "~" ]
 
 /// A block starting with one of these gets an implicit `_` on its left (operator section).
-let private sectionOps = set [ "+"; "*"; "/"; "%"; "^^"; "++"; "^"; "<<"; ">>"; "="; "~="; "<"; ">"; "<="; ">="; "&"; "|" ]
+let private sectionOps = set [ "+"; "*"; "/"; "%"; "^^"; "++"; "^"; "<<"; ">>"; ">>>"; ">>>"; "="; "~="; "<"; ">"; "<="; ">="; "&"; "|" ]
 let private openers = set [ "{"; "m{"; "f["; "/{"; "\\{" ]
 let private foldOps = [ "+"; "*"; ">"; "<"; "&"; "|"; "^"; "-" ]
 
@@ -96,6 +96,16 @@ let lex (src: string) (startLine: int) : Token list =
     let lexNumber () =
         let start = i
         if src.[i] = '-' then i <- i + 1
+        if at 0 = '0' && (at 1 = 'x' || at 1 = 'b') then
+            // 0xff / 0b101: 64-bit patterns, values >= 2^63 wrap to negative
+            let radix = if at 1 = 'x' then 16 else 2
+            let neg = src.[start] = '-'
+            i <- i + 2
+            let ds = i
+            while Uri.IsHexDigit(at 0) && (radix = 16 || at 0 = '0' || at 0 = '1') do i <- i + 1
+            let v = int64 (Convert.ToUInt64(src.Substring(ds, i - ds), radix))
+            add (INT(if neg then -v else v))
+        else
         while Char.IsDigit(at 0) do i <- i + 1
         if at 0 = '.' && Char.IsDigit(at 1) then
             i <- i + 1

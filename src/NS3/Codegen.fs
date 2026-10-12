@@ -228,7 +228,7 @@ let generate (prog: Program) : string =
         | TInt, ("/" | "%" | "^^") ->
             rt "i64" (match op with "/" -> "ns_idiv" | "%" -> "ns_imod" | _ -> "ns_ipow") [ "i64", av; "i64", bv ]
         | TInt, _ ->
-            let ins = match op with "+" -> "add" | "-" -> "sub" | "*" -> "mul" | "&" -> "and" | "^" -> "xor" | "<<" -> "shl" | ">>" -> "ashr" | _ -> "or"
+            let ins = match op with "+" -> "add" | "-" -> "sub" | "*" -> "mul" | "&" -> "and" | "^" -> "xor" | "<<" -> "shl" | ">>" -> "ashr" | ">>>" -> "lshr" | _ -> "or"
             instr "%s i64 %s, %s" ins av bv
         | TFloat, "^^" ->
             decls.["llvm.pow.f64"] <- "declare double @llvm.pow.f64(double, double)"
