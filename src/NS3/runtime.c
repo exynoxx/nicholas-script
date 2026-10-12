@@ -1,6 +1,6 @@
 // NS3 runtime. Values cross the ABI as int64_t "slots" (ints as-is, doubles
 // bitcast, bools 0/1, pointers cast). Type-dependent operations are driven by
-// descriptor strings: I F S B, A<t>, M<k><v>, H<t>, Q<t>, P<t>.
+// descriptor strings: I F S B, A<t>, M<k><v>, H<t>, Q<t>, P<t>, U<n><t1>..<tn> (tuple, n one digit).
 // Heap objects (strings, arrays, maps, sets, Q, PQ) carry a 16-byte header before the
 // pointer: {rc, full descriptor}. rc < 0 = immortal. Arguments are borrowed, returned
 // pointers are owned (+1). Containers retain what they store and release what they drop.
@@ -29,8 +29,8 @@ typedef struct { int64_t rc; const char *d; } Hdr;
 #define HD(p) ((Hdr *)(p) - 1)
 static void *obj(const char *d, size_t n) { Hdr *h = alloc(sizeof(Hdr) + n); h->rc = 1; h->d = d; return h + 1; }
 static struct { Hdr h; char s[1]; } empty = {{-1, "S"}, ""}; // immortal ""
-static inline int ptrk(const char *d) { // pointer kinds: S A M H Q P (I F B are plain slots)
-  switch (*d) { case 'S': case 'A': case 'M': case 'H': case 'Q': case 'P': return 1; default: return 0; }
+static inline int ptrk(const char *d) { // pointer kinds: S A M H Q P U (I F B are plain slots)
+  switch (*d) { case 'S': case 'A': case 'M': case 'H': case 'Q': case 'P': case 'U': return 1; default: return 0; }
 }
 void ns_retain(void *p) { if (p && HD(p)->rc >= 0) HD(p)->rc++; }
 void ns_release(void *p);
@@ -42,9 +42,11 @@ static const char *skip(const char *d) {
   switch (*d) {
   case 'A': case 'H': case 'Q': case 'P': return skip(d + 1);
   case 'M': return skip(skip(d + 1));
+  case 'U': { int n = d[1] - '0'; for (d += 2; n--;) d = skip(d); return d; }
   default: return d + 1;
   }
 }
+static const char *tel(const char *d, int64_t i) { for (d += 2; i--;) d = skip(d); return d; } // tuple element i's descriptor
 // Interned descriptor c + <descriptor at d>; never freed.
 static const char *intern(char c, const char *d) {
   static struct It { struct It *next; char s[]; } *list;
@@ -97,6 +99,16 @@ void *ns_arr_slice(void *p, int64_t i, int64_t j) {
   return r;
 }
 void *ns_arr_copy(void *p) { return ns_arr_slice(p, 0, ((Arr *)p)->len); }
+
+// ---------- tuples (Arr layout, len = n, data inline, header desc "U<n>...") ----------
+void *ns_tup_new(const char *d) {
+  int64_t n = d[1] - '0';
+  Arr *t = obj(d, sizeof(Arr) + n * sizeof(slot));
+  t->len = t->cap = n; t->data = (slot *)(t + 1);
+  return t;
+}
+void ns_tup_set(void *t, int64_t i, slot x) { ((Arr *)t)->data[i] = ret(tel(HD(t)->d, i), x); } // construction only
+slot ns_tup_get(void *t, int64_t i) { return ret(tel(HD(t)->d, i), ((Arr *)t)->data[i]); }
 void *ns_arr_concat(void *p, void *q) {
   Arr *r = ns_arr_copy(p), *b = q;
   for (int64_t k = 0; k < b->len; k++) ns_arr_push(r, b->data[k]);
@@ -131,6 +143,11 @@ int64_t ns_cmp(const char *d, slot a, slot b) {
     }
     return (x->len > y->len) - (x->len < y->len);
   }
+  case 'U': {
+    Arr *x = (Arr *)S(a), *y = (Arr *)S(b); const char *e = d + 2;
+    for (int64_t i = 0; i < x->len; i++, e = skip(e)) { int64_t c = ns_cmp(e, x->data[i], y->data[i]); if (c) return c; }
+    return 0;
+  }
   default: return (a > b) - (a < b); // I, B
   }
 }
@@ -143,6 +160,11 @@ int64_t ns_eq(const char *d, slot a, slot b) {
     Arr *x = (Arr *)S(a), *y = (Arr *)S(b);
     if (x->len != y->len) return 0;
     for (int64_t i = 0; i < x->len; i++) if (!ns_eq(d + 1, x->data[i], y->data[i])) return 0;
+    return 1;
+  }
+  case 'U': {
+    Arr *x = (Arr *)S(a), *y = (Arr *)S(b); const char *e = d + 2;
+    for (int64_t i = 0; i < x->len; i++, e = skip(e)) if (!ns_eq(e, x->data[i], y->data[i])) return 0;
     return 1;
   }
   case 'M': case 'H': {
@@ -170,6 +192,7 @@ static uint64_t hash(const char *d, slot v) {
   case 'F': { double x = f_of(v); return mix(x == 0 ? 0 : (uint64_t)s_of(x)); } // -0.0 == 0.0
   case 'S': { uint64_t h = 1469598103934665603ULL; for (char *s = S(v); *s; s++) h = (h ^ (unsigned char)*s) * 1099511628211ULL; return h; }
   case 'A': { Arr *a = (Arr *)S(v); uint64_t h = 7; for (int64_t i = 0; i < a->len; i++) h = h * 31 + hash(d + 1, a->data[i]); return mix(h); }
+  case 'U': { Arr *a = (Arr *)S(v); uint64_t h = 11; const char *e = d + 2; for (int64_t i = 0; i < a->len; i++, e = skip(e)) h = h * 31 + hash(e, a->data[i]); return mix(h); }
   default: return mix((uint64_t)v);
   }
 }
@@ -218,6 +241,7 @@ static slot zero(const char *d) {
   case 'M': case 'H': return P(ns_map_new(d));
   case 'Q': return P(ns_q_new(d));
   case 'P': return P(ns_pq_new(d));
+  case 'U': { void *t = ns_tup_new(d); const char *e = d + 2; for (int64_t i = 0; i < d[1] - '0'; i++, e = skip(e)) ((Arr *)t)->data[i] = zero(e); return P(t); }
   default: return 0;
   }
 }
@@ -358,6 +382,13 @@ static void tostr(Buf *b, const char *d, slot v) {
   case 'B': put(b, v ? "T" : "F"); break;
   case 'S': put(b, S(v)); break;
   case 'A': items(b, "[", d + 1, (Arr *)S(v)); break;
+  case 'U': {
+    Arr *a = (Arr *)S(v); const char *e = d + 2;
+    put(b, "(");
+    for (int64_t i = 0; i < a->len; i++, e = skip(e)) { if (i) put(b, ","); tostr(b, e, a->data[i]); }
+    put(b, ")");
+    break;
+  }
   case 'H': citems(b, "%[", d, v); break;
   case 'Q': citems(b, "Q[", d, v); break;
   case 'P': citems(b, "PQ[", d, v); break;
@@ -493,6 +524,7 @@ void ns_release(void *p) {
     free(m->keys); free(m->vals); free(m->st);
     break;
   }
+  case 'U': { Arr *a = p; const char *e = d + 2; for (int64_t i = 0; i < a->len; i++, e = skip(e)) rel(e, a->data[i]); break; }
   case 'Q': for (Node *n = ((Queue *)p)->head, *nx; n; n = nx) { nx = n->next; rel(d + 1, n->v); free(n); } break;
   }
   free(HD(p));

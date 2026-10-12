@@ -47,6 +47,7 @@ let rec private unify a b =
     | THole r, t | t, THole r -> (r.Value <- Some t; true)
     | TArr x, TArr y | TSet x, TSet y | TQ x, TQ y | TPQ x, TPQ y -> unify x y
     | TMap(k1, v1), TMap(k2, v2) -> unify k1 k2 && unify v1 v2
+    | TTup xs, TTup ys -> xs.Length = ys.Length && List.forall2 unify xs ys
     | x, y -> x = y
 
 // ---------- scopes ----------
@@ -215,6 +216,12 @@ and private typeIndex (x: E) (i: E) =
         match i.k with
         | Int 0L -> typed (Call("peek", [ x ])) el
         | _ -> typed (Index(typed (Call("arr", [ x ])) (TArr el), conv i TInt)) el
+    | TTup ts ->
+        match i.k with
+        | Int k when abs (int k) < ts.Length + (if k < 0L then 1 else 0) ->
+            let k = if k < 0L then int k + ts.Length else int k
+            typed (Call("tget", [ x; typed (Int(int64 k)) TInt ])) ts.[k]
+        | _ -> err (sprintf "tuple index must be a literal 0..%d" (ts.Length - 1))
     | t -> err (sprintf "cannot index %s" (showTy t))
 
 and private builtin name (args: E list) : E =
@@ -277,6 +284,7 @@ and private builtin name (args: E list) : E =
         | TArr el -> typed (Call("push", [ a; own (conv x el) ])) a.t
         | t -> err (sprintf "push: not an array: %s" (showTy t))
     | "panic", [ msg ] -> call TInt
+    | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map own xs)) (TTup(xs |> List.map (fun x -> x.t)))
     | _ -> err (sprintf "unknown function '%s' with %d argument(s)" name args.Length)
 
 and private userCall id (args: E list) : E =

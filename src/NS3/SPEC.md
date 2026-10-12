@@ -207,6 +207,7 @@ expr                       # expression statement
 ```
 
 ## 7. Built-ins (v1)
+Tuples: `(a,b)`, `(a,b,c)` … up to 9 elements of any types; immutable; `t@0` (literal index), `a,b = t`; compare lexicographically; usable as map keys, set and PQ elements.
 
 `print`, `read` (line from stdin, string; `""` at EOF), `lines` (all remaining stdin lines as `[string]`; zero-arg built-ins are called by bare name), `ord`, `chr`, `int`, `float`, `str`, `bool`, `sort`, `rev`, `split`, `join`.
 

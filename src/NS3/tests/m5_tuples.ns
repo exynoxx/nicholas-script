@@ -1,0 +1,17 @@
+t = (1,"a")
+print:t
+print:t@1+t@0
+n,s = t
+print:"{n} {s}"
+r = (2,3.5,T)
+print:r@-1
+print:(1,"b")<(1,"c")
+q = PQ[(5,"e"),(1,"a")]
+q+=(3,"c")
+d,w = q.pop
+print:"{d}{w}"
+print:q
+m = [(0,1)->"x"]
+print:m@(0,1)
+print:[(2,"b"),(1,"z"),(2,"a")].sort
+print:%[(1,2),(1,2)]

@@ -229,8 +229,15 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         | ID name -> EVar name
         | SYM "(" ->
             let e = p.Expr()
-            expect ")"
-            e
+            if accept "," then
+                let items = ResizeArray [ e ]
+                items.Add(p.Expr())
+                while accept "," do items.Add(p.Expr())
+                expect ")"
+                ETuple(List.ofSeq items)
+            else
+                expect ")"
+                e
         | SYM "[" ->
             if accept "->" then (expect "]"; EMapLit [])
             elif accept "]" then EArr []

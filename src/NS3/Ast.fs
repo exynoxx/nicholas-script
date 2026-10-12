@@ -30,6 +30,7 @@ type Expr =
     | EBool of bool
     | EVar of string
     | EArr of Expr list
+    | ETuple of Expr list
     | EMapLit of (Expr * Expr) list
     | ECollLit of string * Expr list    // "set" | "Q" | "PQ"
     | ERange of Expr * Expr

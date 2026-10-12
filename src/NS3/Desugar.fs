@@ -24,6 +24,7 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
         parts.Tail |> List.fold (fun acc p -> mk (Bin("+", acc, p))) first
     | EVar n -> mk (Var(defaultArg (Map.tryFind n env) n))
     | EArr xs -> mk (Arr(List.map ex xs))
+    | ETuple xs -> call "tuple" xs
     | EMapLit ps -> mk (Call("mapof", [ mk (Arr(ps |> List.map (fst >> ex))); mk (Arr(ps |> List.map (snd >> ex))) ]))
     | ECollLit(kind, xs) -> mk (Call(kind, [ mk (Arr(List.map ex xs)) ]))
     | ERange(a, b) -> call "range" [ a; b ]
