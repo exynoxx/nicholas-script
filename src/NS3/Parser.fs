@@ -10,7 +10,10 @@ let builtins =
 let private zeroArity = set [ "read"; "lines" ]
 let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>=" ]
 
-type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref) =
+/// Directory of the file being parsed, and every file already imported (each is included once).
+type private Imports = { dir: string; seen: HashSet<string> }
+
+type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, imports: Imports) =
     let mutable pos = 0
     let peek () = tokens.[pos].tok
     let line () = tokens.[pos].line
@@ -31,6 +34,19 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref) =
         while go do
             while peek () = TERM do advance ()
             if peek () = closer || peek () = EOF then go <- false
+            elif peek () = ID "import" then
+                // import "file.ns": splice the file's statements here (path relative to this file)
+                advance ()
+                match peek () with
+                | STR [ Lit file ] ->
+                    advance ()
+                    let path = System.IO.Path.GetFullPath(System.IO.Path.Combine(imports.dir, file))
+                    if not (System.IO.File.Exists path) then fail (line ()) (sprintf "import: file not found: %s" path)
+                    if imports.seen.Add path then
+                        let toks = Lexer.lex (System.IO.File.ReadAllText path) 1
+                        let sub = Parser(Array.ofList toks, fnames, nextId, { imports with dir = System.IO.Path.GetDirectoryName path })
+                        out.AddRange(sub.Program())
+                | t -> fail (line ()) (sprintf "import expects a file name string, found %A" t)
             else
                 out.Add(SLine(line ()))
                 out.Add(p.Stmt())
@@ -199,7 +215,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref) =
             |> List.map (function
                 | Lit s -> EStr s
                 | Code(src, l) ->
-                    let sub = Parser(Array.ofList (Lexer.lex src l), fnames, nextId)
+                    let sub = Parser(Array.ofList (Lexer.lex src l), fnames, nextId, imports)
                     sub.InterpExpr())
             |> EInterp
         | ID name when isFunc name && isSym ":" -> (advance (); ECall(name, p.ExprList()))
@@ -243,5 +259,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref) =
         if peek () <> EOF then fail (line ()) "bad interpolation"
         e
 
-let parse (tokens: Token list) : Stmt list =
-    Parser(Array.ofList tokens, HashSet<string>(), ref 0).Program()
+/// Parses a file's tokens; `path` anchors relative imports.
+let parse (tokens: Token list) (path: string) : Stmt list =
+    let path = System.IO.Path.GetFullPath path
+    let imports = { dir = System.IO.Path.GetDirectoryName path; seen = HashSet [ path ] }
+    Parser(Array.ofList tokens, HashSet<string>(), ref 0, imports).Program()

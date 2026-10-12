@@ -198,6 +198,8 @@ cond ~{ body }             # while statement: whole `cond` expression re-evaluat
 ```
 
 ## 6. Statements
+`import "file.ns"` splices in another file's statements (path relative to the importing file; each file is included once, so imports may repeat or be mutual).
+
 ```
 x = expr
 a,b = b,a                  # parallel assignment
@@ -205,6 +207,7 @@ expr                       # expression statement
 ```
 
 ## 7. Built-ins (v1)
+
 `print`, `read` (line from stdin, string; `""` at EOF), `lines` (all remaining stdin lines as `[string]`; zero-arg built-ins are called by bare name), `ord`, `chr`, `int`, `float`, `str`, `bool`, `sort`, `rev`, `split`, `join`.
 
 ## 8. Examples

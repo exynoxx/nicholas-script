@@ -1,0 +1,4 @@
+# helpers for m6_import
+import "util.ns"
+sq = {_*_}
+greet = {"hi {_}"}

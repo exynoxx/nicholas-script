@@ -15,11 +15,11 @@ let private showTyped (p: Typer.Program) =
     String.concat "\n\n" (fns @ [ "main:\n" + Core.showStmts p.main ])
 
 /// Runs the pipeline up to `stage` and returns its printable output.
-let private pipeline (stage: string) (src: string) : string =
-    let toks = Lexer.lex src 1
+let private pipeline (stage: string) (path: string) : string =
+    let toks = Lexer.lex (File.ReadAllText path) 1
     if stage = "tokens" then toks |> List.map (fun t -> sprintf "%d: %A" t.line t.tok) |> String.concat "\n"
     else
-        let ast = Parser.parse toks
+        let ast = Parser.parse toks path
         if stage = "ast" then sprintf "%A" ast
         else
             let core = Desugar.desugar ast
@@ -63,7 +63,7 @@ let private build (path: string) (exe: string) : string option =
     try
         let ll = Path.ChangeExtension(exe, ".ll")
         // whole-program module so LLVM can inline the runtime (array access, refcounts, ...)
-        File.WriteAllText(ll, pureLL (pipeline "ll" (File.ReadAllText path)))
+        File.WriteAllText(ll, pureLL (pipeline "ll" path))
         // NS3_ASAN=1 builds with Address/LeakSanitizer to verify reference counting
         let asan = if Environment.GetEnvironmentVariable "NS3_ASAN" = "1" then "-g -fsanitize=address" else ""
         let code, _, err = run "clang" (sprintf "-O2 -w %s \"%s\" -lm -o \"%s\"" asan ll exe) None
@@ -160,11 +160,11 @@ let main argv =
     | [ "run"; path ] -> runFile path
     | [ "ll"; path ] ->
         report path (fun () ->
-            let ll = pipeline "ll" (File.ReadAllText path)
+            let ll = pipeline "ll" path
             printf "%s" (if flag "--pure" then pureLL ll else ll)
             0)
     | [ ("tokens" | "ast" | "core" | "typed") as stage; path ] ->
-        report path (fun () -> (printfn "%s" (pipeline stage (File.ReadAllText path)); 0))
+        report path (fun () -> (printfn "%s" (pipeline stage path); 0))
     | [ "help" ] | [] when flag "-h" || flag "--help" || args.IsEmpty || positional = [ "help" ] ->
         printf "%s" help
         0
