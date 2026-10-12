@@ -117,6 +117,9 @@ let generate (prog: Program) : string =
     let release (v: string) t = if isPtr t then rt "void" "ns_release" [ "ptr", v ] |> ignore
     let retain (v: string) t = if isPtr t then rt "void" "ns_retain" [ "ptr", v ] |> ignore
 
+    let wrappers = StringBuilder()
+    let wrapped = HashSet<string>()
+
     let rec ex (e: E) : string =
         match e.k with
         | Int v -> string v
@@ -148,6 +151,7 @@ let generate (prog: Program) : string =
                 emit (sprintf "br label %%%s" lend)
             place lend
             if res = "" then "0" else instr "load %s, ptr %s" (llty e.t) res
+        | Call("$desc", []) -> strConst (desc e.t)
         | Call(f, args) -> call e f args
         | Index(x, i) ->
             let [ (xv, xo); (iv, io) ] = exArgs 0 [ x; i ]
@@ -241,6 +245,7 @@ let generate (prog: Program) : string =
 
     and call (e: E) (f: string) (args: E list) =
         match f, args with
+        | f, _ when f.StartsWith "$std:" -> stdCall e (Stdlib.bySym.[f.Substring 5]) args
         | "mapof", [ { k = Arr ks }; { k = Arr vs } ] ->
             let m = rt "ptr" "ns_map_new" [ d e.t ]
             for (k, v) in List.zip ks vs do
@@ -268,8 +273,6 @@ let generate (prog: Program) : string =
         let elemDesc t = match resolve t with TArr el -> d el | _ -> d TInt
         match f, args with
         | "print", [ x ] -> (rt "void" "ns_print" [ d x.t; slot 0 ] |> ignore; arg 0)
-        | "read", [] -> rt "ptr" "ns_read" []
-        | "lines", [] -> rt "ptr" "ns_lines" []
         | "neg", [ x ] -> if resolve x.t = TFloat then instr "fneg double %s" (arg 0) else instr "sub i64 0, %s" (arg 0)
         | "not", _ -> instr "xor i1 %s, true" (arg 0)
         | "len", [ x ] -> rt "i64" "ns_len" [ d x.t; slot 0 ]
@@ -288,26 +291,13 @@ let generate (prog: Program) : string =
         | ("keys" | "arr"), [ x ] -> rt "ptr" "ns_toarr" [ d x.t; slot 0 ]
         | "vals", _ -> rt "ptr" "ns_map_vals" [ "ptr", arg 0 ]
         | "chars", _ -> rt "ptr" "ns_chars" [ "ptr", arg 0 ]
-        | "sort", [ a ] -> rt "ptr" "ns_sort" [ elemDesc a.t; "ptr", arg 0 ]
-        | "rev", _ -> rt "ptr" "ns_rev" [ "ptr", arg 0 ]
         | "tuple", _ ->
             let t = rt "ptr" "ns_tup_new" [ d e.t ]
             args |> List.iteri (fun i a -> rt "void" "ns_tup_set" [ "ptr", t; "i64", string i; "i64", toSlot (arg i) a.t ] |> ignore)
             t
         | "tget", [ _; { k = Int k } ] -> fromSlot (rt "i64" "ns_tup_get" [ "ptr", arg 0; "i64", string k ]) e.t
         | "repeat", [ x; _ ] -> rt "ptr" "ns_arr_repeat" [ d e.t; slot 0; "i64", arg 1 ]
-        | ("sqrt" | "floor" | "ceil" | "round"), _ ->
-            let fn = if f = "sqrt" then "sqrt" else f
-            decls.["llvm." + fn] <- sprintf "declare double @llvm.%s.f64(double)" fn
-            let r = instr "call double @llvm.%s.f64(double %s)" fn (arg 0)
-            if f = "sqrt" then r else instr "fptosi double %s to i64" r
-        | ("lower" | "upper"), _ -> rt "ptr" ("ns_" + f) [ "ptr", arg 0 ]
-        | "find", [ c; _ ] -> rt "i64" "ns_find" [ d c.t; slot 0; slot 1 ]
         | "panic", _ -> (rt "void" "ns_panic" [ "ptr", arg 0 ] |> ignore; "0")
-        | "split", _ -> rt "ptr" "ns_split" [ "ptr", arg 0; "ptr", arg 1 ]
-        | "join", [ a; _ ] -> rt "ptr" "ns_join" [ elemDesc a.t; "ptr", arg 0; "ptr", arg 1 ]
-        | "ord", _ -> rt "i64" "ns_ord" [ "ptr", arg 0 ]
-        | "chr", _ -> rt "ptr" "ns_chr" [ "i64", arg 0 ]
         | "copy", _ -> rt "ptr" "ns_arr_copy" [ "ptr", arg 0 ]
         | "push", _ -> (rt "void" "ns_arr_push" [ "ptr", arg 0; slot 1 ] |> ignore; arg 0)
         | "append", _ ->
@@ -326,6 +316,58 @@ let generate (prog: Program) : string =
             emit (sprintf "%s = call %s @\"%s\"(%s)" r (llty inst.ret) inst.name (ps @ cs |> String.concat ", "))
             r
         | _ -> failwithf "codegen: unknown call %s/%d" f args.Length
+
+    /// Calls a runtime stdlib function per its signature: descriptors, then arguments (type-variable values as
+    /// slots, bools as i64, a block as callback + env). Arguments are borrowed by C, so released afterwards.
+    and stdCall (e: E) (sg: Stdlib.Sig) (args: E list) =
+        let nd = sg.tvars.Length
+        let descs = args |> List.take nd |> List.map (fun a -> "ptr", ex a)
+        let mutable owned = []
+        let cargs =
+            List.map2 (fun (p: Stdlib.STy) (a: E) ->
+                match p, a.k with
+                | Stdlib.SFn _, Call(b, []) when b.StartsWith "$block:" ->
+                    let inst = instByName.[b.Substring 7]
+                    [ "ptr", wrapper inst; "ptr", envOf inst ]
+                | _ ->
+                    let v = ex a
+                    owned <- (v, a.t) :: owned
+                    match p with
+                    | Stdlib.SVar _ -> [ "i64", toSlot v a.t ]
+                    | Stdlib.SBool -> [ "i64", instr "zext i1 %s to i64" v ]
+                    | _ -> [ llty a.t, v ]) sg.parms (List.skip nd args)
+            |> List.concat
+        let cret = match sg.ret with Stdlib.SVar _ | Stdlib.SBool -> "i64" | _ -> llty e.t
+        let r = rt cret sg.csym (descs @ cargs)
+        for (v, t) in owned do release v t
+        match sg.ret with
+        | Stdlib.SVar _ -> fromSlot r e.t
+        | Stdlib.SBool -> instr "icmp ne i64 %s, 0" r
+        | _ -> r
+
+    /// `i64 w.<inst>(ptr env, i64 x)`: a C-callable entry for a block instance; env holds its capture pointers.
+    and wrapper (inst: Inst) : string =
+        if wrapped.Add inst.name then
+            let saved = c
+            c <- { body = StringBuilder(); allocas = StringBuilder(); locals = Dictionary(); caps = Set.empty; tmp = 0 }
+            let _, pt = inst.parms.Head
+            let caps = inst.caps |> List.mapi (fun i _ -> instr "load ptr, ptr %s" (instr "getelementptr ptr, ptr %%env, i64 %d" i))
+            let a = fromSlot "%x" pt
+            retain a pt // the instance owns its parameter; C passes a borrowed element
+            let r = tmp ()
+            let ps = (llty pt + " " + a) :: (caps |> List.map (fun p -> "ptr " + p))
+            emit (sprintf "%s = call %s @\"%s\"(%s)" r (llty inst.ret) inst.name (String.concat ", " ps))
+            emit (sprintf "ret i64 %s" (toSlot r inst.ret))
+            wrappers.Append(sprintf "define i64 @\"w.%s\"(ptr %%env, i64 %%x) {\nentry:\n%s}\n\n" inst.name (string c.body)) |> ignore
+            c <- saved
+        sprintf "@\"w.%s\"" inst.name
+
+    and envOf (inst: Inst) : string =
+        if inst.caps.IsEmpty then "null"
+        else
+            let env = alloca (sprintf "[%d x ptr]" inst.caps.Length)
+            inst.caps |> List.iteri (fun i u -> emit (sprintf "store ptr %s, ptr %s" (ptrOf u) (instr "getelementptr ptr, ptr %s, i64 %d" env i)))
+            env
 
     and stmt (s: S) =
         match s with
@@ -385,4 +427,4 @@ let generate (prog: Program) : string =
         let esc = bytes |> Array.map (fun b -> if b >= 32uy && b < 127uy && b <> 34uy && b <> 92uy then string (char b) else sprintf "\\%02X" b) |> String.concat ""
         out.Append(sprintf "%s = private unnamed_addr constant { i64, ptr, [%d x i8] } { i64 -1, ptr null, [%d x i8] c\"%s\\00\" }\n" n (bytes.Length + 1) (bytes.Length + 1) esc) |> ignore
     for KeyValue(_, decl) in decls do out.Append(decl).Append('\n') |> ignore
-    out.Append('\n').Append(fns).ToString()
+    out.Append('\n').Append(fns).Append(wrappers).ToString()

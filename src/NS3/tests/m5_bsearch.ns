@@ -4,3 +4,7 @@ print:xs.bsearch:{>3}
 print:bsearch:xs,{>100}
 big = {_*_>50}
 print:bsearch:1..20,big
+f = {k = _; bsearch:[1,5,9],{>=k}}
+print:f:5
+g = {w = _; sortby:["bb","a","ccc"],{#_*w}}
+print:g:-1

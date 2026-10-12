@@ -4,11 +4,9 @@ module Parser
 open System.Collections.Generic
 open Ast
 
-let builtins =
-    set [ "print"; "read"; "lines"; "int"; "float"; "str"; "bool"; "sort"; "rev"; "split"; "join"; "ord"; "chr"
-          "pop"; "keys"; "vals"; "arr"; "set"; "Q"; "PQ"
-          "min"; "max"; "abs"; "pow"; "sqrt"; "floor"; "ceil"; "round"; "lower"; "upper"; "find"; "bsearch" ]
-let private zeroArity = set [ "read"; "lines" ]
+/// language primitives plus every function declared in runtime.c (see Stdlib.fs)
+let builtins = set [ "print"; "int"; "float"; "str"; "bool"; "pop"; "keys"; "vals"; "arr"; "set"; "Q"; "PQ" ] + Stdlib.names
+let private zeroArity = Stdlib.zeroArity
 let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>=" ]
 
 /// Directory of the file being parsed, and every file already imported (each is included once).

@@ -198,3 +198,11 @@ Each milestone runs end to end through **all six stages** and ends with golden t
 - Broadcasting arrays of unequal length panics.
 - No early return.
 - Reassigning a variable with a different scalar type converts; reassigning with a mismatched non-scalar type is an error.
+
+## Standard library
+
+The stdlib lives in `runtime.c`; each function carries a `//@ name (params) result [= csym]` signature. `Stdlib.fs` reads
+these lines (runtime.c is embedded) and the compiler has a single generic path: Typer binds type variables and converts
+arguments from the signature; Codegen passes one descriptor per type variable, then the arguments (type-variable values as
+64-bit slots), and wraps a block argument in a generated `i64 w.<instance>(ptr env, i64 x)` callback with its captures in
+`env`. Language primitives (print, casts, collections, tuples, ...) stay in the compiler.

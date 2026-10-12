@@ -234,8 +234,6 @@ and private builtin name (args: E list) : E =
         | t -> err (sprintf "%s: not a collection: %s" name (showTy t))
     match name, args with
     | "print", [ x ] -> typed (Call("print", [ x ])) x.t
-    | "read", [] -> call TStr
-    | "lines", [] -> call (TArr TStr)
     | ("int" | "float" | "str" | "bool"), [ x ] ->
         conv x (match name with "int" -> TInt | "float" -> TFloat | "str" -> TStr | _ -> TBool)
     | "neg", [ x ] ->
@@ -266,19 +264,6 @@ and private builtin name (args: E list) : E =
         | TMap(k, v) -> call (TArr(if name = "keys" then k else v))
         | t -> err (sprintf "%s: not a map: %s" name (showTy t))
     | "arr", [ c ] -> call (TArr(elemOf c))
-    | "chars", [ s ] -> typed (Call("chars", [ conv s TStr ])) (TArr TStr)
-    | ("sort" | "rev"), [ a ] ->
-        match resolve a.t with
-        | TArr _ -> call a.t
-        | TStr when name = "rev" -> typed (Call("join", [ typed (Call("rev", [ typed (Call("chars", [ a ])) (TArr TStr) ])) (TArr TStr); typed (Str "") TStr ])) TStr
-        | t -> err (sprintf "%s: not an array: %s" name (showTy t))
-    | "split", [ s; sep ] -> typed (Call("split", [ conv s TStr; conv sep TStr ])) (TArr TStr)
-    | "join", [ a; sep ] ->
-        let a = if resolve a.t = TStr then typed (Call("chars", [ a ])) (TArr TStr) else a
-        elemOf a |> ignore
-        typed (Call("join", [ a; conv sep TStr ])) TStr
-    | "ord", [ s ] -> typed (Call("ord", [ conv s TStr ])) TInt
-    | "chr", [ i ] -> typed (Call("chr", [ conv i TInt ])) TStr
     | "push", [ a; x ] ->
         match resolve a.t with
         | TArr el -> typed (Call("push", [ a; own (conv x el) ])) a.t
@@ -286,40 +271,58 @@ and private builtin name (args: E list) : E =
     | "panic", [ msg ] -> call TInt
     | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map own xs)) (TTup(xs |> List.map (fun x -> x.t)))
     | "repeat", [ x; n ] -> typed (Call("repeat", [ own x; conv n TInt ])) (TArr x.t)
-    | ("min" | "max"), [ a; b ] ->
-        let t1, t2 = Desugar.fresh "a", Desugar.fresh "b"
-        let v n = mk (Var n)
-        typeE (mk (Seq([ Assign(t1, a); Assign(t2, b) ], mk (If(mk (Bin((if name = "min" then "<" else ">"), v t1, v t2)), v t1, v t2)))))
-    | ("min" | "max"), [ xs ] ->
-        let el, ix, acc = Desugar.fresh "_", Desugar.fresh "@", Desugar.fresh "$"
-        let v n = mk (Var n)
-        let pick = mk (If(mk (Bin((if name = "min" then "<" else ">"), v acc, v el)), v acc, v el))
-        typeE (mk (Iter { kind = "fold"; src = xs; el = el; ix = ix; acc = acc; body = [ Do pick ] }))
-    | "abs", [ x ] ->
-        let t = Desugar.fresh "a"
-        let v = mk (Var t)
-        typeE (mk (Seq([ Assign(t, x) ], mk (If(mk (Bin("<", v, mk (Int 0L))), mk (Call("neg", [ v ])), v)))))
-    | "pow", [ a; b ] -> typeBin "^^" a b
-    | "sqrt", [ x ] -> typed (Call("sqrt", [ conv x TFloat ])) TFloat
-    | ("floor" | "ceil" | "round"), [ x ] -> typed (Call(name, [ conv x TFloat ])) TInt
-    | ("lower" | "upper"), [ s ] -> typed (Call(name, [ conv s TStr ])) TStr
-    | "bsearch", [ xs; f ] ->
-        // first index whose element satisfies the block (false...true over the array); #xs if none
-        match resolve xs.t, resolve f.t with
-        | TArr _, TFn _ ->
-            let a, fn, lo, hi, mid = Desugar.fresh "xs", Desugar.fresh "f", Desugar.fresh "lo", Desugar.fresh "hi", Desugar.fresh "mid"
-            let v n = mk (Var n)
-            let set n e = mk (Seq([ Assign(n, e) ], mk (Int 0L)))
-            let step =
-                [ Assign(mid, mk (Bin("/", mk (Bin("+", v lo, v hi)), mk (Int 2L))))
-                  Do(mk (If(mk (Call(fn, [ mk (Index(v a, v mid)) ])), set hi (v mid), set lo (mk (Bin("+", v mid, mk (Int 1L))))))) ]
-            typeE (mk (Seq([ Assign(a, xs); Assign(fn, f); Assign(lo, mk (Int 0L)); Assign(hi, mk (Call("len", [ v a ])))
-                             While(mk (Bin("<", v lo, v hi)), step) ], v lo)))
-        | _ -> err "bsearch expects an array and a block: bsearch:xs,{cond}"
-    | "find", [ c; x ] ->
-        let x = match resolve c.t with TStr -> conv x TStr | _ -> conv x (elemOf c)
-        typed (Call("find", [ c; x ])) TInt
+    | _ when Stdlib.names.Contains name -> stdCall name args
     | _ -> err (sprintf "unknown function '%s' with %d argument(s)" name args.Length)
+
+/// A runtime stdlib call, typed from its `//@` signature (see Stdlib.fs). Type variables bind on first
+/// use; other arguments convert to the parameter type. The typed node carries one descriptor string per
+/// type variable before the arguments; a block argument becomes a `$block:<instance>` reference.
+and private stdCall name (args: E list) : E =
+    let rec toTy (env: Dictionary<string, Ty>) (p: Stdlib.STy) : Ty =
+        match p with
+        | Stdlib.SInt -> TInt
+        | Stdlib.SFloat -> TFloat
+        | Stdlib.SStr -> TStr
+        | Stdlib.SBool -> TBool
+        | Stdlib.SVar v -> (match env.TryGetValue v with | true, t -> t | _ -> (let h = newHole () in env.[v] <- h; h))
+        | Stdlib.SArr t -> TArr(toTy env t)
+        | Stdlib.STup ts -> TTup(List.map (toTy env) ts)
+        | Stdlib.SFn _ -> err "nested block types are not supported"
+    /// binds unbound variables from the actual type; true when no conversion is needed
+    let rec bind (env: Dictionary<string, Ty>) (p: Stdlib.STy) (t: Ty) : bool =
+        match p, resolve t with
+        | Stdlib.SVar v, t ->
+            match env.TryGetValue v with
+            | true, b -> resolve b = t
+            | _ -> (env.[v] <- t; true)
+        | Stdlib.SArr p, TArr t -> bind env p t
+        | Stdlib.STup ps, TTup ts -> ps.Length = ts.Length && List.forall2 (bind env) ps ts
+        | Stdlib.SFn _, TFn _ -> true
+        | Stdlib.SInt, TInt | Stdlib.SFloat, TFloat | Stdlib.SStr, TStr | Stdlib.SBool, TBool -> true
+        | _ -> false
+    let candidates = Stdlib.overloads name |> List.filter (fun (sg: Stdlib.Sig) -> sg.parms.Length = args.Length)
+    if candidates.IsEmpty then err (sprintf "%s: no overload takes %d argument(s)" name args.Length)
+    let exact (sg: Stdlib.Sig) = let env = Dictionary() in List.forall2 (bind env) sg.parms (args |> List.map (fun a -> a.t))
+    let sg = candidates |> List.tryFind exact |> Option.defaultValue candidates.Head
+    let env = Dictionary<string, Ty>()
+    let args =
+        List.map2 (fun (p: Stdlib.STy) (a: E) ->
+            match p, resolve a.t with
+            | Stdlib.SFn(pt, rt), TFn id ->
+                let call = userCall id [ typed (Int 0L) (toTy env pt) ]
+                match call.k, rt with
+                | Call(inst, _), Stdlib.SBool when unify call.t TBool -> typed (Call("$block:" + inst.Substring 1, [])) a.t
+                | Call(inst, _), Stdlib.SVar v ->
+                    env.[v] <- call.t
+                    typed (Call("$block:" + inst.Substring 1, [])) a.t
+                | _ -> err (sprintf "%s: the block must return %A" name rt)
+            | Stdlib.SFn _, _ -> err (sprintf "%s expects a block argument" name)
+            | p, _ ->
+                bind env p a.t |> ignore
+                own (conv a (toTy env p))) sg.parms args
+    // descriptors are rendered by codegen, once every hole is resolved
+    let descs = sg.tvars |> List.map (fun v -> typed (Call("$desc", [])) (toTy env (Stdlib.SVar v)))
+    typed (Call("$std:" + sg.csym, descs @ args)) (toTy env sg.ret)
 
 and private userCall id (args: E list) : E =
     let tys = args |> List.map (fun a -> resolve a.t)

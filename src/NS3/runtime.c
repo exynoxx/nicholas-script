@@ -5,6 +5,7 @@
 // pointer: {rc, full descriptor}. rc < 0 = immortal. Arguments are borrowed, returned
 // pointers are owned (+1). Containers retain what they store and release what they drop.
 #include <stdint.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -131,7 +132,8 @@ void *ns_range(int64_t a, int64_t b) {
   else for (int64_t i = a; i > b; i--) ns_arr_push(r, i);
   return r;
 }
-void *ns_rev(void *p) {
+//@ rev ([T]) [T]
+void *ns_rev(const char *dT, void *p) {
   Arr *a = p, *r = ns_arr_new(HD(p)->d, a->len);
   for (int64_t k = a->len - 1; k >= 0; k--) ns_arr_push(r, a->data[k]);
   return r;
@@ -323,11 +325,13 @@ char *ns_repeat(char *s, int64_t k) {
 }
 char *ns_str_at(char *s, int64_t i) { return str_n(s + idx(i, strlen(s)), 1); }
 char *ns_slice_s(char *s, int64_t i, int64_t j) { clamp(&i, &j, strlen(s)); return str_n(s + i, j - i); }
+//@ chars (str) [str]
 void *ns_chars(char *s) {
   Arr *r = ns_arr_new("AS", strlen(s));
   for (; *s; s++) apush(r, P(str_n(s, 1)));
   return r;
 }
+//@ split (str,str) [str]
 void *ns_split(char *s, char *sep) {
   size_t m = strlen(sep);
   if (!m) return ns_chars(s);
@@ -336,12 +340,17 @@ void *ns_split(char *s, char *sep) {
   apush(r, P(str_n(s, strlen(s))));
   return r;
 }
+//@ lower (str) str
 char *ns_lower(char *s) { char *r = str_n(s, strlen(s)); for (char *c = r; *c; c++) if (*c >= 'A' && *c <= 'Z') *c += 32; return r; }
+//@ upper (str) str
 char *ns_upper(char *s) { char *r = str_n(s, strlen(s)); for (char *c = r; *c; c++) if (*c >= 'a' && *c <= 'z') *c -= 32; return r; }
+//@ ord (str) int
 int64_t ns_ord(char *s) { return (unsigned char)s[0]; }
+//@ chr (int) str
 char *ns_chr(int64_t c) { char ch = (char)c; return str_n(&ch, 1); }
 int64_t ns_s2i(char *s) { return strtoll(s, NULL, 10); } // skips space, longest prefix, 0 if none
 double ns_s2f(char *s) { return strtod(s, NULL); }
+//@ read () str
 char *ns_read(void) {
   char *line = NULL; size_t cap = 0;
   ssize_t n = getline(&line, &cap, stdin);
@@ -352,6 +361,7 @@ char *ns_read(void) {
 }
 
 // All remaining stdin lines (without '\n').
+//@ lines () [str]
 void *ns_lines(void) {
   Arr *r = ns_arr_new("AS", 16);
   char *line = NULL; size_t cap = 0; ssize_t n;
@@ -421,6 +431,7 @@ static void tostr(Buf *b, const char *d, slot v) {
 }
 char *ns_tostr(const char *d, slot v) { Buf b = {0}; tostr(&b, d, v); return done(&b); }
 void ns_print(const char *d, slot v) { Buf b = {0}; tostr(&b, d, v); puts(b.p ? b.p : ""); free(b.p); }
+//@ join ([T],str) str
 char *ns_join(const char *elemd, void *arr, char *sep) {
   Arr *a = arr; Buf b = {0};
   for (int64_t i = 0; i < a->len; i++) { if (i) put(&b, sep); tostr(&b, elemd, a->data[i]); }
@@ -431,6 +442,7 @@ char *ns_join(const char *elemd, void *arr, char *sep) {
 static const char *sort_d; // qsort has no context argument
 static int sort_cmp(const void *a, const void *b) { return (int)ns_cmp(sort_d, *(const slot *)a, *(const slot *)b); }
 static Arr *sort_in(const char *elemd, Arr *r) { sort_d = elemd; qsort(r->data, r->len, sizeof(slot), sort_cmp); return r; }
+//@ sort ([T]) [T]
 void *ns_sort(const char *elemd, void *arr) { return sort_in(elemd, ns_arr_copy(arr)); }
 
 int64_t ns_len(const char *d, slot v) { return *d == 'S' ? (int64_t)strlen(S(v)) : *(int64_t *)S(v); }
@@ -506,6 +518,7 @@ void ns_del(const char *d, void *coll, slot x) {
   if (m->vd) rel(m->vd, m->vals[i]);
 }
 
+//@ pow (int,int) int = ns_ipow
 int64_t ns_ipow(int64_t base, int64_t e) {
   if (e < 0) return 0;
   uint64_t r = 1, b = (uint64_t)base; // unsigned: wraparound instead of UB
@@ -549,4 +562,51 @@ void ns_release(void *p) {
   case 'Q': for (Node *n = ((Queue *)p)->head, *nx; n; n = nx) { nx = n->next; rel(d + 1, n->v); free(n); } break;
   }
   free(HD(p));
+}
+
+// ---------- stdlib: math, search, folds, block callbacks ----------
+typedef slot (*ns_fn)(void *env, slot x); // a compiled NS block: borrowed argument, owned result
+
+//@ min (T,T) T = ns_min2
+slot ns_min2(const char *dT, slot a, slot b) { return ret(dT, ns_cmp(dT, a, b) <= 0 ? a : b); }
+//@ max (T,T) T = ns_max2
+slot ns_max2(const char *dT, slot a, slot b) { return ret(dT, ns_cmp(dT, a, b) >= 0 ? a : b); }
+static slot best(const char *dT, void *arr, int sign) {
+  Arr *a = arr;
+  if (!a->len) ns_panic("min/max of empty array");
+  slot b = a->data[0];
+  for (int64_t i = 1; i < a->len; i++) if (ns_cmp(dT, a->data[i], b) * sign > 0) b = a->data[i];
+  return ret(dT, b);
+}
+//@ min ([T]) T = ns_min_arr
+slot ns_min_arr(const char *dT, void *arr) { return best(dT, arr, -1); }
+//@ max ([T]) T = ns_max_arr
+slot ns_max_arr(const char *dT, void *arr) { return best(dT, arr, 1); }
+//@ abs (int) int = ns_abs_i
+int64_t ns_abs_i(int64_t x) { return x < 0 ? -x : x; }
+//@ abs (float) float = ns_abs_f
+double ns_abs_f(double x) { return fabs(x); }
+//@ pow (float,float) float = ns_pow_f
+double ns_pow_f(double a, double b) { return pow(a, b); }
+//@ sqrt (float) float
+double ns_sqrt(double x) { return sqrt(x); }
+//@ floor (float) int
+int64_t ns_floor(double x) { return (int64_t)floor(x); }
+//@ ceil (float) int
+int64_t ns_ceil(double x) { return (int64_t)ceil(x); }
+//@ round (float) int
+int64_t ns_round(double x) { return (int64_t)round(x); }
+//@ find ([T],T) int = ns_find_arr
+int64_t ns_find_arr(const char *dT, void *arr, slot x) { return ns_find(HD(arr)->d, P(arr), x); }
+//@ find (str,str) int = ns_find_str
+int64_t ns_find_str(char *s, char *x) { return ns_find("S", P(s), P(x)); }
+//@ rev (str) str = ns_rev_s
+char *ns_rev_s(char *s) { size_t n = strlen(s); char *r = str_n(s, n); for (size_t i = 0; i < n; i++) r[i] = s[n - 1 - i]; return r; }
+//@ join (str,str) str = ns_join_s
+char *ns_join_s(char *s, char *sep) { void *c = ns_chars(s); char *r = ns_join("S", c, sep); ns_release(c); return r; }
+//@ bsearch ([T], fn(T)->bool) int
+int64_t ns_bsearch(const char *dT, void *arr, ns_fn f, void *env) { // first index where f holds (f false...true)
+  Arr *a = arr; int64_t lo = 0, hi = a->len;
+  while (lo < hi) { int64_t m = lo + (hi - lo) / 2; if (f(env, a->data[m])) hi = m; else lo = m + 1; }
+  return lo;
 }
