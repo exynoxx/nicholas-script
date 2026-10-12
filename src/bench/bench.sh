@@ -2,7 +2,7 @@
 # Build each bench in NS3 and Rust, run the Python version too, check outputs match Rust,
 # print best-of-3 times as a GitHub markdown table. Python runs over 10 s are timed once (marked *).
 set -e
-NS3=${NS3:-/home/nicholas/Dokumenter/git/nicholas-script/src/NS3/bin/Debug/net9.0/ns.dll}
+NS3=${NS3:-$(cd "$(dirname "$0")/.." && pwd)/bin/Debug/net9.0/ns.dll}
 export LC_ALL=C; cd "$(dirname "$0")"; T=$(mktemp -d); TIMEFORMAT=%R
 best() { local b=999 t; for _ in 1 2 3; do t=$( { time "$@" >/dev/null; } 2>&1 ); b=$(echo "$t $b" | awk '{print ($1<$2)?$1:$2}'); done; echo $b; }
 ratio() { awk "BEGIN{printf \"%.${3:-1}fx\", $1/$2}"; }

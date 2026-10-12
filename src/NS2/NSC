@@ -1,6 +1,0 @@
-#!/usr/bin/env sh
-
-STDLIB="./StdLib/stdlib.o"
-
-./NS2.exe "$1" | clang -x ir - -c -o program.o && clang program.o "$STDLIB" -lm -o a.out && \
-echo "✅ Build complete: ./a.out"
