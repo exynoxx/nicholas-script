@@ -75,9 +75,10 @@ int:"42"      float:x     str:3.5     bool:n
 | 3 power   | `^^` | right |
 | 4 mul     | `* / %` | left |
 | 5 add     | `+ - ++` | left |
+| 5.5 shift | `<< >>` (ints; `>>` is arithmetic) | left |
 | 7 compare | `= ~= < > <= >=` | none |
 | 7.5 not   | `~x` (binds looser than compare, like Python `not`: `~_%2` = `~(_%2)`) | right |
-| 8 logic   | `&` then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
+| 8 logic   | `&` then `^` (xor) then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
 | 9 ternary | `c ? a : b` | right |
 | 10 call   | `f:a,b` (args extend to end of statement / closing bracket). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary | right |
 | 11 assign | `x = e`, `a,b = b,a` | right |

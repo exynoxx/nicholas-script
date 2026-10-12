@@ -7,13 +7,13 @@ open System.Collections.Generic
 open Ast
 
 let private symbols =
-    [ "^^="; "++="; "^^"; "++"; "~="; "<="; ">="; ".."; "->"; "+="; "-="; "*="; "/="; "%="; "&="; "|="
-      "+"; "-"; "*"; "/"; "%"; "="; "<"; ">"; "&"; "|"; "?"; ":"; ","; "."; "("; ")"; "["; "]"; "{"; "}"; "#"; "~" ]
+    [ "^^="; "++="; "<<="; ">>="; "^^"; "++"; "<<"; ">>"; "^="; "~="; "<="; ">="; ".."; "->"; "+="; "-="; "*="; "/="; "%="; "&="; "|="
+      "+"; "-"; "*"; "/"; "%"; "="; "<"; ">"; "&"; "|"; "^"; "?"; ":"; ","; "."; "("; ")"; "["; "]"; "{"; "}"; "#"; "~" ]
 
 /// A block starting with one of these gets an implicit `_` on its left (operator section).
-let private sectionOps = set [ "+"; "*"; "/"; "%"; "^^"; "++"; "="; "~="; "<"; ">"; "<="; ">="; "&"; "|" ]
+let private sectionOps = set [ "+"; "*"; "/"; "%"; "^^"; "++"; "^"; "<<"; ">>"; "="; "~="; "<"; ">"; "<="; ">="; "&"; "|" ]
 let private openers = set [ "{"; "m{"; "f["; "/{"; "\\{" ]
-let private foldOps = [ "+"; "*"; ">"; "<"; "&"; "|"; "-" ]
+let private foldOps = [ "+"; "*"; ">"; "<"; "&"; "|"; "^"; "-" ]
 
 let lex (src: string) (startLine: int) : Token list =
     let toks = ResizeArray<Token>()

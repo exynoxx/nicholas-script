@@ -8,7 +8,7 @@ let builtins =
     set [ "print"; "read"; "lines"; "int"; "float"; "str"; "bool"; "sort"; "rev"; "split"; "join"; "ord"; "chr"
           "pop"; "keys"; "vals"; "arr"; "set"; "Q"; "PQ" ]
 let private zeroArity = set [ "read"; "lines" ]
-let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|=" ]
+let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>=" ]
 
 type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref) =
     let mutable pos = 0
@@ -89,8 +89,13 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref) =
         else c
 
     member p.Or() =
+        let mutable e = p.Xor()
+        while accept "|" do e <- EBin("|", e, p.Xor())
+        e
+
+    member p.Xor() =
         let mutable e = p.And()
-        while accept "|" do e <- EBin("|", e, p.And())
+        while accept "^" do e <- EBin("^", e, p.And())
         e
 
     member p.And() =
@@ -101,10 +106,19 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref) =
     member p.Not() = if accept "~" then EUn("~", p.Not()) else p.Compare()
 
     member p.Compare() =
-        let l = p.Add()
+        let l = p.Shift()
         match peek () with
-        | SYM ("=" | "~=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, l, p.Add()))
+        | SYM ("=" | "~=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, l, p.Shift()))
         | _ -> l
+
+    member p.Shift() =
+        let mutable e = p.Add()
+        let mutable go = true
+        while go do
+            match peek () with
+            | SYM ("<<" | ">>" as op) -> (advance (); e <- EBin(op, e, p.Add()))
+            | _ -> go <- false
+        e
 
     member p.Add() =
         let mutable e = p.Mul()

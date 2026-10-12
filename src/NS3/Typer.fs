@@ -165,6 +165,7 @@ and typeE (e: E) : E =
 and private typeBin op (a: E) (b: E) : E =
     let isArith = List.contains op [ "+"; "-"; "*"; "/"; "%"; "^^" ]
     let isCmp = List.contains op [ "="; "~="; "<"; ">"; "<="; ">=" ]
+    let isBit = List.contains op [ "^"; "<<"; ">>" ]
     match resolve a.t with
     | THole _ when op = "++" ->
         unify a.t (match resolve b.t with TArr _ -> b.t | t -> TArr t) |> ignore
@@ -181,6 +182,8 @@ and private typeBin op (a: E) (b: E) : E =
     | ("&" | "|" | "+" | "-"), TSet _ when (match resolve b.t with TSet _ -> true | _ -> false) ->
         typeE (Lower.setOp op a (conv b L))
     | ("&" | "|"), TInt -> same ()
+    | _, TInt when isBit -> same ()
+    | "^", TBool -> same ()
     | "&", _ -> typed (If(conv a TBool, conv b TBool, typed (Bool false) TBool)) TBool
     | "|", _ -> typed (If(conv a TBool, typed (Bool true) TBool, conv b TBool)) TBool
     | "++", TArr el ->
@@ -191,7 +194,7 @@ and private typeBin op (a: E) (b: E) : E =
     | "-", TSet el -> typed (Call("del", [ a; conv b el ])) L
     | "+", TMap _ -> typed (Call("merge", [ a; conv b L ])) L
     | "-", TMap(k, _) -> typed (Call("del", [ a; conv b k ])) L
-    | _, TArr _ when isArith ->
+    | _, TArr _ when isArith || isBit ->
         let bIsArr = match resolve b.t with TArr _ -> true | _ -> false
         typeE (Lower.broadcast op a b bIsArr)
     | _, (TInt | TFloat) when isArith ->
