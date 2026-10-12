@@ -1,0 +1,5 @@
+# first line is a header, the rest are numbers to sum
+h = read
+x = lines{int:_}
+print:"{h}: {#x} numbers, sum {x/+}"
+print:lines

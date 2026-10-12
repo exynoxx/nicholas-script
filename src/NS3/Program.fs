@@ -39,14 +39,36 @@ let private run (exe: string) (args: string) (stdin: string option) =
     p.WaitForExit()
     p.ExitCode, out.Result, err.Result
 
+let private runtimeIR =
+    lazy
+        (let code, ir, err = run "clang" (sprintf "-S -emit-llvm -O2 -w \"%s\" -o -" runtimeC) None
+         if code <> 0 then failwithf "clang failed on runtime.c:\n%s" err
+         ir)
+
+/// Self-contained module: our IR plus runtime.c compiled to IR, minus our declares of what the runtime provides.
+let private pureLL (ll: string) : string =
+    let rtIR = runtimeIR.Force()
+    let nameOf (line: string) = let a = line.IndexOf '@' in line.Substring(a + 1, line.IndexOf('(', a) - a - 1)
+    let provided =
+        rtIR.Split('\n')
+        |> Array.filter (fun l -> l.StartsWith "define " || l.StartsWith "declare ")
+        |> Array.map nameOf
+        |> set
+    let ours = ll.Split('\n') |> Array.filter (fun l -> not (l.StartsWith "declare " && provided.Contains(nameOf l)))
+    let isHeader (l: string) = l.StartsWith "source_filename" || l.StartsWith "target " || l.StartsWith "; ModuleID"
+    let rtLines = rtIR.Split('\n')
+    String.concat "\n" (Array.filter isHeader rtLines) + "\n\n; ---- NS3 program ----\n" + String.concat "\n" ours
+    + "\n; ---- NS3 runtime ----\n" + String.concat "\n" (Array.filter (isHeader >> not) rtLines)
+
 /// Compiles a source file to a native binary at `exe`; returns an error message on failure.
 let private build (path: string) (exe: string) : string option =
     try
         let ll = Path.ChangeExtension(exe, ".ll")
-        File.WriteAllText(ll, pipeline "ll" (File.ReadAllText path))
+        // whole-program module so LLVM can inline the runtime (array access, refcounts, ...)
+        File.WriteAllText(ll, pureLL (pipeline "ll" (File.ReadAllText path)))
         // NS3_ASAN=1 builds with Address/LeakSanitizer to verify reference counting
         let asan = if Environment.GetEnvironmentVariable "NS3_ASAN" = "1" then "-g -fsanitize=address" else ""
-        let code, _, err = run "clang" (sprintf "-O2 -w %s \"%s\" \"%s\" -lm -o \"%s\"" asan ll runtimeC exe) None
+        let code, _, err = run "clang" (sprintf "-O2 -w %s \"%s\" -lm -o \"%s\"" asan ll exe) None
         if code = 0 then None else Some("clang failed:\n" + err)
     with
     | CompileError(line, msg) -> Some(sprintf "%s:%d: error: %s" path line msg)
@@ -80,13 +102,48 @@ let private test (dir: string) =
     printfn "%d/%d passed" (files.Length - failed) files.Length
     if failed = 0 then 0 else 1
 
+let private help = """ns3 - compiler for the NS3 golf language (source -> LLVM IR -> native binary)
+
+usage: ns3 <command> [options] <file.ns3>
+
+commands:
+  run <file>                 compile and run
+  build <file> [-o <out>]    compile to a native binary (default: <file> without extension)
+  ll <file> [--pure]         print LLVM IR; with --pure the runtime is included, giving a
+                             self-contained module:  ns3 ll --pure f.ns3 > f.ll && clang f.ll -lm
+  tokens <file>              dump stage 1: tokens
+  ast <file>                 dump stage 2: surface AST
+  core <file>                dump stage 3: desugared core
+  typed <file>               dump stage 4: typed core (functions, captures, conversions)
+  test [dir]                 run golden tests: dir/*.ns3 vs *.out (stdin from *.in); default ./tests
+  help                       show this page
+
+environment:
+  NS3_ASAN=1                 build with Address/LeakSanitizer (checks reference counting)
+"""
+
 [<EntryPoint>]
 let main argv =
-    match List.ofArray argv with
+    let args = List.ofArray argv
+    let flag f = List.contains f args
+    let option o = args |> List.pairwise |> List.tryPick (fun (a, b) -> if a = o then Some b else None)
+    let positional =
+        let rec go = function
+            | "-o" :: _ :: rest -> go rest
+            | a :: rest when a.StartsWith "-" -> go rest
+            | a :: rest -> a :: go rest
+            | [] -> []
+        go args
+    let report (path: string) (f: unit -> int) =
+        try f () with
+        | CompileError(line, msg) -> (eprintfn "%s:%d: error: %s" path line msg; 1)
+        | ex -> (eprintfn "%s: error: %s" path ex.Message; 1)
+    match positional with
     | [ "test" ] -> test "tests"
     | [ "test"; dir ] -> test dir
     | [ "build"; path ] ->
-        match build path (Path.ChangeExtension(Path.GetFullPath path, null)) with
+        let out = option "-o" |> Option.defaultValue (Path.ChangeExtension(Path.GetFullPath path, null))
+        match build path (Path.GetFullPath out) with
         | None -> 0
         | Some err -> (eprintfn "%s" err; 1)
     | [ "run"; path ] ->
@@ -97,13 +154,16 @@ let main argv =
             use p = Process.Start(ProcessStartInfo(exe, UseShellExecute = false))
             p.WaitForExit()
             p.ExitCode
-    | [ ("tokens" | "ast" | "core" | "typed" | "ll") as stage; path ] ->
-        try
-            printfn "%s" (pipeline stage (File.ReadAllText path))
-            0
-        with CompileError(line, msg) ->
-            eprintfn "%s:%d: error: %s" path line msg
-            1
+    | [ "ll"; path ] ->
+        report path (fun () ->
+            let ll = pipeline "ll" (File.ReadAllText path)
+            printf "%s" (if flag "--pure" then pureLL ll else ll)
+            0)
+    | [ ("tokens" | "ast" | "core" | "typed") as stage; path ] ->
+        report path (fun () -> (printfn "%s" (pipeline stage (File.ReadAllText path)); 0))
+    | [ "help" ] | [] when flag "-h" || flag "--help" || args.IsEmpty || positional = [ "help" ] ->
+        printf "%s" help
+        0
     | _ ->
-        eprintfn "usage: ns3 <tokens|ast|core|typed|ll|build|run> file.ns3 | ns3 test [dir]"
+        eprintf "%s" help
         2

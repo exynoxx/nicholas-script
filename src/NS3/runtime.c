@@ -307,6 +307,18 @@ char *ns_read(void) {
   return r;
 }
 
+// All remaining stdin lines (without '\n').
+void *ns_lines(void) {
+  Arr *r = ns_arr_new("AS", 16);
+  char *line = NULL; size_t cap = 0; ssize_t n;
+  while ((n = getline(&line, &cap, stdin)) > 0) {
+    if (line[n - 1] == '\n') n--;
+    apush(r, P(str_n(line, n)));
+  }
+  free(line);
+  return r;
+}
+
 // ---------- tostr / print / join ----------
 typedef struct { char *p; size_t n, cap; } Buf;
 static void put(Buf *b, const char *s) {

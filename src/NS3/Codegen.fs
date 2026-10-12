@@ -28,6 +28,17 @@ let llty t =
 
 let private isFn t = match resolve t with TFn _ -> true | _ -> false
 
+/// True when evaluating `e` cannot reassign a variable (no statements, no user calls).
+let rec private noAssign (e: E) =
+    match e.k with
+    | Seq _ | Iter _ -> false
+    | Call(f, _) when f.StartsWith "@" -> false
+    | Call(_, xs) | Arr xs -> List.forall noAssign xs
+    | Bin(_, a, b) | Index(a, b) -> noAssign a && noAssign b
+    | If(a, b, c) -> noAssign a && noAssign b && noAssign c
+    | Conv x -> noAssign x
+    | _ -> true
+
 type private Ctx =
     { body: StringBuilder
       allocas: StringBuilder
@@ -138,20 +149,39 @@ let generate (prog: Program) : string =
             if res = "" then "0" else instr "load %s, ptr %s" (llty e.t) res
         | Call(f, args) -> call e f args
         | Index(x, i) ->
-            let xv, iv = ex x, ex i
+            let [ (xv, xo); (iv, io) ] = exArgs 0 [ x; i ]
             let r =
                 match resolve x.t with
                 | TStr -> rt "ptr" "ns_str_at" [ "ptr", xv; "i64", iv ]
                 | TMap(k, _) -> fromSlot (rt "i64" "ns_map_get" [ "ptr", xv; "i64", toSlot iv k ]) e.t
                 | _ -> fromSlot (rt "i64" "ns_arr_get" [ "ptr", xv; "i64", iv ]) e.t
-            release xv x.t
-            release iv i.t
+            drop (xv, xo) x.t
+            drop (iv, io) i.t
             r
-        | Conv x -> convert (ex x) x.t e.t
+        | Conv x ->
+            let v, owned = exB x
+            if resolve x.t = resolve e.t then (if owned then v else (retain v x.t; v))
+            else
+                let r = convert1 v x.t e.t
+                drop (v, owned) x.t
+                r
         | Seq(ss, x) ->
             stmts ss
             ex x
         | Iter _ -> failwith "Iter must be lowered by the typer"
+
+    /// Evaluates for a borrowing use: a plain variable read skips retain; returns (value, owned).
+    and exB (e: E) : string * bool =
+        match e.k with
+        | Var u when isPtr e.t && not (isFn e.t) -> instr "load ptr, ptr %s" (ptrOf u), false
+        | _ -> ex e, true
+
+    /// Operands left to right; one is borrowed only if nothing evaluated after it can reassign variables.
+    and exArgs (owned: int) (es: E list) =
+        es |> List.mapi (fun i e ->
+            if i >= owned && List.forall noAssign (List.skip (i + 1) es) then exB e else ex e, true)
+
+    and drop (v: string, owned) t = if owned then release v t
 
     and convert (v: string) (src: Ty) (dst: Ty) =
         if resolve src = resolve dst then v
@@ -175,10 +205,10 @@ let generate (prog: Program) : string =
         | s, t -> failwithf "codegen: no conversion %s -> %s" (showTy s) (showTy t)
 
     and binop op (a: E) (b: E) =
-        let av, bv = ex a, ex b
+        let [ (av, ao); (bv, bo) ] = exArgs 0 [ a; b ]
         let r = binop1 op a b av bv
-        release av a.t
-        release bv b.t
+        drop (av, ao) a.t
+        drop (bv, bo) b.t
         r
 
     and binop1 op (a: E) (b: E) av bv =
@@ -218,15 +248,15 @@ let generate (prog: Program) : string =
                 release vv v.t
             m
         | _ ->
-        let vs = args |> List.map ex
-        let r = call1 e f args vs
         // pass-through results own their first argument; user functions own all their arguments
         let kept =
             match f with
             | "print" | "push" | "add" | "del" | "merge" -> 1
             | _ when f.StartsWith "@" -> args.Length
             | _ -> 0
-        List.zip vs args |> List.skip kept |> List.iter (fun (v, a) -> release v a.t)
+        let evs = exArgs kept args
+        let r = call1 e f args (List.map fst evs)
+        List.zip evs args |> List.skip kept |> List.iter (fun (v, a) -> drop v a.t)
         r
 
     and call1 (e: E) (f: string) (args: E list) (vs: string list) =
@@ -237,6 +267,7 @@ let generate (prog: Program) : string =
         match f, args with
         | "print", [ x ] -> (rt "void" "ns_print" [ d x.t; slot 0 ] |> ignore; arg 0)
         | "read", [] -> rt "ptr" "ns_read" []
+        | "lines", [] -> rt "ptr" "ns_lines" []
         | "neg", [ x ] -> if resolve x.t = TFloat then instr "fneg double %s" (arg 0) else instr "sub i64 0, %s" (arg 0)
         | "not", _ -> instr "xor i1 %s, true" (arg 0)
         | "len", [ x ] -> rt "i64" "ns_len" [ d x.t; slot 0 ]
@@ -257,6 +288,7 @@ let generate (prog: Program) : string =
         | "chars", _ -> rt "ptr" "ns_chars" [ "ptr", arg 0 ]
         | "sort", [ a ] -> rt "ptr" "ns_sort" [ elemDesc a.t; "ptr", arg 0 ]
         | "rev", _ -> rt "ptr" "ns_rev" [ "ptr", arg 0 ]
+        | "panic", _ -> (rt "void" "ns_panic" [ "ptr", arg 0 ] |> ignore; "0")
         | "split", _ -> rt "ptr" "ns_split" [ "ptr", arg 0; "ptr", arg 1 ]
         | "join", [ a; _ ] -> rt "ptr" "ns_join" [ elemDesc a.t; "ptr", arg 0; "ptr", arg 1 ]
         | "ord", _ -> rt "i64" "ns_ord" [ "ptr", arg 0 ]
@@ -292,13 +324,13 @@ let generate (prog: Program) : string =
             emit (sprintf "store %s %s, ptr %s" (llty e.t) v p)
             release old e.t
         | SetIdx(x, i, v) ->
-            let xv, iv, vv = ex x, ex i, ex v
+            let [ (xv, xo); (iv, io); (vv, vo) ] = exArgs 0 [ x; i; v ]
             match resolve x.t with
             | TMap(k, _) -> rt "void" "ns_map_set" [ "ptr", xv; "i64", toSlot iv k; "i64", toSlot vv v.t ] |> ignore
             | _ -> rt "void" "ns_arr_set" [ "ptr", xv; "i64", iv; "i64", toSlot vv v.t ] |> ignore
-            release xv x.t
-            release iv i.t
-            release vv v.t
+            drop (xv, xo) x.t
+            drop (iv, io) i.t
+            drop (vv, vo) v.t
         | While(cond, body) ->
             let lc, lb, lend = label (), label (), label ()
             emit (sprintf "br label %%%s" lc)

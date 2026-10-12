@@ -5,9 +5,9 @@ open System.Collections.Generic
 open Ast
 
 let builtins =
-    set [ "print"; "read"; "int"; "float"; "str"; "bool"; "sort"; "rev"; "split"; "join"; "ord"; "chr"
+    set [ "print"; "read"; "lines"; "int"; "float"; "str"; "bool"; "sort"; "rev"; "split"; "join"; "ord"; "chr"
           "pop"; "keys"; "vals"; "arr"; "set"; "Q"; "PQ" ]
-let private zeroArity = set [ "read" ]
+let private zeroArity = set [ "read"; "lines" ]
 let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|=" ]
 
 type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref) =

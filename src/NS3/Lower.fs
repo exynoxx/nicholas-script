@@ -26,11 +26,23 @@ let iter (it: Iter) (srcTy: Ty) : E =
         | TStr -> call "chars" [ v s ]
         | TMap _ when folding -> call "vals" [ v s ]
         | _ -> call "arr" [ v s ]
-    let pre = [ Assign(s, it.src); Assign(t, snapshot); Assign(n, call "len" [ v t ]) ]
+    // a range source is iterated as a counter (lo, lo+step, ...) instead of a materialised array
+    let range = match it.src.k with Call("range", [ a; b ]) -> Some(a, b) | _ -> None
+    let elemAt (i: E) = match range with Some _ -> bin "+" (v s) (bin "*" i (v t)) | None -> mk (Index(v t, i))
+    let pre =
+        match range with
+        | Some(a, b) ->
+            let hi = Desugar.fresh "hi"
+            [ Assign(s, a); Assign(hi, b)
+              Assign(t, mk (If(bin "<=" (v s) (v hi), i64 1L, i64 -1L)))
+              Assign(n, bin "*" (bin "-" (v hi) (v s)) (v t)) ]
+        | None -> [ Assign(s, it.src); Assign(t, snapshot); Assign(n, call "len" [ v t ]) ]
+    let seed = // folding an empty collection is an error
+        Do(mk (If(bin "<" (v n) (i64 1L), call "panic" [ mk (Str "fold of empty collection") ], i64 0L)))
     let load =
         if isMap && not folding then
             [ Assign(key, mk (Index(v t, v c))); Assign(it.ix, v key); Assign(it.el, mk (Index(v s, v key))) ]
-        else [ Assign(it.el, mk (Index(v t, v c))); Assign(it.ix, v c) ]
+        else [ Assign(it.el, elemAt (v c)); Assign(it.ix, v c) ]
     let next = Assign(c, bin "+" (v c) (i64 1L))
     let ss, value = splitBody it.body
     let bodyE = seq ss value
@@ -53,9 +65,9 @@ let iter (it: Iter) (srcTy: Ty) : E =
         let keep = mk (If(bodyE, seq [ add (v it.el) ] (i64 0L), i64 0L))
         let result = if srcTy = TStr then call "join" [ v r; mk (Str "") ] else v r
         seq (pre @ [ Assign(r, sameKind ()) ] @ loop 0L [ Do keep ]) result
-    | "fold" -> seq (pre @ [ Assign(it.acc, mk (Index(v t, i64 0L))) ] @ loop 1L [ Assign(it.acc, bodyE) ]) (v it.acc)
+    | "fold" -> seq (pre @ [ seed; Assign(it.acc, elemAt (i64 0L)) ] @ loop 1L [ Assign(it.acc, bodyE) ]) (v it.acc)
     | "scan" ->
-        let init = [ Assign(r, mk (Arr [])); Assign(it.acc, mk (Index(v t, i64 0L))); Do(call "push" [ v r; v it.acc ]) ]
+        let init = [ seed; Assign(it.acc, elemAt (i64 0L)); Assign(r, mk (Arr [])); Do(call "push" [ v r; v it.acc ]) ]
         seq (pre @ init @ loop 1L [ Assign(it.acc, bodyE); Do(call "push" [ v r; v it.acc ]) ]) (v r)
     | _ -> seq (pre @ loop 0L [ Do bodyE ]) (i64 0L) // "each"
 

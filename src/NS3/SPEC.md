@@ -204,7 +204,7 @@ expr                       # expression statement
 ```
 
 ## 7. Built-ins (v1)
-`print`, `read` (line from stdin, string; zero-arg built-ins are called by bare name), `ord`, `chr`, `int`, `float`, `str`, `bool`, `sort`, `rev`, `split`, `join`.
+`print`, `read` (line from stdin, string; `""` at EOF), `lines` (all remaining stdin lines as `[string]`; zero-arg built-ins are called by bare name), `ord`, `chr`, `int`, `float`, `str`, `bool`, `sort`, `rev`, `split`, `join`.
 
 ## 8. Examples
 ```

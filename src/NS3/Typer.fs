@@ -214,6 +214,7 @@ and private builtin name (args: E list) : E =
     match name, args with
     | "print", [ x ] -> typed (Call("print", [ x ])) x.t
     | "read", [] -> call TStr
+    | "lines", [] -> call (TArr TStr)
     | ("int" | "float" | "str" | "bool"), [ x ] ->
         conv x (match name with "int" -> TInt | "float" -> TFloat | "str" -> TStr | _ -> TBool)
     | "neg", [ x ] ->
@@ -261,6 +262,7 @@ and private builtin name (args: E list) : E =
         match resolve a.t with
         | TArr el -> typed (Call("push", [ a; own (conv x el) ])) a.t
         | t -> err (sprintf "push: not an array: %s" (showTy t))
+    | "panic", [ msg ] -> call TInt
     | _ -> err (sprintf "unknown function '%s' with %d argument(s)" name args.Length)
 
 and private userCall id (args: E list) : E =
