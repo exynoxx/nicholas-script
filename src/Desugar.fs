@@ -47,6 +47,10 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
                 | op -> Bin(op, acc, el)
             [ Do(mk body) ])
     | EBlock(id, body) -> mk (Fn(id, block (Map [ "_", "_1" ]) body))
+    | EGroup body ->
+        match List.rev (block env body) with
+        | Do last :: rest -> mk (Seq(List.rev rest, last))
+        | _ -> fail 0 "empty group"
 
 and private iter env kind src (mkBody: Map<string, string> -> S list) =
     let el, ix, acc = fresh "_", fresh "@", fresh "$"

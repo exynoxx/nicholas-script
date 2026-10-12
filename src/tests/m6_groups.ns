@@ -1,0 +1,22 @@
+n = 5
+print:0..n-1
+print:1..n+1/+
+print:2..2*n[>7]
+xs = [1,2,3,4]
+print:xs@1..#xs-1
+x = 3
+x>2 ? print:"big"
+x>5 ? print:"huge"
+a = 0; b = 0
+x>2 ? (a = 1; b = 2) : (a = 9)
+print:"{a} {b}"
+m = [->]
+f = {m@?_ ? m@_ : (m@_ = _*2; m@_)}
+print:f:21
+print:f:21
+g = [[1,2],[3],[3],[]]
+d = [-1]*4; d@0 = 0; q = Q[0]
+q ~{ u = q.pop; g@u{d@_<0 ? (d@_ = d@u+1; q += _)} }
+print:d
+print:(1,2)
+print:(x=3)

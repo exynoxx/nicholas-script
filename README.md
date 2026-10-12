@@ -160,8 +160,9 @@ xs@0 = 9                  # set an element
 print:xs++[2,6]           # => [9,1,4,1,5,2,6]   (concatenate)
 print:xs++7               # => [9,1,4,1,5,7]     (append)
 
-# Ranges exclude the end.
+# Ranges exclude the end. The end may be arithmetic.
 print:1..5                # => [1,2,3,4]
+print:0..5-1              # => [0,1,2,3]
 print:[0]*4               # => [0,0,0,0]
 
 # Arithmetic broadcasts over arrays.
@@ -212,7 +213,13 @@ print:#"hello"            # => 5
 # The ternary is the if/else.
 n = 15
 print:n%2 ? "odd" : "even"                        # => odd
+n>10 ? print:"big"                                # => big   (no else: runs only when true)
 print:!n%15?"FizzBuzz":!n%5?"Buzz":!n%3?"Fizz":n  # => FizzBuzz
+
+# Parentheses with ";" inside group statements; the value is the last one.
+a = 0; b = 0
+n>10 ? (a = 1; b = 2) : 0
+print:"{a} {b}"           # => 1 2
 
 # "cond ~{ body }" is a while loop. cond is re-checked before every pass.
 n = 27; c = 0

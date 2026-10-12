@@ -107,8 +107,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         let c = p.Or()
         if accept "?" then
             let a = p.Expr()
-            expect ":"
-            ETern(c, a, p.Expr())
+            // `c ? a` without `:` runs a only when c holds; its value is 0
+            if accept ":" then ETern(c, a, p.Expr()) else ETern(c, EGroup [ SExpr a; SExpr(EInt 0L) ], EInt 0L)
         else c
 
     member p.Or() =
@@ -202,7 +202,25 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
 
     member p.Primary() =
         let e = p.Base()
-        if accept ".." then ERange(e, p.Atom()) else e
+        if accept ".." then ERange(e, p.RangeEnd()) else e
+
+    /// `a..n-1` ends at n-1: the end is + - * / % over atoms, so postfix forms (`{}` `[]` `/+`) still apply to the range.
+    member p.RangeEnd() =
+        let term () =
+            let mutable e = p.Atom()
+            let mutable go = true
+            while go do
+                match peek () with
+                | SYM("*" | "/" | "%" as op) -> (advance (); e <- EBin(op, e, p.Atom()))
+                | _ -> go <- false
+            e
+        let mutable e = term ()
+        let mutable go = true
+        while go do
+            match peek () with
+            | SYM("+" | "-" as op) -> (advance (); e <- EBin(op, e, term ()))
+            | _ -> go <- false
+        e
 
     /// Range operands: a literal, a name or a parenthesised expression, optionally with prefix - or #.
     member p.Atom() =
@@ -233,6 +251,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         | ID name when isFunc name && isSym ":" -> (advance (); ECall(name, p.ExprList()))
         | ID name when zeroArity.Contains name -> ECall(name, [])
         | ID name -> EVar name
+        | SYM "(" when p.GroupAhead() -> EGroup(p.Block ")")
         | SYM "(" ->
             let e = p.Expr()
             if accept "," then
@@ -271,6 +290,20 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             let id = nextId.Value
             EBlock(id, p.SectionBlock "}")
         | t -> fail ln ($"unexpected {showTok (t)}")
+
+    /// After `(`: a `;` at this paren's top level makes it a statement group `(s1; s2; value)`.
+    member p.GroupAhead() =
+        let mutable j = pos
+        let mutable depth = 0
+        let mutable found = false
+        while depth >= 0 && not found && tokens.[j].tok <> EOF do
+            match tokens.[j].tok with
+            | SYM s when s.EndsWith "(" || s.EndsWith "[" || s.EndsWith "{" -> depth <- depth + 1
+            | SYM(")" | "]" | "}") -> depth <- depth - 1
+            | TERM when depth = 0 -> found <- true
+            | _ -> ()
+            j <- j + 1
+        found
 
     member p.InterpExpr() =
         let e = p.Expr()

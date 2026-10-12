@@ -69,7 +69,7 @@ int:"42"      float:x     str:3.5     bool:n
 
 | Level | Ops | Assoc |
 |-------|-----|-------|
-| 0 primary | `a..b` range (operands are atoms, optionally with prefix `-`/`#`; use parens otherwise) | none |
+| 0 primary | `a..b` range (start is an atom; end is `+ - * / %` over atoms, so `0..n-1` ends at n-1; postfix `{}` `[]` `/+` still apply to the range) | none |
 | 1 postfix | `x{…}` map, `x[…]` filter, `x/{…}` `x/op` fold, `x\{…}` `x\op` scan, `x@i` index, `.name` method call | left |
 | 2 prefix  | `-x` `#x` (length) | right |
 | 3 power   | `^^` | right |
@@ -79,7 +79,7 @@ int:"42"      float:x     str:3.5     bool:n
 | 7 compare | `= != < > <= >=` | none |
 | 7.5 not   | `!x` (binds looser than compare, like Python `not`: `!_%2` = `!(_%2)`) | right |
 | 8 logic   | `&` then `^` (xor) then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
-| 9 ternary | `c ? a : b` | right |
+| 9 ternary | `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (value 0) | right |
 | 10 call   | `f:a,b` (args extend to end of statement / closing bracket). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary | right |
 | 11 assign | `x = e`, `a,b = b,a` | right |
 
@@ -194,6 +194,8 @@ A function's parameter types are inferred per call site (monomorphised at compil
 ## 5. Control flow
 ```
 c ? a : b                  # ternary
+c ? a                      # if without else
+c ? (x = 1; y = 2) : 0     # statement group: `;` inside parens, value = last statement
 1..10{print:_}             # for-each = map
 cond ~{ body }             # while statement: whole `cond` expression re-evaluated each pass
 ```
@@ -248,7 +250,7 @@ lvalue    = IDENT { "@" prefix } ;
 exprlist  = expr { "," expr } ;
 expr      = call ;
 call      = FUNC ":" exprlist | ternary ;   (* FUNC = IDENT bound to block/built-in *)
-ternary   = logic [ "?" expr ":" expr ] ;
+ternary   = logic [ "?" expr [ ":" expr ] ] ;
 logic     = not { ("&" | "|") not } ;
 not       = "!" not | compare ;
 compare   = add [ CMPOP add ] ;
@@ -261,8 +263,9 @@ postfix   = primary { "{" block "}" | "[" block "]"
                     | "\" ( "{" block "}" | BINOP )
                     | "@" prefix
                     | "." IDENT } ;
-primary   = atom [ ".." atom ] ;
-atom      = [ "-" | "#" ] ( INT | IDENT | "(" expr ")" ) | base ;
+primary   = atom [ ".." rangeend ] ;
+rangeend  = rterm { ("+" | "-") rterm } ;  rterm = atom { ("*" | "/" | "%") atom } ;
+atom      = [ "-" | "#" ] ( INT | IDENT | "(" expr ")" | "(" stmts ")" ) | base ;   (* "(" stmts ")" needs a top-level ";" *)
 base      = INT | FLOAT | STRING | BOOL | IDENT | "_" | "_" INT | "$" | "@"
           | "[" [ exprlist ] "]" | "[" pairs "]" | "[->]"
           | ("%" | "Q" | "PQ") "[" [ exprlist ] "]"

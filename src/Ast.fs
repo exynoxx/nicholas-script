@@ -43,6 +43,7 @@ type Expr =
     | EIter of string * Expr * Stmt list // "map" | "filter" | "fold" | "scan"
     | EIterOp of string * Expr * string  // "fold" | "scan", operator
     | EBlock of int * Stmt list
+    | EGroup of Stmt list               // (s1; s2; value)
 
 and Stmt =
     | SAssign of Expr list * Expr list
@@ -91,6 +92,7 @@ let rec showExpr (e: Expr) : string =
     | EIter(k, src, body) -> $"EIter({k}, {showExpr src}, {showStmts body})"
     | EIterOp(k, src, op) -> $"EIterOp({k}, {showExpr src}, {op})"
     | EBlock(id, body) -> $"EBlock({id}, {showStmts body})"
+    | EGroup body -> $"EGroup {showStmts body}"
 
 and showStmt (s: Stmt) : string =
     let list xs = xs |> List.map showExpr |> String.concat ", "
