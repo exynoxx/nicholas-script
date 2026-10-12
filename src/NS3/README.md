@@ -47,18 +47,18 @@ Optimisations:
 
 `bench/bench.sh` builds each problem in NS3, Rust (`rustc -C opt-level=3`) and Python 3. It checks that all three print identical output and reports the best of 3 wall-clock runs, in seconds.
 
-| problem | Rust s | NS s | Python s | NS/Rust | NS/Python |
+| problem | Rust s | NS s | Python s | slowdown vs Rust | speedup vs Python |
 |---|--:|--:|--:|--:|--:|
-| primes_sieve | 0.066 | 0.270 | 0.678 | 4.1x | 0.398x |
-| primes_trial | 0.037 | 0.053 | 0.845 | 1.4x | 0.063x |
-| collatz | 0.427 | 0.399 | 74.618* | 0.9x | 0.005x |
-| pipeline | 0.205 | 0.329 | 20.891* | 1.6x | 0.016x |
-| hashcount | 0.106 | 0.230 | 3.053 | 2.2x | 0.075x |
-| fib | 0.379 | 0.376 | 20.242* | 1.0x | 0.019x |
-| dijkstra | 0.247 | 0.942 | 7.199 | 3.8x | 0.131x |
+| primes_sieve | 0.060 | 0.233 | 0.610 | 3.9x | 2.6x |
+| primes_trial | 0.036 | 0.050 | 0.781 | 1.4x | 15.6x |
+| collatz | 0.410 | 0.402 | 70.493* | 1.0x | 175.4x |
+| pipeline | 0.209 | 0.235 | 22.187* | 1.1x | 94.4x |
+| hashcount | 0.102 | 0.108 | 3.041 | 1.1x | 28.2x |
+| fib | 0.351 | 0.314 | 17.208* | 0.9x | 54.8x |
+| dijkstra | 0.222 | 0.681 | 6.440 | 3.1x | 9.5x |
 
 \* python over 10 s: single run instead of best of 3
 
 Measured on Linux x86-64 with clang 22, rustc 1.90 and Python 3.
 
-Integer loops and recursion (collatz, fib, trial-division primes) run at Rust speed. The remaining gap is in allocation-heavy code: every `[d,v]` pair in Dijkstra's heap is a separate refcounted array, and hash maps go through generic descriptor-driven hashing.
+Integer loops, recursion, fused pipelines and int-keyed hash maps run at (or within ~10% of) Rust speed. The remaining gaps: the sieve stores bools as 64-bit slots (8x the memory traffic of Rust's bytes), and every Dijkstra heap entry is a separate refcounted tuple.
