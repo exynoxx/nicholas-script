@@ -5,7 +5,7 @@ set -e
 NS3=${NS3:-/home/nicholas/Dokumenter/git/nicholas-script/src/NS3/bin/Debug/net9.0/ns3.dll}
 export LC_ALL=C; cd "$(dirname "$0")"; T=$(mktemp -d); TIMEFORMAT=%R
 best() { local b=999 t; for _ in 1 2 3; do t=$( { time "$@" >/dev/null; } 2>&1 ); b=$(echo "$t $b" | awk '{print ($1<$2)?$1:$2}'); done; echo $b; }
-ratio() { awk "BEGIN{printf \"%.3gx\", $1/$2}"; }
+ratio() { awk "BEGIN{printf \"%.${3:-1}fx\", $1/$2}"; }
 echo "| name | rust s | ns3 s | python s | ns3/rust | ns3/python |"
 echo "|---|--:|--:|--:|--:|--:|"
 slow=
@@ -22,7 +22,7 @@ for n in primes_sieve primes_trial collatz pipeline hashcount fib dijkstra; do
     p="$p*"; slow=1
   else p=$(best python3 "$n.py"); fi
   r=$(best "$T/$n.rsbin"); s=$(best "$T/$n.ns3bin")
-  echo "| $n | $r | $s | $p | $(ratio "$s" "$r") | $(ratio "$s" "${p%\*}") |"
+  echo "| $n | $r | $s | $p | $(ratio "$s" "$r") | $(ratio "$s" "${p%\*}" 3) |"
 done
 if [ -n "$slow" ]; then echo; echo "\\* python over 10 s: single run instead of best of 3"; fi
 rm -rf "$T"
