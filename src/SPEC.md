@@ -109,6 +109,7 @@ Disambiguation: `[` directly after an expression (no space) is a filter; otherwi
 
 ### Block shortcuts
 - **Operator section**: a block body starting with a binary operator gets `_` on its left: `x{*2}`, `x[>2]`, `x{^^2}`. `-` never starts a section (`x{-1}` is the constant -1).
+- **Function section**: a map, filter or plain block whose whole body is a function name calls it on `_`: `x{int}` is `x{int:_}`, `x[even]`, `sortby:xs,{str}`.
 - Nested blocks: the innermost block owns `_`, `@`, `$`.
 - `_` current element, `@` (bare) current index, `$` fold accumulator.
 - `_1`, `_2`, … for multi-argument blocks.

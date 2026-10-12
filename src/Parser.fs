@@ -58,6 +58,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         expect closer
         body
 
+    /// Function section: a body that is just a function name calls it on `_`, so `x{int}` is `x{int:_}`.
+    member p.SectionBlock(closer: string) =
+        match p.Block closer with
+        | [ SLine l; SExpr(EVar f) ] when isFunc f -> [ SLine l; SExpr(ECall(f, [ EVar "_" ])) ]
+        | body -> body
+
     member p.Stmt() : Stmt =
         let save = pos
         let lvs = try Some(p.LValues()) with CompileError _ -> None
@@ -169,8 +175,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         let mutable go = true
         while go do
             match peek () with
-            | SYM "m{" -> (advance (); e <- EIter("map", e, p.Block "}"))
-            | SYM "f[" -> (advance (); e <- EIter("filter", e, p.Block "]"))
+            | SYM "m{" -> (advance (); e <- EIter("map", e, p.SectionBlock "}"))
+            | SYM "f[" -> (advance (); e <- EIter("filter", e, p.SectionBlock "]"))
             | SYM "/{" -> (advance (); e <- EIter("fold", e, p.Block "}"))
             | SYM "\\{" -> (advance (); e <- EIter("scan", e, p.Block "}"))
             | FOLDOP op -> (advance (); e <- EIterOp("fold", e, op))
@@ -263,7 +269,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         | SYM "{" ->
             nextId.Value <- nextId.Value + 1
             let id = nextId.Value
-            EBlock(id, p.Block "}")
+            EBlock(id, p.SectionBlock "}")
         | t -> fail ln ($"unexpected {showTok (t)}")
 
     member p.InterpExpr() =

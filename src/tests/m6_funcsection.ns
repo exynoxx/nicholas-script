@@ -1,0 +1,7 @@
+print:(split:"5 3 8"," "){int}/+
+print:["1","22"]{int}{*2}
+even = {!_%2}
+print:1..9[even]
+print:sortby:[10,9,100],{str}
+x = 4
+print:[1,2]{x}
