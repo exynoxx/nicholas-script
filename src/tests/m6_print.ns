@@ -1,0 +1,7 @@
+print:"a"; print:1; println:"b"
+println:"top"
+println:["x","y"]
+println:[1->"v"]
+println:(1,"s")
+println:"{["i"]}"
+println:["p","q"].join:","

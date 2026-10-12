@@ -19,7 +19,7 @@ Types are never written; every expression has one type known at compile time.
 
 ### Statement termination
 - A **newline** ends a statement.
-- `;` ends a statement when several share one line: `a=1; b=2; print:a+b`.
+- `;` ends a statement when several share one line: `a=1; b=2; println:a+b`.
 - A newline does **not** end a statement when inside open `(` or `[`, or when the line ends with a binary operator or `,`.
 - Inside `{ }` the same rules apply; statements in a block are separated by newline or `;`.
 
@@ -163,7 +163,7 @@ Truthiness: an empty map/set/queue is falsy.
 
 ```
 c = [->]; "hello"{c@_ = c@_+1}          # char counts
-s = %[]; [3,1,3]{s+=_}; print:#s         # 2
+s = %[]; [3,1,3]{s+=_}; println:#s         # 2
 q = PQ[[0,1]]; q ~{ d,n = q.pop; ... }    # Dijkstra skeleton
 ```
 
@@ -185,7 +185,7 @@ sq = {_^^2}
 add = {_1+_2}
 add:3,4            # call
 x.sq               # method call: sq:x
-x[>2]{*2}.sort.print
+x[>2]{*2}.sort.println
 ```
 Blocks capture variables from the enclosing scope **by reference** (`s=0; x{s+=_}` updates `s`). In v1 blocks may not escape (be returned or stored in collections), so captures live on the stack.
 A name is bound before its block body is checked, so blocks can recurse: `f={_<2?_:f:_-1}`.
@@ -196,7 +196,7 @@ A function's parameter types are inferred per call site (monomorphised at compil
 c ? a : b                  # ternary
 c ? a                      # if without else
 c ? (x = 1; y = 2) : 0     # statement group: `;` inside parens, value = last statement
-1..10{print:_}             # for-each = map
+1..10{println:_}             # for-each = map
 cond ~{ body }             # while statement: whole `cond` expression re-evaluated each pass
 ```
 
@@ -210,8 +210,9 @@ expr                       # expression statement
 ```
 
 ## 7. Built-ins and standard library
-Language primitives (in the compiler): `print`, casts `int float str bool`, `#` length, `@?` contains, ranges and slices,
+Language primitives (in the compiler): `print` (no newline), `println`, casts `int float str bool`, `#` length, `@?` contains, ranges and slices,
 collection literals and `set: Q: PQ: arr:`, `pop`, `keys`, `vals`, tuples, `[x]*n`.
+Printing and `str` show a string bare, but strings nested in arrays, maps and tuples are quoted: `println:["a"]` → `["a"]`. `join` does not quote.
 
 Tuples: `(a,b)`, `(a,b,c)` … up to 9 elements of any types; immutable; `t@0` (literal index), `a,b = t`; compare lexicographically; usable as map keys, set and PQ elements.
 Repeat: `[x]*n` (a one-element array literal times an int) builds n copies; nested arrays are deep-copied.
@@ -234,8 +235,8 @@ Current library (see `grep '^//@' runtime.c`):
 ## 8. Examples
 ```
 1..11[!_%2]{^^2}/+                                   # sum of squares of evens
-1..101{print: !_%15?"FizzBuzz":!_%5?"Buzz":!_%3?"Fizz":_}
-n = int:read; print: 1..(n+1)/*                       # factorial
+1..101{println: !_%15?"FizzBuzz":!_%5?"Buzz":!_%3?"Fizz":_}
+n = int:read; println: 1..(n+1)/*                       # factorial
 ```
 
 ## 9. Grammar (EBNF)

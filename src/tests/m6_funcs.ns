@@ -1,14 +1,14 @@
 sq = {_^^2}
 add = {_1+_2}
-print:sq:7
-print:sq:1.5
-print:add:3,4
-print:add:"a",1
-print:add:1,"2"
+println:sq:7
+println:sq:1.5
+println:add:3,4
+println:add:"a",1
+println:add:1,"2"
 x = 6
-print:x.sq
-print:[1,2,3]{sq:_}
-[5,1,4]{*2}.sort.print
+println:x.sq
+println:[1,2,3]{sq:_}
+[5,1,4]{*2}.sort.println
 id = {_}
-print:id:[1,2]
-print:id:"s"
+println:id:[1,2]
+println:id:"s"

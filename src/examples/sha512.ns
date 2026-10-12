@@ -52,5 +52,5 @@ lines{
     hs = hs+[a,b,c,d,e,f,g,h]
     i+=128
   }
-  print:hs{hx:_}/+
+  println:hs{hx:_}/+
 }

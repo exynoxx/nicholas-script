@@ -3,4 +3,4 @@
 o = ["("->")", "["->"]", "\{"->"}"]
 v = {st=[""]; _{st = o@?_ ? st++o@_ : st@-1=_ ? st@0..(#st-1) : st++"!"}; #st=1}
 n = int:read
-n>0 ~{ s = read; print:"{s} {(v:s) ? "valid" : "invalid"}"; n-=1 }
+n>0 ~{ s = read; println:"{s} {(v:s) ? "valid" : "invalid"}"; n-=1 }

@@ -1,6 +1,6 @@
-# Word frequency: count words with a map, print them alphabetically.
+# Word frequency: count words with a map, println them alphabetically.
 w = split:"the cat and the dog and the bird"," "
 c = [->]
 w{c@_+=1}
-c.keys.sort{print:"{_} {c@_}"}
-print:"{#c} distinct words, top count {max:c.vals}"
+c.keys.sort{println:"{_} {c@_}"}
+println:"{#c} distinct words, top count {max:c.vals}"

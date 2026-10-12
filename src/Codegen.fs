@@ -278,7 +278,7 @@ let generate (prog: Program) : string =
         // pass-through results own their first argument; user functions own all their arguments
         let kept =
             match f with
-            | "print" | "push" | "add" | "del" | "merge" -> 1
+            | "print" | "println" | "push" | "add" | "del" | "merge" -> 1
             | _ when f.StartsWith "@" -> args.Length
             | _ -> 0
         let evs = exArgs kept args
@@ -292,7 +292,7 @@ let generate (prog: Program) : string =
         let cell i = "ptr", spill (arg i) (ty i)
         let elemDesc t = match resolve t with TArr el -> d el | _ -> d TInt
         match f, args with
-        | "print", [ x ] -> (rt "void" "ns_print" [ d x.t; cell 0 ] |> ignore; arg 0)
+        | ("print" | "println"), [ x ] -> (rt "void" ("ns_" + f) [ d x.t; cell 0 ] |> ignore; arg 0)
         | "neg", [ x ] -> if resolve x.t = TFloat then instr $"fneg double {arg 0}" else instr $"sub i64 0, {arg 0}"
         | "not", _ -> instr $"xor i1 {arg 0}, true"
         | "len", [ x ] -> rt "i64" "ns_len" [ d x.t; cell 0 ]

@@ -1,29 +1,29 @@
 q = Q[1,2]
 q+=3
-print:q
-print:q.pop
-print:q@0
-print:q@-1
-print:#q
-print:q@?3
+println:q
+println:q.pop
+println:q@0
+println:q@-1
+println:#q
+println:q@?3
 p = PQ[5,1,4]
 p+=2
-print:p
-print:p.pop
-print:p.pop
-print:p@0
-print:p/+
+println:p
+println:p.pop
+println:p.pop
+println:p@0
+println:p/+
 h = PQ[]
 h+=[3,7]; h+=[1,9]; h+=[2,8]
-print:h.pop@1
+println:h.pop@1
 d,n = h.pop
-print:"{d} {n}"
-print:#h
+println:"{d} {n}"
+println:#h
 mx = PQ[]
 [3,9,4]{mx+=-_}
-print:-mx.pop
+println:-mx.pop
 w = Q[1,2,3]; t = 0
 w ~{ t+=w.pop }
-print:t
-print:Q:[4,5]
-print:PQ:[3,1,2]
+println:t
+println:Q:[4,5]
+println:PQ:[3,1,2]

@@ -236,7 +236,7 @@ and private builtin name (args: E list) : E =
         | TMap(k, _) -> k
         | t -> err ($"{name}: not a collection: {showTy t}")
     match name, args with
-    | "print", [ x ] -> typed (Call("print", [ x ])) x.t
+    | ("print" | "println"), [ x ] -> typed (Call(name, [ x ])) x.t
     | ("int" | "float" | "str" | "bool"), [ x ] ->
         conv x (match name with "int" -> TInt | "float" -> TFloat | "str" -> TStr | _ -> TBool)
     | "neg", [ x ] ->

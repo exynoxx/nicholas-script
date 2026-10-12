@@ -1,1 +1,1 @@
-n = int:read; print: 1..(n+1)/*
+n = int:read; println: 1..(n+1)/*

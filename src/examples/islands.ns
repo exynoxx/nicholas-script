@@ -11,5 +11,5 @@ dfs = {
 }
 sizes = []
 (0..h){i=_; (0..w){[[i,_]][ok:_]{sz=0; dfs:_; sizes++=sz}}}
-print:#sizes
-print:sizes.sort
+println:#sizes
+println:sizes.sort

@@ -446,27 +446,28 @@ static void fmt_float(char *out, double x) {
   }
   if (isfinite(x) && !strpbrk(out, ".e")) strcat(out, ".0");
 }
-static void tostr(Buf *b, const char *d, const void *v);
+static void tostr(Buf *b, const char *d, const void *v, int q);
 static void items(Buf *b, const char *open, const char *d, Arr *a) {
   put(b, open);
-  for (int64_t i = 0; i < a->len; i++) { if (i) put(b, ","); tostr(b, d, a->data + i * a->esz); }
+  for (int64_t i = 0; i < a->len; i++) { if (i) put(b, ","); tostr(b, d, a->data + i * a->esz, 1); }
   put(b, "]");
 }
 static void citems(Buf *b, const char *open, const char *d, const void *v) { // via a temp array
   Arr *a = ns_toarr(d, ldp(v)); items(b, open, d + 1, a); ns_release(a);
 }
-static void tostr(Buf *b, const char *d, const void *v) {
+// q: quote strings (set for elements nested in containers)
+static void tostr(Buf *b, const char *d, const void *v, int q) {
   char tmp[40];
   switch (*d) {
   case 'I': snprintf(tmp, sizeof tmp, "%lld", (long long)ldi(v)); put(b, tmp); break;
   case 'F': fmt_float(tmp, ldf(v)); put(b, tmp); break;
   case 'B': put(b, ldb(v) ? "T" : "F"); break;
-  case 'S': put(b, ldp(v)); break;
+  case 'S': if (q) put(b, "\""); put(b, ldp(v)); if (q) put(b, "\""); break;
   case 'A': items(b, "[", d + 1, ldp(v)); break;
   case 'U': case 'V': {
     const char *x = tup(d, v); int64_t o = 0;
     put(b, "(");
-    EACH_MEMBER(d, e, o) { if (o) put(b, ","); tostr(b, e, x + o); }
+    EACH_MEMBER(d, e, o) { if (o) put(b, ","); tostr(b, e, x + o, 1); }
     put(b, ")");
     break;
   }
@@ -479,7 +480,7 @@ static void tostr(Buf *b, const char *d, const void *v) {
     for (int64_t i = 0; i < m->cap; i++) if (m->st[i] == 1) {
       if (!first) put(b, ",");
       first = 0;
-      tostr(b, m->kd, m->keys + i * m->ksz); put(b, "->"); tostr(b, m->vd, m->vals + i * m->vsz);
+      tostr(b, m->kd, m->keys + i * m->ksz, 1); put(b, "->"); tostr(b, m->vd, m->vals + i * m->vsz, 1);
     }
     put(b, m->len ? "]" : "->]");
     break;
@@ -487,12 +488,13 @@ static void tostr(Buf *b, const char *d, const void *v) {
   default: ns_panic("bad type descriptor");
   }
 }
-char *ns_tostr(const char *d, const void *v) { Buf b = {0}; tostr(&b, d, v); return done(&b); }
-void ns_print(const char *d, const void *v) { Buf b = {0}; tostr(&b, d, v); puts(b.p ? b.p : ""); free(b.p); }
+char *ns_tostr(const char *d, const void *v) { Buf b = {0}; tostr(&b, d, v, 0); return done(&b); }
+void ns_print(const char *d, const void *v) { Buf b = {0}; tostr(&b, d, v, 0); fputs(b.p ? b.p : "", stdout); free(b.p); }
+void ns_println(const char *d, const void *v) { Buf b = {0}; tostr(&b, d, v, 0); puts(b.p ? b.p : ""); free(b.p); }
 //@ join ([T],str) str
 char *ns_join(const char *elemd, void *arr, char *sep) {
   Arr *a = arr; Buf b = {0};
-  for (int64_t i = 0; i < a->len; i++) { if (i) put(&b, sep); tostr(&b, elemd, a->data + i * a->esz); }
+  for (int64_t i = 0; i < a->len; i++) { if (i) put(&b, sep); tostr(&b, elemd, a->data + i * a->esz, 0); }
   return done(&b);
 }
 

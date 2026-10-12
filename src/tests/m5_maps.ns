@@ -1,23 +1,23 @@
 c = [->]
 "banana"{c@_ = c@_+1}
-print:c@"a"
-print:c@"n"
-print:c@"z"
-print:#c
-print:c.keys.sort
-print:c.vals.sort
-print:c@?"b"
+println:c@"a"
+println:c@"n"
+println:c@"z"
+println:#c
+println:c.keys.sort
+println:c.vals.sort
+println:c@?"b"
 c-="b"
-print:c@?"b"
-print:c.keys.sort
+println:c@?"b"
+println:c.keys.sort
 d = c
 d@"x" = 7
-print:c@"x"
-print:#c
+println:c@"x"
+println:#c
 t = c{_*10}
-print:t@"a"
-print:c[_>2].keys.sort
+println:t@"a"
+println:c[_>2].keys.sort
 c+=["q"->1]
-print:c@"q"
+println:c@"q"
 m = [1->"one"]
-print:m
+println:m

@@ -8,5 +8,5 @@ i*i<n ~{
   i+=1
 }
 p = 0..n[s@_]
-print:p
-print:"{#p} primes below {n}, sum {p/+}"
+println:p
+println:"{#p} primes below {n}, sum {p/+}"

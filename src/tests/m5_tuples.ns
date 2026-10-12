@@ -1,17 +1,17 @@
 t = (1,"a")
-print:t
-print:t@1+t@0
+println:t
+println:t@1+t@0
 n,s = t
-print:"{n} {s}"
+println:"{n} {s}"
 r = (2,3.5,T)
-print:r@-1
-print:(1,"b")<(1,"c")
+println:r@-1
+println:(1,"b")<(1,"c")
 q = PQ[(5,"e"),(1,"a")]
 q+=(3,"c")
 d,w = q.pop
-print:"{d}{w}"
-print:q
+println:"{d}{w}"
+println:q
 m = [(0,1)->"x"]
-print:m@(0,1)
-print:[(2,"b"),(1,"z"),(2,"a")].sort
-print:%[(1,2),(1,2)]
+println:m@(0,1)
+println:[(2,"b"),(1,"z"),(2,"a")].sort
+println:%[(1,2),(1,2)]

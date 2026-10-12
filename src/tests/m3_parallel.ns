@@ -1,9 +1,9 @@
 a,b = 0,1
 i = 0
 i<10 ~{ a,b = b,a+b; i+=1 }
-print:a
+println:a
 x,y = 3,4
 x,y = y,x
-print:"{x} {y}"
+println:"{x} {y}"
 p = 1; p,q = 7,p
-print:q
+println:q

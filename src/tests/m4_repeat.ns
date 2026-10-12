@@ -1,9 +1,9 @@
 z = [0]*4
-print:z
+println:z
 g = [[0]*3]*2
 g@0@1 = 5
-print:g
+println:g
 h = g; h@1@1 = 7
-print:g
-print:["ab"]*3
-print:[2,3]*2
+println:g
+println:["ab"]*3
+println:[2,3]*2

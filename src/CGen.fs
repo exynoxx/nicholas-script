@@ -258,7 +258,7 @@ let generate (prog: Program) : string =
         | _ ->
         let kept =
             match f with
-            | "print" | "push" | "add" | "del" | "merge" -> 1
+            | "print" | "println" | "push" | "add" | "del" | "merge" -> 1
             | _ when f.StartsWith "@" -> args.Length
             | _ -> 0
         let evs = exArgs kept args
@@ -271,7 +271,7 @@ let generate (prog: Program) : string =
         let ty i = args.[i].t
         let cell i = spill (arg i) (ty i)
         match f, args with
-        | "print", [ x ] -> (rt "void" "ns_print" [ d x.t; cell 0 ] |> ignore; arg 0)
+        | ("print" | "println"), [ x ] -> (rt "void" ("ns_" + f) [ d x.t; cell 0 ] |> ignore; arg 0)
         | "neg", [ x ] ->
             if resolve x.t = TFloat then instr "double" $"-{arg 0}" else instr "int64_t" $"(int64_t)(0 - (uint64_t){arg 0})"
         | "not", _ -> instr "bool" $"!{arg 0}"

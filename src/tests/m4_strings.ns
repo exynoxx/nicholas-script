@@ -1,11 +1,11 @@
 s = "hello"
-print:#s
-print:s@1
-print:s@-1
-print:s@1..4
-print:s{_*2}
-print:#s[_!="l"]
-print:s/{_+$}
-print:"abc"\+
-print:s{@}
-print:s+1
+println:#s
+println:s@1
+println:s@-1
+println:s@1..4
+println:s{_*2}
+println:#s[_!="l"]
+println:s/{_+$}
+println:"abc"\+
+println:s{@}
+println:s+1

@@ -6,4 +6,4 @@ i<3000000 ~{
   c>b ~{ b=c; bi=i }
   i+=1
 }
-print:"{bi} {b}"
+println:"{bi} {b}"

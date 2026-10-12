@@ -1,18 +1,18 @@
 x = 1..6
-print:x{*2}
-print:x[>2]
-print:x/+
-print:x/*
-print:x/>
-print:[4,9,2]/<
-print:x\+
-print:x\{$*_}
-print:x{_*@}
-print:x/{$*10+_}
-print:x[_%2]{^^2}/+
-print:x[!_%2]
-print:[[1,2],[3,4]]{_/+}
-print:[[1,2],[3,4]]{_{_+@}}
+println:x{*2}
+println:x[>2]
+println:x/+
+println:x/*
+println:x/>
+println:[4,9,2]/<
+println:x\+
+println:x\{$*_}
+println:x{_*@}
+println:x/{$*10+_}
+println:x[_%2]{^^2}/+
+println:x[!_%2]
+println:[[1,2],[3,4]]{_/+}
+println:[[1,2],[3,4]]{_{_+@}}
 y = [3,1,3,2]; p = 3
-print:y[=p]
-print:y{_=p}
+println:y[=p]
+println:y{_=p}

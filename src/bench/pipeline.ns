@@ -1,4 +1,4 @@
 # Sum of (i*i+k)%7 over i<10M with i%3>0, for k=1..15.
 t=0
 1..16{k=_; t+=0..10000000[_%3]{(_*_+k)%7}/+}
-print:t
+println:t

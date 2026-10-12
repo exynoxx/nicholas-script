@@ -2,7 +2,7 @@
 # (a fold over rows broadcasts + across them).
 m = [[1,2,3],[4,5,6]]
 t = (m@0){i=@; m{_@i}}
-print:t
-t{print:_.join:" "}
-print:m{_/+}
-print:m/+
+println:t
+t{println:_.join:" "}
+println:m{_/+}
+println:m/+

@@ -4,8 +4,8 @@ ts = {
   (0..#a){i = _; [t-a@i][m@?_]{r = [m@_, i]}; m@(a@i) = i}
   r
 }
-print:ts:[2,7,11,15],9
-print:ts:[3,2,4],6
-print:ts:[3,3],6
-print:ts:[1,5,8,4],12
-print:ts:[1,2],7
+println:ts:[2,7,11,15],9
+println:ts:[3,2,4],6
+println:ts:[3,3],6
+println:ts:[1,5,8,4],12
+println:ts:[1,2],7

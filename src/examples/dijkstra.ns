@@ -10,7 +10,7 @@ q ~{
   du,u = q.pop
   e[(_@0)=u & du+_@2<d@(_@1)]{v=_@1; d@v = du+_@2; pr@v = u; q+=(d@v,v)}
 }
-print:d
+println:d
 p = [4]
 p@-1!=0 ~{p ++= pr@(p@-1)}
-print:p.rev.join:" -> "
+println:p.rev.join:" -> "

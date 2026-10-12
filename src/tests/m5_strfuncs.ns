@@ -1,12 +1,12 @@
-print:ord:"a"
-print:chr:98
+println:ord:"a"
+println:chr:98
 w = split:"the quick brown fox"," "
-print:w
-print:#w
-print:w.sort
-print:w.rev
-print:join:w.rev,"-"
-print:[3,1,2].sort
-print:"hello"@?"ll"
-print:[1,2,3]@?4
-print:join:"abc"{chr:(ord:_)+1},""
+println:w
+println:#w
+println:w.sort
+println:w.rev
+println:join:w.rev,"-"
+println:[3,1,2].sort
+println:"hello"@?"ll"
+println:[1,2,3]@?4
+println:join:"abc"{chr:(ord:_)+1},""

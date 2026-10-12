@@ -2,5 +2,5 @@
 w = ["eat","tea","tan","ate","nat","bat"]
 g = [->]
 w{g@(_{_}.sort.join:"") ++= _}
-g.keys.sort{print:"{_}: {(g@_).join:" "}"}
-print:"{#g} groups"
+g.keys.sort{println:"{_}: {(g@_).join:" "}"}
+println:"{#g} groups"

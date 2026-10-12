@@ -1,13 +1,13 @@
 a = [1,2,3]; b = [10,20,30]
-print:a+b
-print:a*2
-print:a^^2
-print:b/a
-print:a-1
-print:a+0.9
-print:[7,-7]/2
-print:[7,-7]%2
-print:a/-1
+println:a+b
+println:a*2
+println:a^^2
+println:b/a
+println:a-1
+println:a+0.9
+println:[7,-7]/2
+println:[7,-7]%2
+println:a/-1
 f = [1.5,2.5]
-print:f*2
-print:f+a@0..2
+println:f*2
+println:f+a@0..2

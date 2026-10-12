@@ -1,4 +1,4 @@
 import "lib/util.ns"
 import "lib/util.ns"
-print:sq:7
-print:greet:"ns"
+println:sq:7
+println:greet:"ns"

@@ -1,8 +1,8 @@
-print:1+2*3
-print:(1+2)*3
-print:10-4-3
-print:7/2
-print:-7/2
-print:-7%2
-print:7%(-2)
-print:-3*-4
+println:1+2*3
+println:(1+2)*3
+println:10-4-3
+println:7/2
+println:-7/2
+println:-7%2
+println:7%(-2)
+println:-3*-4

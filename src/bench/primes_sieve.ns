@@ -8,4 +8,4 @@ i*i<n ~{
   i+=1
 }
 p=0..n[s@_]
-print:"{#p} {p/+}"
+println:"{#p} {p/+}"

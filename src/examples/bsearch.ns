@@ -9,6 +9,6 @@ lw = {
 }
 [7,1,13,4,0,14]{
   i = lb:xs,_
-  (lw:xs,_)!=i ? print:"loop disagrees on {_}" : 0
-  print:"{_} -> {i<#xs & xs@i=_ ? i : -1}"
+  (lw:xs,_)!=i ? println:"loop disagrees on {_}" : 0
+  println:"{_} -> {i<#xs & xs@i=_ ? i : -1}"
 }

@@ -1,6 +1,6 @@
 a = int:read
 b = int:read
-print:a+b
+println:a+b
 name = read
-print:"hello {name}"
-print:read+1
+println:"hello {name}"
+println:read+1

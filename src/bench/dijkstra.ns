@@ -12,4 +12,4 @@ q ~{
     ok=F
   }
 }
-print:d@(N-1)
+println:d@(N-1)

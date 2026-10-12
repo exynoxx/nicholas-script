@@ -1,17 +1,17 @@
 a = 5; b = 3
-print:a>b
-print:a=5
-print:a!=b
-print:a<=5 & b>=4
-print:a<b | b<a
-print:!a>b
-print:2.5>2
-print:2>2.5
-print:F & 1/0=1
-print:T | 1/0=1
-print:a>b ? "big" : "small"
+println:a>b
+println:a=5
+println:a!=b
+println:a<=5 & b>=4
+println:a<b | b<a
+println:!a>b
+println:2.5>2
+println:2>2.5
+println:F & 1/0=1
+println:T | 1/0=1
+println:a>b ? "big" : "small"
 m = a>b ? a : b
-print:m
-print:!a%2 ? "even" : "odd"
-print:6&3
-print:6|3
+println:m
+println:!a%2 ? "even" : "odd"
+println:6&3
+println:6|3
