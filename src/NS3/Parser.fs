@@ -7,7 +7,7 @@ open Ast
 let builtins =
     set [ "print"; "read"; "lines"; "int"; "float"; "str"; "bool"; "sort"; "rev"; "split"; "join"; "ord"; "chr"
           "pop"; "keys"; "vals"; "arr"; "set"; "Q"; "PQ"
-          "min"; "max"; "abs"; "pow"; "sqrt"; "floor"; "ceil"; "round"; "lower"; "upper"; "find" ]
+          "min"; "max"; "abs"; "pow"; "sqrt"; "floor"; "ceil"; "round"; "lower"; "upper"; "find"; "bsearch" ]
 let private zeroArity = set [ "read"; "lines" ]
 let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>=" ]
 

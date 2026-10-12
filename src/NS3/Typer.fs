@@ -303,6 +303,19 @@ and private builtin name (args: E list) : E =
     | "sqrt", [ x ] -> typed (Call("sqrt", [ conv x TFloat ])) TFloat
     | ("floor" | "ceil" | "round"), [ x ] -> typed (Call(name, [ conv x TFloat ])) TInt
     | ("lower" | "upper"), [ s ] -> typed (Call(name, [ conv s TStr ])) TStr
+    | "bsearch", [ xs; f ] ->
+        // first index whose element satisfies the block (false...true over the array); #xs if none
+        match resolve xs.t, resolve f.t with
+        | TArr _, TFn _ ->
+            let a, fn, lo, hi, mid = Desugar.fresh "xs", Desugar.fresh "f", Desugar.fresh "lo", Desugar.fresh "hi", Desugar.fresh "mid"
+            let v n = mk (Var n)
+            let set n e = mk (Seq([ Assign(n, e) ], mk (Int 0L)))
+            let step =
+                [ Assign(mid, mk (Bin("/", mk (Bin("+", v lo, v hi)), mk (Int 2L))))
+                  Do(mk (If(mk (Call(fn, [ mk (Index(v a, v mid)) ])), set hi (v mid), set lo (mk (Bin("+", v mid, mk (Int 1L))))))) ]
+            typeE (mk (Seq([ Assign(a, xs); Assign(fn, f); Assign(lo, mk (Int 0L)); Assign(hi, mk (Call("len", [ v a ])))
+                             While(mk (Bin("<", v lo, v hi)), step) ], v lo)))
+        | _ -> err "bsearch expects an array and a block: bsearch:xs,{cond}"
     | "find", [ c; x ] ->
         let x = match resolve c.t with TStr -> conv x TStr | _ -> conv x (elemOf c)
         typed (Call("find", [ c; x ])) TInt
