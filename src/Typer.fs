@@ -165,7 +165,7 @@ and typeE (e: E) : E =
 
 and private typeBin op (a: E) (b: E) : E =
     let isArith = List.contains op [ "+"; "-"; "*"; "/"; "%"; "^^" ]
-    let isCmp = List.contains op [ "="; "~="; "<"; ">"; "<="; ">=" ]
+    let isCmp = List.contains op [ "="; "!="; "<"; ">"; "<="; ">=" ]
     let isBit = List.contains op [ "^"; "<<"; ">>"; ">>>" ]
     match resolve a.t with
     | THole _ when op = "++" ->

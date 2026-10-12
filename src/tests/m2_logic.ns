@@ -1,10 +1,10 @@
 a = 5; b = 3
 print:a>b
 print:a=5
-print:a~=b
+print:a!=b
 print:a<=5 & b>=4
 print:a<b | b<a
-print:~a>b
+print:!a>b
 print:2.5>2
 print:2>2.5
 print:F & 1/0=1
@@ -12,6 +12,6 @@ print:T | 1/0=1
 print:a>b ? "big" : "small"
 m = a>b ? a : b
 print:m
-print:~a%2 ? "even" : "odd"
+print:!a%2 ? "even" : "odd"
 print:6&3
 print:6|3

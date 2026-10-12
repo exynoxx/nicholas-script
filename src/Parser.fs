@@ -120,12 +120,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         while accept "&" do e <- EBin("&", e, p.Not())
         e
 
-    member p.Not() = if accept "~" then EUn("~", p.Not()) else p.Compare()
+    member p.Not() = if accept "!" then EUn("!", p.Not()) else p.Compare()
 
     member p.Compare() =
         let l = p.Shift()
         match peek () with
-        | SYM ("=" | "~=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, l, p.Shift()))
+        | SYM ("=" | "!=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, l, p.Shift()))
         | _ -> l
 
     member p.Shift() =

@@ -35,7 +35,7 @@ type Expr =
     | ECollLit of string * Expr list    // "set" | "Q" | "PQ"
     | ERange of Expr * Expr
     | EBin of string * Expr * Expr
-    | EUn of string * Expr              // "-" | "~" | "#"
+    | EUn of string * Expr              // "-" | "!" | "#"
     | ETern of Expr * Expr * Expr
     | ECall of string * Expr list       // also x.f:a => ECall(f, [x; a])
     | EIndex of Expr * Expr

@@ -232,12 +232,12 @@ let generate (prog: Program) : string =
         r
 
     and binop1 op (a: E) (b: E) av bv =
-        let cmpOp = dict [ "=", ("eq", "oeq", "eq"); "~=", ("ne", "une", "ne"); "<", ("slt", "olt", "ult"); ">", ("sgt", "ogt", "ugt"); "<=", ("sle", "ole", "ule"); ">=", ("sge", "oge", "uge") ]
+        let cmpOp = dict [ "=", ("eq", "oeq", "eq"); "!=", ("ne", "une", "ne"); "<", ("slt", "olt", "ult"); ">", ("sgt", "ogt", "ugt"); "<=", ("sle", "ole", "ule"); ">=", ("sge", "oge", "uge") ]
         match resolve a.t, op with
         | TInt, _ when cmpOp.ContainsKey op -> let (i, _, _) = cmpOp.[op] in instr $"icmp {i} i64 {av}, {bv}"
         | TFloat, _ when cmpOp.ContainsKey op -> let (_, f, _) = cmpOp.[op] in instr $"fcmp {f} double {av}, {bv}"
         | TBool, _ when cmpOp.ContainsKey op -> let (_, _, u) = cmpOp.[op] in instr $"icmp {u} i1 {av}, {bv}"
-        | t, ("=" | "~=") when t <> TStr ->
+        | t, ("=" | "!=") when t <> TStr ->
             let r = rt "i64" "ns_eq" [ d t; "ptr", spill av t; "ptr", spill bv t ]
             let pred = if op = "=" then "ne" else "eq"
             instr $"icmp {pred} i64 {r}, 0"

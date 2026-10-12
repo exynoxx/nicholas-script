@@ -46,7 +46,7 @@ T+1       # T      (bool or)
 
 Integer `/` and `%` are **floor** division/modulo (`-7/2 = -4`, `-7%2 = 1`). Division by zero is a runtime error.
 
-Comparisons (`= ~= < > <= >=`) convert the right side to the left type and return `bool`.
+Comparisons (`= != < > <= >=`) convert the right side to the left type and return `bool`.
 
 ### Conversion table (right side → left type)
 
@@ -76,8 +76,8 @@ int:"42"      float:x     str:3.5     bool:n
 | 4 mul     | `* / %` | left |
 | 5 add     | `+ - ++` | left |
 | 5.5 shift | `<< >>` (ints; `>>` is arithmetic) | left |
-| 7 compare | `= ~= < > <= >=` | none |
-| 7.5 not   | `~x` (binds looser than compare, like Python `not`: `~_%2` = `~(_%2)`) | right |
+| 7 compare | `= != < > <= >=` | none |
+| 7.5 not   | `!x` (binds looser than compare, like Python `not`: `!_%2` = `!(_%2)`) | right |
 | 8 logic   | `&` then `^` (xor) then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
 | 9 ternary | `c ? a : b` | right |
 | 10 call   | `f:a,b` (args extend to end of statement / closing bracket). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary | right |
@@ -115,7 +115,7 @@ Disambiguation: `[` directly after an expression (no space) is a filter; otherwi
 - Last expression in a block is its value.
 
 ### Array concat / append
-`a++b` concatenates two arrays; `a++x` appends an element (converted to the element type). Arrays compare lexicographically with `= ~= < > <= >=` and return bool (comparisons do not broadcast).
+`a++b` concatenates two arrays; `a++x` appends an element (converted to the element type). Arrays compare lexicographically with `= != < > <= >=` and return bool (comparisons do not broadcast).
 
 ### Broadcasting
 Arithmetic between an array and a scalar, or two arrays of equal length, applies elementwise:
@@ -230,8 +230,8 @@ Current library (see `grep '^//@' runtime.c`):
 
 ## 8. Examples
 ```
-1..11[~_%2]{^^2}/+                                   # sum of squares of evens
-1..101{print: ~_%15?"FizzBuzz":~_%5?"Buzz":~_%3?"Fizz":_}
+1..11[!_%2]{^^2}/+                                   # sum of squares of evens
+1..101{print: !_%15?"FizzBuzz":!_%5?"Buzz":!_%3?"Fizz":_}
 n = int:read; print: 1..(n+1)/*                       # factorial
 ```
 
@@ -249,7 +249,7 @@ expr      = call ;
 call      = FUNC ":" exprlist | ternary ;   (* FUNC = IDENT bound to block/built-in *)
 ternary   = logic [ "?" expr ":" expr ] ;
 logic     = not { ("&" | "|") not } ;
-not       = "~" not | compare ;
+not       = "!" not | compare ;
 compare   = add [ CMPOP add ] ;
 add       = mul { ("+" | "-") mul } ;
 mul       = pow { ("*" | "/" | "%") pow } ;
@@ -272,4 +272,4 @@ stmts     = stmt { TERM stmt } ;
 ```
 
 ## 10. Decisions log
-Resolved: exclusive ranges, no fold seed, floor int division, keep `^^`, by-reference capture, `~` below compare, range at primary level, `#` comment vs length, call-vs-ternary by binding.
+Resolved: exclusive ranges, no fold seed, floor int division, keep `^^`, by-reference capture, `!` below compare, range at primary level, `#` comment vs length, call-vs-ternary by binding.

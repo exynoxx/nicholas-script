@@ -5,11 +5,11 @@ terse like a golf language · statically typed · compiled to native code via LL
 ---
 
 ```ns
-print:1..1000[~_%3|~_%5]/+                    # 233168          Project Euler #1
-print:2..50[p=_; ~2..p[~p%_]]                 # [2,3,5,7,11,…]  primes
+print:1..1000[!_%3|!_%5]/+                    # 233168          Project Euler #1
+print:2..50[p=_; !2..p[!p%_]]                 # [2,3,5,7,11,…]  primes
 print:1..11\*                                 # [1,2,6,24,…]    running factorials
 print:(split:"the fast golf language"," ").sortby:{-#_}   # [language,fast,golf,the]
-1..101{print:~_%15?"FizzBuzz":~_%5?"Buzz":~_%3?"Fizz":_}
+1..101{print:!_%15?"FizzBuzz":!_%5?"Buzz":!_%3?"Fizz":_}
 ```
 
 ```ns
@@ -82,14 +82,14 @@ print:-7/2                # => -4     (integer / and % are floor division)
 print:-7%2                # => 1
 print:7.0/2               # => 3.5
 
-# Comparison: = is equality, ~= is not-equal.
+# Comparison: = is equality, != is not-equal.
 print:1=1                 # => T
-print:1~=1                # => F
+print:1!=1                # => F
 print:2<3                 # => T
 
-# ~ is "not". It binds looser than comparison, like Python's not.
-print:~1=2                # => T      (~(1=2))
-print:~0                  # => T
+# ! is "not". It binds looser than comparison, like Python's not.
+print:!1=2                # => T      (!(1=2))
+print:!0                  # => T
 
 # & | ^ are logic on bools and bitwise on ints.
 print:T&F                 # => F
@@ -196,13 +196,13 @@ print:[3,8,2]/<           # => 2       min
 print:1..6\*              # => [1,2,6,24,120]
 
 # They chain, and the compiler fuses the chain into a single loop.
-print:1..11[~_%2]{^^2}/+  # => 220     sum of squares of the evens
+print:1..11[!_%2]{^^2}/+  # => 220     sum of squares of the evens
 
 # A map is also a for-each loop.
 1..4{print:_}             # => 1 / 2 / 3, one per line
 
 # Strings act as arrays of one-character strings for these operators.
-print:"hello"[~_="l"]     # => heo    (filtering a string gives a string)
+print:"hello"[!_="l"]     # => heo    (filtering a string gives a string)
 print:#"hello"            # => 5
 
 # ==================================================
@@ -212,7 +212,7 @@ print:#"hello"            # => 5
 # The ternary is the if/else.
 n = 15
 print:n%2 ? "odd" : "even"                        # => odd
-print:~n%15?"FizzBuzz":~n%5?"Buzz":~n%3?"Fizz":n  # => FizzBuzz
+print:!n%15?"FizzBuzz":!n%5?"Buzz":!n%3?"Fizz":n  # => FizzBuzz
 
 # "cond ~{ body }" is a while loop. cond is re-checked before every pass.
 n = 27; c = 0

@@ -12,5 +12,5 @@ q ~{
 }
 print:d
 p = [4]
-p@-1~=0 ~{p ++= pr@(p@-1)}
+p@-1!=0 ~{p ++= pr@(p@-1)}
 print:p.rev.join:" -> "
