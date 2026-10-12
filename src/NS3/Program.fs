@@ -75,7 +75,7 @@ let private build (path: string) (exe: string) : string option =
     | ex -> Some(sprintf "%s: internal error: %s" path (ex.ToString()))
 
 let private test (dir: string) =
-    let tmp = Directory.CreateTempSubdirectory("ns3").FullName
+    let tmp = Directory.CreateTempSubdirectory("ns").FullName
     let mutable failed = 0
     let files = Directory.GetFiles(dir, "*.ns") |> Array.sort
     for f in files do
@@ -103,15 +103,16 @@ let private test (dir: string) =
     printfn "%d/%d passed" (files.Length - failed) files.Length
     if failed = 0 then 0 else 1
 
-let private help = """ns3 - compiler for the NS3 golf language (source -> LLVM IR -> native binary)
+let private help = """ns - compiler for the NS golf language (source -> LLVM IR -> native binary)
 
-usage: ns3 <command> [options] <file.ns>
+usage: ns <file.ns>                  compile and run
+       ns <command> [options] <file.ns>
 
 commands:
   run <file>                 compile and run
   build <file> [-o <out>]    compile to a native binary (default: <file> without extension)
   ll <file> [--pure]         print LLVM IR; with --pure the runtime is included, giving a
-                             self-contained module:  ns3 ll --pure f.ns > f.ll && clang f.ll -lm
+                             self-contained module:  ns ll --pure f.ns > f.ll && clang f.ll -lm
   tokens <file>              dump stage 1: tokens
   ast <file>                 dump stage 2: surface AST
   core <file>                dump stage 3: desugared core
@@ -122,6 +123,16 @@ commands:
 environment:
   NS3_ASAN=1                 build with Address/LeakSanitizer (checks reference counting)
 """
+
+/// Compiles to a temp binary and runs it with this process's stdin/stdout.
+let private runFile (path: string) =
+    let exe = Path.Combine(Directory.CreateTempSubdirectory("ns").FullName, "a.out")
+    match build path exe with
+    | Some err -> (eprintfn "%s" err; 1)
+    | None ->
+        use p = Process.Start(ProcessStartInfo(exe, UseShellExecute = false))
+        p.WaitForExit()
+        p.ExitCode
 
 [<EntryPoint>]
 let main argv =
@@ -140,6 +151,7 @@ let main argv =
         | CompileError(line, msg) -> (eprintfn "%s:%d: error: %s" path line msg; 1)
         | ex -> (eprintfn "%s: error: %s" path ex.Message; 1)
     match positional with
+    | [ path ] when path.EndsWith ".ns" -> runFile path
     | [ "test" ] -> test "tests"
     | [ "test"; dir ] -> test dir
     | [ "build"; path ] ->
@@ -147,14 +159,7 @@ let main argv =
         match build path (Path.GetFullPath out) with
         | None -> 0
         | Some err -> (eprintfn "%s" err; 1)
-    | [ "run"; path ] ->
-        let exe = Path.Combine(Directory.CreateTempSubdirectory("ns3").FullName, "a.out")
-        match build path exe with
-        | Some err -> (eprintfn "%s" err; 1)
-        | None ->
-            use p = Process.Start(ProcessStartInfo(exe, UseShellExecute = false))
-            p.WaitForExit()
-            p.ExitCode
+    | [ "run"; path ] -> runFile path
     | [ "ll"; path ] ->
         report path (fun () ->
             let ll = pipeline "ll" (File.ReadAllText path)

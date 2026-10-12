@@ -15,15 +15,19 @@ q = {p = #_ ? _@0 : 0; #_<2 ? _ : (q:_[<p])++_[=p]++(q:_[>p])}   # quicksort
 
 ## Usage
 
-Requires .NET 9 and clang.
+Requires .NET 9 and clang. Install the `ns` command:
 
 ```shell
-dotnet build
-dotnet bin/Debug/net9.0/ns3.dll help
-dotnet bin/Debug/net9.0/ns3.dll run examples/quicksort.ns
-dotnet bin/Debug/net9.0/ns3.dll build prog.ns -o prog
-dotnet bin/Debug/net9.0/ns3.dll ll --pure prog.ns > prog.ll   # self-contained LLVM module
-dotnet bin/Debug/net9.0/ns3.dll test tests                     # golden tests (NS3_ASAN=1 checks leaks)
+dotnet publish -c Release -o ~/.local/share/ns && ln -sf ~/.local/share/ns/ns ~/.local/bin/ns
+```
+
+```shell
+ns prog.ns                         # compile and run
+ns help
+ns run examples/quicksort.ns
+ns build prog.ns -o prog
+ns ll --pure prog.ns > prog.ll   # self-contained LLVM module
+ns test tests                     # golden tests (NS3_ASAN=1 checks leaks)
 ```
 
 Every compiler stage can be printed: `tokens`, `ast`, `core`, `typed`, `ll`.
