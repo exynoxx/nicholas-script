@@ -98,7 +98,18 @@ void *ns_arr_slice(void *p, int64_t i, int64_t j) {
   for (int64_t k = i; k < j; k++) ns_arr_push(r, a->data[k]);
   return r;
 }
-void *ns_arr_copy(void *p) { return ns_arr_slice(p, 0, ((Arr *)p)->len); }
+void *ns_arr_copy(void *p) { // deep for nested arrays (value semantics), retains everything else
+  Arr *a = p;
+  if (HD(p)->d[1] != 'A') return ns_arr_slice(p, 0, a->len);
+  Arr *r = ns_arr_new(HD(p)->d, a->len);
+  for (int64_t k = 0; k < a->len; k++) apush(r, P(ns_arr_copy(S(a->data[k]))));
+  return r;
+}
+void *ns_arr_repeat(const char *d, slot x, int64_t n) { // d: array descriptor; nested arrays are deep-copied per row
+  Arr *r = ns_arr_new(d, n);
+  for (int64_t k = 0; k < n; k++) if (d[1] == 'A') apush(r, P(ns_arr_copy(S(x)))); else ns_arr_push(r, x);
+  return r;
+}
 
 // ---------- tuples (Arr layout, len = n, data inline, header desc "U<n>...") ----------
 void *ns_tup_new(const char *d) {

@@ -285,6 +285,7 @@ and private builtin name (args: E list) : E =
         | t -> err (sprintf "push: not an array: %s" (showTy t))
     | "panic", [ msg ] -> call TInt
     | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map own xs)) (TTup(xs |> List.map (fun x -> x.t)))
+    | "repeat", [ x; n ] -> typed (Call("repeat", [ own x; conv n TInt ])) (TArr x.t)
     | _ -> err (sprintf "unknown function '%s' with %d argument(s)" name args.Length)
 
 and private userCall id (args: E list) : E =

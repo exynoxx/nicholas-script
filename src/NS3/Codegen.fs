@@ -295,6 +295,7 @@ let generate (prog: Program) : string =
             args |> List.iteri (fun i a -> rt "void" "ns_tup_set" [ "ptr", t; "i64", string i; "i64", toSlot (arg i) a.t ] |> ignore)
             t
         | "tget", [ _; { k = Int k } ] -> fromSlot (rt "i64" "ns_tup_get" [ "ptr", arg 0; "i64", string k ]) e.t
+        | "repeat", [ x; _ ] -> rt "ptr" "ns_arr_repeat" [ d e.t; slot 0; "i64", arg 1 ]
         | "panic", _ -> (rt "void" "ns_panic" [ "ptr", arg 0 ] |> ignore; "0")
         | "split", _ -> rt "ptr" "ns_split" [ "ptr", arg 0; "ptr", arg 1 ]
         | "join", [ a; _ ] -> rt "ptr" "ns_join" [ elemDesc a.t; "ptr", arg 0; "ptr", arg 1 ]
