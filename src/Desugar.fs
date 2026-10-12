@@ -7,7 +7,7 @@ open Core
 let mutable private counter = 0
 let fresh (prefix: string) =
     counter <- counter + 1
-    sprintf "%s%%%d" prefix counter
+    $"{prefix}%%{counter}"
 
 /// `env` renames the implicit names `_ @ $` to the variables of the innermost block.
 let rec private expr (env: Map<string, string>) (e: Expr) : E =

@@ -47,63 +47,64 @@ let generate (prog: Program) : string =
             match strings.TryGetValue s with
             | true, n -> n
             | _ ->
-                let n = sprintf "@.s%d" strings.Count
+                let n = $"@.s{strings.Count}"
                 strings.[s] <- n
                 n
         let len = Encoding.UTF8.GetByteCount s + 1
-        sprintf "getelementptr inbounds ({ i64, ptr, [%d x i8] }, ptr %s, i32 0, i32 2)" len n
+        $"getelementptr inbounds ({{ i64, ptr, [{len} x i8] }}, ptr {n}, i32 0, i32 2)"
     let tmp () =
         c.tmp <- c.tmp + 1
-        sprintf "%%t%d" c.tmp
+        $"%%t{c.tmp}"
     let label () =
         c.tmp <- c.tmp + 1
-        sprintf "L%d" c.tmp
+        $"L{c.tmp}"
     let emit (s: string) = c.body.Append("  ").Append(s).Append('\n') |> ignore
     let place (l: string) = c.body.Append(l).Append(":\n") |> ignore
     let alloca ty =
         let r = tmp ()
-        c.allocas.Append(sprintf "  %s = alloca %s\n" r ty) |> ignore
+        c.allocas.Append($"  {r} = alloca {ty}\n") |> ignore
         r
     let ptrOf (u: string) =
         if globals.Contains u && not (inMain && not (fnGlobals.Contains u)) then
             fnGlobals.Add u |> ignore // functions are emitted before main
-            sprintf "@\"g.%s\"" u
-        elif c.caps.Contains u then sprintf "%%\"c.%s\"" u
+            $"@\"g.{u}\""
+        elif c.caps.Contains u then $"%%\"c.{u}\""
         else
             match c.locals.TryGetValue u with
             | true, p -> p
             | _ ->
                 let ty = llty prog.varTy.[u]
                 let p = alloca ty
-                c.allocas.Append(sprintf "  store %s zeroinitializer, ptr %s\n" ty p) |> ignore
+                c.allocas.Append($"  store {ty} zeroinitializer, ptr {p}\n") |> ignore
                 c.locals.[u] <- p
                 p
     /// Calls a runtime function; args are (llvm type, operand) pairs.
     let rt (ret: string) (name: string) (args: (string * string) list) =
-        decls.[name] <- sprintf "declare %s @%s(%s)" ret name (args |> List.map fst |> String.concat ", ")
+        let tys = args |> List.map fst |> String.concat ", "
+        decls.[name] <- $"declare {ret} @{name}({tys})"
         let argStr = args |> List.map (fun (t, v) -> t + " " + v) |> String.concat ", "
-        if ret = "void" then (emit (sprintf "call void @%s(%s)" name argStr); "")
+        if ret = "void" then (emit ($"call void @{name}({argStr})"); "")
         else
             let r = tmp ()
-            emit (sprintf "%s = call %s @%s(%s)" r ret name argStr)
+            emit ($"{r} = call {ret} @{name}({argStr})")
             r
-    let instr fmt = Printf.kprintf (fun s -> let r = tmp () in emit (r + " = " + s); r) fmt
+    let instr (s: string) = let r = tmp () in emit (r + " = " + s); r
     /// Puts a value into a fresh stack cell in its storage layout and returns the cell's address.
     let spill (v: string) t =
         let p = alloca (Repr.storage t)
-        let sv = if resolve t = TBool then instr "zext i1 %s to i8" v else v
-        emit (sprintf "store %s %s, ptr %s" (Repr.storage t) sv p)
+        let sv = if resolve t = TBool then instr $"zext i1 {v} to i8" else v
+        emit ($"store {Repr.storage t} {sv}, ptr {p}")
         p
     /// Reads a value from storage (not retained).
     let loadFrom (p: string) t =
-        let v = instr "load %s, ptr %s" (Repr.storage t) p
-        if resolve t = TBool then instr "trunc i8 %s to i1" v else v
+        let v = instr $"load {Repr.storage t}, ptr {p}"
+        if resolve t = TBool then instr $"trunc i8 {v} to i1" else v
     /// A cell the runtime writes an owned result into.
     let outCell t = alloca (Repr.storage t)
     /// Writes a value into element storage (layout per Repr).
     let storeTo (v: string) t (p: string) =
-        let sv = if resolve t = TBool then instr "zext i1 %s to i8" v else v
-        emit (sprintf "store %s %s, ptr %s" (Repr.storage t) sv p)
+        let sv = if resolve t = TBool then instr $"zext i1 {v} to i8" else v
+        emit ($"store {Repr.storage t} {sv}, ptr {p}")
     let d t = "ptr", strConst (desc t)
     // Reference counting: every expression yields an owned (+1) value; runtime args are borrowed.
     let isPtr = Repr.isPtr
@@ -116,12 +117,12 @@ let generate (prog: Program) : string =
     let rec ex (e: E) : string =
         match e.k with
         | Int v -> string v
-        | Float f -> sprintf "0x%016X" (BitConverter.DoubleToInt64Bits f)
+        | Float f -> $"0x{BitConverter.DoubleToInt64Bits f:X16}"
         | Bool b -> if b then "true" else "false"
         | Str s -> strConst s
         | Var u when isFn e.t -> "0"
         | Var u ->
-            let v = instr "load %s, ptr %s" (llty e.t) (ptrOf u)
+            let v = instr $"load {llty e.t}, ptr {ptrOf u}"
             retain v e.t
             v
         | Fn _ -> "0"
@@ -135,14 +136,14 @@ let generate (prog: Program) : string =
         | If(cond, a, b) ->
             let res = if isFn e.t then "" else alloca (llty e.t)
             let lt, le, lend = label (), label (), label ()
-            emit (sprintf "br i1 %s, label %%%s, label %%%s" (ex cond) lt le)
+            emit ($"br i1 {ex cond}, label %%{lt}, label %%{le}")
             for (l, x) in [ lt, a; le, b ] do
                 place l
                 let v = ex x
-                if res <> "" then emit (sprintf "store %s %s, ptr %s" (llty e.t) v res)
-                emit (sprintf "br label %%%s" lend)
+                if res <> "" then emit ($"store {llty e.t} {v}, ptr {res}")
+                emit ($"br label %%{lend}")
             place lend
-            if res = "" then "0" else instr "load %s, ptr %s" (llty e.t) res
+            if res = "" then "0" else instr $"load {llty e.t}, ptr {res}"
         | Call("$desc", []) -> strConst (desc e.t)
         | Call(f, args) -> call e f args
         | Index(x, i) ->
@@ -156,15 +157,16 @@ let generate (prog: Program) : string =
                     let key = spill iv k
                     let p = rt "ptr" "ns_map_ref" [ "ptr", xv; "ptr", key ]
                     let lf, ls, lend = label (), label (), label ()
-                    emit (sprintf "br i1 %s, label %%%s, label %%%s" (instr "icmp ne ptr %s, null" p) lf ls)
+                    let present = instr $"icmp ne ptr {p}, null"
+                    emit $"br i1 {present}, label %%{lf}, label %%{ls}"
                     place lf
                     let v = loadFrom p e.t
                     retain v e.t
                     storeTo v e.t out
-                    emit (sprintf "br label %%%s" lend)
+                    emit ($"br label %%{lend}")
                     place ls
                     rt "void" "ns_map_get" [ "ptr", xv; "ptr", key; "ptr", out ] |> ignore
-                    emit (sprintf "br label %%%s" lend)
+                    emit ($"br label %%{lend}")
                     place lend
                     loadFrom out e.t
                 | _ ->
@@ -189,7 +191,7 @@ let generate (prog: Program) : string =
     /// Evaluates for a borrowing use: a plain variable read skips retain; returns (value, owned).
     and exB (e: E) : string * bool =
         match e.k with
-        | Var u when isPtr e.t && not (isFn e.t) -> instr "load ptr, ptr %s" (ptrOf u), false
+        | Var u when isPtr e.t && not (isFn e.t) -> instr $"load ptr, ptr {ptrOf u}", false
         | _ -> ex e, true
 
     /// Operands left to right; one is borrowed only if nothing evaluated after it can reassign variables.
@@ -208,17 +210,19 @@ let generate (prog: Program) : string =
 
     and convert1 (v: string) (src: Ty) (dst: Ty) =
         match resolve src, resolve dst with
-        | TInt, TFloat -> instr "sitofp i64 %s to double" v
-        | TFloat, TInt -> instr "fptosi double %s to i64" v
-        | TInt, TBool -> instr "icmp ne i64 %s, 0" v
-        | TFloat, TBool -> instr "fcmp une double %s, 0.0" v
-        | TBool, TInt -> instr "zext i1 %s to i64" v
-        | TBool, TFloat -> instr "uitofp i1 %s to double" v
+        | TInt, TFloat -> instr $"sitofp i64 {v} to double"
+        | TFloat, TInt -> instr $"fptosi double {v} to i64"
+        | TInt, TBool -> instr $"icmp ne i64 {v}, 0"
+        | TFloat, TBool -> instr $"fcmp une double {v}, 0.0"
+        | TBool, TInt -> instr $"zext i1 {v} to i64"
+        | TBool, TFloat -> instr $"uitofp i1 {v} to double"
         | TStr, TInt -> rt "i64" "ns_s2i" [ "ptr", v ]
         | TStr, TFloat -> rt "double" "ns_s2f" [ "ptr", v ]
         | s, TStr -> rt "ptr" "ns_tostr" [ d s; "ptr", spill v s ]
-        | s, TBool -> instr "icmp ne i64 %s, 0" (rt "i64" "ns_len" [ d s; "ptr", spill v s ])
-        | s, t -> failwithf "codegen: no conversion %s -> %s" (showTy s) (showTy t)
+        | s, TBool ->
+            let n = rt "i64" "ns_len" [ d s; "ptr", spill v s ]
+            instr $"icmp ne i64 {n}, 0"
+        | s, t -> failwith $"codegen: no conversion {showTy s} -> {showTy t}"
 
     and binop op (a: E) (b: E) =
         let [ (av, ao); (bv, bo) ] = exArgs 0 [ a; b ]
@@ -230,29 +234,34 @@ let generate (prog: Program) : string =
     and binop1 op (a: E) (b: E) av bv =
         let cmpOp = dict [ "=", ("eq", "oeq", "eq"); "~=", ("ne", "une", "ne"); "<", ("slt", "olt", "ult"); ">", ("sgt", "ogt", "ugt"); "<=", ("sle", "ole", "ule"); ">=", ("sge", "oge", "uge") ]
         match resolve a.t, op with
-        | TInt, _ when cmpOp.ContainsKey op -> let (i, _, _) = cmpOp.[op] in instr "icmp %s i64 %s, %s" i av bv
-        | TFloat, _ when cmpOp.ContainsKey op -> let (_, f, _) = cmpOp.[op] in instr "fcmp %s double %s, %s" f av bv
-        | TBool, _ when cmpOp.ContainsKey op -> let (_, _, u) = cmpOp.[op] in instr "icmp %s i1 %s, %s" u av bv
+        | TInt, _ when cmpOp.ContainsKey op -> let (i, _, _) = cmpOp.[op] in instr $"icmp {i} i64 {av}, {bv}"
+        | TFloat, _ when cmpOp.ContainsKey op -> let (_, f, _) = cmpOp.[op] in instr $"fcmp {f} double {av}, {bv}"
+        | TBool, _ when cmpOp.ContainsKey op -> let (_, _, u) = cmpOp.[op] in instr $"icmp {u} i1 {av}, {bv}"
         | t, ("=" | "~=") when t <> TStr ->
             let r = rt "i64" "ns_eq" [ d t; "ptr", spill av t; "ptr", spill bv t ]
-            instr "icmp %s i64 %s, 0" (if op = "=" then "ne" else "eq") r
+            let pred = if op = "=" then "ne" else "eq"
+            instr $"icmp {pred} i64 {r}, 0"
         | t, _ when cmpOp.ContainsKey op ->
             let r = rt "i64" "ns_cmp" [ d t; "ptr", spill av t; "ptr", spill bv t ]
             let (i, _, _) = cmpOp.[op]
-            instr "icmp %s i64 %s, 0" i r
+            instr $"icmp {i} i64 {r}, 0"
         | TInt, ("/" | "%" | "^^") ->
             rt "i64" (match op with "/" -> "ns_idiv" | "%" -> "ns_imod" | _ -> "ns_ipow") [ "i64", av; "i64", bv ]
         | TInt, _ ->
             let ins = match op with "+" -> "add" | "-" -> "sub" | "*" -> "mul" | "&" -> "and" | "^" -> "xor" | "<<" -> "shl" | ">>" -> "ashr" | ">>>" -> "lshr" | _ -> "or"
-            instr "%s i64 %s, %s" ins av bv
+            instr $"{ins} i64 {av}, {bv}"
         | TFloat, "^^" ->
             decls.["llvm.pow.f64"] <- "declare double @llvm.pow.f64(double, double)"
-            instr "call double @llvm.pow.f64(double %s, double %s)" av bv
-        | TFloat, _ -> instr "%s double %s, %s" (match op with "+" -> "fadd" | "-" -> "fsub" | "*" -> "fmul" | "/" -> "fdiv" | _ -> "frem") av bv
-        | TBool, _ -> instr "%s i1 %s, %s" (match op with "+" -> "or" | "*" -> "and" | _ -> "xor") av bv
+            instr $"call double @llvm.pow.f64(double {av}, double {bv})"
+        | TFloat, _ ->
+            let ins = match op with "+" -> "fadd" | "-" -> "fsub" | "*" -> "fmul" | "/" -> "fdiv" | _ -> "frem"
+            instr $"{ins} double {av}, {bv}"
+        | TBool, _ ->
+            let ins = match op with "+" -> "or" | "*" -> "and" | _ -> "xor"
+            instr $"{ins} i1 {av}, {bv}"
         | TStr, "+" -> rt "ptr" "ns_concat" [ "ptr", av; "ptr", bv ]
         | TStr, "*" -> rt "ptr" "ns_repeat" [ "ptr", av; "i64", bv ]
-        | t, _ -> failwithf "codegen: operator %s on %s" op (showTy t)
+        | t, _ -> failwith $"codegen: operator {op} on {showTy t}"
 
     and call (e: E) (f: string) (args: E list) =
         match f, args with
@@ -284,10 +293,12 @@ let generate (prog: Program) : string =
         let elemDesc t = match resolve t with TArr el -> d el | _ -> d TInt
         match f, args with
         | "print", [ x ] -> (rt "void" "ns_print" [ d x.t; cell 0 ] |> ignore; arg 0)
-        | "neg", [ x ] -> if resolve x.t = TFloat then instr "fneg double %s" (arg 0) else instr "sub i64 0, %s" (arg 0)
-        | "not", _ -> instr "xor i1 %s, true" (arg 0)
+        | "neg", [ x ] -> if resolve x.t = TFloat then instr $"fneg double {arg 0}" else instr $"sub i64 0, {arg 0}"
+        | "not", _ -> instr $"xor i1 {arg 0}, true"
         | "len", [ x ] -> rt "i64" "ns_len" [ d x.t; cell 0 ]
-        | "has", [ x; _ ] -> instr "icmp ne i64 %s, 0" (rt "i64" "ns_has" [ d x.t; "ptr", arg 0; cell 1 ])
+        | "has", [ x; _ ] ->
+            let r = rt "i64" "ns_has" [ d x.t; "ptr", arg 0; cell 1 ]
+            instr $"icmp ne i64 {r}, 0"
         | "range", _ -> rt "ptr" "ns_range" [ "i64", arg 0; "i64", arg 1 ]
         | "slice", [ x; _; _ ] ->
             rt "ptr" (if resolve x.t = TStr then "ns_slice_s" else "ns_arr_slice") [ "ptr", arg 0; "i64", arg 1; "i64", arg 2 ]
@@ -307,15 +318,16 @@ let generate (prog: Program) : string =
         | "tuple", _ when Repr.isValueTuple e.t ->
             // value tuple: an LLVM struct built in registers (bool members widened to i64)
             args |> List.indexed |> List.fold (fun acc (i, a) ->
-                let m = if resolve a.t = TBool then instr "zext i1 %s to i64" (arg i) else arg i
-                instr "insertvalue %s %s, %s %s, %d" (llty e.t) acc (if resolve a.t = TFloat then "double" else "i64") m i) "undef"
+                let m = if resolve a.t = TBool then instr $"zext i1 {arg i} to i64" else arg i
+                let mt = if resolve a.t = TFloat then "double" else "i64"
+                instr $"insertvalue {llty e.t} {acc}, {mt} {m}, {i}") "undef"
         | "tuple", _ ->
             let t = rt "ptr" "ns_tup_new" [ d e.t ]
             args |> List.iteri (fun i a -> rt "void" "ns_tup_set" [ "ptr", t; "i64", string i; cell i ] |> ignore)
             t
         | "tget", [ x; { k = Int k } ] when Repr.isValueTuple x.t ->
-            let m = instr "extractvalue %s %s, %d" (llty x.t) (arg 0) k
-            if resolve e.t = TBool then instr "icmp ne i64 %s, 0" m else m
+            let m = instr $"extractvalue {llty x.t} {arg 0}, {k}"
+            if resolve e.t = TBool then instr $"icmp ne i64 {m}, 0" else m
         | "tget", [ _; { k = Int k } ] ->
             let out = outCell e.t
             rt "void" "ns_tup_get" [ "ptr", arg 0; "i64", string k; "ptr", out ] |> ignore
@@ -341,9 +353,10 @@ let generate (prog: Program) : string =
             let ps = List.zip vs (inst.parms |> List.map snd) |> List.map (fun (v, t) -> llty t + " " + v)
             let cs = inst.caps |> List.map (fun u -> "ptr " + ptrOf u)
             let r = tmp ()
-            emit (sprintf "%s = call %s @\"%s\"(%s)" r (llty inst.ret) inst.name (ps @ cs |> String.concat ", "))
+            let argList = ps @ cs |> String.concat ", "
+            emit $"{r} = call {llty inst.ret} @\"{inst.name}\"({argList})"
             r
-        | _ -> failwithf "codegen: unknown call %s/%d" f args.Length
+        | _ -> failwith $"codegen: unknown call {f}/{args.Length}"
 
     /// Calls a runtime stdlib function per its signature: descriptors, then arguments (type-variable values by
     /// storage pointer, bools as i64, a block as callback + env), then an out cell for a type-variable result.
@@ -363,7 +376,7 @@ let generate (prog: Program) : string =
                     owned <- (v, a.t) :: owned
                     match p with
                     | Stdlib.SVar _ -> [ "ptr", spill v a.t ]
-                    | Stdlib.SBool -> [ "i64", instr "zext i1 %s to i64" v ]
+                    | Stdlib.SBool -> [ "i64", instr $"zext i1 {v} to i64" ]
                     | _ -> [ llty a.t, v ]) sg.parms (List.skip nd args)
             |> List.concat
         let r =
@@ -372,7 +385,9 @@ let generate (prog: Program) : string =
                 let out = outCell e.t
                 rt "void" sg.csym (descs @ cargs @ [ "ptr", out ]) |> ignore
                 loadFrom out e.t
-            | Stdlib.SBool -> instr "icmp ne i64 %s, 0" (rt "i64" sg.csym (descs @ cargs))
+            | Stdlib.SBool ->
+                let b = rt "i64" sg.csym (descs @ cargs)
+                instr $"icmp ne i64 {b}, 0"
             | _ -> rt (llty e.t) sg.csym (descs @ cargs)
         for (v, t) in owned do release v t
         r
@@ -384,24 +399,27 @@ let generate (prog: Program) : string =
             let saved = c
             c <- { body = StringBuilder(); allocas = StringBuilder(); locals = Dictionary(); caps = Set.empty; tmp = 0 }
             let _, pt = inst.parms.Head
-            let caps = inst.caps |> List.mapi (fun i _ -> instr "load ptr, ptr %s" (instr "getelementptr ptr, ptr %%env, i64 %d" i))
+            let caps = inst.caps |> List.mapi (fun i _ -> let slot = instr $"getelementptr ptr, ptr %%env, i64 {i}" in instr $"load ptr, ptr {slot}")
             let a = loadFrom "%x" pt
             retain a pt // the instance owns its parameter; C passes a borrowed element
             let r = tmp ()
             let ps = (llty pt + " " + a) :: (caps |> List.map (fun p -> "ptr " + p))
-            emit (sprintf "%s = call %s @\"%s\"(%s)" r (llty inst.ret) inst.name (String.concat ", " ps))
-            let sr = if resolve inst.ret = TBool then instr "zext i1 %s to i8" r else r
-            emit (sprintf "store %s %s, ptr %%out" (Repr.storage inst.ret) sr)
+            let argList = String.concat ", " ps
+            emit $"{r} = call {llty inst.ret} @\"{inst.name}\"({argList})"
+            let sr = if resolve inst.ret = TBool then instr $"zext i1 {r} to i8" else r
+            emit ($"store {Repr.storage inst.ret} {sr}, ptr %%out")
             emit "ret void"
-            wrappers.Append(sprintf "define void @\"w.%s\"(ptr %%env, ptr %%x, ptr %%out) {\nentry:\n%s%s}\n\n" inst.name (string c.allocas) (string c.body)) |> ignore
+            wrappers.Append($"define void @\"w.{inst.name}\"(ptr %%env, ptr %%x, ptr %%out) {{\nentry:\n{string c.allocas}{string c.body}}}\n\n") |> ignore
             c <- saved
-        sprintf "@\"w.%s\"" inst.name
+        $"@\"w.{inst.name}\""
 
     and envOf (inst: Inst) : string =
         if inst.caps.IsEmpty then "null"
         else
-            let env = alloca (sprintf "[%d x ptr]" inst.caps.Length)
-            inst.caps |> List.iteri (fun i u -> emit (sprintf "store ptr %s, ptr %s" (ptrOf u) (instr "getelementptr ptr, ptr %s, i64 %d" env i)))
+            let env = alloca ($"[{inst.caps.Length} x ptr]")
+            inst.caps |> List.iteri (fun i u ->
+                let slot = instr $"getelementptr ptr, ptr {env}, i64 {i}"
+                emit $"store ptr {ptrOf u}, ptr {slot}")
             env
 
     and stmt (s: S) =
@@ -412,8 +430,8 @@ let generate (prog: Program) : string =
         | Assign(u, e) ->
             let v = ex e
             let p = ptrOf u
-            let old = if isPtr e.t then instr "load ptr, ptr %s" p else ""
-            emit (sprintf "store %s %s, ptr %s" (llty e.t) v p)
+            let old = if isPtr e.t then instr $"load ptr, ptr {p}" else ""
+            emit ($"store {llty e.t} {v}, ptr {p}")
             release old e.t
         | SetIdx(x, i, v) ->
             let [ (xv, xo); (iv, io); (vv, vo) ] = exArgs 0 [ x; i; v ]
@@ -422,7 +440,7 @@ let generate (prog: Program) : string =
                 match resolve x.t with
                 | TMap(k, _) -> rt "ptr" "ns_map_put" [ "ptr", xv; "ptr", spill iv k ]
                 | _ -> rt "ptr" "ns_arr_at" [ "ptr", xv; "i64", iv ]
-            let old = if isPtr v.t then instr "load ptr, ptr %s" p else ""
+            let old = if isPtr v.t then instr $"load ptr, ptr {p}" else ""
             retain vv v.t
             storeTo vv v.t p
             release old v.t
@@ -431,12 +449,12 @@ let generate (prog: Program) : string =
             drop (vv, vo) v.t
         | While(cond, body) ->
             let lc, lb, lend = label (), label (), label ()
-            emit (sprintf "br label %%%s" lc)
+            emit ($"br label %%{lc}")
             place lc
-            emit (sprintf "br i1 %s, label %%%s, label %%%s" (ex cond) lb lend)
+            emit ($"br i1 {ex cond}, label %%{lb}, label %%{lend}")
             place lb
             stmts body
-            emit (sprintf "br label %%%s" lc)
+            emit ($"br label %%{lc}")
             place lend
 
     and stmts ss = List.iter stmt ss
@@ -447,28 +465,31 @@ let generate (prog: Program) : string =
 
     for inst in prog.insts do
         c <- newCtx (set inst.caps)
-        for (u, t) in inst.parms do emit (sprintf "store %s %%\"p.%s\", ptr %s" (llty t) u (ptrOf u))
+        for (u, t) in inst.parms do emit ($"store {llty t} %%\"p.{u}\", ptr {ptrOf u}")
         stmts inst.body
         let r = ex inst.result
         for KeyValue(u, p) in List.ofSeq c.locals do
-            if isPtr prog.varTy.[u] then release (instr "load ptr, ptr %s" p) prog.varTy.[u]
-        emit (sprintf "ret %s %s" (llty inst.ret) r)
-        let ps = (inst.parms |> List.map (fun (u, t) -> sprintf "%s %%\"p.%s\"" (llty t) u)) @ (inst.caps |> List.map (fun u -> sprintf "ptr %%\"c.%s\"" u))
-        fns.Append(sprintf "define %s @\"%s\"(%s) {\nentry:\n%s%s}\n\n" (llty inst.ret) inst.name (String.concat ", " ps) (string c.allocas) (string c.body)) |> ignore
+            if isPtr prog.varTy.[u] then release (instr $"load ptr, ptr {p}") prog.varTy.[u]
+        emit ($"ret {llty inst.ret} {r}")
+        let ps = (inst.parms |> List.map (fun (u, t) -> $"{llty t} %%\"p.{u}\"")) @ (inst.caps |> List.map (fun u -> $"ptr %%\"c.{u}\""))
+        let parmList = String.concat ", " ps
+        fns.Append($"define {llty inst.ret} @\"{inst.name}\"({parmList}) {{\nentry:\n{c.allocas}{c.body}}}\n\n") |> ignore
 
     c <- newCtx Set.empty
     inMain <- true
     stmts prog.main
     for KeyValue(u, p) in List.ofSeq c.locals do // main's former globals: release like any function's locals
-        if isPtr prog.varTy.[u] then release (instr "load ptr, ptr %s" p) prog.varTy.[u]
+        if isPtr prog.varTy.[u] then release (instr $"load ptr, ptr {p}") prog.varTy.[u]
     emit "ret i32 0"
-    fns.Append(sprintf "define i32 @main() {\nentry:\n%s%s}\n" (string c.allocas) (string c.body)) |> ignore
+    fns.Append($"define i32 @main() {{\nentry:\n{string c.allocas}{string c.body}}}\n") |> ignore
 
     for (g, t) in prog.globals do
-        if not (isFn t) then out.Append(sprintf "@\"g.%s\" = internal global %s %s\n" g (llty t) (if llty t = "ptr" then "null" else "zeroinitializer")) |> ignore
+        if not (isFn t) then
+            let init = if llty t = "ptr" then "null" else "zeroinitializer"
+            out.Append($"@\"g.{g}\" = internal global {llty t} {init}\n") |> ignore
     for KeyValue(s, n) in strings do
         let bytes = Encoding.UTF8.GetBytes s
-        let esc = bytes |> Array.map (fun b -> if b >= 32uy && b < 127uy && b <> 34uy && b <> 92uy then string (char b) else sprintf "\\%02X" b) |> String.concat ""
-        out.Append(sprintf "%s = private unnamed_addr constant { i64, ptr, [%d x i8] } { i64 -1, ptr null, [%d x i8] c\"%s\\00\" }\n" n (bytes.Length + 1) (bytes.Length + 1) esc) |> ignore
+        let esc = bytes |> Array.map (fun b -> if b >= 32uy && b < 127uy && b <> 34uy && b <> 92uy then string (char b) else $"\\{b:X2}") |> String.concat ""
+        out.Append($"{n} = private unnamed_addr constant {{ i64, ptr, [{bytes.Length + 1} x i8] }} {{ i64 -1, ptr null, [{bytes.Length + 1} x i8] c\"{esc}\\00\" }}\n") |> ignore
     for KeyValue(_, decl) in decls do out.Append(decl).Append('\n') |> ignore
     out.Append('\n').Append(fns).Append(wrappers).ToString()

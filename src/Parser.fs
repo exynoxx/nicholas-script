@@ -19,12 +19,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
     let advance () = pos <- pos + 1
     let isSym s = peek () = SYM s
     let accept s = if isSym s then (advance (); true) else false
-    let expect s = if not (accept s) then fail (line ()) (sprintf "expected '%s' but found %A" s (peek ()))
+    let expect s = if not (accept s) then fail (line ()) ($"expected '{s}' but found {showTok (peek ())}")
     let isFunc name = fnames.Contains name || builtins.Contains name
 
     member p.Program() =
         let body = p.Stmts EOF
-        if peek () <> EOF then fail (line ()) (sprintf "unexpected %A" (peek ()))
+        if peek () <> EOF then fail (line ()) ($"unexpected {showTok (peek ())}")
         body
 
     member p.Stmts(closer: Tok) : Stmt list =
@@ -40,17 +40,17 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                 | STR [ Lit file ] ->
                     advance ()
                     let path = System.IO.Path.GetFullPath(System.IO.Path.Combine(imports.dir, file))
-                    if not (System.IO.File.Exists path) then fail (line ()) (sprintf "import: file not found: %s" path)
+                    if not (System.IO.File.Exists path) then fail (line ()) ($"import: file not found: {path}")
                     if imports.seen.Add path then
                         let toks = Lexer.lex (System.IO.File.ReadAllText path) 1
                         let sub = Parser(Array.ofList toks, fnames, nextId, { imports with dir = System.IO.Path.GetDirectoryName path })
                         out.AddRange(sub.Program())
-                | t -> fail (line ()) (sprintf "import expects a file name string, found %A" t)
+                | t -> fail (line ()) ($"import expects a file name string, found {showTok (t)}")
             else
                 out.Add(SLine(line ()))
                 out.Add(p.Stmt())
                 if peek () = TERM then advance ()
-                elif peek () <> closer then fail (line ()) (sprintf "expected end of statement, found %A" (peek ()))
+                elif peek () <> closer then fail (line ()) ($"expected end of statement, found {showTok (peek ())}")
         List.ofSeq out
 
     member p.Block(closer: string) =
@@ -86,7 +86,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                 let mutable e = EVar name
                 while accept "@" do e <- EIndex(e, p.IndexOperand())
                 e
-            | t -> fail (line ()) (sprintf "not an lvalue: %A" t)
+            | t -> fail (line ()) ($"not an lvalue: {showTok (t)}")
         let first = one ()
         let rest = ResizeArray [ first ]
         while accept "," do rest.Add(one ())
@@ -184,7 +184,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                     advance ()
                     let args = if accept ":" then p.ExprList() else []
                     e <- ECall(f, e :: args)
-                | t -> fail (line ()) (sprintf "expected method name, found %A" t)
+                | t -> fail (line ()) ($"expected method name, found {showTok (t)}")
             | _ -> go <- false
         e
 
@@ -205,7 +205,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         else
             match peek () with
             | INT _ | ID _ | SYM "(" -> p.Base()
-            | t -> fail (line ()) (sprintf "range end must be a number, name or (expr), found %A" t)
+            | t -> fail (line ()) ($"range end must be a number, name or (expr), found {showTok (t)}")
 
     member p.Base() : Expr =
         let ln = line ()
@@ -264,7 +264,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             nextId.Value <- nextId.Value + 1
             let id = nextId.Value
             EBlock(id, p.Block "}")
-        | t -> fail ln (sprintf "unexpected %A" t)
+        | t -> fail ln ($"unexpected {showTok (t)}")
 
     member p.InterpExpr() =
         let e = p.Expr()

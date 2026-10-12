@@ -50,3 +50,55 @@ and Stmt =
     | SWhile of Expr * Stmt list
     | SExpr of Expr
     | SLine of int
+
+// ---------- printers (explicit, so the compiler needs no reflection: native AOT) ----------
+
+let quote (s: string) = "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n") + "\""
+
+let showTok (t: Tok) =
+    match t with
+    | INT v -> $"INT {v}"
+    | FLOAT v -> $"FLOAT {v}"
+    | STR parts -> "STR " + (parts |> List.map (function Lit s -> quote s | Code(c, _) -> "{" + c + "}") |> String.concat "")
+    | BOOL b -> if b then "BOOL T" else "BOOL F"
+    | ID s -> $"ID {s}"
+    | SYM s -> $"SYM {s}"
+    | FOLDOP s -> $"FOLDOP {s}"
+    | SCANOP s -> $"SCANOP {s}"
+    | TERM -> "TERM"
+    | EOF -> "EOF"
+
+let rec showExpr (e: Expr) : string =
+    let list xs = xs |> List.map showExpr |> String.concat "; "
+    match e with
+    | EInt v -> $"EInt {v}"
+    | EFloat v -> $"EFloat {v}"
+    | EStr s -> "EStr " + quote s
+    | EInterp xs -> $"EInterp [{list xs}]"
+    | EBool b -> $"EBool {b}"
+    | EVar n -> $"EVar {n}"
+    | EArr xs -> $"EArr [{list xs}]"
+    | ETuple xs -> $"ETuple [{list xs}]"
+    | EMapLit ps -> "EMapLit [" + (ps |> List.map (fun (k, v) -> showExpr k + " -> " + showExpr v) |> String.concat "; ") + "]"
+    | ECollLit(k, xs) -> $"ECollLit {k} [{list xs}]"
+    | ERange(a, b) -> $"ERange({showExpr a}, {showExpr b})"
+    | EBin(op, a, b) -> $"EBin({op}, {showExpr a}, {showExpr b})"
+    | EUn(op, x) -> $"EUn({op}, {showExpr x})"
+    | ETern(c, a, b) -> $"ETern({showExpr c}, {showExpr a}, {showExpr b})"
+    | ECall(f, xs) -> $"ECall({f}, [{list xs}])"
+    | EIndex(x, i) -> $"EIndex({showExpr x}, {showExpr i})"
+    | EHas(x, k) -> $"EHas({showExpr x}, {showExpr k})"
+    | EIter(k, src, body) -> $"EIter({k}, {showExpr src}, {showStmts body})"
+    | EIterOp(k, src, op) -> $"EIterOp({k}, {showExpr src}, {op})"
+    | EBlock(id, body) -> $"EBlock({id}, {showStmts body})"
+
+and showStmt (s: Stmt) : string =
+    let list xs = xs |> List.map showExpr |> String.concat ", "
+    match s with
+    | SAssign(lvs, es) -> $"SAssign([{list lvs}], [{list es}])"
+    | SCompound(op, lv, e) -> $"SCompound({op}, {showExpr lv}, {showExpr e})"
+    | SWhile(c, body) -> $"SWhile({showExpr c}, {showStmts body})"
+    | SExpr e -> $"SExpr {showExpr e}"
+    | SLine n -> $"SLine {n}"
+
+and showStmts (ss: Stmt list) = "[" + (ss |> List.filter (function SLine _ -> false | _ -> true) |> List.map showStmt |> String.concat "; ") + "]"

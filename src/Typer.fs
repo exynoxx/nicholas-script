@@ -54,7 +54,7 @@ let rec private unify a b =
 
 let private declare (fr: Frame) (name: string) (ty: Ty) =
     counter <- counter + 1
-    let u = sprintf "%s.%d" name counter
+    let u = $"{name}.{counter}"
     fr.vars.[name] <- u
     varTy.[u] <- ty
     match fr.inst with
@@ -85,7 +85,7 @@ let private castName t =
     | TFloat -> "float"
     | TStr -> "str"
     | TBool -> "bool"
-    | t -> err (sprintf "no conversion to %s" (showTy t))
+    | t -> err ($"no conversion to {showTy t}")
 
 /// Arrays are values: copy when a variable's array is stored somewhere else.
 let private own (e: E) =
@@ -101,7 +101,7 @@ let rec private conv (e: E) (ty: Ty) : E =
         | _ when isScalar a && isScalar b -> typed (Conv e) b
         | _, TStr | _, TBool -> typed (Conv e) b
         | TArr _, TArr y when isScalar y -> typeE (Lower.convArr e (castName y))
-        | _ -> err (sprintf "cannot convert %s to %s" (showTy a) (showTy b))
+        | _ -> err ($"cannot convert {showTy a} to {showTy b}")
 
 // ---------- expressions ----------
 
@@ -116,7 +116,7 @@ and typeE (e: E) : E =
         | Var name ->
             match lookup name with
             | Some u -> typed (Var u) varTy.[u]
-            | None -> err (sprintf "undefined variable '%s'" name)
+            | None -> err ($"undefined variable '{name}'")
         | Arr [] -> typed (Arr []) (TArr(newHole ()))
         | Arr xs ->
             let xs = List.map typeE xs
@@ -205,7 +205,7 @@ and private typeBin op (a: E) (b: E) : E =
     | "+", TStr -> same ()
     | "*", TStr -> typed (Bin("*", a, conv b TInt)) TStr
     | ("+" | "-" | "*"), TBool -> same ()
-    | _ -> err (sprintf "operator %s not defined for %s" op (showTy L))
+    | _ -> err ($"operator {op} not defined for {showTy L}")
 
 and private typeIndex (x: E) (i: E) =
     match resolve x.t with
@@ -221,8 +221,8 @@ and private typeIndex (x: E) (i: E) =
         | Int k when abs (int k) < ts.Length + (if k < 0L then 1 else 0) ->
             let k = if k < 0L then int k + ts.Length else int k
             typed (Call("tget", [ x; typed (Int(int64 k)) TInt ])) ts.[k]
-        | _ -> err (sprintf "tuple index must be a literal 0..%d" (ts.Length - 1))
-    | t -> err (sprintf "cannot index %s" (showTy t))
+        | _ -> err ($"tuple index must be a literal 0..{ts.Length - 1}")
+    | t -> err ($"cannot index {showTy t}")
 
 and private builtin name (args: E list) : E =
     let call t = typed (Call(name, args)) t
@@ -231,7 +231,7 @@ and private builtin name (args: E list) : E =
         | TArr e | TSet e | TQ e | TPQ e -> e
         | TStr -> TStr
         | TMap(k, _) -> k
-        | t -> err (sprintf "%s: not a collection: %s" name (showTy t))
+        | t -> err ($"{name}: not a collection: {showTy t}")
     match name, args with
     | "print", [ x ] -> typed (Call("print", [ x ])) x.t
     | ("int" | "float" | "str" | "bool"), [ x ] ->
@@ -248,7 +248,7 @@ and private builtin name (args: E list) : E =
     | "slice", [ x; a; b ] ->
         match resolve x.t with
         | TArr _ | TStr -> typed (Call("slice", [ x; conv a TInt; conv b TInt ])) x.t
-        | t -> err (sprintf "cannot slice %s" (showTy t))
+        | t -> err ($"cannot slice {showTy t}")
     | "mapof", [ ks; vs ] -> call (TMap(elemOf ks, elemOf vs))
     | ("set" | "Q" | "PQ"), [ xs ] ->
         let el = elemOf xs
@@ -258,21 +258,21 @@ and private builtin name (args: E list) : E =
     | "pop", [ q ] ->
         match resolve q.t with
         | TQ el | TPQ el -> call el
-        | t -> err (sprintf "pop: not a queue: %s" (showTy t))
+        | t -> err ($"pop: not a queue: {showTy t}")
     | "keys", [ m ] | "vals", [ m ] ->
         match resolve m.t with
         | TMap(k, v) -> call (TArr(if name = "keys" then k else v))
-        | t -> err (sprintf "%s: not a map: %s" name (showTy t))
+        | t -> err ($"{name}: not a map: {showTy t}")
     | "arr", [ c ] -> call (TArr(elemOf c))
     | "push", [ a; x ] ->
         match resolve a.t with
         | TArr el -> typed (Call("push", [ a; own (conv x el) ])) a.t
-        | t -> err (sprintf "push: not an array: %s" (showTy t))
+        | t -> err ($"push: not an array: {showTy t}")
     | "panic", [ msg ] -> call TInt
     | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map own xs)) (TTup(xs |> List.map (fun x -> x.t)))
     | "repeat", [ x; n ] -> typed (Call("repeat", [ own x; conv n TInt ])) (TArr x.t)
     | _ when Stdlib.names.Contains name -> stdCall name args
-    | _ -> err (sprintf "unknown function '%s' with %d argument(s)" name args.Length)
+    | _ -> err ($"unknown function '{name}' with {args.Length} argument(s)")
 
 /// A runtime stdlib call, typed from its `//@` signature (see Stdlib.fs). Type variables bind on first
 /// use; other arguments convert to the parameter type. The typed node carries one descriptor string per
@@ -301,7 +301,7 @@ and private stdCall name (args: E list) : E =
         | Stdlib.SInt, TInt | Stdlib.SFloat, TFloat | Stdlib.SStr, TStr | Stdlib.SBool, TBool -> true
         | _ -> false
     let candidates = Stdlib.overloads name |> List.filter (fun (sg: Stdlib.Sig) -> sg.parms.Length = args.Length)
-    if candidates.IsEmpty then err (sprintf "%s: no overload takes %d argument(s)" name args.Length)
+    if candidates.IsEmpty then err ($"{name}: no overload takes {args.Length} argument(s)")
     let exact (sg: Stdlib.Sig) = let env = Dictionary() in List.forall2 (bind env) sg.parms (args |> List.map (fun a -> a.t))
     let sg = candidates |> List.tryFind exact |> Option.defaultValue candidates.Head
     let env = Dictionary<string, Ty>()
@@ -315,8 +315,8 @@ and private stdCall name (args: E list) : E =
                 | Call(inst, _), Stdlib.SVar v ->
                     env.[v] <- call.t
                     typed (Call("$block:" + inst.Substring 1, [])) a.t
-                | _ -> err (sprintf "%s: the block must return %A" name rt)
-            | Stdlib.SFn _, _ -> err (sprintf "%s expects a block argument" name)
+                | _ -> err ($"{name}: the block must return {Stdlib.showSTy rt}")
+            | Stdlib.SFn _, _ -> err ($"{name} expects a block argument")
             | p, _ ->
                 bind env p a.t |> ignore
                 own (conv a (toTy env p))) sg.parms args
@@ -326,14 +326,14 @@ and private stdCall name (args: E list) : E =
 
 and private userCall id (args: E list) : E =
     let tys = args |> List.map (fun a -> resolve a.t)
-    let key = sprintf "%d(%s)" id (tys |> List.map showTy |> String.concat ",")
+    let key = string id + "(" + (tys |> List.map showTy |> String.concat ",") + ")"
     let inst =
         match insts.TryGetValue key with
         | true, i -> i
         | _ ->
             let body, defFr = fnDefs.[id]
             let inst =
-                { name = sprintf "f%d_%d" id instList.Count
+                { name = $"f{id}_{instList.Count}"
                   parms = []
                   caps = []
                   ret = newHole ()
@@ -342,7 +342,7 @@ and private userCall id (args: E list) : E =
                   owned = HashSet()
                   calls = HashSet() }
             let fr = { parent = Some defFr; vars = Dictionary(); inst = Some inst }
-            inst.parms <- tys |> List.mapi (fun i t -> declare fr (sprintf "_%d" (i + 1)) t, t)
+            inst.parms <- tys |> List.mapi (fun i t -> declare fr ($"_{i + 1}") t, t)
             insts.[key] <- inst
             instList.Add inst
             let saved, savedLine = cur, line
@@ -374,7 +374,7 @@ and private typeStmt (s: S) : S =
         match resolve x.t with
         | TArr el -> SetIdx(x, conv i TInt, own (conv value el))
         | TMap(k, v) -> SetIdx(x, conv i k, own (conv value v))
-        | t -> err (sprintf "cannot assign into %s" (showTy t))
+        | t -> err ($"cannot assign into {showTy t}")
     | Assign(name, e) ->
         let e = typeE e
         let generated = name.Contains '%'

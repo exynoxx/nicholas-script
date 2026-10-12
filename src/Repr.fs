@@ -59,5 +59,5 @@ let describe (prog: Typer.Program) =
     |> Seq.filter (fun t -> match resolve t with TFn _ | TUnk -> false | _ -> true)
     |> Seq.distinctBy showTy
     |> Seq.map (fun t ->
-        sprintf "%-24s register %-20s storage %-20s %2d bytes  desc %s" (showTy t) (llty t) (storage t) (esz t) (desc t))
+        $"{showTy t,-24} register {llty t,-20} storage {storage t,-20} {esz t,2} bytes  desc {desc t}")
     |> String.concat "\n"

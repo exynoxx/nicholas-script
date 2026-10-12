@@ -10,17 +10,17 @@ let private showTyped (p: Typer.Program) =
         p.insts
         |> List.map (fun i ->
             let ps = i.parms |> List.map (fun (u, t) -> u + ":" + Core.showTy t) |> String.concat ", "
-            let caps = if i.caps.IsEmpty then "" else sprintf " captures [%s]" (String.concat ", " i.caps)
-            sprintf "fn %s(%s)%s -> %s {\n%s\n  => %s\n}" i.name ps caps (Core.showTy i.ret) (Core.showStmts i.body) (Core.showE i.result))
+            let caps = if i.caps.IsEmpty then "" else " captures [" + String.concat ", " i.caps + "]"
+            $"fn {i.name}({ps}){caps} -> {Core.showTy i.ret} {{\n{Core.showStmts i.body}\n  => {Core.showE i.result}\n}}")
     String.concat "\n\n" (fns @ [ "main:\n" + Core.showStmts p.main ])
 
 /// Runs the pipeline up to `stage` and returns its printable output.
 let private pipeline (stage: string) (path: string) : string =
     let toks = Lexer.lex (File.ReadAllText path) 1
-    if stage = "tokens" then toks |> List.map (fun t -> sprintf "%d: %A" t.line t.tok) |> String.concat "\n"
+    if stage = "tokens" then toks |> List.map (fun t -> $"{t.line}: {showTok t.tok}") |> String.concat "\n"
     else
         let ast = Parser.parse toks path
-        if stage = "ast" then sprintf "%A" ast
+        if stage = "ast" then (ast |> List.filter (function SLine _ -> false | _ -> true) |> List.map showStmt |> String.concat "\n")
         else
             let core = Desugar.desugar ast
             if stage = "core" then Core.showStmts core
@@ -65,7 +65,7 @@ let private noEarlyExitVec =
     lazy
         (let tmp = Path.Combine(Path.GetTempPath(), "ns-flagcheck.c")
          File.WriteAllText(tmp, "int x;")
-         let code, _, _ = run "clang" (sprintf "-c -mllvm -enable-early-exit-vectorization=false \"%s\" -o /dev/null" tmp) None
+         let code, _, _ = run "clang" ($"-c -mllvm -enable-early-exit-vectorization=false \"{tmp}\" -o /dev/null") None
          if code = 0 then " -mllvm -enable-early-exit-vectorization=false" else "")
 
 /// Compiles a source file to a native binary at `exe`; returns an error message on failure.
@@ -77,11 +77,11 @@ let private build (path: string) (exe: string) : string option =
         // NS_ASAN=1 builds with Address/LeakSanitizer to verify reference counting
         let asan = if Environment.GetEnvironmentVariable "NS_ASAN" = "1" then "-g -fsanitize=address" else ""
         let asan = asan + noEarlyExitVec.Force()
-        let code, _, err = run "clang" (sprintf "-O2 -w %s \"%s\" -lm -o \"%s\"" asan ll exe) None
+        let code, _, err = run "clang" ($"-O2 -w {asan} \"{ll}\" -lm -o \"{exe}\"") None
         if code = 0 then None else Some("clang failed:\n" + err)
     with
-    | CompileError(line, msg) -> Some(sprintf "%s:%d: error: %s" path line msg)
-    | ex -> Some(sprintf "%s: internal error: %s" path (ex.ToString()))
+    | CompileError(line, msg) -> Some($"{path}:{line}: error: {msg}")
+    | ex -> Some($"{path}: internal error: {ex.ToString()}")
 
 let private test (dir: string) =
     let tmp = Directory.CreateTempSubdirectory("ns").FullName
@@ -103,13 +103,13 @@ let private test (dir: string) =
                     let el, al = expected.Split('\n'), out.Split('\n')
                     let i = Seq.zip el al |> Seq.tryFindIndex (fun (a, b) -> a <> b) |> Option.defaultValue (min el.Length al.Length)
                     let at (a: string[]) = if i < a.Length then a.[i] else "<eof>"
-                    Some(sprintf "line %d: expected '%s' got '%s' (exit %d) %s" (i + 1) (at el) (at al) code err)
+                    Some($"line {i + 1}: expected '{at el}' got '{at al}' (exit {code}) {err}")
         match result with
-        | None -> printfn "PASS %s" name
+        | None -> Console.WriteLine($"PASS {name}")
         | Some msg ->
             failed <- failed + 1
-            printfn "FAIL %s: %s" name msg
-    printfn "%d/%d passed" (files.Length - failed) files.Length
+            Console.WriteLine($"FAIL {name}: {msg}")
+    Console.WriteLine($"{files.Length - failed}/{files.Length} passed")
     if failed = 0 then 0 else 1
 
 let private help = """ns - compiler for the NS golf language (source -> LLVM IR -> native binary)
@@ -138,7 +138,7 @@ environment:
 let private runFile (path: string) =
     let exe = Path.Combine(Directory.CreateTempSubdirectory("ns").FullName, "a.out")
     match build path exe with
-    | Some err -> (eprintfn "%s" err; 1)
+    | Some err -> (Console.Error.WriteLine(err); 1)
     | None ->
         use p = Process.Start(ProcessStartInfo(exe, UseShellExecute = false))
         p.WaitForExit()
@@ -158,8 +158,8 @@ let main argv =
         go args
     let report (path: string) (f: unit -> int) =
         try f () with
-        | CompileError(line, msg) -> (eprintfn "%s:%d: error: %s" path line msg; 1)
-        | ex -> (eprintfn "%s: error: %s" path ex.Message; 1)
+        | CompileError(line, msg) -> (Console.Error.WriteLine($"{path}:{line}: error: {msg}"); 1)
+        | ex -> (Console.Error.WriteLine($"{path}: error: {ex.Message}"); 1)
     match positional with
     | [ path ] when path.EndsWith ".ns" -> runFile path
     | [ "test" ] -> test "tests"
@@ -168,18 +168,18 @@ let main argv =
         let out = option "-o" |> Option.defaultValue (Path.ChangeExtension(Path.GetFullPath path, null))
         match build path (Path.GetFullPath out) with
         | None -> 0
-        | Some err -> (eprintfn "%s" err; 1)
+        | Some err -> (Console.Error.WriteLine(err); 1)
     | [ "run"; path ] -> runFile path
     | [ "ll"; path ] ->
         report path (fun () ->
             let ll = pipeline "ll" path
-            printf "%s" (if flag "--pure" then pureLL ll else ll)
+            Console.Write((if flag "--pure" then pureLL ll else ll))
             0)
     | [ ("tokens" | "ast" | "core" | "typed" | "repr") as stage; path ] ->
-        report path (fun () -> (printfn "%s" (pipeline stage path); 0))
+        report path (fun () -> (Console.WriteLine((pipeline stage path)); 0))
     | [ "help" ] | [] when flag "-h" || flag "--help" || args.IsEmpty || positional = [ "help" ] ->
-        printf "%s" help
+        Console.Write(help)
         0
     | _ ->
-        eprintf "%s" help
+        Console.Error.Write(help)
         2

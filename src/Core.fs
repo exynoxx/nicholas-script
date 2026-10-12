@@ -67,7 +67,7 @@ let rec showTy t =
     | TQ e -> "Q " + showTy e
     | TPQ e -> "PQ " + showTy e
     | TTup ts -> "(" + (ts |> List.map showTy |> String.concat ",") + ")"
-    | TFn id -> sprintf "fn%d" id
+    | TFn id -> $"fn{id}"
     | THole _ -> "?"
     | TUnk -> ""
 
@@ -76,8 +76,8 @@ let rec showE (e: E) : string =
     let ann s = if e.t = TUnk then s else s + ":" + showTy e.t
     match e.k with
     | Int v -> string v
-    | Float v -> sprintf "%g" v
-    | Str s -> sprintf "%A" s
+    | Float v -> $"{v}"
+    | Str s -> Ast.quote s
     | Bool b -> if b then "T" else "F"
     | Var n -> ann n
     | Arr xs -> "[" + (xs |> List.map showE |> String.concat ",") + "]"
@@ -85,8 +85,8 @@ let rec showE (e: E) : string =
     | If(c, a, b) -> "(" + showE c + " ? " + showE a + " : " + showE b + ")"
     | Call(f, args) -> ann (f + "(" + (args |> List.map showE |> String.concat ", ") + ")")
     | Index(x, i) -> showE x + "@" + showE i
-    | Iter it -> sprintf "%s(%s){%s %s %s| %s}" it.kind (showE it.src) it.el it.ix it.acc (showBody it.body)
-    | Fn(id, body) -> sprintf "fn%d{%s}" id (showBody body)
+    | Iter it -> $"{it.kind}({showE it.src}){{{it.el} {it.ix} {it.acc}| {showBody it.body}}}"
+    | Fn(id, body) -> $"fn{id}{{{showBody body}}}"
     | Conv x -> ann ("conv(" + showE x + ")")
     | Seq(ss, x) -> "(" + showBody ss + "; " + showE x + ")"
 
@@ -98,7 +98,7 @@ and showS ind s =
     | Assign(n, e) -> pad + n + " = " + showE e
     | SetIdx(x, i, v) -> pad + showE x + "@" + showE i + " = " + showE v
     | Do e -> pad + showE e
-    | Line n -> pad + sprintf "# line %d" n
+    | Line n -> pad + $"# line {n}"
     | While(c, body) ->
         let sb = StringBuilder()
         sb.Append(pad + showE c + " ~{\n") |> ignore

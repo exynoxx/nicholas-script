@@ -18,6 +18,17 @@ type STy =
     | STup of STy list
     | SFn of STy * STy
 
+let rec showSTy (t: STy) =
+    match t with
+    | SInt -> "int"
+    | SFloat -> "float"
+    | SStr -> "str"
+    | SBool -> "bool"
+    | SVar v -> v
+    | SArr t -> "[" + showSTy t + "]"
+    | STup ts -> "(" + (ts |> List.map showSTy |> String.concat ",") + ")"
+    | SFn(a, b) -> "fn(" + showSTy a + ")->" + showSTy b
+
 type Sig = { name: string; parms: STy list; ret: STy; csym: string; tvars: string list }
 
 let rec private parseTy (s: string) : STy =
@@ -33,7 +44,7 @@ let rec private parseTy (s: string) : STy =
     | _ when s.StartsWith "[" -> SArr(parseTy (s.Substring(1, s.Length - 2)))
     | _ when s.StartsWith "(" -> STup(splitTop (s.Substring(1, s.Length - 2)) |> List.map parseTy)
     | _ when s.Length = 1 && Char.IsUpper s.[0] -> SVar s
-    | _ -> failwithf "stdlib signature: bad type '%s'" s
+    | _ -> failwith $"stdlib signature: bad type '{s}'"
 
 /// Splits on commas that are not nested in brackets.
 and private splitTop (s: string) : string list =

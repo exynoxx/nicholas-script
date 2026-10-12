@@ -162,7 +162,7 @@ let lex (src: string) (startLine: int) : Token list =
         else
             match symbols |> List.tryFind (fun s -> String.CompareOrdinal(src, i, s, 0, s.Length) = 0) with
             | Some s -> (sym s; i <- i + s.Length)
-            | None -> fail line (sprintf "unexpected character '%c'" c)
+            | None -> fail line ($"unexpected character '{c}'")
     term ()
     add EOF
     List.ofSeq toks
