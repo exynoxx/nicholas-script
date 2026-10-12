@@ -19,7 +19,7 @@ q = {p = #_ ? _@0 : 0; #_<2 ? _ : (q:_[<p])++_[=p]++(q:_[>p])}   # quicksort
 No type annotations, yet every expression is typed at compile time. `{}` maps, `[]` filters, `/` folds, `\` scans,
 and they fuse into a single loop. Memory is reference counted; there is no GC.
 
-**[Learn NS in Y minutes](#learn-ns-in-y-minutes)** · **[Language spec](src/SPEC.md)** · **[Examples](src/examples)**: Dijkstra, BFS, SHA-512, top-k, quicksort, …
+**[Learn NS in Y minutes](#learn-ns-in-y-minutes)** · **[Syntax tour (slides)](docs/ns-syntax-tour.pdf)** · **[Language spec](src/SPEC.md)** · **[Examples](src/examples)**: Dijkstra, BFS, SHA-512, top-k, quicksort, …
 
 ## Install
 
