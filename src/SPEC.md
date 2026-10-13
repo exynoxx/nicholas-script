@@ -113,7 +113,7 @@ Disambiguation: `[` directly after an expression (no space) is a filter; otherwi
 - **Function section**: a map, filter or plain block whose whole body is a function name calls it on `_`: `x{int}` is `x{int:_}`, `x[even]`, `sortby:xs,{str}`.
 - Nested blocks: the innermost block owns `_`, `@`, `$`.
 - `_` current element, `@` (bare) current index, `$` fold accumulator.
-- `_1`, `_2`, … for multi-argument blocks.
+- `_1`, `_2`, … for multi-argument blocks. Inside a map/filter/fold/scan block they destructure the element instead (`_1` = `_@0`): `xs.pairwise{_2-_1}`, `(zip:a,b){_1*_2}`.
 - Last expression in a block is its value.
 
 ### Array concat / append
@@ -209,6 +209,8 @@ x = expr
 a,b = b,a                  # parallel assignment
 expr                       # expression statement
 ```
+
+Debug mode: `--debug` (on run/build/test) prints `line: name = value` after every assignment to a user variable, including `x@i = v` and compound assignments.
 
 ## 7. Built-ins and standard library
 Language primitives (in the compiler): `print` (no newline), `println`, casts `int float str bool`, `#` length, `@?` contains, ranges and slices,

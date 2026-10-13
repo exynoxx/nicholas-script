@@ -152,6 +152,7 @@ commands:
   help                       show this page
 
 options:
+  --debug                   println every assignment as `line: name = value`
   --c                       build/run/test through the C backend ($CC, default cc) instead of LLVM
 
 environment:
@@ -185,6 +186,7 @@ let main argv =
         | CompileError(line, msg) -> (Console.Error.WriteLine($"{path}:{line}: error: {msg}"); 1)
         | ex -> (Console.Error.WriteLine($"{path}: error: {ex.Message}"); 1)
     useC <- flag "--c"
+    Desugar.debug <- flag "--debug"
     match positional with
     | [ path ] when path.EndsWith ".ns" -> runFile path
     | [ "test" ] -> test "tests"

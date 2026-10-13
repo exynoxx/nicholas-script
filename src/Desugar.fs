@@ -22,6 +22,8 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
         let parts = List.map ex parts
         let first = match parts.Head.k with Str _ -> parts.Head | _ -> mk (Bin("+", mk (Str ""), parts.Head))
         parts.Tail |> List.fold (fun acc p -> mk (Bin("+", acc, p))) first
+    | EVar n when n.Length > 1 && n.[0] = '_' && env.ContainsKey "_#" -> // `_1 _2` in an iter block: element parts
+        mk (Index(mk (Var env.["_#"]), mk (Int(int64 n.[1..] - 1L))))
     | EVar n -> mk (Var(defaultArg (Map.tryFind n env) n))
     | EArr xs -> mk (Arr(List.map ex xs))
     | ETuple xs -> call "tuple" xs
@@ -54,7 +56,7 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
 
 and private iter env kind src (mkBody: Map<string, string> -> S list) =
     let el, ix, acc = fresh "_", fresh "@", fresh "$"
-    let env' = env.Add("_", el).Add("@", ix).Add("$", acc)
+    let env' = env.Add("_", el).Add("_#", el).Add("@", ix).Add("$", acc)
     mk (Iter { kind = kind; src = src; el = el; ix = ix; acc = acc; body = mkBody env' })
 
 /// A block's value is its last statement; make sure that statement is a `Do`.
@@ -89,4 +91,37 @@ and private stmt env (s: Stmt) : S list =
     | SAssign _ -> fail 0 "assignment count mismatch"
     | SCompound(op, lv, e) -> [ assign lv (mk (Bin(op, ex lv, ex e))) ]
 
-let desugar (prog: Stmt list) : S list = stmts Map.empty prog
+/// Debug mode: after every assignment to a user variable, `println:"line: x = "+x`.
+let rec private debugE (e: E) : E =
+    let d = debugE
+    let k =
+        match e.k with
+        | Arr xs -> Arr(List.map d xs)
+        | Bin(op, a, b) -> Bin(op, d a, d b)
+        | If(c, a, b) -> If(d c, d a, d b)
+        | Call(f, args) -> Call(f, List.map d args)
+        | Index(x, i) -> Index(d x, d i)
+        | Iter it -> Iter { it with src = d it.src; body = debugSS it.body }
+        | Fn(id, body) -> Fn(id, debugSS body)
+        | Conv x -> Conv(d x)
+        | Seq(ss, x) -> Seq(debugSS ss, d x)
+        | k -> k
+    { e with k = k }
+
+and private debugSS (ss: S list) : S list =
+    let mutable line = 0
+    let show n = [ Do(mk (Call("println", [ mk (Bin("+", mk (Str $"{line}: {n} = "), mk (Var n))) ]))) ]
+    ss |> List.collect (fun s ->
+        match s with
+        | Line n -> (line <- n; [ s ])
+        | Assign(n, ({ k = Fn _ } as e)) -> [ Assign(n, debugE e) ]
+        | Assign(n, e) -> Assign(n, debugE e) :: (if n.Contains '%' then [] else show n)
+        | SetIdx(x, i, v) -> SetIdx(debugE x, debugE i, debugE v) :: (match x.k with Var n when not (n.Contains '%') -> show n | _ -> [])
+        | While(c, body) -> [ While(debugE c, debugSS body) ]
+        | Do e -> [ Do(debugE e) ])
+
+let mutable debug = false
+
+let desugar (prog: Stmt list) : S list =
+    let core = stmts Map.empty prog
+    if debug then debugSS core else core
