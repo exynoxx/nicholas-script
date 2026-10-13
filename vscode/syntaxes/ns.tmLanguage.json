@@ -1,0 +1,97 @@
+{
+  "name": "NS",
+  "scopeName": "source.ns",
+  "patterns": [{ "include": "#code" }],
+  "repository": {
+    "code": {
+      "patterns": [
+        { "include": "#comment" },
+        { "include": "#string" },
+        { "include": "#number" },
+        { "include": "#keyword" },
+        { "include": "#fold" },
+        { "include": "#collection" },
+        { "include": "#definition" },
+        { "include": "#builtin" },
+        { "include": "#call" },
+        { "include": "#implicit" },
+        { "include": "#operator" },
+        { "include": "#braces" }
+      ]
+    },
+    "comment": {
+      "match": "#(?=[ \\t]|$).*$",
+      "name": "comment.line.number-sign.ns"
+    },
+    "string": {
+      "begin": "\"",
+      "end": "\"",
+      "name": "string.quoted.double.ns",
+      "patterns": [
+        { "match": "\\\\.", "name": "constant.character.escape.ns" },
+        {
+          "begin": "\\{",
+          "end": "\\}",
+          "beginCaptures": { "0": { "name": "punctuation.section.interpolation.begin.ns" } },
+          "endCaptures": { "0": { "name": "punctuation.section.interpolation.end.ns" } },
+          "name": "meta.interpolation.ns",
+          "contentName": "source.ns",
+          "patterns": [{ "include": "#code" }]
+        }
+      ]
+    },
+    "number": {
+      "patterns": [
+        { "match": "\\b0x[0-9a-fA-F]+\\b", "name": "constant.numeric.hex.ns" },
+        { "match": "\\b0b[01]+\\b", "name": "constant.numeric.binary.ns" },
+        { "match": "(?:\\b\\d+(?:\\.\\d+)?|(?<![\\w)\\]}.])\\.\\d+)", "name": "constant.numeric.ns" }
+      ]
+    },
+    "keyword": {
+      "patterns": [
+        { "match": "\\bimport\\b", "name": "keyword.control.import.ns" },
+        { "match": "~\\{", "name": "keyword.control.while.ns" },
+        { "match": "\\b[TF]\\b", "name": "constant.language.boolean.ns" }
+      ]
+    },
+    "fold": {
+      "comment": "x/+ x\\max: op-fold/scan only when no operand follows (Lexer.tryOpAfter)",
+      "match": "[/\\\\](?:[+*<>&|^-])(?=[ \\t]*(?:$|[;)\\]},.{\\[/\\\\#]))|[/\\\\](?=\\{)",
+      "name": "keyword.operator.fold.ns"
+    },
+    "collection": {
+      "match": "\\[->\\]|%\\[|\\bP?Q\\[",
+      "name": "support.type.collection.ns"
+    },
+    "definition": {
+      "match": "^\\s*([a-zA-Z][a-zA-Z0-9]*)\\s*(?==\\s*\\{)",
+      "captures": { "1": { "name": "entity.name.function.ns" } }
+    },
+    "builtin": {
+      "match": "\\b(?:print|println|int|float|str|bool|pop|keys|vals|arr|set|Q|PQ|read|lines|min|max|abs|pow|sqrt|floor|ceil|round|gcd|lcm|sum|prod|rotl|rotr|popcount|hex|lower|upper|trim|replace|chars|split|join|ord|chr|find|sort|rev|uniq|zip|bsearch|sortby|flatmap|pairwise)\\b",
+      "name": "support.function.builtin.ns"
+    },
+    "call": {
+      "patterns": [
+        { "match": "\\b[a-zA-Z][a-zA-Z0-9]*(?=:)", "name": "entity.name.function.call.ns" },
+        { "match": "(?<=\\.)[a-zA-Z][a-zA-Z0-9]*", "name": "entity.name.function.method.ns" }
+      ]
+    },
+    "implicit": {
+      "match": "\\$|(?<![a-zA-Z0-9])_\\d*",
+      "name": "variable.language.implicit.ns"
+    },
+    "operator": {
+      "patterns": [
+        { "match": "->|\\.\\.|@\\?|@", "name": "keyword.operator.special.ns" },
+        { "match": "[?:]", "name": "keyword.operator.ternary.ns" },
+        { "match": ">>>=?|\\^\\^=?|\\+\\+=?|<<=?|>>=?|[!<>]=|[-+*/%&|^]=|[-+*/%^&|!<>=#]", "name": "keyword.operator.ns" }
+      ]
+    },
+    "braces": {
+      "begin": "\\{",
+      "end": "\\}",
+      "patterns": [{ "include": "#code" }]
+    }
+  }
+}
