@@ -217,7 +217,7 @@ Language primitives (in the compiler): `print` (no newline), `println`, casts `i
 collection literals and `set: Q: PQ: arr:`, `pop`, `keys`, `vals`, tuples, `[x]*n`.
 Printing and `str` show a string bare, but strings nested in arrays, maps and tuples are quoted: `println:["a"]` → `["a"]`. `join` does not quote.
 
-Tuples: `(a,b)`, `(a,b,c)` … up to 9 elements of any types; immutable; `t@0` (literal index), `a,b = t`; compare lexicographically; usable as map keys, set and PQ elements.
+Tuples: `(a,b)`, `(a,b,c)` … up to 9 elements of any types; immutable; `t@0` (literal index), `a,b = t`; `tuple2:xs` `tuple3:xs` take the first 2 or 3 array elements; compare lexicographically; usable as map keys, set and PQ elements.
 Repeat: `[x]*n` (a one-element array literal times an int) builds n copies; nested arrays are deep-copied.
 
 Everything else is the **standard library, implemented in `runtime.c`**. Each function is declared there by a signature line
@@ -233,7 +233,7 @@ Current library (see `grep '^//@' runtime.c`):
 - math: `min max` (two values or one array), `abs pow sqrt floor ceil round gcd lcm sum prod` (`sum/prod` of `[]` are 0/1)
 - bits: `rotl rotr popcount hex`; operators `& | ^ << >> >>>`; literals `0xff 0b101`
 - strings: `lower upper trim replace chars split join ord chr find`
-- arrays: `sort rev uniq zip find bsearch sortby flatmap pairwise`; `pairwise:[1,2,3]` → `[(1,2),(2,3)]`; `flatmap` flattens one level of an array of arrays or of same-typed pairs or triples: `[[1,2],[3]]` and `[(1,2),(3,4)]` → `[1,2,3,4]`
+- arrays: `sort rev uniq zip find bsearch sortby flatmap pairwise tuple2 tuple3`; `pairwise:[1,2,3]` → `[(1,2),(2,3)]`; `flatmap` flattens one level of an array of arrays or of same-typed pairs or triples: `[[1,2],[3]]` and `[(1,2),(3,4)]` → `[1,2,3,4]`
 
 ## 8. Examples
 ```

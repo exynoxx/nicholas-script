@@ -346,7 +346,7 @@ let generate (prog: Program) : string =
             |> List.concat
         let r =
             match sg.ret with
-            | Stdlib.SVar _ ->
+            | Stdlib.SVar _ | Stdlib.STup _ ->
                 let out = outCell e.t
                 rt "void" sg.csym (descs @ cargs @ [ out ]) |> ignore
                 loadFrom out e.t

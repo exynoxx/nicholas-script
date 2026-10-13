@@ -653,6 +653,23 @@ void *ns_zip(const char *dA, const char *dB, void *a, void *b) { // stops at the
   }
   return r;
 }
+static void tuplen(const char *dT, void *a, int n, void *out) { // first n elements as a tuple
+  Arr *x = a;
+  if (x->len < n) ns_panic("tuple: array too short");
+  if (strchr("IFB", *dT)) { // value tuple: members at stride 8, bool as int64 0/1
+    for (int i = 0; i < n; i++) { int64_t v = *dT == 'B' ? ldb(x->data + i) : ldi(x->data + i * 8); memcpy((char *)out + i * 8, &v, 8); }
+    return;
+  }
+  char d[64]; int k = (int)(skip(dT) - dT);
+  snprintf(d, sizeof d, "U%d%.*s%.*s%.*s", n, k, dT, k, dT, n > 2 ? k : 0, dT);
+  void *t = ns_tup_new(intern('A', d) + 1); // intern wants a whole descriptor after its first char
+  for (int i = 0; i < n; i++) ns_tup_set(t, i, x->data + i * x->esz);
+  memcpy(out, &t, sizeof t);
+}
+//@ tuple2 ([T]) (T,T)
+void ns_tuple2(const char *dT, void *a, void *out) { tuplen(dT, a, 2, out); }
+//@ tuple3 ([T]) (T,T,T)
+void ns_tuple3(const char *dT, void *a, void *out) { tuplen(dT, a, 3, out); }
 //@ pairwise ([T]) [(T,T)]
 void *ns_pairwise(const char *dT, void *a) { // [1,2,3] -> [(1,2),(2,3)]
   Arr *x = a; void *t = ns_arr_slice(a, 1, x->len), *r = ns_zip(dT, dT, a, t);

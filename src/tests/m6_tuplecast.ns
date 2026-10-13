@@ -1,0 +1,9 @@
+a = tuple2:split:"x,y",","
+println:a
+println:a@1
+println:tuple3:[1,2,3]
+println:tuple2:[1.5,2.5]
+println:tuple2:[T,F]
+println:tuple2:[[1],[2,3]]
+s = set:[tuple2:split:"a b"," "]
+println:s
