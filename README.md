@@ -163,6 +163,7 @@ println:xs++7               # => [9,1,4,1,5,7]     (append)
 # Ranges exclude the end. The end may be arithmetic.
 println:1..5                # => [1,2,3,4]
 println:0..5-1              # => [0,1,2,3]
+println:0..xs               # => [0,1,2,3,4]   (an array as the end means its length)
 println:[0]*4               # => [0,0,0,0]
 
 # Arithmetic broadcasts over arrays.
@@ -183,11 +184,18 @@ println:1..6{_*_}           # => [1,4,9,16,25]     x{...}  map
 println:1..10[_%3=0]        # => [3,6,9]           x[...]  filter
 println:1..6/{$+_}          # => 15                x/{...} fold, $ is the accumulator
 println:1..6\{$+_}          # => [1,3,6,10,15]     x\{...} scan (running fold)
-println:"abc"{"{@}{_}"}     # => [0a,1b,2c]
+println:"abc"{"{@}{_}"}     # => ["0a","1b","2c"]
 
 # A body that starts with an operator gets _ filled in on the left.
 println:1..6{*10}           # => [10,20,30,40,50]
 println:1..10[>6]           # => [7,8,9]
+
+# A body that is just a function name calls it on _.
+println:["1","22"]{int}+1   # => [2,23]
+
+# With pairs or tuples as elements, _1 _2 ... destructure them.
+println:[1,4,9,16].pairwise{_2-_1}       # => [3,5,7]
+println:(zip:[1,2],[3,4]){_1*_2}         # => [3,8]
 
 # Fold and scan also take a bare operator.
 println:1..6/+              # => 15      sum
@@ -229,6 +237,22 @@ n>1 ~{
 }
 println:c                   # => 111   (Collatz steps for 27)
 
+# "x ?{ ... }" is a match. Arms are tried in order; the first one wins.
+n = 3
+println:n ?{
+  1 => "one"
+  2, 3 => "few"             # any of several values
+  >9 => "big"               # an arm starting with a comparison tests n
+  _ => "some"               # default
+}                           # => few
+# Without a subject, each arm is a condition.
+println:?{ n<0 => "neg"; n=0 => "zero"; "pos" }   # => pos
+# An array subject maps the match over its elements; ?[ ] filters with it.
+println:[95,85,10] ?{ >=90 => "A"; >=80 => "B"; "C" }   # => ["A","B","C"]
+println:[1,2,5,9,12] ?[ 1, 2; >8 ]                       # => [1,2,9,12]
+# An array-literal pattern compares the whole array.
+println:[] ?{ [] => "empty"; _ => "other" }             # => empty
+
 # ==================================================
 # 7. Functions
 # ==================================================
@@ -268,6 +292,8 @@ println:tu@1                # => a
 i,w,f = tu                # destructure
 println:"{i}{w}"            # => 1a
 println:(1,"b")<(1,"c")     # => T    (lexicographic compare)
+k,v = tuple2:split:"k=v","="  # first 2 array elements as a tuple
+println:v                   # => v
 
 # ==================================================
 # 9. Maps, sets, queues
@@ -314,7 +340,24 @@ m2 = m; m2@"z" = 26
 println:m@"z"               # => 26
 
 # ==================================================
-# 10. Standard library
+# 10. Graphs
+# ==================================================
+
+# Undirected G[...] and directed DG[...]; an edge is (u,v) or (u,v,weight).
+g = G[(1,2,1),(2,3,5)]     # one edge shape per literal
+println:(g@2).sort          # => [1,3]   neighbours
+println:g@(3,2)             # => 5       edge weight (0 if absent)
+println:g@?(1,3)            # => F       has edge
+g += (3,4)
+g -= 1                      # remove node 1 with its edges
+println:#g                  # => 3       node count
+println:g.edges.sort        # => [(2,3,5),(3,4,1)]
+dg = DG[(1,2),(2,3)]
+println:(-dg).edges.sort    # => [(2,1,1),(3,2,1)]   reversed
+# Nodes may be any hashable value, e.g. (row,col) grid cells.
+
+# ==================================================
+# 11. Standard library
 # ==================================================
 
 println:split:"a b c"," "           # => ["a","b","c"]
@@ -326,15 +369,20 @@ println:chr:98                      # => b
 println:"hello"@?"ll"               # => T
 println:[3,1,2].rev                 # => [2,1,3]
 println:uniq:[3,1,3,2]              # => [3,1,2]
-println:zip:[1,2],["a","b"]         # => [(1,a),(2,b)]
+println:zip:[1,2],["a","b"]         # => [(1,"a"),(2,"b")]
 println:sortby:["ccc","a","bb"],{#_}  # => ["a","bb","ccc"]
 println:max:4,9                     # => 9
 println:sqrt:16.0                   # => 4.0
 println:gcd:84,36                   # => 12
 println:hex:255                     # => ff
+println:"hello".starts:"he"         # => T   (also: ends)
+println:nums:"x=10, y=-3"           # => [10,-3]   every integer in a string
+println:pairwise:[1,2,3]            # => [(1,2),(2,3)]
+println:flatmap:[[1,2],[3]]         # => [1,2,3]
 
 # Input: read gets one line of stdin ("" at EOF), lines gets all of them.
 #   n = int:read
 #   ls = lines
 # Other files: import "lib.ns" splices one in (each file only once).
+# Run with --debug to print every assignment as "line: name = value".
 ```
