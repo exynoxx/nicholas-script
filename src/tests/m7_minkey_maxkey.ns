@@ -1,0 +1,10 @@
+# maxkey/minkey: the element with the largest/smallest key (first one on ties)
+ws = "pear fig banana kiwi apple".split:" "
+println:maxkey:ws,{#_}
+println:ws.minkey:{#_}
+println:[(1,9),(2,3),(3,9)].maxkey:{_@1}
+println:["b","a","c"].minkey:{_}
+# on a map: the key with the largest/smallest value
+c = [->]; "mississippis"{c@_ = c@_+1}
+println:c.maxkey
+println:c.minkey

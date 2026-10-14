@@ -839,6 +839,33 @@ void *ns_sortby(const char *dT, const char *dK, void *arr, ns_fn f, void *env) {
   free(keys); free(ix);
   return r;
 }
+static void bykey(const char *dT, const char *dK, void *arr, ns_fn f, void *env, int sign, void *out) { // first best
+  Arr *a = arr;
+  if (!a->len) ns_panic("minkey/maxkey of empty array");
+  int64_t ksz = esz(dK), bi = 0; char best[72], k[72]; // a key is at most a 9-member value tuple
+  f(env, a->data, best);
+  for (int64_t i = 1; i < a->len; i++) {
+    f(env, a->data + i * a->esz, k);
+    if (ns_cmp(dK, k, best) * sign > 0) { relv(dK, best); memcpy(best, k, ksz); bi = i; } else relv(dK, k);
+  }
+  relv(dK, best);
+  cpy(dT, out, a->data + bi * a->esz);
+}
+//@ maxkey ([T], fn(T)->K) T
+void ns_maxkey(const char *dT, const char *dK, void *arr, ns_fn f, void *env, void *out) { bykey(dT, dK, arr, f, env, 1, out); }
+//@ minkey ([T], fn(T)->K) T
+void ns_minkey(const char *dT, const char *dK, void *arr, ns_fn f, void *env, void *out) { bykey(dT, dK, arr, f, env, -1, out); }
+static void mbest(void *m, int sign, void *out) { // the key with the largest/smallest value
+  Map *M = m; int64_t bi = -1;
+  for (int64_t i = 0; i < M->cap; i++)
+    if (M->st[i] == 1 && (bi < 0 || ns_cmp(M->vd, M->vals + i * M->vsz, M->vals + bi * M->vsz) * sign > 0)) bi = i;
+  if (bi < 0) ns_panic("minkey/maxkey of empty map");
+  cpy(M->kd, out, M->keys + bi * M->ksz);
+}
+//@ maxkey ({K:V}) K = ns_maxkey_m
+void ns_maxkey_m(const char *dK, const char *dV, void *m, void *out) { mbest(m, 1, out); }
+//@ minkey ({K:V}) K = ns_minkey_m
+void ns_minkey_m(const char *dK, const char *dV, void *m, void *out) { mbest(m, -1, out); }
 
 // ---------- graphs: G[edges] undirected, DG[edges] directed; an edge is (u,v) or (u,v,weight), weight 1 by default ----------
 static const char *dintern(const char *d) { return intern('A', d) + 1; } // interns a whole descriptor
