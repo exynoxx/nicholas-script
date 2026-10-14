@@ -74,13 +74,18 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             else
                 let j = skipWs (i + 2)
                 isTerminator (if j < n then src.[j] else '\000'))
+    /// From the '"' at j: the index of the closing '"' (escapes skipped), or n if there is none.
+    let skipString j =
+        let mutable j = j + 1
+        while j < n && src.[j] <> '"' do j <- j + (if src.[j] = '\\' then 2 else 1)
+        min j n
     /// At `?[`: is this `c ?[..] : d`, a ternary whose branch is an array literal? (else a `?[ ]` match filter)
     let ternaryArray () =
         let mutable j, depth = i + 1, 0
         let mutable fin = false
         while j < n && not fin do
             match src.[j] with
-            | '"' -> (j <- j + 1; while j < n && src.[j] <> '"' do j <- j + (if src.[j] = '\\' then 2 else 1))
+            | '"' -> j <- skipString j
             | '(' | '[' | '{' -> depth <- depth + 1
             | ')' | ']' | '}' -> (depth <- depth - 1; if depth = 0 then fin <- true)
             | _ -> ()
@@ -108,7 +113,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
                     match src.[i] with
                     | '{' -> depth <- depth + 1
                     | '}' -> depth <- depth - 1
-                    | '"' -> (i <- i + 1; while i < n && src.[i] <> '"' do i <- i + 1)
+                    | '"' -> i <- skipString i
                     | _ -> ()
                     i <- i + 1
                 parts.Add(Code(src.Substring(start, i - 1 - start), line, start - lineStart + 1))

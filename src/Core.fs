@@ -38,7 +38,11 @@ and K =
     | Arr of E list
     | Bin of string * E * E
     | If of E * E * E
-    | Call of string * E list // builtins/primitives; "@name" = function instance
+    | Call of string * E list // builtins/primitives
+    | UserCall of string * E list       // a function instance, by name
+    | StdCall of Stdlib.Sig * E list    // a runtime stdlib function: descriptors first, then the arguments
+    | BlockRef of string      // a function instance passed to the stdlib as a callback
+    | Desc                    // the runtime descriptor of this node's type
     | Index of E * E
     | Iter of Iter            // removed by the typer (via Lower)
     | Fn of int * S list      // block literal: id, body (params are _1.._n)
@@ -46,7 +50,7 @@ and K =
     | Seq of S list * E
     | MatchOn of E * string * E * bool // subject, element var, arms; an array subject maps (filters when true) the arms over its elements
 
-and Iter = { kind: string; src: E; el: string; ix: string; acc: string; body: S list }
+and Iter = { kind: Ast.IterKind; src: E; el: string; ix: string; acc: string; body: S list }
 
 and S =
     | Assign of string * E
@@ -87,8 +91,12 @@ let rec showE (e: E) : string =
     | Bin(op, a, b) -> "(" + showE a + op + showE b + ")"
     | If(c, a, b) -> "(" + showE c + " ? " + showE a + " : " + showE b + ")"
     | Call(f, args) -> ann (f + "(" + (args |> List.map showE |> String.concat ", ") + ")")
+    | UserCall(f, args) -> showE { e with k = Call("@" + f, args) }
+    | StdCall(sg, args) -> showE { e with k = Call(sg.csym, args) }
+    | BlockRef f -> "&" + f
+    | Desc -> ann "desc"
     | Index(x, i) -> showE x + "@" + showE i
-    | Iter it -> $"{it.kind}({showE it.src}){{{it.el} {it.ix} {it.acc}| {showBody it.body}}}"
+    | Iter it -> $"{Ast.showKind it.kind}({showE it.src}){{{it.el} {it.ix} {it.acc}| {showBody it.body}}}"
     | Fn(id, body) -> $"fn{id}{{{showBody body}}}"
     | Conv x -> ann ("conv(" + showE x + ")")
     | Seq(ss, x) -> "(" + showBody ss + "; " + showE x + ")"

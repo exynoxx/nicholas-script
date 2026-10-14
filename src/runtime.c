@@ -97,10 +97,6 @@ static int64_t idx(int64_t i, int64_t n) {
   return i;
 }
 void *ns_arr_at(void *p, int64_t i) { Arr *a = p; return a->data + idx(i, a->len) * a->esz; } // borrowed
-void ns_arr_set(void *p, int64_t i, const void *x) {
-  const char *ed = HD(p)->d + 1; char *e = ns_arr_at(p, i);
-  retv(ed, x); relv(ed, e); memcpy(e, x, esz(ed));
-}
 static void clamp(int64_t *a, int64_t *b, int64_t n) {
   if (*a < 0) *a += n;
   if (*b < 0) *b += n;
@@ -537,6 +533,22 @@ void *ns_toarr(const char *d, void *c) {
   }
 }
 
+//@ keys ({K:V}) [K]
+//@ arr ({K:V}) [K] = ns_keys
+void *ns_keys(const char *dK, const char *dV, void *m) { return ns_toarr("M", m); }
+//@ vals ({K:V}) [V]
+void *ns_vals(const char *dK, const char *dV, void *m) { return ns_map_vals(m); }
+//@ arr ([T]) [T]
+//@ arr (%[T]) [T]
+//@ arr (Q[T]) [T]
+//@ arr (PQ[T]) [T]
+//@ arr (G[T]) [T]
+void *ns_arr(const char *dT, void *c) { return ns_toarr(HD(c)->d, c); }
+//@ arr (str) [str] = ns_chars
+//@ pop (Q[T]) T = ns_qpop
+//@ pop (PQ[T]) T = ns_qpop
+void ns_qpop(const char *dT, void *q, void *out) { ns_pop(HD(q)->d, q, out); }
+
 static int64_t ns_find(const char *d, void *coll, const void *x) { // A: index of first equal element, S: byte index of substring; -1 if absent
   if (*d == 'S') { char *e = strstr(coll, ldp(x)); return e ? e - (char *)coll : -1; }
   Arr *a = coll;
@@ -644,40 +656,36 @@ int64_t ns_gcd(int64_t a, int64_t b) {
   return a;
 }
 //@ zip ([A],[B]) [(A,B)]
-void *ns_zip(const char *dA, const char *dB, void *a, void *b) { // stops at the shorter array
-  int val = strchr("IFB", *dA) && strchr("IFB", *dB); // same rule as Repr: all-scalar tuples are value tuples
-  char d[64]; snprintf(d, sizeof d, "A%c2%.*s%.*s", val ? 'V' : 'U', (int)(skip(dA) - dA), dA, (int)(skip(dB) - dB), dB);
-  const char *rd = intern(d[0], d + 1);
-  Arr *x = a, *y = b, *r = ns_arr_new(rd, 0);
+void *ns_zip(const char *dA, const char *dB, const char *dR, void *a, void *b) { // stops at the shorter array
+  int val = dR[1] == 'V';
+  Arr *x = a, *y = b, *r = ns_arr_new(dR, 0);
   int64_t n = x->len < y->len ? x->len : y->len;
   for (int64_t i = 0; i < n; i++) {
     if (val) { char t[16] = {0}; memcpy(t, x->data + i * x->esz, x->esz); memcpy(t + 8, y->data + i * y->esz, y->esz); apush(r, t); continue; }
-    void *t = ns_tup_new(rd + 1);
+    void *t = ns_tup_new(dR + 1);
     ns_tup_set(t, 0, x->data + i * x->esz); ns_tup_set(t, 1, y->data + i * y->esz);
     apush(r, &t);
   }
   return r;
 }
-static void tuplen(const char *dT, void *a, int n, void *out) { // first n elements as a tuple
+static void tuplen(const char *dT, const char *dR, void *a, int n, void *out) { // first n elements as a tuple
   Arr *x = a;
   if (x->len < n) ns_panic("tuple: array too short");
-  if (strchr("IFB", *dT)) { // value tuple: members at stride 8, bool as int64 0/1
+  if (*dR == 'V') { // value tuple: members at stride 8, bool as int64 0/1
     for (int i = 0; i < n; i++) { int64_t v = *dT == 'B' ? ldb(x->data + i) : ldi(x->data + i * 8); memcpy((char *)out + i * 8, &v, 8); }
     return;
   }
-  char d[64]; int k = (int)(skip(dT) - dT);
-  snprintf(d, sizeof d, "U%d%.*s%.*s%.*s", n, k, dT, k, dT, n > 2 ? k : 0, dT);
-  void *t = ns_tup_new(intern('A', d) + 1); // intern wants a whole descriptor after its first char
+  void *t = ns_tup_new(dR);
   for (int i = 0; i < n; i++) ns_tup_set(t, i, x->data + i * x->esz);
   memcpy(out, &t, sizeof t);
 }
 //@ tuple2 ([T]) (T,T)
-void ns_tuple2(const char *dT, void *a, void *out) { tuplen(dT, a, 2, out); }
+void ns_tuple2(const char *dT, const char *dR, void *a, void *out) { tuplen(dT, dR, a, 2, out); }
 //@ tuple3 ([T]) (T,T,T)
-void ns_tuple3(const char *dT, void *a, void *out) { tuplen(dT, a, 3, out); }
+void ns_tuple3(const char *dT, const char *dR, void *a, void *out) { tuplen(dT, dR, a, 3, out); }
 //@ pairwise ([T]) [(T,T)]
-void *ns_pairwise(const char *dT, void *a) { // [1,2,3] -> [(1,2),(2,3)]
-  Arr *x = a; void *t = ns_arr_slice(a, 1, x->len), *r = ns_zip(dT, dT, a, t);
+void *ns_pairwise(const char *dT, const char *dR, void *a) { // [1,2,3] -> [(1,2),(2,3)]
+  Arr *x = a; void *t = ns_arr_slice(a, 1, x->len), *r = ns_zip(dT, dT, dR, a, t);
   ns_release(t); return r;
 }
 //@ uniq ([T]) [T]
@@ -908,13 +916,11 @@ void *ns_delnode(const char *dT, void *g, const void *u) { // and every edge tou
 //@ nodes (G[T]) [T]
 void *ns_nodes(const char *dT, void *g) { return ns_toarr("G", g); }
 //@ edges (G[T]) [(T,T,int)]
-void *ns_edges(const char *dT, void *g) { // undirected edges once, as (u,v,w) with u <= v
-  Graph *G = g; int val = strchr("IFB", *dT) != NULL; int k = (int)(skip(dT) - dT);
-  char d[64]; snprintf(d, sizeof d, "A%c3%.*s%.*sI", val ? 'V' : 'U', k, dT, k, dT);
-  const char *rd = dintern(d); Arr *r = ns_arr_new(rd, 0);
+void *ns_edges(const char *dT, const char *dR, void *g) { // undirected edges once, as (u,v,w) with u <= v
+  Graph *G = g; int val = dR[1] == 'V'; Arr *r = ns_arr_new(dR, 0);
   EACH_EDGE(G, u, v, w) if (G->dir || ns_cmp(dT, u, v) <= 0) {
     if (val) { char t[24] = {0}; memcpy(t, u, esz(dT)); memcpy(t + 8, v, esz(dT)); memcpy(t + 16, &w, 8); apush(r, t); continue; }
-    void *t = ns_tup_new(rd + 1);
+    void *t = ns_tup_new(dR + 1);
     ns_tup_set(t, 0, u); ns_tup_set(t, 1, v); ns_tup_set(t, 2, &w);
     apush(r, &t);
   }
@@ -947,6 +953,18 @@ void *ns_gunion(const char *dT, void *g, void *h) { return gcombine(dT, g, h, 0)
 void *ns_ginter(const char *dT, void *g, void *h) { return gcombine(dT, g, h, 1); }
 //@ gdiff (G[T],G[T]) G[T]
 void *ns_gdiff(const char *dT, void *g, void *h) { return gcombine(dT, g, h, 2); }
+static void *scombine(Map *s, Map *t, int mode) { // in place on s: 0 union, 1 intersection, 2 difference
+  if (!mode) { for (int64_t i = 0; i < t->cap; i++) if (t->st[i] == 1) ns_map_set(s, t->keys + i * t->ksz, NULL); }
+  else for (int64_t i = 0; i < s->cap; i++)
+    if (s->st[i] == 1 && (find(t, s->keys + i * s->ksz) >= 0) != (mode == 1)) ns_del("H", s, s->keys + i * s->ksz);
+  ns_retain(s); return s;
+}
+//@ gunion (%[T],%[T]) %[T] = ns_sunion
+void *ns_sunion(const char *dT, void *s, void *t) { return scombine(s, t, 0); }
+//@ ginter (%[T],%[T]) %[T] = ns_sinter
+void *ns_sinter(const char *dT, void *s, void *t) { return scombine(s, t, 1); }
+//@ gdiff (%[T],%[T]) %[T] = ns_sdiff
+void *ns_sdiff(const char *dT, void *s, void *t) { return scombine(s, t, 2); }
 static void gstr(Buf *b, const char *dT, Graph *g) { // as a literal: G[(1,2),(2,3,5)]
   char tmp[24]; int first = 1;
   put(b, g->dir ? "DG[" : "G[");

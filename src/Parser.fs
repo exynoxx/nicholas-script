@@ -5,7 +5,7 @@ open System.Collections.Generic
 open Ast
 
 /// language primitives plus every function declared in runtime.c (see Stdlib.fs)
-let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "pop"; "keys"; "vals"; "arr"; "set"; "Q"; "PQ" ] + Stdlib.names
+let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ" ] + Stdlib.names
 let private zeroArity = Stdlib.zeroArity
 let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>=" ]
 
@@ -27,6 +27,14 @@ let private startsExpr (t: Tok) =
     | INT _ | FLOAT _ | STR _ | BOOL _ | ID _ -> true
     | SYM("(" | "[" | "{" | "%[" | "Q[" | "PQ[" | "G[" | "DG[") -> true
     | _ -> false
+
+/// `c ? a` without `:` runs a only when c holds; its value is 0
+let private onlyIf c a = ETern(c, EGroup [ SExpr a; SExpr(EInt 0L) ], EInt 0L)
+
+/// Implicit names (_ _1 @ $) are never assigned, so `{_=p}` / `[=p]` compare.
+let private assignable (name: string) = not (name.StartsWith "_" || name = "@" || name = "$")
+
+let private opensBracket (s: string) = s.EndsWith "(" || s.EndsWith "[" || s.EndsWith "{"
 
 /// Directory of the file being parsed, and every file already imported (each is included once).
 type private Imports = { dir: string; seen: HashSet<string> }
@@ -101,29 +109,63 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         | body -> body
 
     member p.Stmt() : Stmt =
-        let save = pos
-        let lvs = try Some(p.LValues()) with CompileError _ -> None
-        match lvs, peek () with
-        | Some lvs, SYM "=" ->
+        match p.AssignAhead() with
+        | Some "=" ->
+            let lvs = p.LValues()
             advance ()
             match lvs with
             | [ EVar f ] when isSym "{" -> fnames.Add f |> ignore
             | _ -> ()
             SAssign(lvs, p.ExprList())
-        | Some [ lv ], SYM op when compounds.Contains op ->
+        | Some op ->
+            let lv = p.LValues().Head
             advance ()
             SCompound(op.Substring(0, op.Length - 1), lv, p.Expr())
-        | _ ->
-            pos <- save
+        | None ->
             let e = p.Expr()
             if accept "~{" then SWhile(e, p.Block "}") else SExpr e
+
+    /// Does `lvalue {, lvalue} =` (or `lvalue op=`) start here? Walks the tokens LValues would take; Some the operator.
+    member p.AssignAhead() : string option =
+        let tok j = tokens.[j].tok
+        // past one token, or a whole bracket group
+        let skip j =
+            match tok j with
+            | SYM s when opensBracket s ->
+                let mutable j, depth = j + 1, 1
+                while depth > 0 do
+                    match tok j with
+                    | SYM s when opensBracket s -> depth <- depth + 1
+                    | SYM(")" | "]" | "}") -> depth <- depth - 1
+                    | _ -> ()
+                    j <- j + 1
+                j
+            | _ -> j + 1
+        // an index operand: prefixes, a Base (a `f:` call there swallows any `=`), maybe `..` and a range end
+        let rec atom j =
+            match tok j with
+            | SYM("-" | "#") -> atom (j + 1)
+            | ID _ when tok (j + 1) = SYM ":" -> None
+            | _ -> Some(skip j)
+        let rec rangeEnd j =
+            atom j |> Option.bind (fun j -> match tok j with SYM("+" | "-" | "*" | "/" | "%") -> rangeEnd (j + 1) | _ -> Some j)
+        let operand j = atom j |> Option.bind (fun j -> if tok j = SYM ".." then rangeEnd (j + 1) else Some j)
+        let rec indices j = if tok j = SYM "@" then operand (j + 1) |> Option.bind indices else Some j
+        let rec lvs j n =
+            match tok j with
+            | ID name when assignable name ->
+                indices (j + 1) |> Option.bind (fun j -> if tok j = SYM "," then lvs (j + 1) (n + 1) else Some(j, n))
+            | _ -> None
+        match lvs pos 1 with
+        | Some(j, _) when tok j = SYM "=" -> Some "="
+        | Some(j, 1) -> (match tok j with SYM op when compounds.Contains op -> Some op | _ -> None)
+        | _ -> None
 
     member p.LValues() =
         let one () =
             match peek () with
-            // implicit names (_ _1 @ $) are never assigned, so `{_=p}` / `[=p]` compare
             // any name may be (re)defined, so user functions can shadow built-ins; implicit names never
-            | ID name when not (name.StartsWith "_" || name = "@" || name = "$") ->
+            | ID name when assignable name ->
                 advance ()
                 let mutable e = EVar name
                 while accept "@" do e <- EIndex(e, p.IndexOperand())
@@ -143,8 +185,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         let c = p.Or()
         if accept "?" then
             let a = p.Expr()
-            // `c ? a` without `:` runs a only when c holds; its value is 0
-            if accept ":" then ETern(c, a, p.Expr()) else ETern(c, EGroup [ SExpr a; SExpr(EInt 0L) ], EInt 0L)
+            if accept ":" then ETern(c, a, p.Expr()) else onlyIf c a
         elif accept "?{" then p.Match(Some c, false)
         elif accept "?[" then p.Match(Some c, true)
         else c
@@ -156,65 +197,56 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
     /// matched whole. `xs ?[ 1, 2; >9 ]` keeps the elements matching an arm.
     member p.Match(subject: Expr option, filter: bool) : Expr =
         let closer = if filter then "]" else "}"
-        // an array-literal pattern (`[1,2] => …`) matches an array subject as a whole instead of per element
-        let mutable whole = false
-        let pattern (v: Expr) = (match v with EArr _ -> whole <- true | _ -> ()); v
         let test () =
             match subject, peek () with
-            | Some _, SYM("=" | "!=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, EVar "_", pattern (p.Shift())))
-            | Some _, _ -> EBin("=", EVar "_", pattern (p.Expr()))
+            | Some _, SYM("=" | "!=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, EVar "_", p.Shift()))
+            | Some _, _ -> EBin("=", EVar "_", p.Expr())
             | None, _ -> p.Expr()
         let skipTerms () = while peek () = TERM do advance ()
         // an arm's result may be a statement (`5 => c += 1`); its value is then 0
         let result () = match p.Stmt() with SExpr e -> e | st -> EGroup [ st; SExpr(EInt 0L) ]
-        let arms = ResizeArray<Expr * Expr>()
-        let mutable deflt = if filter then Some(EBool false) else None
-        let mutable hasDefault = false
+        let arms = ResizeArray<Expr list * Expr>()
+        let mutable deflt = None
         skipTerms ()
         while not (isSym closer) do
-            if hasDefault then err "the default arm (`_ => …`, or one without '=>') must be the last arm"
+            if deflt.IsSome then err "the default arm (`_ => …`, or one without '=>') must be the last arm"
             if peek () = ID "_" && tokens.[pos + 1].tok = SYM "=>" then
                 advance (); advance ()
                 deflt <- Some(result ())
-                hasDefault <- true
-            else
-                let start = pos
+            elif filter || p.Ahead(SYM "=>") then
                 let tests = ResizeArray [ test () ]
                 while accept "," do tests.Add(test ())
-                let cond = tests |> Seq.reduce (fun a b -> EBin("|", a, b))
-                if accept "=>" then arms.Add(cond, result ())
-                elif filter then arms.Add(cond, EBool true)
-                else
-                    pos <- start
-                    deflt <- Some(result ())
-                    hasDefault <- true
+                if accept "=>" then arms.Add(List.ofSeq tests, result ())
+                elif filter then arms.Add(List.ofSeq tests, EBool true)
+            else deflt <- Some(result ())
             if peek () = TERM then skipTerms ()
             elif not (isSym closer) then err ($"expected '=>', a new arm or '{closer}', found {found ()}")
         expect closer
+        if arms.Count = 0 && (filter || deflt.IsNone) then err "a match needs at least one arm"
+        let deflt = if filter && deflt.IsNone then Some(EBool false) else deflt
         let chain =
-            Seq.foldBack (fun (c, r) acc ->
-                Some(match acc with
-                     | Some e -> ETern(c, r, e)
-                     | None -> ETern(c, EGroup [ SExpr r; SExpr(EInt 0L) ], EInt 0L))) arms deflt
-        match chain, subject with
-        | _ when arms.Count = 0 && deflt.IsNone || filter && arms.Count = 0 -> err "a match needs at least one arm"
-        | Some e, Some s -> EMatch((if filter then "filter" elif whole then "whole" else "map"), s, e)
-        | e, _ -> e.Value
+            Seq.foldBack (fun (tests, r) acc ->
+                let c = List.reduce (fun a b -> EBin("|", a, b)) tests
+                Some(match acc with Some e -> ETern(c, r, e) | None -> onlyIf c r)) arms deflt
+        // an array-literal pattern (`[1,2] => …`) matches an array subject as a whole instead of per element
+        let whole = arms |> Seq.exists (fst >> List.exists (function EBin(_, _, EArr _) -> true | _ -> false))
+        match subject with
+        | Some s -> EMatch((if filter then "filter" elif whole then "whole" else "map"), s, chain.Value)
+        | None -> chain.Value
 
-    member p.Or() =
-        let mutable e = p.Xor()
-        while accept "|" do e <- EBin("|", e, p.Xor())
+    /// One left-associative level: `next {op next}` for op in ops.
+    member p.LeftAssoc(ops: string list, next: unit -> Expr) =
+        let mutable e = next ()
+        let mutable op = List.tryFind isSym ops
+        while op.IsSome do
+            advance ()
+            e <- EBin(op.Value, e, next ())
+            op <- List.tryFind isSym ops
         e
 
-    member p.Xor() =
-        let mutable e = p.And()
-        while accept "^" do e <- EBin("^", e, p.And())
-        e
-
-    member p.And() =
-        let mutable e = p.Not()
-        while accept "&" do e <- EBin("&", e, p.Not())
-        e
+    member p.Or() = p.LeftAssoc([ "|" ], p.Xor)
+    member p.Xor() = p.LeftAssoc([ "^" ], p.And)
+    member p.And() = p.LeftAssoc([ "&" ], p.Not)
 
     member p.Not() = if accept "!" then EUn("!", p.Not()) else p.Compare()
 
@@ -224,32 +256,9 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         | SYM ("=" | "!=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, l, p.Shift()))
         | _ -> l
 
-    member p.Shift() =
-        let mutable e = p.Add()
-        let mutable go = true
-        while go do
-            match peek () with
-            | SYM ("<<" | ">>" | ">>>" as op) -> (advance (); e <- EBin(op, e, p.Add()))
-            | _ -> go <- false
-        e
-
-    member p.Add() =
-        let mutable e = p.Mul()
-        let mutable go = true
-        while go do
-            match peek () with
-            | SYM ("+" | "-" | "++" as op) -> (advance (); e <- EBin(op, e, p.Mul()))
-            | _ -> go <- false
-        e
-
-    member p.Mul() =
-        let mutable e = p.Pow()
-        let mutable go = true
-        while go do
-            match peek () with
-            | SYM ("*" | "/" | "%" as op) -> (advance (); e <- EBin(op, e, p.Pow()))
-            | _ -> go <- false
-        e
+    member p.Shift() = p.LeftAssoc([ "<<"; ">>"; ">>>" ], p.Add)
+    member p.Add() = p.LeftAssoc([ "+"; "-"; "++" ], p.Mul)
+    member p.Mul() = p.LeftAssoc([ "*"; "/"; "%" ], p.Pow)
 
     member p.Pow() =
         let b = p.Prefix()
@@ -265,12 +274,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         let mutable go = true
         while go do
             match peek () with
-            | SYM "m{" -> (advance (); e <- EIter("map", e, p.SectionBlock "}"))
-            | SYM "f[" -> (advance (); e <- EIter("filter", e, p.SectionBlock "]"))
-            | SYM "/{" -> (advance (); e <- EIter("fold", e, p.Block "}"))
-            | SYM "\\{" -> (advance (); e <- EIter("scan", e, p.Block "}"))
-            | FOLDOP op -> (advance (); e <- EIterOp("fold", e, op))
-            | SCANOP op -> (advance (); e <- EIterOp("scan", e, op))
+            | SYM "m{" -> (advance (); e <- EIter(IMap, e, p.SectionBlock "}"))
+            | SYM "f[" -> (advance (); e <- EIter(IFilter, e, p.SectionBlock "]"))
+            | SYM "/{" -> (advance (); e <- EIter(IFold, e, p.Block "}"))
+            | SYM "\\{" -> (advance (); e <- EIter(IScan, e, p.Block "}"))
+            | FOLDOP op -> (advance (); e <- EIterOp(IFold, e, op))
+            | SCANOP op -> (advance (); e <- EIterOp(IScan, e, op))
             | SYM "@" -> (advance (); e <- EIndex(e, p.IndexOperand()))
             | SYM "@?" -> (advance (); e <- EHas(e, p.IndexOperand()))
             | SYM "." ->
@@ -295,22 +304,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         if accept ".." then ERange(e, p.RangeEnd()) else e
 
     /// `a..n-1` ends at n-1: the end is + - * / % over atoms, so postfix forms (`{}` `[]` `/+`) still apply to the range.
-    member p.RangeEnd() =
-        let term () =
-            let mutable e = p.Atom()
-            let mutable go = true
-            while go do
-                match peek () with
-                | SYM("*" | "/" | "%" as op) -> (advance (); e <- EBin(op, e, p.Atom()))
-                | _ -> go <- false
-            e
-        let mutable e = term ()
-        let mutable go = true
-        while go do
-            match peek () with
-            | SYM("+" | "-" as op) -> (advance (); e <- EBin(op, e, term ()))
-            | _ -> go <- false
-        e
+    member p.RangeEnd() = p.LeftAssoc([ "+"; "-" ], fun () -> p.LeftAssoc([ "*"; "/"; "%" ], p.Atom))
 
     /// Range operands: a literal, a name or a parenthesised expression, optionally with prefix - or #.
     member p.Atom() =
@@ -383,19 +377,23 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         | SYM "=" when at > 0 && tokens.[at - 1].tok = SYM "=" -> errAt at "'==' is not an operator: '=' compares"
         | t -> errAt at ($"expected an expression, found {describeTok t}")
 
-    /// After `(`: a `;` at this paren's top level makes it a statement group `(s1; s2; value)`.
-    member p.GroupAhead() =
-        let mutable j = pos
-        let mutable depth = 0
-        let mutable found = false
-        while depth >= 0 && not found && tokens.[j].tok <> EOF do
+    /// Does `target` occur at this bracket's top level before the statement (or the bracket) ends?
+    member p.Ahead(target: Tok) =
+        let mutable j, depth = pos, 0
+        let mutable found, fin = false, false
+        while not fin do
             match tokens.[j].tok with
-            | SYM s when s.EndsWith "(" || s.EndsWith "[" || s.EndsWith "{" -> depth <- depth + 1
-            | SYM(")" | "]" | "}") -> depth <- depth - 1
-            | TERM when depth = 0 -> found <- true
+            | t when depth = 0 && t = target -> (found <- true; fin <- true)
+            | TERM when depth = 0 -> fin <- true
+            | EOF -> fin <- true
+            | SYM s when opensBracket s -> depth <- depth + 1
+            | SYM(")" | "]" | "}") -> (depth <- depth - 1; if depth < 0 then fin <- true)
             | _ -> ()
             j <- j + 1
         found
+
+    /// After `(`: a `;` at this paren's top level makes it a statement group `(s1; s2; value)`.
+    member p.GroupAhead() = p.Ahead TERM
 
     member p.InterpExpr() =
         let e = p.Expr()

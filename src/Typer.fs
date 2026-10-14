@@ -41,14 +41,21 @@ let newHole () = THole(ref None)
 let private typed k t = { k = k; t = t }
 let private isScalar t = match resolve t with TInt | TFloat | TStr | TBool -> true | _ -> false
 
-let rec private unify a b =
-    match resolve a, resolve b with
-    | THole r1, THole r2 when obj.ReferenceEquals(r1, r2) -> true
-    | THole r, t | t, THole r -> (r.Value <- Some t; true)
-    | TArr x, TArr y | TSet x, TSet y | TQ x, TQ y | TPQ x, TPQ y | TGraph x, TGraph y -> unify x y
-    | TMap(k1, v1), TMap(k2, v2) -> unify k1 k2 && unify v1 v2
-    | TTup xs, TTup ys -> xs.Length = ys.Length && List.forall2 unify xs ys
-    | x, y -> x = y
+/// Unifies two types, binding holes; when they don't unify, no hole stays bound.
+let private unify a b =
+    let bound = ResizeArray<Ty option ref>()
+    let rec go a b =
+        match resolve a, resolve b with
+        | THole r1, THole r2 when obj.ReferenceEquals(r1, r2) -> true
+        | THole r, t | t, THole r -> (r.Value <- Some t; bound.Add r; true)
+        | TArr x, TArr y | TSet x, TSet y | TQ x, TQ y | TPQ x, TPQ y | TGraph x, TGraph y -> go x y
+        | TMap(k1, v1), TMap(k2, v2) -> go k1 k2 && go v1 v2
+        | TTup xs, TTup ys -> xs.Length = ys.Length && List.forall2 go xs ys
+        | x, y -> x = y
+    if go a b then true
+    else
+        for r in bound do r.Value <- None
+        false
 
 // ---------- scopes ----------
 
@@ -98,18 +105,23 @@ let private isEdge (n: Ty) (x: E) =
     let isNode = match resolve n with THole _ -> false | _ -> unify x.t n
     not isNode
     && match resolve x.t with
-       | TTup(u :: v :: w) when w.Length <= 1 -> unify n u && unify n v && List.forall (fun w -> unify w TInt) w
+       | TTup(_ :: _ :: w) when w.Length <= 1 -> unify x.t (TTup([ n; n ] @ List.map (fun _ -> TInt) w))
        | _ -> false
 
-let rec private conv (e: E) (ty: Ty) : E =
+let rec private tryConv (e: E) (ty: Ty) : E option =
     let a, b = resolve e.t, resolve ty
-    if unify a b then e
+    if unify a b then Some e
     else
         match a, b with
-        | _ when isScalar a && isScalar b -> typed (Conv e) b
-        | _, TStr | _, TBool -> typed (Conv e) b
-        | TArr _, TArr y when isScalar y -> typeE (Lower.convArr e (castName y))
-        | _ -> err ($"cannot convert {showTy a} to {showTy b}")
+        | _ when isScalar a && isScalar b -> Some(typed (Conv e) b)
+        | _, TStr | _, TBool -> Some(typed (Conv e) b)
+        | TArr _, TArr y when isScalar y -> Some(typeE (Lower.convArr e (castName y)))
+        | _ -> None
+
+and private conv (e: E) (ty: Ty) : E =
+    match tryConv e ty with
+    | Some e -> e
+    | None -> err ($"cannot convert {showTy e.t} to {showTy ty}")
 
 // ---------- expressions ----------
 
@@ -140,10 +152,12 @@ and typeE (e: E) : E =
             | t -> expect <- Some t
             let b = typeE b
             expect <- saved
-            // branches with unrelated types (e.g. two statement groups) run as a statement whose value is 0
-            let asStmt (x: E) = typed (Seq([ Do x ], typed (Int 0L) TInt)) TInt
-            try typed (If(c, a, conv b a.t)) a.t
-            with CompileError _ -> typed (If(c, asStmt a, asStmt b)) TInt
+            match tryConv b a.t with
+            | Some b -> typed (If(c, a, b)) a.t
+            | None ->
+                // branches with unrelated types (e.g. two statement groups) run as a statement whose value is 0
+                let asStmt (x: E) = typed (Seq([ Do x ], typed (Int 0L) TInt)) TInt
+                typed (If(c, asStmt a, asStmt b)) TInt
         | Call(name, args) ->
             match lookup name with
             | Some u when (match resolve varTy.[u] with TFn _ -> true | _ -> false) ->
@@ -155,7 +169,7 @@ and typeE (e: E) : E =
             // collect a chain of map/filter stages feeding this one (innermost first)
             let rec chain (it: Iter) acc =
                 match it.src.k with
-                | Iter inner when it.src.t = TUnk && (inner.kind = "map" || inner.kind = "filter") -> chain inner (it :: acc)
+                | Iter inner when it.src.t = TUnk && (inner.kind = IMap || inner.kind = IFilter) -> chain inner (it :: acc)
                 | _ -> it :: acc
             let stages = chain it []
             let src = typeE stages.Head.src
@@ -176,7 +190,7 @@ and typeE (e: E) : E =
             let src = typeE src
             match resolve src.t with
             | TArr _ ->
-                let it = { kind = (if filter then "filter" else "map"); src = src; el = t; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do arms ] }
+                let it = { kind = (if filter then IFilter else IMap); src = src; el = t; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do arms ] }
                 typeE (mk (Iter it))
             | t when filter -> err ($"?[ ] filters an array, not {showTy t}")
             | _ -> typeE (mk (Seq([ Assign(t, src) ], arms)))
@@ -197,12 +211,11 @@ and private typeBin op (a: E) (b: E) : E =
     | _ -> ()
     let L = resolve a.t
     let same x = typed (Bin(op, a, conv b L)) L
+    let sameKind = match L, resolve b.t with TSet _, TSet _ | TGraph _, TGraph _ -> true | _ -> false
     match op, L with
     | _ when isCmp -> typed (Bin(op, a, conv b L)) TBool
-    | ("&" | "|" | "+" | "-"), TSet _ when (match resolve b.t with TSet _ -> true | _ -> false) ->
-        typeE (Lower.setOp op a (conv b L))
-    | ("|" | "&" | "-"), TGraph _ when (match resolve b.t with TGraph _ -> true | _ -> false) ->
-        stdCall (match op with "|" -> "gunion" | "&" -> "ginter" | _ -> "gdiff") [ a; b ]
+    | ("&" | "|" | "+" | "-"), TSet _ | ("&" | "|" | "-"), TGraph _ when sameKind ->
+        stdCall (match op with "&" -> "ginter" | "-" -> "gdiff" | _ -> "gunion") [ a; conv b L ]
     | ("&" | "|"), TInt -> same ()
     | _, TInt when isBit -> same ()
     | "^", TBool -> same ()
@@ -239,7 +252,7 @@ and private typeIndex (x: E) (i: E) =
     | TQ el | TPQ el ->
         match i.k with
         | Int 0L -> typed (Call("peek", [ x ])) el
-        | _ -> typed (Index(typed (Call("arr", [ x ])) (TArr el), conv i TInt)) el
+        | _ -> typed (Index(stdCall "arr" [ x ], conv i TInt)) el
     | TTup ts ->
         match i.k with
         | Int k when abs (int k) < ts.Length + (if k < 0L then 1 else 0) ->
@@ -280,18 +293,8 @@ and private builtin name (args: E list) : E =
     | "mapof", [ ks; vs ] -> call (TMap(elemOf ks, elemOf vs))
     | ("set" | "Q" | "PQ"), [ xs ] ->
         let el = elemOf xs
-        let xs = if resolve xs.t = TStr then typed (Call("chars", [ xs ])) (TArr TStr) else xs
         let t = match name with "set" -> TSet el | "Q" -> TQ el | _ -> TPQ el
-        typed (Call(name, [ (match resolve xs.t with TArr _ -> xs | _ -> typed (Call("arr", [ xs ])) (TArr el)) ])) t
-    | "pop", [ q ] ->
-        match resolve q.t with
-        | TQ el | TPQ el -> call el
-        | t -> err ($"pop: not a queue: {showTy t}")
-    | "keys", [ m ] | "vals", [ m ] ->
-        match resolve m.t with
-        | TMap(k, v) -> call (TArr(if name = "keys" then k else v))
-        | t -> err ($"{name}: not a map: {showTy t}")
-    | "arr", [ c ] -> call (TArr(elemOf c))
+        typed (Call(name, [ (match resolve xs.t with TArr _ -> xs | _ -> stdCall "arr" [ xs ]) ])) t
     | "push", [ a; x ] ->
         match resolve a.t with
         | TArr el -> typed (Call("push", [ a; own (conv x el) ])) a.t
@@ -304,7 +307,7 @@ and private builtin name (args: E list) : E =
 
 /// A runtime stdlib call, typed from its `//@` signature (see Stdlib.fs). Type variables bind on first
 /// use; other arguments convert to the parameter type. The typed node carries one descriptor string per
-/// type variable before the arguments; a block argument becomes a `$block:<instance>` reference.
+/// type variable (and the result's, see Stdlib) before the arguments; a block argument becomes a `BlockRef`.
 and private stdCall name (args: E list) : E =
     let rec toTy (env: Dictionary<string, Ty>) (p: Stdlib.STy) : Ty =
         match p with
@@ -315,6 +318,10 @@ and private stdCall name (args: E list) : E =
         | Stdlib.SVar v -> (match env.TryGetValue v with | true, t -> t | _ -> (let h = newHole () in env.[v] <- h; h))
         | Stdlib.SArr t -> TArr(toTy env t)
         | Stdlib.SGraph t -> TGraph(toTy env t)
+        | Stdlib.SMap(k, v) -> TMap(toTy env k, toTy env v)
+        | Stdlib.SSet t -> TSet(toTy env t)
+        | Stdlib.SQ t -> TQ(toTy env t)
+        | Stdlib.SPQ t -> TPQ(toTy env t)
         | Stdlib.STup ts -> TTup(List.map (toTy env) ts)
         | Stdlib.SFn _ -> err "nested block types are not supported"
     /// binds unbound variables from the actual type; true when no conversion is needed
@@ -324,7 +331,8 @@ and private stdCall name (args: E list) : E =
             match env.TryGetValue v with
             | true, b -> resolve b = t
             | _ -> (env.[v] <- t; true)
-        | Stdlib.SArr p, TArr t | Stdlib.SGraph p, TGraph t -> bind env p t
+        | Stdlib.SArr p, TArr t | Stdlib.SGraph p, TGraph t | Stdlib.SSet p, TSet t | Stdlib.SQ p, TQ t | Stdlib.SPQ p, TPQ t -> bind env p t
+        | Stdlib.SMap(pk, pv), TMap(k, v) -> bind env pk k && bind env pv v
         | Stdlib.STup ps, TTup ts -> ps.Length = ts.Length && List.forall2 (bind env) ps ts
         | Stdlib.SFn _, TFn _ -> true
         | Stdlib.SInt, TInt | Stdlib.SFloat, TFloat | Stdlib.SStr, TStr | Stdlib.SBool, TBool -> true
@@ -340,18 +348,20 @@ and private stdCall name (args: E list) : E =
             | Stdlib.SFn(pt, rt), TFn id ->
                 let call = userCall id [ typed (Int 0L) (toTy env pt) ]
                 match call.k, rt with
-                | Call(inst, _), Stdlib.SBool when unify call.t TBool -> typed (Call("$block:" + inst.Substring 1, [])) a.t
-                | Call(inst, _), Stdlib.SVar v ->
+                | UserCall(inst, _), Stdlib.SBool when unify call.t TBool -> typed (BlockRef inst) a.t
+                | UserCall(inst, _), Stdlib.SVar v ->
                     env.[v] <- call.t
-                    typed (Call("$block:" + inst.Substring 1, [])) a.t
+                    typed (BlockRef inst) a.t
                 | _ -> err ($"{name}: the block must return {Stdlib.showSTy rt}")
             | Stdlib.SFn _, _ -> err ($"{name} expects a block argument")
             | p, _ ->
                 bind env p a.t |> ignore
                 own (conv a (toTy env p))) sg.parms args
     // descriptors are rendered by codegen, once every hole is resolved
-    let descs = sg.tvars |> List.map (fun v -> typed (Call("$desc", [])) (toTy env (Stdlib.SVar v)))
-    typed (Call("$std:" + sg.csym, descs @ args)) (toTy env sg.ret)
+    let descs = sg.tvars |> List.map (fun v -> typed Desc (toTy env (Stdlib.SVar v)))
+    let ret = toTy env sg.ret
+    let rdesc = if sg.rdesc then [ typed Desc ret ] else []
+    typed (StdCall(sg, descs @ rdesc @ args)) ret
 
 and private userCall id (args: E list) : E =
     let tys = args |> List.map (fun a -> resolve a.t)
@@ -386,7 +396,7 @@ and private userCall id (args: E list) : E =
             line <- savedLine
             inst
     cur.inst |> Option.iter (fun c -> c.calls.Add inst.name |> ignore)
-    typed (Call("@" + inst.name, args)) inst.ret
+    typed (UserCall(inst.name, args)) inst.ret
 
 // ---------- statements ----------
 
@@ -423,7 +433,7 @@ and private typeStmts (ss: S list) =
     let n = List.length ss
     ss |> List.mapi (fun i s ->
         match s with
-        | Do({ k = Iter it } as e) when i < n - 1 && it.kind = "map" -> typeStmt (Do { e with k = Iter { it with kind = "each" } })
+        | Do({ k = Iter it } as e) when i < n - 1 && it.kind = IMap -> typeStmt (Do { e with k = Iter { it with kind = IEach } })
         | _ -> typeStmt s)
 
 // ---------- program ----------

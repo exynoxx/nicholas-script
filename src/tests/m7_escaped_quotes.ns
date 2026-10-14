@@ -1,0 +1,3 @@
+# an escaped quote inside a string inside {..} interpolation or a ternary ?[..] literal
+println:"<{"q\"}"}>"
+println:T ?[ "\"]" ] : ["x"]

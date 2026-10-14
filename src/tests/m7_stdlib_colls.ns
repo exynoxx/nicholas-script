@@ -1,0 +1,15 @@
+a = %[1,2,3]; b = %[2,3,4]
+println:(a | b).arr.sort
+a = %[1,2,3]; println:(a & b).arr.sort
+a = %[1,2,3]; println:(a - b).arr.sort
+c = %["x","y"]; println:(c + %["z"]).arr.sort
+println:zip:["a","b"],[1,2]
+println:zip:[1,2],[3,4]
+println:tuple2:["p","q"]
+println:pairwise:["a","b","c"]
+println:tuple3:[1.5,2.5,3.5]
+q = Q[3,1]; println:q.pop; p = PQ["b","a"]; println:p.pop
+m = ["k"->1]; println:m.keys; println:m.vals; println:m.arr; println:Q[1,2].arr
+g = G[("a","b",1),("b","c",4)]; println:g.edges; println:g.arr.sort
+println:a
+h = G[(1,2),(2,3)]; println:h.edges; println:(h | G[(3,4)]).edges

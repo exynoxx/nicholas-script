@@ -17,8 +17,8 @@ let private isFn t = match resolve t with TFn _ -> true | _ -> false
 let rec private noAssign (e: E) =
     match e.k with
     | Seq _ | Iter _ | MatchOn _ -> false
-    | Call(f, _) when f.StartsWith "@" -> false
-    | Call(_, xs) | Arr xs -> List.forall noAssign xs
+    | UserCall _ -> false
+    | Call(_, xs) | StdCall(_, xs) | Arr xs -> List.forall noAssign xs
     | Bin(_, a, b) | Index(a, b) -> noAssign a && noAssign b
     | If(a, b, c) -> noAssign a && noAssign b && noAssign c
     | Conv x -> noAssign x
@@ -144,8 +144,19 @@ let generate (prog: Program) : string =
                 emit ($"br label %%{lend}")
             place lend
             if res = "" then "0" else instr $"load {llty e.t}, ptr {res}"
-        | Call("$desc", []) -> strConst (desc e.t)
+        | Desc -> strConst (desc e.t)
         | Call(f, args) -> call e f args
+        | StdCall(sg, args) -> stdCall e sg args
+        | UserCall(f, args) ->
+            // user functions own all their arguments
+            let vs = List.map ex args
+            let inst = instByName.[f]
+            let ps = List.zip vs (inst.parms |> List.map snd) |> List.map (fun (v, t) -> llty t + " " + v)
+            let cs = inst.caps |> List.map (fun u -> "ptr " + ptrOf u)
+            let r = tmp ()
+            let argList = ps @ cs |> String.concat ", "
+            emit $"{r} = call {llty inst.ret} @\"{inst.name}\"({argList})"
+            r
         | Index(x, i) ->
             let [ (xv, xo); (iv, io) ] = exArgs 0 [ x; i ]
             let r =
@@ -187,6 +198,7 @@ let generate (prog: Program) : string =
             stmts ss
             ex x
         | Iter _ | MatchOn _ -> failwith "Iter/MatchOn must be lowered by the typer"
+        | BlockRef _ -> failwith "a block reference is only a stdlib argument"
 
     /// Evaluates for a borrowing use: a plain variable read skips retain; returns (value, owned).
     and exB (e: E) : string * bool =
@@ -200,13 +212,6 @@ let generate (prog: Program) : string =
             if i >= owned && List.forall noAssign (List.skip (i + 1) es) then exB e else ex e, true)
 
     and drop (v: string, owned) t = if owned then release v t
-
-    and convert (v: string) (src: Ty) (dst: Ty) =
-        if resolve src = resolve dst then v
-        else
-            let r = convert1 v src dst
-            release v src
-            r
 
     and convert1 (v: string) (src: Ty) (dst: Ty) =
         match resolve src, resolve dst with
@@ -265,7 +270,6 @@ let generate (prog: Program) : string =
 
     and call (e: E) (f: string) (args: E list) =
         match f, args with
-        | f, _ when f.StartsWith "$std:" -> stdCall e (Stdlib.bySym.[f.Substring 5]) args
         | "mapof", [ { k = Arr ks }; { k = Arr vs } ] ->
             let m = rt "ptr" "ns_map_new" [ d e.t ]
             for (k, v) in List.zip ks vs do
@@ -275,11 +279,10 @@ let generate (prog: Program) : string =
                 release vv v.t
             m
         | _ ->
-        // pass-through results own their first argument; user functions own all their arguments
+        // pass-through results own their first argument
         let kept =
             match f with
             | "print" | "println" | "push" | "add" | "del" | "merge" -> 1
-            | _ when f.StartsWith "@" -> args.Length
             | _ -> 0
         let evs = exArgs kept args
         let r = call1 e f args (List.map fst evs)
@@ -290,7 +293,6 @@ let generate (prog: Program) : string =
         let arg i = vs.[i]
         let ty i = args.[i].t
         let cell i = "ptr", spill (arg i) (ty i)
-        let elemDesc t = match resolve t with TArr el -> d el | _ -> d TInt
         match f, args with
         | ("print" | "println"), [ x ] -> (rt "void" ("ns_" + f) [ d x.t; cell 0 ] |> ignore; arg 0)
         | "neg", [ x ] -> if resolve x.t = TFloat then instr $"fneg double {arg 0}" else instr $"sub i64 0, {arg 0}"
@@ -303,18 +305,14 @@ let generate (prog: Program) : string =
         | "slice", [ x; _; _ ] ->
             rt "ptr" (if resolve x.t = TStr then "ns_slice_s" else "ns_arr_slice") [ "ptr", arg 0; "i64", arg 1; "i64", arg 2 ]
         | ("set" | "Q" | "PQ"), [ xs ] ->
-            let el = match resolve e.t with TSet el | TQ el | TPQ el -> el | _ -> TInt
             let ctor = match f with "set" -> "ns_set_new" | "Q" -> "ns_q_new" | _ -> "ns_pq_new"
             let coll = rt "ptr" ctor [ d e.t ]
             rt "void" "ns_add_all" [ d e.t; "ptr", coll; "ptr", arg 0 ] |> ignore
             coll
-        | ("pop" | "peek"), [ q ] ->
+        | "peek", [ q ] ->
             let out = outCell e.t
-            rt "void" ("ns_" + f) [ d q.t; "ptr", arg 0; "ptr", out ] |> ignore
+            rt "void" "ns_peek" [ d q.t; "ptr", arg 0; "ptr", out ] |> ignore
             loadFrom out e.t
-        | ("keys" | "arr"), [ x ] -> rt "ptr" "ns_toarr" [ d x.t; "ptr", arg 0 ]
-        | "vals", _ -> rt "ptr" "ns_map_vals" [ "ptr", arg 0 ]
-        | "chars", _ -> rt "ptr" "ns_chars" [ "ptr", arg 0 ]
         | "tuple", _ when Repr.isValueTuple e.t ->
             // value tuple: an LLVM struct built in registers (bool members widened to i64)
             args |> List.indexed |> List.fold (fun acc (i, a) ->
@@ -348,28 +346,20 @@ let generate (prog: Program) : string =
         | "add", [ coll; _ ] -> (rt "void" "ns_add" [ d coll.t; "ptr", arg 0; cell 1 ] |> ignore; arg 0)
         | "del", [ coll; _ ] -> (rt "void" "ns_del" [ d coll.t; "ptr", arg 0; cell 1 ] |> ignore; arg 0)
         | "merge", _ -> (rt "void" "ns_map_merge" [ "ptr", arg 0; "ptr", arg 1 ] |> ignore; arg 0)
-        | name, _ when name.StartsWith "@" ->
-            let inst = instByName.[name.Substring 1]
-            let ps = List.zip vs (inst.parms |> List.map snd) |> List.map (fun (v, t) -> llty t + " " + v)
-            let cs = inst.caps |> List.map (fun u -> "ptr " + ptrOf u)
-            let r = tmp ()
-            let argList = ps @ cs |> String.concat ", "
-            emit $"{r} = call {llty inst.ret} @\"{inst.name}\"({argList})"
-            r
         | _ -> failwith $"codegen: unknown call {f}/{args.Length}"
 
     /// Calls a runtime stdlib function per its signature: descriptors, then arguments (type-variable values by
     /// storage pointer, bools as i64, a block as callback + env), then an out cell for a type-variable result.
     /// Arguments are borrowed by C, so released afterwards.
     and stdCall (e: E) (sg: Stdlib.Sig) (args: E list) =
-        let nd = sg.tvars.Length
+        let nd = args.Length - sg.parms.Length // descriptors
         let descs = args |> List.take nd |> List.map (fun a -> "ptr", ex a)
         let mutable owned = []
         let cargs =
             List.map2 (fun (p: Stdlib.STy) (a: E) ->
                 match p, a.k with
-                | Stdlib.SFn _, Call(b, []) when b.StartsWith "$block:" ->
-                    let inst = instByName.[b.Substring 7]
+                | Stdlib.SFn _, BlockRef b ->
+                    let inst = instByName.[b]
                     [ "ptr", wrapper inst; "ptr", envOf inst ]
                 | _ ->
                     let v = ex a

@@ -27,8 +27,8 @@ by the `CompileRuntime` target in `NS.fsproj`.
 | — | `Ast.fs` | | token + surface AST types, `CompileError`/`fail`, printers |
 | 3 | `Desugar.fs` | AST → `Core` (untyped) | type-free sugar: interpolation → `+`, ranges/slices → calls, `[x]*n` → `repeat`, parallel assign via temps, `_ @ $` renamed to fresh per-block vars, fold ops `/>` `/<` → `If` |
 | — | `Core.fs` | | core IR: `Ty` (with `THole` unification vars), `E`/`K`, `S`, `Iter` |
-| 4 | `Typer.fs` | core → typed core (`Typer.Program`) | inference + unification, left-operand conversion (`conv`, `typeBin`), scopes/captures (`Frame`, `propagateCaptures`), monomorphising blocks per call site (`userCall`, `Inst`), primitives in `builtin` (`print`, casts, `neg`, `len`, `pop`, `keys`…), runtime stdlib in `stdCall` |
-| — | `Lower.fs` | | type-directed rewrites the typer invokes: `iter` (fuses map/filter/fold/scan chains into one loop), `broadcast` (array arithmetic), `convArr`, `setOp` |
+| 4 | `Typer.fs` | core → typed core (`Typer.Program`) | inference + unification, left-operand conversion (`conv`, `typeBin`), scopes/captures (`Frame`, `propagateCaptures`), monomorphising blocks per call site (`userCall`, `Inst`), primitives in `builtin` (`print`, casts, `neg`, `len`, `has`, `set`…), runtime stdlib in `stdCall` |
+| — | `Lower.fs` | | type-directed rewrites the typer invokes: `iter` (fuses map/filter/fold/scan chains into one loop), `broadcast` (array arithmetic), `convArr` |
 | 5 | `Repr.fs` | | memory layout per type: `llty` register type, `storage`/`esz` in containers, `desc` runtime descriptor, value vs boxed tuples |
 | 6 | `Codegen.fs` | typed core → LLVM IR text | `generate`; refcount retain/release, inline element access |
 | 6b | `CGen.fs` | typed core → C text | twin of `Codegen.fs` (same refcounting/layouts, goto control flow); `ns c f.ns`, `--c` on run/build/test, `$CC` (default `cc`) |

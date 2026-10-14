@@ -19,8 +19,8 @@ let private mangle (s: string) =
 let rec private noAssign (e: E) =
     match e.k with
     | Seq _ | Iter _ | MatchOn _ -> false
-    | Call(f, _) when f.StartsWith "@" -> false
-    | Call(_, xs) | Arr xs -> List.forall noAssign xs
+    | UserCall _ -> false
+    | Call(_, xs) | StdCall(_, xs) | Arr xs -> List.forall noAssign xs
     | Bin(_, a, b) | Index(a, b) -> noAssign a && noAssign b
     | If(a, b, c) -> noAssign a && noAssign b && noAssign c
     | Conv x -> noAssign x
@@ -143,8 +143,15 @@ let generate (prog: Program) : string =
                 emit $"goto {lend};"
             place lend
             if res = "" then "0" else instr (cty e.t) res
-        | Call("$desc", []) -> strConst (desc e.t)
+        | Desc -> strConst (desc e.t)
         | Call(f, args) -> call e f args
+        | StdCall(sg, args) -> stdCall e sg args
+        | UserCall(f, args) ->
+            // user functions own all their arguments
+            let vs = List.map ex args
+            let inst = instByName.[f]
+            let cs = inst.caps |> List.map (fun u -> "&" + lv u)
+            rt (cty inst.ret) ("f_" + mangle inst.name) (vs @ cs)
         | Index(x, i) ->
             let [ (xv, xo); (iv, io) ] = exArgs 0 [ x; i ]
             let r =
@@ -184,6 +191,7 @@ let generate (prog: Program) : string =
             stmts ss
             ex x
         | Iter _ | MatchOn _ -> failwith "Iter/MatchOn must be lowered by the typer"
+        | BlockRef _ -> failwith "a block reference is only a stdlib argument"
 
     and exB (e: E) : string * bool =
         match e.k with
@@ -246,7 +254,6 @@ let generate (prog: Program) : string =
 
     and call (e: E) (f: string) (args: E list) =
         match f, args with
-        | f, _ when f.StartsWith "$std:" -> stdCall e (Stdlib.bySym.[f.Substring 5]) args
         | "mapof", [ { k = Arr ks }; { k = Arr vs } ] ->
             let m = rt "void *" "ns_map_new" [ d e.t ]
             for (k, v) in List.zip ks vs do
@@ -259,7 +266,6 @@ let generate (prog: Program) : string =
         let kept =
             match f with
             | "print" | "println" | "push" | "add" | "del" | "merge" -> 1
-            | _ when f.StartsWith "@" -> args.Length
             | _ -> 0
         let evs = exArgs kept args
         let r = call1 e f args (List.map fst evs)
@@ -285,13 +291,10 @@ let generate (prog: Program) : string =
             let coll = rt "void *" ctor [ d e.t ]
             rt "void" "ns_add_all" [ d e.t; coll; arg 0 ] |> ignore
             coll
-        | ("pop" | "peek"), [ q ] ->
+        | "peek", [ q ] ->
             let out = outCell e.t
-            rt "void" ("ns_" + f) [ d q.t; arg 0; out ] |> ignore
+            rt "void" "ns_peek" [ d q.t; arg 0; out ] |> ignore
             loadFrom out e.t
-        | ("keys" | "arr"), [ x ] -> rt "void *" "ns_toarr" [ d x.t; arg 0 ]
-        | "vals", _ -> rt "void *" "ns_map_vals" [ arg 0 ]
-        | "chars", _ -> rt "void *" "ns_chars" [ arg 0 ]
         | "tuple", _ when Repr.isValueTuple e.t ->
             let ms = args |> List.mapi (fun i a -> (if resolve a.t = TFloat then "" else "(int64_t)") + arg i)
             instr (cty e.t) ("{ " + String.concat ", " ms + " }")
@@ -320,21 +323,17 @@ let generate (prog: Program) : string =
         | "add", [ coll; _ ] -> (rt "void" "ns_add" [ d coll.t; arg 0; cell 1 ] |> ignore; arg 0)
         | "del", [ coll; _ ] -> (rt "void" "ns_del" [ d coll.t; arg 0; cell 1 ] |> ignore; arg 0)
         | "merge", _ -> (rt "void" "ns_map_merge" [ arg 0; arg 1 ] |> ignore; arg 0)
-        | name, _ when name.StartsWith "@" ->
-            let inst = instByName.[name.Substring 1]
-            let cs = inst.caps |> List.map (fun u -> "&" + lv u)
-            rt (cty inst.ret) ("f_" + mangle inst.name) (vs @ cs)
         | _ -> failwith $"cgen: unknown call {f}/{args.Length}"
 
     and stdCall (e: E) (sg: Stdlib.Sig) (args: E list) =
-        let nd = sg.tvars.Length
+        let nd = args.Length - sg.parms.Length // descriptors
         let descs = args |> List.take nd |> List.map ex
         let mutable owned = []
         let cargs =
             List.map2 (fun (p: Stdlib.STy) (a: E) ->
                 match p, a.k with
-                | Stdlib.SFn _, Call(b, []) when b.StartsWith "$block:" ->
-                    let inst = instByName.[b.Substring 7]
+                | Stdlib.SFn _, BlockRef b ->
+                    let inst = instByName.[b]
                     [ wrapper inst; envOf inst ]
                 | _ ->
                     let v = ex a

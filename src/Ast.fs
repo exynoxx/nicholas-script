@@ -24,6 +24,15 @@ type Tok =
 
 type Token = { tok: Tok; line: int; col: int }
 
+type IterKind =
+    | IMap
+    | IFilter
+    | IFold
+    | IScan
+    | IEach // a map whose result is discarded
+
+let showKind k = match k with IMap -> "map" | IFilter -> "filter" | IFold -> "fold" | IScan -> "scan" | IEach -> "each"
+
 type Expr =
     | EInt of int64
     | EFloat of float
@@ -42,8 +51,8 @@ type Expr =
     | ECall of string * Expr list       // also x.f:a => ECall(f, [x; a])
     | EIndex of Expr * Expr
     | EHas of Expr * Expr
-    | EIter of string * Expr * Stmt list // "map" | "filter" | "fold" | "scan"
-    | EIterOp of string * Expr * string  // "fold" | "scan", operator
+    | EIter of IterKind * Expr * Stmt list
+    | EIterOp of IterKind * Expr * string // fold or scan with an operator
     | EBlock of int * Stmt list
     | EGroup of Stmt list               // (s1; s2; value)
     | EMatch of string * Expr * Expr    // "map" `x ?{}` | "filter" `x ?[]` | "whole" (array-literal pattern): subject, arms (`_` = subject/element)
@@ -107,8 +116,8 @@ let rec showExpr (e: Expr) : string =
     | ECall(f, xs) -> $"ECall({f}, [{list xs}])"
     | EIndex(x, i) -> $"EIndex({showExpr x}, {showExpr i})"
     | EHas(x, k) -> $"EHas({showExpr x}, {showExpr k})"
-    | EIter(k, src, body) -> $"EIter({k}, {showExpr src}, {showStmts body})"
-    | EIterOp(k, src, op) -> $"EIterOp({k}, {showExpr src}, {op})"
+    | EIter(k, src, body) -> $"EIter({showKind k}, {showExpr src}, {showStmts body})"
+    | EIterOp(k, src, op) -> $"EIterOp({showKind k}, {showExpr src}, {op})"
     | EBlock(id, body) -> $"EBlock({id}, {showStmts body})"
     | EGroup body -> $"EGroup {showStmts body}"
     | EMatch(kind, x, arms) -> $"EMatch({kind}, {showExpr x}, {showExpr arms})"

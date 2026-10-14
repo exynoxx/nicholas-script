@@ -2,6 +2,7 @@
 /// then types the produced (untyped) core like any other code. Typed sub-expressions pass through unchanged.
 module Lower
 
+open Ast
 open Core
 
 let private v n = mk (Var n)
@@ -26,12 +27,12 @@ let iter (stages: Iter list) (srcTy: Ty) : E =
     let graph = match srcTy with TGraph _ -> true | _ -> false
     let srcTy = if graph then TMap(TUnk, TUnk) else srcTy
     let isMap = (match srcTy with TMap _ -> true | _ -> false) && not fused
-    let folding = term.kind = "fold" || term.kind = "scan"
+    let folding = term.kind = IFold || term.kind = IScan
     // result kind: a single stage keeps the source's kind; a fused chain yields an array
     // (or a string when only filters run over a string)
     let resTy =
         if not fused then srcTy
-        elif srcTy = TStr && stages |> List.forall (fun st -> st.kind = "filter") then TStr
+        elif srcTy = TStr && stages |> List.forall (fun st -> st.kind = IFilter) then TStr
         else TArr TUnk
     let snapshot =
         match srcTy with
@@ -72,13 +73,13 @@ let iter (stages: Iter list) (srcTy: Ty) : E =
         | _ -> Do(call "push" [ v r; x ])
     let terminal =
         match term.kind with
-        | "map" -> [ add (bodyE term) ]
-        | "filter" -> [ when' (bodyE term) [ add (v term.el) ] ]
-        | "fold" | "scan" ->
-            let push = if term.kind = "scan" then [ Do(call "push" [ v r; v term.acc ]) ] else []
+        | IMap -> [ add (bodyE term) ]
+        | IFilter -> [ when' (bodyE term) [ add (v term.el) ] ]
+        | IFold | IScan ->
+            let push = if term.kind = IScan then [ Do(call "push" [ v r; v term.acc ]) ] else []
             [ Do(mk (If(v first, seq [ Assign(term.acc, v term.el); Assign(first, mk (Bool false)) ] skip,
                         seq [ Assign(term.acc, bodyE term) ] skip))) ] @ push
-        | _ -> [ Do(bodyE term) ] // "each"
+        | IEach -> [ Do(bodyE term) ]
     // stage i has its el/ix assigned; pass the element on to stage i+1 (with its own position counter)
     let counters = stages |> List.map (fun _ -> Desugar.fresh "k")
     let rec pipe i : S list =
@@ -87,47 +88,30 @@ let iter (stages: Iter list) (srcTy: Ty) : E =
             let st, nxt, k = stages.[i], stages.[i + 1], counters.[i + 1]
             let pass (x: E) = [ Assign(nxt.el, x); Assign(nxt.ix, v k); Assign(k, bin "+" (v k) (i64 1L)) ] @ pipe (i + 1)
             match st.kind with
-            | "map" -> pass (bodyE st)
+            | IMap -> pass (bodyE st)
             | _ -> [ when' (bodyE st) (pass (v st.el)) ]
     let init =
         (counters |> List.tail |> List.map (fun k -> Assign(k, skip)))
-        @ (if term.kind = "fold" || term.kind = "scan" then [ Assign(first, mk (Bool true)) ] else [])
-        @ (if term.kind = "map" || term.kind = "filter" || term.kind = "scan" then [ Assign(r, empty ()) ] else [])
+        @ (if folding then [ Assign(first, mk (Bool true)) ] else [])
+        @ (if term.kind <> IFold && term.kind <> IEach then [ Assign(r, empty ()) ] else [])
     let loop = [ Assign(c, skip); While(bin "<" (v c) (v n), load @ pipe 0 @ [ Assign(c, bin "+" (v c) (i64 1L)) ]) ]
     let emptyFold = [ when' (v first) [ Do(call "panic" [ mk (Str "fold of empty collection") ]) ] ]
     match term.kind with
-    | "map" -> seq (pre @ init @ loop) (v r)
-    | "filter" when graph -> seq (pre @ init @ loop) (call "subgraph" [ v s; call "keys" [ v r ] ])
-    | "filter" -> seq (pre @ init @ loop) (if resTy = TStr then call "join" [ v r; mk (Str "") ] else v r)
-    | "fold" -> seq (pre @ init @ loop @ emptyFold) (v term.acc)
-    | "scan" -> seq (pre @ init @ loop @ emptyFold) (v r)
-    | _ -> seq (pre @ init @ loop) skip
-
-let private each src body =
-    let el, ix, acc = Desugar.fresh "_", Desugar.fresh "@", Desugar.fresh "$"
-    mk (Iter { kind = "each"; src = src; el = el; ix = ix; acc = acc; body = body (v el) })
+    | IMap -> seq (pre @ init @ loop) (v r)
+    | IFilter when graph -> seq (pre @ init @ loop) (call "subgraph" [ v s; call "keys" [ v r ] ])
+    | IFilter -> seq (pre @ init @ loop) (if resTy = TStr then call "join" [ v r; mk (Str "") ] else v r)
+    | IFold -> seq (pre @ init @ loop @ emptyFold) (v term.acc)
+    | IScan -> seq (pre @ init @ loop @ emptyFold) (v r)
+    | IEach -> seq (pre @ init @ loop) skip
 
 /// `a op b` with an array on the left: elementwise, right side either scalar or array.
 let broadcast op (a: E) (b: E) (bIsArr: bool) =
     let y = Desugar.fresh "y"
     let el, ix, acc = Desugar.fresh "_", Desugar.fresh "@", Desugar.fresh "$"
     let rhs = if bIsArr then mk (Index(v y, v ix)) else v y
-    seq [ Assign(y, b) ] (mk (Iter { kind = "map"; src = a; el = el; ix = ix; acc = acc; body = [ Do(bin op (v el) rhs) ] }))
+    seq [ Assign(y, b) ] (mk (Iter { kind = IMap; src = a; el = el; ix = ix; acc = acc; body = [ Do(bin op (v el) rhs) ] }))
 
 /// Array element conversion `[a] -> [b]` for a scalar target type.
 let convArr (a: E) (castName: string) =
     let el, ix, acc = Desugar.fresh "_", Desugar.fresh "@", Desugar.fresh "$"
-    mk (Iter { kind = "map"; src = a; el = el; ix = ix; acc = acc; body = [ Do(call castName [ v el ]) ] })
-
-/// Set union/difference/intersection; mutates and returns the left set.
-let setOp op (a: E) (b: E) =
-    let s, o = Desugar.fresh "s", Desugar.fresh "o"
-    let body =
-        match op with
-        | "|" | "+" -> [ Assign(s, a); Do(each b (fun x -> [ Do(bin "+" (v s) x) ])) ]
-        | "-" -> [ Assign(s, a); Do(each b (fun x -> [ Do(bin "-" (v s) x) ])) ]
-        | _ ->
-            [ Assign(s, a); Assign(o, b)
-              Do(each (call "arr" [ v s ]) (fun x ->
-                  [ Do(mk (If(call "has" [ v o; x ], i64 0L, seq [ Do(bin "-" (v s) x) ] (i64 0L)))) ])) ]
-    seq body (v s)
+    mk (Iter { kind = IMap; src = a; el = el; ix = ix; acc = acc; body = [ Do(call castName [ v el ]) ] })
