@@ -50,14 +50,17 @@ let lex (src: string) (startLine: int) : Token list =
         | TERM -> ()
         | _ when toks.Count = 0 -> ()
         | _ -> add TERM
+    let skipWs j =
+        let mutable j = j
+        while j < n && (src.[j] = ' ' || src.[j] = '\t') do j <- j + 1
+        j
     let isTerminator c = c = '\000' || "\n\r;)]},.{[/\\#".IndexOf(c: char) >= 0
     /// `/op` is a fold only when no operand follows the operator.
     let tryOpAfter () =
         foldOps |> List.tryFind (fun op ->
             if at 1 <> op.[0] then false
             else
-                let mutable j = i + 2
-                while j < n && (src.[j] = ' ' || src.[j] = '\t') do j <- j + 1
+                let j = skipWs (i + 2)
                 isTerminator (if j < n then src.[j] else '\000'))
     let lexString () =
         i <- i + 1
@@ -147,7 +150,10 @@ let lex (src: string) (startLine: int) : Token list =
             if endsExpr () then
                 if at 1 = '?' then (sym "@?"; i <- i + 2) else (sym "@"; i <- i + 1)
             else (add (ID "@"); i <- i + 1)
-        elif (c = '/' || c = '\\') && endsExpr () && at 1 = '{' then (sym (string c + "{"); i <- i + 2)
+        elif (c = '/' || c = '\\') && endsExpr () && (let j = skipWs (i + 1) in j < n && src.[j] = '{') then
+            // `x / {..}` is a fold too: dividing by a block can never type-check
+            sym (string c + "{")
+            i <- skipWs (i + 1) + 1
         elif (c = '/' || c = '\\') && endsExpr () && (tryOpAfter ()).IsSome then
             let op = (tryOpAfter ()).Value
             add (if c = '/' then FOLDOP op else SCANOP op)

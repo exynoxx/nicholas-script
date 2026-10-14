@@ -1,0 +1,5 @@
+println: [1,2,3] / {$+_}
+println: [1,2,3] \ {$+_}
+println: [1,2,3]/{$*_}
+println: 6 / 2
+println: [1,2,3]/+

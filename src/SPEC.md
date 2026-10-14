@@ -106,7 +106,7 @@ x@1..3           # slice (elements 1,2); `@` takes a range operand
 | scan     | `x\{body}` `x\op` | `x\+`      | running fold, returns array |
 
 `/op` is a fold only when no operand follows the op (`x/-1` is division).
-Disambiguation: `[` directly after an expression (no space) is a filter; otherwise it starts a literal. `/` followed by `{` or an operator token is a fold; otherwise division.
+Disambiguation: `[` directly after an expression (no space) is a filter; otherwise it starts a literal. `/` followed by `{` (spaces allowed: `x / {$+_}`) or an operator token is a fold; otherwise division.
 
 ### Block shortcuts
 - **Operator section**: a block body starting with a binary operator gets `_` on its left: `x{*2}`, `x[>2]`, `x{^^2}`. `-` never starts a section (`x{-1}` is the constant -1).
