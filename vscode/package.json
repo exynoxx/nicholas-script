@@ -2,7 +2,7 @@
   "name": "ns-lang",
   "displayName": "NS",
   "description": "Syntax highlighting for the NS golf language",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "nicholas",
   "engines": { "vscode": "^1.60.0" },
   "categories": ["Programming Languages"],
