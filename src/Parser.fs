@@ -281,7 +281,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                     while accept "," do items.Add(p.Expr())
                     expect "]"
                     EArr(List.ofSeq items)
-        | SYM("%[" | "Q[" | "PQ[" as s) ->
+        | SYM("%[" | "Q[" | "PQ[" | "G[" | "DG[" as s) ->
             let items = if isSym "]" then [] else p.ExprList()
             expect "]"
             ECollLit((if s = "%[" then "set" else s.TrimEnd '['), items)

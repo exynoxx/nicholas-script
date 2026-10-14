@@ -13,6 +13,7 @@ type Ty =
     | TSet of Ty
     | TQ of Ty
     | TPQ of Ty
+    | TGraph of Ty              // nodes of this type, int weights
     | TTup of Ty list
     | TFn of int
     | THole of Ty option ref
@@ -66,6 +67,7 @@ let rec showTy t =
     | TSet e -> "%" + showTy e
     | TQ e -> "Q " + showTy e
     | TPQ e -> "PQ " + showTy e
+    | TGraph e -> "G " + showTy e
     | TTup ts -> "(" + (ts |> List.map showTy |> String.concat ",") + ")"
     | TFn id -> $"fn{id}"
     | THole _ -> "?"

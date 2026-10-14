@@ -1,6 +1,6 @@
 /// The standard library lives in runtime.c. Each function there is declared by a signature comment
 ///   //@ name (param, ...) result [= c_symbol]
-/// with types int float str bool, type variables (single capitals), [t] arrays, (a,b) tuples and fn(t)->r blocks.
+/// with types int float str bool, type variables (single capitals), [t] arrays, G[t] graphs, (a,b) tuples and fn(t)->r blocks.
 /// The C function receives one descriptor (const char*) per type variable first, then its arguments;
 /// type-variable values travel as 64-bit slots, a block as (callback, env). This module only reads the table.
 module Stdlib
@@ -17,6 +17,7 @@ type STy =
     | SArr of STy
     | STup of STy list
     | SFn of STy * STy
+    | SGraph of STy
 
 let rec showSTy (t: STy) =
     match t with
@@ -28,6 +29,7 @@ let rec showSTy (t: STy) =
     | SArr t -> "[" + showSTy t + "]"
     | STup ts -> "(" + (ts |> List.map showSTy |> String.concat ",") + ")"
     | SFn(a, b) -> "fn(" + showSTy a + ")->" + showSTy b
+    | SGraph t -> "G[" + showSTy t + "]"
 
 type Sig = { name: string; parms: STy list; ret: STy; csym: string; tvars: string list }
 
@@ -41,6 +43,7 @@ let rec private parseTy (s: string) : STy =
     | _ when s.StartsWith "fn(" ->
         let close = s.IndexOf ")->"
         SFn(parseTy (s.Substring(3, close - 3)), parseTy (s.Substring(close + 3)))
+    | _ when s.StartsWith "G[" -> SGraph(parseTy (s.Substring(2, s.Length - 3)))
     | _ when s.StartsWith "[" -> SArr(parseTy (s.Substring(1, s.Length - 2)))
     | _ when s.StartsWith "(" -> STup(splitTop (s.Substring(1, s.Length - 2)) |> List.map parseTy)
     | _ when s.Length = 1 && Char.IsUpper s.[0] -> SVar s
@@ -64,7 +67,7 @@ and private splitTop (s: string) : string list =
 let rec private vars (t: STy) =
     match t with
     | SVar v -> [ v ]
-    | SArr t -> vars t
+    | SArr t | SGraph t -> vars t
     | STup ts -> List.collect vars ts
     | SFn(a, b) -> vars a @ vars b
     | _ -> []

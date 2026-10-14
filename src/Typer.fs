@@ -45,7 +45,7 @@ let rec private unify a b =
     match resolve a, resolve b with
     | THole r1, THole r2 when obj.ReferenceEquals(r1, r2) -> true
     | THole r, t | t, THole r -> (r.Value <- Some t; true)
-    | TArr x, TArr y | TSet x, TSet y | TQ x, TQ y | TPQ x, TPQ y -> unify x y
+    | TArr x, TArr y | TSet x, TSet y | TQ x, TQ y | TPQ x, TPQ y | TGraph x, TGraph y -> unify x y
     | TMap(k1, v1), TMap(k2, v2) -> unify k1 k2 && unify v1 v2
     | TTup xs, TTup ys -> xs.Length = ys.Length && List.forall2 unify xs ys
     | x, y -> x = y
@@ -92,6 +92,14 @@ let private own (e: E) =
     match e.k, resolve e.t with
     | Var _, TArr _ -> typed (Call("copy", [ e ])) e.t
     | _ -> e
+
+/// Is `x` an edge (u,v) or (u,v,weight) of a graph with node type n, rather than a node? Unifies the members.
+let private isEdge (n: Ty) (x: E) =
+    let isNode = match resolve n with THole _ -> false | _ -> unify x.t n
+    not isNode
+    && match resolve x.t with
+       | TTup(u :: v :: w) when w.Length <= 1 -> unify n u && unify n v && List.forall (fun w -> unify w TInt) w
+       | _ -> false
 
 let rec private conv (e: E) (ty: Ty) : E =
     let a, b = resolve e.t, resolve ty
@@ -185,6 +193,8 @@ and private typeBin op (a: E) (b: E) : E =
     | _ when isCmp -> typed (Bin(op, a, conv b L)) TBool
     | ("&" | "|" | "+" | "-"), TSet _ when (match resolve b.t with TSet _ -> true | _ -> false) ->
         typeE (Lower.setOp op a (conv b L))
+    | ("|" | "&" | "-"), TGraph _ when (match resolve b.t with TGraph _ -> true | _ -> false) ->
+        stdCall (match op with "|" -> "gunion" | "&" -> "ginter" | _ -> "gdiff") [ a; b ]
     | ("&" | "|"), TInt -> same ()
     | _, TInt when isBit -> same ()
     | "^", TBool -> same ()
@@ -194,6 +204,8 @@ and private typeBin op (a: E) (b: E) : E =
         match resolve b.t with
         | TArr _ -> typed (Call("concat", [ a; conv b L ])) L
         | _ -> typed (Call("append", [ a; own (conv b el) ])) L
+    | "+", TGraph n when isEdge n b -> stdCall "addedge" [ a; b ]
+    | "-", TGraph n -> if isEdge n b then stdCall "deledge" [ a; b ] else stdCall "delnode" [ a; b ]
     | "+", (TSet el | TQ el | TPQ el) -> typed (Call("add", [ a; own (conv b el) ])) L
     | "-", TSet el -> typed (Call("del", [ a; conv b el ])) L
     | "+", TMap _ -> typed (Call("merge", [ a; conv b L ])) L
@@ -215,6 +227,7 @@ and private typeIndex (x: E) (i: E) =
     | TArr el -> typed (Index(x, conv i TInt)) el
     | TStr -> typed (Index(x, conv i TInt)) TStr
     | TMap(k, v) -> typed (Index(x, conv i k)) v
+    | TGraph n -> if isEdge n i then stdCall "weight" [ x; i ] else stdCall "nbrs" [ x; i ]
     | TQ el | TPQ el ->
         match i.k with
         | Int 0L -> typed (Call("peek", [ x ])) el
@@ -235,7 +248,7 @@ and private builtin name (args: E list) : E =
         match resolve x.t with
         | TArr e | TSet e | TQ e | TPQ e -> e
         | TStr -> TStr
-        | TMap(k, _) -> k
+        | TMap(k, _) | TGraph k -> k
         | t -> err ($"{name}: not a collection: {showTy t}")
     match name, args with
     | ("print" | "println"), [ x ] -> typed (Call(name, [ x ])) x.t
@@ -245,9 +258,11 @@ and private builtin name (args: E list) : E =
         match resolve x.t with
         | TInt | TFloat -> call x.t
         | TArr _ -> typeE (Lower.broadcast "*" x (typed (Int -1L) TInt) false)
+        | TGraph _ -> stdCall "rev" [ x ]
         | _ -> typed (Call("neg", [ conv x TInt ])) TInt
     | "not", [ x ] -> typed (Call("not", [ conv x TBool ])) TBool
     | "len", [ x ] -> (elemOf x |> ignore; call TInt)
+    | "has", [ c; x ] when (match resolve c.t with TGraph n -> isEdge n x | _ -> false) -> stdCall "hasedge" [ c; x ]
     | "has", [ c; x ] -> typed (Call("has", [ c; conv x (elemOf c) ])) TBool
     | "range", [ a; b ] -> typed (Call("range", [ bound a; bound b ])) (TArr TInt)
     | "slice", [ x; a; b ] ->
@@ -291,6 +306,7 @@ and private stdCall name (args: E list) : E =
         | Stdlib.SBool -> TBool
         | Stdlib.SVar v -> (match env.TryGetValue v with | true, t -> t | _ -> (let h = newHole () in env.[v] <- h; h))
         | Stdlib.SArr t -> TArr(toTy env t)
+        | Stdlib.SGraph t -> TGraph(toTy env t)
         | Stdlib.STup ts -> TTup(List.map (toTy env) ts)
         | Stdlib.SFn _ -> err "nested block types are not supported"
     /// binds unbound variables from the actual type; true when no conversion is needed
@@ -300,7 +316,7 @@ and private stdCall name (args: E list) : E =
             match env.TryGetValue v with
             | true, b -> resolve b = t
             | _ -> (env.[v] <- t; true)
-        | Stdlib.SArr p, TArr t -> bind env p t
+        | Stdlib.SArr p, TArr t | Stdlib.SGraph p, TGraph t -> bind env p t
         | Stdlib.STup ps, TTup ts -> ps.Length = ts.Length && List.forall2 (bind env) ps ts
         | Stdlib.SFn _, TFn _ -> true
         | Stdlib.SInt, TInt | Stdlib.SFloat, TFloat | Stdlib.SStr, TStr | Stdlib.SBool, TBool -> true

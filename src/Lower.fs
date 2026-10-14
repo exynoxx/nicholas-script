@@ -22,6 +22,9 @@ let iter (stages: Iter list) (srcTy: Ty) : E =
     let first = Desugar.fresh "first"
     let it0, term = List.head stages, List.last stages
     let fused = stages.Length > 1
+    // a graph iterates like the map node -> neighbours; a filter keeps the induced subgraph
+    let graph = match srcTy with TGraph _ -> true | _ -> false
+    let srcTy = if graph then TMap(TUnk, TUnk) else srcTy
     let isMap = (match srcTy with TMap _ -> true | _ -> false) && not fused
     let folding = term.kind = "fold" || term.kind = "scan"
     // result kind: a single stage keeps the source's kind; a fused chain yields an array
@@ -34,7 +37,7 @@ let iter (stages: Iter list) (srcTy: Ty) : E =
         match srcTy with
         | TArr _ -> v s
         | TStr -> call "chars" [ v s ]
-        | TMap _ when folding -> call "vals" [ v s ]
+        | TMap _ when folding && not graph -> call "vals" [ v s ]
         | _ -> call "arr" [ v s ]
     // a range source is iterated as a counter (lo, lo+step, ...) instead of a materialised array
     let range = match it0.src.k with Call("range", [ a; b ]) -> Some(a, b) | _ -> None
@@ -94,6 +97,7 @@ let iter (stages: Iter list) (srcTy: Ty) : E =
     let emptyFold = [ when' (v first) [ Do(call "panic" [ mk (Str "fold of empty collection") ]) ] ]
     match term.kind with
     | "map" -> seq (pre @ init @ loop) (v r)
+    | "filter" when graph -> seq (pre @ init @ loop) (call "subgraph" [ v s; call "keys" [ v r ] ])
     | "filter" -> seq (pre @ init @ loop) (if resTy = TStr then call "join" [ v r; mk (Str "") ] else v r)
     | "fold" -> seq (pre @ init @ loop @ emptyFold) (v term.acc)
     | "scan" -> seq (pre @ init @ loop @ emptyFold) (v r)

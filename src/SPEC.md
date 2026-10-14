@@ -143,6 +143,32 @@ The element type of an empty literal is inferred from its first use (`m@"x" = 1`
 Keys/elements may be any hashable value: `int float string bool` and arrays of those.
 Arrays compare lexicographically, so a PQ of `[priority, value]` arrays orders by priority: `q+=[d,n]`.
 
+### Graphs
+
+| Type | Literal | Empty | Notation in docs |
+|------|---------|-------|------------------|
+| undirected graph | `G[(1,2),(2,3)]` | `G[]` | `G T` |
+| directed graph | `DG[(1,2),(2,3)]` | `DG[]` | `G T` |
+
+An edge is `(u,v)` or `(u,v,w)` with an int weight (default 1); one literal uses one edge shape. `G:edges` / `DG:edges`
+convert an array of edges. Nodes may be any hashable type, e.g. `(r,c)` grid cells. Graphs are reference types.
+
+| Op | Meaning |
+|----|---------|
+| `g@u` | neighbours of `u` (array; `[]` if absent) |
+| `g@(u,v)` | weight of edge u→v, 0 if absent |
+| `g@?u`, `g@?(u,v)` | has node / has edge |
+| `g+=(u,v)`, `g+=(u,v,w)` | add edge (and its nodes), in place |
+| `g-=(u,v)`, `g-=u` | remove edge (nodes stay) / node with its edges, in place |
+| `#g`, `#g@u` | node count, degree |
+| `g{…}` | map over nodes, `_` = neighbours, `@` = node; returns a map node → result |
+| `g[…]` | subgraph induced by the nodes passing the filter |
+| `g\|h` `g&h` `g-h` | new graph: union / intersection / difference of edges (`g`'s weights and directedness) |
+| `-g`, `g.rev` | edges reversed |
+| `g.nodes`, `g.edges` | arrays; edges as `(u,v,w)`, undirected ones once with `u <= v` |
+
+An argument that matches the node type is a node, otherwise a 2- or 3-tuple is an edge. A graph prints as its literal.
+
 Maps, sets and queues are **reference types** (mutated in place, shared on assignment). Arrays and strings remain values.
 
 | Op                 | Map `m`             | Set `s`           | Queue / PQ `q`               |
@@ -233,6 +259,7 @@ Current library (see `grep '^//@' runtime.c`):
 - math: `min max` (two values or one array), `abs pow sqrt floor ceil round gcd lcm sum prod` (`sum/prod` of `[]` are 0/1)
 - bits: `rotl rotr popcount hex`; operators `& | ^ << >> >>>`; literals `0xff 0b101`
 - strings: `lower upper trim replace chars split join ord chr find`
+- graphs: `G DG nodes edges rev subgraph`, plus the operator forms above (`nbrs weight hasedge addedge deledge delnode gunion ginter gdiff`)
 - arrays: `sort rev uniq zip find bsearch sortby flatmap pairwise tuple2 tuple3`; `pairwise:[1,2,3]` → `[(1,2),(2,3)]`; `flatmap` flattens one level of an array of arrays or of same-typed pairs or triples: `[[1,2],[3]]` and `[(1,2),(3,4)]` → `[1,2,3,4]`
 
 ## 8. Examples
