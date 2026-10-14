@@ -706,6 +706,20 @@ void *ns_flatmap(const char *dT, void *a) { // one level: [[1,2],[3]] and [(1,2)
   }
   return r;
 }
+//@ starts (str,str) bool
+int64_t ns_starts(char *s, char *p) { return strncmp(s, p, strlen(p)) == 0; }
+//@ ends (str,str) bool
+int64_t ns_ends(char *s, char *p) { size_t n = strlen(s), m = strlen(p); return m <= n && strcmp(s + n - m, p) == 0; }
+//@ nums (str) [int]
+void *ns_nums(char *s) { // every integer; '-' is a sign unless it follows a letter or digit ("1-3" is [1,3])
+  Arr *r = ns_arr_new("AI", 4);
+  for (char *c = s; *c;) {
+    int neg = *c == '-' && isdigit((unsigned char)c[1]) && (c == s || !isalnum((unsigned char)c[-1]));
+    if (!isdigit((unsigned char)*c) && !neg) { c++; continue; }
+    char *e; int64_t v = strtoll(c, &e, 10); apush(r, &v); c = e;
+  }
+  return r;
+}
 //@ trim (str) str
 char *ns_trim(char *s) {
   while (isspace((unsigned char)*s)) s++;

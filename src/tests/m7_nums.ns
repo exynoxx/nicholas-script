@@ -1,0 +1,3 @@
+println:nums:"move 3 from -1 to 22, 1-3 x-4 (-7)"
+println:nums:"none"
+println:(nums:"x=10,y=-20")/+

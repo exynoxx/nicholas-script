@@ -1,0 +1,7 @@
+println:"hello".starts:"he"
+println:"hello".starts:"lo"
+println:"hello".ends:"lo"
+println:"lo".ends:"hello"
+println:"x".starts:""
+println:["ab","ba","abc"]["a".starts:_]
+println:["ab","ba","abc"][_.starts:"a"]

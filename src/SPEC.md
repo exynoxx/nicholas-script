@@ -126,6 +126,8 @@ Arithmetic between an array and a scalar, or two arrays of equal length, applies
 ### Strings
 Strings are byte strings. They behave as arrays of 1-character strings for `{}`, `[]`, `/`, `\`, `@`, `#` only.
 Strings never broadcast: `+` concatenates, `*int` repeats. `ord:"a"` → 97, `chr:97` → `"a"`.
+
+`nums:s` returns every integer in a string (`-` is a sign unless it follows a letter or digit): `nums:"1-3 x=-4"` → `[1,3,-4]`.
 `"hello"{_*2}` → `["hh","ee","ll","ll","oo"]`.
 
 ### Hash maps, hash sets, queues, priority queues
@@ -258,7 +260,7 @@ Current library (see `grep '^//@' runtime.c`):
 - I/O: `read` (a line, `""` at EOF), `lines` (all remaining stdin lines); zero-argument functions are called by bare name
 - math: `min max` (two values or one array), `abs pow sqrt floor ceil round gcd lcm sum prod` (`sum/prod` of `[]` are 0/1)
 - bits: `rotl rotr popcount hex`; operators `& | ^ << >> >>>`; literals `0xff 0b101`
-- strings: `lower upper trim replace chars split join ord chr find`
+- strings: `lower upper trim replace chars split join ord chr find starts ends nums`; `"hello".starts:"he"` → `T`
 - graphs: `G DG nodes edges rev subgraph`, plus the operator forms above (`nbrs weight hasedge addedge deledge delnode gunion ginter gdiff`)
 - arrays: `sort rev uniq zip find bsearch sortby flatmap pairwise tuple2 tuple3`; `pairwise:[1,2,3]` → `[(1,2),(2,3)]`; `flatmap` flattens one level of an array of arrays or of same-typed pairs or triples: `[[1,2],[3]]` and `[(1,2),(3,4)]` → `[1,2,3,4]`
 
