@@ -287,7 +287,7 @@ using `int float str bool`, type variables (`T`, `K`, …), `[t]`, `(a,b)` and b
 the compiler needs no change. A block argument is passed to C as a callback, e.g. `bsearch:xs,{>=5}`, `sortby:ws,{#_}`.
 
 Current library (see `grep '^//@' runtime.c`):
-- I/O: `read` (a line, `""` at EOF), `lines` (all remaining stdin lines); zero-argument functions are called by bare name
+- I/O: `read` (a line, `""` at EOF), `lines` (all remaining stdin lines); zero-argument functions are called by bare name. With a path: `read:"f.txt"` (whole file), `lines:"f.txt"` (its lines, without `\n`); a missing file is a runtime error
 - math: `min max` (two values or one array), `abs pow sqrt floor ceil round gcd lcm sum prod` (`sum/prod` of `[]` are 0/1)
 - bits: `rotl rotr popcount hex`; operators `& | ^ << >> >>>`; literals `0xff 0b101`
 - strings: `lower upper trim replace chars split join ord chr find starts ends nums`; `"hello".starts:"he"` → `T`

@@ -417,18 +417,19 @@ char *ns_read(void) {
   return r;
 }
 
-// All remaining stdin lines (without '\n').
-//@ lines () [str]
-void *ns_lines(void) {
+// All remaining lines of f (without '\n').
+static void *flines(FILE *f) {
   Arr *r = ns_arr_new("AS", 16);
   char *line = NULL; size_t cap = 0; ssize_t n;
-  while ((n = getline(&line, &cap, stdin)) > 0) {
+  while ((n = getline(&line, &cap, f)) > 0) {
     if (line[n - 1] == '\n') n--;
     spush(r, line, n);
   }
   free(line);
   return r;
 }
+//@ lines () [str]
+void *ns_lines(void) { return flines(stdin); }
 
 // ---------- tostr / print / join ----------
 typedef struct { char *p; size_t n, cap; } Buf;
@@ -438,6 +439,29 @@ static void put(Buf *b, const char *s) {
   memcpy(b->p + b->n, s, m + 1); b->n += m;
 }
 static char *done(Buf *b) { char *r = str_n(b->p ? b->p : "", b->n); free(b->p); return r; }
+
+// ---------- files ----------
+static FILE *fopen_or_die(const char *path) {
+  FILE *f = fopen(path, "rb");
+  if (!f) { fprintf(stderr, "error: cannot open %s\n", path); exit(1); }
+  return f;
+}
+// Whole file / its lines.
+//@ read (str) str = ns_read_file
+char *ns_read_file(char *path) {
+  FILE *f = fopen_or_die(path);
+  Buf b = {0};
+  char chunk[65536]; size_t n;
+  while ((n = fread(chunk, 1, sizeof chunk, f)) > 0) {
+    if (b.n + n + 1 > b.cap) b.p = grow(b.p, b.cap = (b.n + n + 1) * 2);
+    memcpy(b.p + b.n, chunk, n); b.n += n;
+  }
+  fclose(f);
+  return done(&b);
+}
+//@ lines (str) [str] = ns_lines_file
+void *ns_lines_file(char *path) { FILE *f = fopen_or_die(path); void *r = flines(f); fclose(f); return r; }
+
 static void fmt_float(char *out, double x) {
   for (int prec = 15; prec <= 17; prec++) {
     snprintf(out, 32, "%.*g", prec, x);

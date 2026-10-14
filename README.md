@@ -383,6 +383,7 @@ println:flatmap:[[1,2],[3]]         # => [1,2,3]
 # Input: read gets one line of stdin ("" at EOF), lines gets all of them.
 #   n = int:read
 #   ls = lines
+#   s = read:"f.txt"     whole file; lines:"f.txt" gives its lines
 # Other files: import "lib.ns" splices one in (each file only once).
 # Run with --debug to print every assignment as "line: name = value".
 ```

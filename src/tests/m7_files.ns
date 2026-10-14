@@ -1,0 +1,9 @@
+s = read:"tests/lib/data.txt"
+print: s
+println: #s
+ls = lines:"tests/lib/data.txt"
+println: ls
+println: ls{(nums:_)@0}/+
+println: #(read:"tests/lib/long.txt")
+println: (lines:"tests/lib/long.txt"){#_}
+println: #read
