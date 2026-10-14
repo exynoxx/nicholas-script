@@ -1,0 +1,56 @@
+# x ?{ value(s) => result; ...; default }
+println:3 ?{
+  1 => "one"
+  2, 3 => "few"
+  "many"
+}
+# an arm starting with a comparison tests the subject
+grade = { _ ?{ >=90 => "A"; >=80 => "B"; "C" } }
+println:grade:85
+# no subject: each arm is a condition
+x = 7
+println:?{
+  x<0 => "neg"
+  x=0 => "zero"
+  x<10 => "small"
+  "big"
+}
+# the subject is evaluated once
+n = 0
+f = { n += 1; 2 }
+println:(f:0) ?{ 1 => "a"; 2 => "b"; "c" }
+println:n
+# strings, ranges via conditions, nested matches
+println:"b" ?{ "a" => 1; "b" => 2; 0 }
+println:(1..6){ ?{ _%2=0 => _ ?{ 2 => "two"; "even" }; "odd" }}
+# without a default: a statement (arms run for effect)
+c = 0
+[1,5,9]{ _ ?{ 5 => c += 10; 9 => c += 100 } }
+println:c
+# an array subject maps the match over its elements; _ is the element
+println:[1,2,3,9] ?{ 1 => "one"; 2, 3 => "few"; "many" }
+println:[95,85,10] ?{ >=90 => "A"; >=80 => "B"; "C" }
+println:[1,5,12] ?{ >10 => _*100; _ }
+# ?[ ] keeps the elements matching an arm (an arm may give an explicit bool)
+println:[1,2,5,7,9,12] ?[ 1, 2; >8 ]
+println:[1,2,5,7,9,12] ?[
+  >10 => F
+  >6
+]
+println:["ab","cd","ef"] ?[ "cd" ]
+# `c ?[..] : d` is still a ternary with an array literal
+println:T?[1]:[2]
+println:F ?[[1],[2]] : [[3]]
+# explicit default arm: _ => value
+println:7 ?{ 1 => "one"; _ => "other" }
+println:?{ F => 1; _ => 2 }
+println:[1,2,3] ?{ 2 => "two"; _ => "-" }
+println:[1,5,9] ?[ 5 => F; _ => T ]
+# an array-literal pattern matches the whole array (no mapping)
+l = [1,2,3]
+println:l ?{ [1,2,3] => "exact"; _ => "other" }
+println:[3,4] ?{ [1,2,3] => "exact"; [] => "empty"; _ => "other" }
+println:([] ?{ [] => "empty"; _ => "other" })
+println:[1,2] ?{ <[2] => "before [2]"; _ => "after" }
+println:[[1],[2]] ?{ [[1],[2]] => "nested"; _ => "no" }
+println:["a","b"] ?{ ["a","b"] => _.join:"+"; _ => "" }

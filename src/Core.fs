@@ -44,6 +44,7 @@ and K =
     | Fn of int * S list      // block literal: id, body (params are _1.._n)
     | Conv of E               // convert to this node's t
     | Seq of S list * E
+    | MatchOn of E * string * E * bool // subject, element var, arms; an array subject maps (filters when true) the arms over its elements
 
 and Iter = { kind: string; src: E; el: string; ix: string; acc: string; body: S list }
 
@@ -91,6 +92,7 @@ let rec showE (e: E) : string =
     | Fn(id, body) -> $"fn{id}{{{showBody body}}}"
     | Conv x -> ann ("conv(" + showE x + ")")
     | Seq(ss, x) -> "(" + showBody ss + "; " + showE x + ")"
+    | MatchOn(s, t, arms, filter) -> (if filter then "matchfilter(" else "match(") + showE s + "){" + t + "| " + showE arms + "}"
 
 and showBody ss = ss |> List.choose (function Line _ -> None | s -> Some(showS 0 s)) |> String.concat "; "
 

@@ -18,7 +18,7 @@ let private mangle (s: string) =
 
 let rec private noAssign (e: E) =
     match e.k with
-    | Seq _ | Iter _ -> false
+    | Seq _ | Iter _ | MatchOn _ -> false
     | Call(f, _) when f.StartsWith "@" -> false
     | Call(_, xs) | Arr xs -> List.forall noAssign xs
     | Bin(_, a, b) | Index(a, b) -> noAssign a && noAssign b
@@ -183,7 +183,7 @@ let generate (prog: Program) : string =
         | Seq(ss, x) ->
             stmts ss
             ex x
-        | Iter _ -> failwith "Iter must be lowered by the typer"
+        | Iter _ | MatchOn _ -> failwith "Iter/MatchOn must be lowered by the typer"
 
     and exB (e: E) : string * bool =
         match e.k with

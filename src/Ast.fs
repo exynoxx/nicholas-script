@@ -46,6 +46,7 @@ type Expr =
     | EIterOp of string * Expr * string  // "fold" | "scan", operator
     | EBlock of int * Stmt list
     | EGroup of Stmt list               // (s1; s2; value)
+    | EMatch of string * Expr * Expr    // "map" `x ?{}` | "filter" `x ?[]` | "whole" (array-literal pattern): subject, arms (`_` = subject/element)
 
 and Stmt =
     | SAssign of Expr list * Expr list
@@ -110,6 +111,7 @@ let rec showExpr (e: Expr) : string =
     | EIterOp(k, src, op) -> $"EIterOp({k}, {showExpr src}, {op})"
     | EBlock(id, body) -> $"EBlock({id}, {showStmts body})"
     | EGroup body -> $"EGroup {showStmts body}"
+    | EMatch(kind, x, arms) -> $"EMatch({kind}, {showExpr x}, {showExpr arms})"
 
 and showStmt (s: Stmt) : string =
     let list xs = xs |> List.map showExpr |> String.concat ", "

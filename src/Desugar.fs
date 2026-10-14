@@ -50,6 +50,10 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
                 | op -> Bin(op, acc, el)
             [ Do(mk body) ])
     | EBlock(id, body) -> mk (Fn(id, block (Map [ "_", "_1" ]) body))
+    | EMatch(kind, x, arms) ->
+        let t = fresh "_"
+        let arms = expr (env.Add("_", t).Add("_#", t)) arms
+        if kind = "whole" then mk (Seq([ Assign(t, ex x) ], arms)) else mk (MatchOn(ex x, t, arms, (kind = "filter")))
     | EGroup body ->
         match List.rev (block env body) with
         | Do last :: rest -> mk (Seq(List.rev rest, last))
@@ -106,6 +110,7 @@ let rec private debugE (e: E) : E =
         | Fn(id, body) -> Fn(id, debugSS body)
         | Conv x -> Conv(d x)
         | Seq(ss, x) -> Seq(debugSS ss, d x)
+        | MatchOn(s, t, arms, f) -> MatchOn(d s, t, d arms, f)
         | k -> k
     { e with k = k }
 

@@ -145,7 +145,61 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             let a = p.Expr()
             // `c ? a` without `:` runs a only when c holds; its value is 0
             if accept ":" then ETern(c, a, p.Expr()) else ETern(c, EGroup [ SExpr a; SExpr(EInt 0L) ], EInt 0L)
+        elif accept "?{" then p.Match(Some c, false)
+        elif accept "?[" then p.Match(Some c, true)
         else c
+
+    /// `x ?{ 1 => a; 2, 3 => b; >9 => c; d }` compares x with each arm's values (an arm starting with a comparison
+    /// tests x with it; `_` is x); `?{ c1 => a; c2 => b; d }` takes the first true condition. The first matching arm
+    /// wins; `_ => d` (or a last arm without `=>`) is the default; without one it is a ternary chain like `c ? a` (value 0).
+    /// An array x maps the match over its elements, unless a pattern is an array literal (`[1,2] => …`): then x is
+    /// matched whole. `xs ?[ 1, 2; >9 ]` keeps the elements matching an arm.
+    member p.Match(subject: Expr option, filter: bool) : Expr =
+        let closer = if filter then "]" else "}"
+        // an array-literal pattern (`[1,2] => …`) matches an array subject as a whole instead of per element
+        let mutable whole = false
+        let pattern (v: Expr) = (match v with EArr _ -> whole <- true | _ -> ()); v
+        let test () =
+            match subject, peek () with
+            | Some _, SYM("=" | "!=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, EVar "_", pattern (p.Shift())))
+            | Some _, _ -> EBin("=", EVar "_", pattern (p.Expr()))
+            | None, _ -> p.Expr()
+        let skipTerms () = while peek () = TERM do advance ()
+        // an arm's result may be a statement (`5 => c += 1`); its value is then 0
+        let result () = match p.Stmt() with SExpr e -> e | st -> EGroup [ st; SExpr(EInt 0L) ]
+        let arms = ResizeArray<Expr * Expr>()
+        let mutable deflt = if filter then Some(EBool false) else None
+        let mutable hasDefault = false
+        skipTerms ()
+        while not (isSym closer) do
+            if hasDefault then err "the default arm (`_ => …`, or one without '=>') must be the last arm"
+            if peek () = ID "_" && tokens.[pos + 1].tok = SYM "=>" then
+                advance (); advance ()
+                deflt <- Some(result ())
+                hasDefault <- true
+            else
+                let start = pos
+                let tests = ResizeArray [ test () ]
+                while accept "," do tests.Add(test ())
+                let cond = tests |> Seq.reduce (fun a b -> EBin("|", a, b))
+                if accept "=>" then arms.Add(cond, result ())
+                elif filter then arms.Add(cond, EBool true)
+                else
+                    pos <- start
+                    deflt <- Some(result ())
+                    hasDefault <- true
+            if peek () = TERM then skipTerms ()
+            elif not (isSym closer) then err ($"expected '=>', a new arm or '{closer}', found {found ()}")
+        expect closer
+        let chain =
+            Seq.foldBack (fun (c, r) acc ->
+                Some(match acc with
+                     | Some e -> ETern(c, r, e)
+                     | None -> ETern(c, EGroup [ SExpr r; SExpr(EInt 0L) ], EInt 0L))) arms deflt
+        match chain, subject with
+        | _ when arms.Count = 0 && deflt.IsNone || filter && arms.Count = 0 -> err "a match needs at least one arm"
+        | Some e, Some s -> EMatch((if filter then "filter" elif whole then "whole" else "map"), s, e)
+        | e, _ -> e.Value
 
     member p.Or() =
         let mutable e = p.Xor()
@@ -321,6 +375,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             let items = if isSym "]" then [] else p.ExprList()
             expect "]"
             ECollLit((if s = "%[" then "set" else s.TrimEnd '['), items)
+        | SYM "?{" -> p.Match(None, false)
         | SYM "{" ->
             nextId.Value <- nextId.Value + 1
             let id = nextId.Value

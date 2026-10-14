@@ -79,7 +79,7 @@ int:"42"      float:x     str:3.5     bool:n
 | 7 compare | `= != < > <= >=` | none |
 | 7.5 not   | `!x` (binds looser than compare, like Python `not`: `!_%2` = `!(_%2)`) | right |
 | 8 logic   | `&` then `^` (xor) then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
-| 9 ternary | `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (value 0); branches of unrelated types run as a statement (value 0) | right |
+| 9 ternary | `x ?{…}` `x ?[…]` match (§5); `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (value 0); branches of unrelated types run as a statement (value 0) | right |
 | 10 call   | `f:a,b` (args extend to end of statement / closing bracket). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary | right |
 | 11 assign | `x = e`, `a,b = b,a` | right |
 
@@ -229,6 +229,27 @@ c ? (x = 1; y = 2) : 0     # statement group: `;` inside parens, value = last st
 cond ~{ body }             # while statement: whole `cond` expression re-evaluated each pass
 ```
 
+### Match `?{ }` / `?[ ]`
+
+```
+n ?{                       # with a subject: arm values are compared with =
+  1 => "one"
+  2, 3 => "few"            # any of several values
+  >9 => "big"              # an arm starting with a comparison tests the subject
+  _ => "some"              # default arm (also: a last arm without =>)
+}
+?{ x<0 => "neg"; x=0 => "zero"; "pos" }      # no subject: each arm is a condition
+[1,5,12] ?{ >10 => _*100; _ }               # array subject: the match maps over the elements
+[1,2,5,9] ?[ 1, 2; >8 ]                     # ?[ ] keeps the elements matching an arm → [1,2,9]
+l ?{ [1,2,3] => "exact"; [] => "empty"; _ => "other" }   # an array-literal pattern: l is matched whole
+```
+Arms are separated by newline or `;` and tried in order; the first match wins. Inside a subject match `_` is the
+subject (the element, for an array). If any pattern is an array literal (`[1,2] =>`, `[] =>`, `<[2] =>`), an array
+subject is compared as a whole value instead of mapped over. An arm's result may be a statement (`5 => c += 1`, value 0). Without a default
+the match behaves like `c ? a`: arms run for effect and the value is 0. In `?[ ]` an arm without `=>` keeps its
+elements, `=> F` drops them, and `_ =>` decides the rest (default `F`). `?[` directly after an operand is a match
+filter unless its `]` is followed by `:` (then it is a ternary with an array literal: `c?[1]:[2]`).
+
 ## 6. Statements
 `import "file.ns"` splices in another file's statements (path relative to the importing file; each file is included once, so imports may repeat or be mutual).
 
@@ -283,7 +304,9 @@ lvalue    = IDENT { "@" prefix } ;
 exprlist  = expr { "," expr } ;
 expr      = call ;
 call      = FUNC ":" exprlist | ternary ;   (* FUNC = IDENT bound to block/built-in *)
-ternary   = logic [ "?" expr [ ":" expr ] ] ;
+ternary   = logic [ "?" expr [ ":" expr ] | ( "?{" arms "}" | "?[" arms "]" ) ] ;
+arms      = arm { TERM arm } ;  arm = "_" "=>" stmt | test { "," test } [ "=>" stmt ] ;
+test      = [ CMPOP ] expr ;                 (* bare CMPOP only with a subject *)
 logic     = not { ("&" | "|") not } ;
 not       = "!" not | compare ;
 compare   = add [ CMPOP add ] ;

@@ -172,6 +172,14 @@ and typeE (e: E) : E =
             let ss = typeStmts ss
             let x = typeE x
             typed (Seq(ss, x)) x.t
+        | MatchOn(src, t, arms, filter) ->
+            let src = typeE src
+            match resolve src.t with
+            | TArr _ ->
+                let it = { kind = (if filter then "filter" else "map"); src = src; el = t; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do arms ] }
+                typeE (mk (Iter it))
+            | t when filter -> err ($"?[ ] filters an array, not {showTy t}")
+            | _ -> typeE (mk (Seq([ Assign(t, src) ], arms)))
         | Conv _ -> err "unexpected conversion"
 
 and private typeBin op (a: E) (b: E) : E =

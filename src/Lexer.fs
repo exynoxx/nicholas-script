@@ -7,7 +7,7 @@ open System.Collections.Generic
 open Ast
 
 let private symbols =
-    [ ">>>="; ">>>"; "^^="; "++="; "<<="; ">>="; "^^"; "++"; "<<"; ">>"; "^="; "!="; "<="; ">="; ".."; "->"; "+="; "-="; "*="; "/="; "%="; "&="; "|="
+    [ ">>>="; ">>>"; "^^="; "++="; "<<="; ">>="; "^^"; "++"; "<<"; ">>"; "^="; "!="; "<="; ">="; ".."; "->"; "=>"; "+="; "-="; "*="; "/="; "%="; "&="; "|="
       "+"; "-"; "*"; "/"; "%"; "="; "<"; ">"; "&"; "|"; "^"; "?"; ":"; ","; "."; "("; ")"; "["; "]"; "{"; "}"; "#"; "!" ]
 
 /// A block starting with one of these gets an implicit `_` on its left (operator section).
@@ -16,6 +16,8 @@ let private openers = set [ "{"; "m{"; "f["; "/{"; "\\{" ]
 let private foldOps = [ "+"; "*"; ">"; "<"; "&"; "|"; "^"; "-" ]
 
 /// `startCol` is the column of src's first character (interpolations are lexed on their own).
+let private opener (o: char) = if o = '?' then "?[" else string o
+
 let lex (src: string) (startLine: int) (startCol: int) : Token list =
     let toks = ResizeArray<Token>()
     let stack = Stack<char * int * int>() // open bracket, its line and column
@@ -46,12 +48,13 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         match s with
         | "(" -> stack.Push('(', tokLine, tokCol)
         | "[" | "f[" | "%[" | "Q[" | "PQ[" | "G[" | "DG[" -> stack.Push('[', tokLine, tokCol)
-        | "{" | "m{" | "~{" | "/{" | "\\{" -> stack.Push('{', tokLine, tokCol)
+        | "{" | "m{" | "~{" | "/{" | "\\{" | "?{" -> stack.Push('{', tokLine, tokCol)
+        | "?[" -> stack.Push('?', tokLine, tokCol)
         | ")" | "]" | "}" ->
             if stack.Count = 0 then failAt tokLine tokCol $"'{s}' has no matching opening bracket"
             let o, l, c = stack.Pop()
-            let want = match o with '(' -> ")" | '[' -> "]" | _ -> "}"
-            if s <> want then failAt tokLine tokCol $"expected '{want}' to close the '{o}' at {l}:{c}, found '{s}'"
+            let want = match o with '(' -> ")" | '[' | '?' -> "]" | _ -> "}"
+            if s <> want then failAt tokLine tokCol $"expected '{want}' to close the '{opener o}' at {l}:{c}, found '{s}'"
         | _ -> ()
         if openers.Contains s then sectionPending <- true
     let term () =
@@ -71,6 +74,19 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             else
                 let j = skipWs (i + 2)
                 isTerminator (if j < n then src.[j] else '\000'))
+    /// At `?[`: is this `c ?[..] : d`, a ternary whose branch is an array literal? (else a `?[ ]` match filter)
+    let ternaryArray () =
+        let mutable j, depth = i + 1, 0
+        let mutable fin = false
+        while j < n && not fin do
+            match src.[j] with
+            | '"' -> (j <- j + 1; while j < n && src.[j] <> '"' do j <- j + (if src.[j] = '\\' then 2 else 1))
+            | '(' | '[' | '{' -> depth <- depth + 1
+            | ')' | ']' | '}' -> (depth <- depth - 1; if depth = 0 then fin <- true)
+            | _ -> ()
+            if not fin then j <- j + 1
+        let k = skipWs (j + 1)
+        k < n && src.[k] = ':'
     let lexString () =
         i <- i + 1
         let parts = ResizeArray<Part>()
@@ -133,7 +149,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             line <- line + 1
             i <- i + 1
             lineStart <- i
-            let inParens = stack.Count > 0 && (let o, _, _ = stack.Peek() in o <> '{')
+            let inParens = stack.Count > 0 && (let o, _, _ = stack.Peek() in o <> '{' && o <> '?')
             let continues = match last () with SYM s -> s <> ")" && s <> "]" && s <> "}" | _ -> false
             if not inParens && not continues then term ()
         elif c = '#' && (" \t\r\n\000".IndexOf(at 1) >= 0) then
@@ -171,6 +187,8 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             i <- i + 2
         elif c = '{' then (sym (if endsExpr () then "m{" else "{"); i <- i + 1)
         elif c = '~' && at 1 = '{' && endsExpr () then (sym "~{"; i <- i + 2)
+        elif c = '?' && at 1 = '{' then (sym "?{"; i <- i + 2)
+        elif c = '?' && at 1 = '[' && endsExpr () && not (ternaryArray ()) then (sym "?["; i <- i + 2)
         elif c = '[' then
             let adjacent = i > 0 && not (Char.IsWhiteSpace src.[i - 1])
             sym (if endsExpr () && adjacent then "f[" else "[")
@@ -183,7 +201,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
     mark ()
     if stack.Count > 0 then
         let o, l, c = stack.Peek()
-        failAt l c $"'{o}' is never closed"
+        failAt l c $"'{opener o}' is never closed"
     term ()
     add EOF
     List.ofSeq toks
