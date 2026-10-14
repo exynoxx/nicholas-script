@@ -14,9 +14,21 @@ let private showTyped (p: Typer.Program) =
             $"fn {i.name}({ps}){caps} -> {Core.showTy i.ret} {{\n{Core.showStmts i.body}\n  => {Core.showE i.result}\n}}")
     String.concat "\n\n" (fns @ [ "main:\n" + Core.showStmts p.main ])
 
+/// `path:line:col: error: msg`, then the source line with a caret under the column.
+let private showError (path: string) line col (msg: string) =
+    let src = try File.ReadAllLines path with _ -> [||]
+    if line < 1 || line > src.Length then $"{path}:{line}: error: {msg}"
+    else
+        let text = src.[line - 1].Replace('\t', ' ')
+        let col = if col = -1 then text.TrimEnd().Length + 1 else col
+        let loc = if col > 0 then $"{line}:{col}" else string line
+        let gutter = String(' ', (string line).Length)
+        let caret = if col > 0 then $"\n{gutter} | {String(' ', col - 1)}^" else ""
+        $"{path}:{loc}: error: {msg}\n{line} | {text}{caret}"
+
 /// Runs the pipeline up to `stage` and returns its printable output.
 let private pipeline (stage: string) (path: string) : string =
-    let toks = Lexer.lex (File.ReadAllText path) 1
+    let toks = Lexer.lex (File.ReadAllText path) 1 1
     if stage = "tokens" then toks |> List.map (fun t -> $"{t.line}: {showTok t.tok}") |> String.concat "\n"
     else
         let ast = Parser.parse toks path
@@ -100,7 +112,7 @@ let private build (path: string) (exe: string) : string option =
         let code, _, err = run "clang" ($"-O2 -w {asan} \"{ll}\" -lm -o \"{exe}\"") None
         if code = 0 then None else Some("clang failed:\n" + err)
     with
-    | CompileError(line, msg) -> Some($"{path}:{line}: error: {msg}")
+    | CompileError(line, col, msg) -> Some(showError path line col msg)
     | ex -> Some($"{path}: internal error: {ex.ToString()}")
 
 let private test (dir: string) =
@@ -113,9 +125,15 @@ let private test (dir: string) =
         let outFile = Path.ChangeExtension(f, ".out")
         let expected = if File.Exists outFile then File.ReadAllText outFile else "<missing .out file>"
         let input = let p = Path.ChangeExtension(f, ".in") in if File.Exists p then Some(File.ReadAllText p) else None
+        let errFile = Path.ChangeExtension(f, ".err")
         let result =
             match build f exe with
+            | Some err when File.Exists errFile ->
+                let got = err.Substring(f.Length + 1).TrimEnd()
+                let want = (File.ReadAllText errFile).TrimEnd()
+                if got = want then None else Some($"expected error\n{want}\ngot\n{got}")
             | Some err -> Some err
+            | None when File.Exists errFile -> Some "expected a compile error, but it compiled"
             | None ->
                 let code, out, err = run exe "" input
                 if out = expected && code = 0 then None
@@ -183,7 +201,7 @@ let main argv =
         go args
     let report (path: string) (f: unit -> int) =
         try f () with
-        | CompileError(line, msg) -> (Console.Error.WriteLine($"{path}:{line}: error: {msg}"); 1)
+        | CompileError(line, col, msg) -> (Console.Error.WriteLine(showError path line col msg); 1)
         | ex -> (Console.Error.WriteLine($"{path}: error: {ex.Message}"); 1)
     useC <- flag "--c"
     Desugar.debug <- flag "--debug"

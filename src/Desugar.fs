@@ -5,6 +5,7 @@ open Ast
 open Core
 
 let mutable private counter = 0
+let mutable private line = 0 // of the statement being desugared, for errors
 let fresh (prefix: string) =
     counter <- counter + 1
     $"{prefix}%%{counter}"
@@ -52,7 +53,7 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
     | EGroup body ->
         match List.rev (block env body) with
         | Do last :: rest -> mk (Seq(List.rev rest, last))
-        | _ -> fail 0 "empty group"
+        | _ -> fail line "empty group: ( ) needs a value"
 
 and private iter env kind src (mkBody: Map<string, string> -> S list) =
     let el, ix, acc = fresh "_", fresh "@", fresh "$"
@@ -75,9 +76,9 @@ and private stmt env (s: Stmt) : S list =
         match lv with
         | EVar n -> Assign(defaultArg (Map.tryFind n env) n, value)
         | EIndex(x, i) -> SetIdx(ex x, ex i, value)
-        | _ -> fail 0 "bad assignment target"
+        | _ -> fail line "cannot assign to this expression"
     match s with
-    | SLine n -> [ Line n ]
+    | SLine n -> (line <- n; [ Line n ])
     | SExpr e -> [ Do(ex e) ]
     | SWhile(c, body) -> [ While(ex c, stmts env body) ]
     | SAssign([ lv ], [ e ]) -> [ assign lv (ex e) ]
@@ -88,7 +89,7 @@ and private stmt env (s: Stmt) : S list =
         let temps = es |> List.map (fun _ -> fresh "t")
         List.map2 (fun t e -> Assign(t, ex e)) temps es
         @ List.map2 (fun lv t -> assign lv (mk (Var t))) lvs temps
-    | SAssign _ -> fail 0 "assignment count mismatch"
+    | SAssign(lvs, es) -> fail line $"{lvs.Length} names on the left but {es.Length} values on the right"
     | SCompound(op, lv, e) -> [ assign lv (mk (Bin(op, ex lv, ex e))) ]
 
 /// Debug mode: after every assignment to a user variable, `println:"line: x = "+x`.

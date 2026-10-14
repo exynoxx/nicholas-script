@@ -14,7 +14,8 @@ dotnet run -c Release -- <stage> f.ns      # tokens | ast | core | typed | repr 
 NS_ASAN=1 dotnet run -c Release -- f.ns    # ASan/LSan: checks reference counting
 ```
 
-New feature → add `tests/<milestone>_<name>.ns` + `.out`. `runtime.c` is compiled to `obj/.../runtime.ll`
+New feature → add `tests/<milestone>_<name>.ns` + `.out`. A `.err` file instead expects a compile error
+(the message after `path:`, with the source line and caret); see `tests/e_*`. `runtime.c` is compiled to `obj/.../runtime.ll`
 by the `CompileRuntime` target in `NS.fsproj`.
 
 ## Pipeline (one file per stage)

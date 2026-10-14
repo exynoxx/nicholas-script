@@ -1,0 +1,2 @@
+1: error: 2 names on the left but 3 values on the right
+1 | a, b = 1, 2, 3

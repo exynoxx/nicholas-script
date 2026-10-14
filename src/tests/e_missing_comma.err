@@ -1,0 +1,3 @@
+1:8: error: expected ']' but found '2' (missing an operator or ','?)
+1 | x = [1 2]
+  |        ^

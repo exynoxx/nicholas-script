@@ -15,12 +15,17 @@ let private sectionOps = set [ "+"; "*"; "/"; "%"; "^^"; "++"; "^"; "<<"; ">>"; 
 let private openers = set [ "{"; "m{"; "f["; "/{"; "\\{" ]
 let private foldOps = [ "+"; "*"; ">"; "<"; "&"; "|"; "^"; "-" ]
 
-let lex (src: string) (startLine: int) : Token list =
+/// `startCol` is the column of src's first character (interpolations are lexed on their own).
+let lex (src: string) (startLine: int) (startCol: int) : Token list =
     let toks = ResizeArray<Token>()
-    let stack = Stack<char>()
+    let stack = Stack<char * int * int>() // open bracket, its line and column
     let n = src.Length
     let mutable i = 0
     let mutable line = startLine
+    let mutable lineStart = 1 - startCol // index of the current line's first character
+    // where the token being lexed starts
+    let mutable tokLine, tokCol = line, 0
+    let mark () = (tokLine <- line; tokCol <- i - lineStart + 1)
     let mutable sectionPending = false
     let at k = if i + k < n then src.[i + k] else '\000'
     let last () = if toks.Count = 0 then TERM else toks.[toks.Count - 1].tok
@@ -33,16 +38,20 @@ let lex (src: string) (startLine: int) : Token list =
         if sectionPending then
             sectionPending <- false
             match t with
-            | SYM s when sectionOps.Contains s -> toks.Add { tok = ID "_"; line = line }
+            | SYM s when sectionOps.Contains s -> toks.Add { tok = ID "_"; line = tokLine; col = tokCol }
             | _ -> ()
-        toks.Add { tok = t; line = line }
+        toks.Add { tok = t; line = tokLine; col = tokCol }
     let sym s =
         add (SYM s)
         match s with
-        | "(" -> stack.Push '('
-        | "[" | "f[" | "%[" | "Q[" | "PQ[" | "G[" | "DG[" -> stack.Push '['
-        | "{" | "m{" | "~{" | "/{" | "\\{" -> stack.Push '{'
-        | ")" | "]" | "}" -> if stack.Count > 0 then stack.Pop() |> ignore
+        | "(" -> stack.Push('(', tokLine, tokCol)
+        | "[" | "f[" | "%[" | "Q[" | "PQ[" | "G[" | "DG[" -> stack.Push('[', tokLine, tokCol)
+        | "{" | "m{" | "~{" | "/{" | "\\{" -> stack.Push('{', tokLine, tokCol)
+        | ")" | "]" | "}" ->
+            if stack.Count = 0 then failAt tokLine tokCol $"'{s}' has no matching opening bracket"
+            let o, l, c = stack.Pop()
+            let want = match o with '(' -> ")" | '[' -> "]" | _ -> "}"
+            if s <> want then failAt tokLine tokCol $"expected '{want}' to close the '{o}' at {l}:{c}, found '{s}'"
         | _ -> ()
         if openers.Contains s then sectionPending <- true
     let term () =
@@ -79,19 +88,19 @@ let lex (src: string) (startLine: int) : Token list =
                 let mutable depth = 1
                 i <- i + 1
                 while depth > 0 do
-                    if i >= n then fail line "unterminated interpolation"
+                    if i >= n then failAt tokLine tokCol "string interpolation '{' is never closed"
                     match src.[i] with
                     | '{' -> depth <- depth + 1
                     | '}' -> depth <- depth - 1
                     | '"' -> (i <- i + 1; while i < n && src.[i] <> '"' do i <- i + 1)
                     | _ -> ()
                     i <- i + 1
-                parts.Add(Code(src.Substring(start, i - 1 - start), line))
+                parts.Add(Code(src.Substring(start, i - 1 - start), line, start - lineStart + 1))
             | c ->
-                if c = '\n' then line <- line + 1
+                if c = '\n' then (line <- line + 1; lineStart <- i + 1)
                 buf.Append c |> ignore
                 i <- i + 1
-        if i >= n then fail line "unterminated string"
+        if i >= n then failAt tokLine tokCol "string is never closed (missing '\"')"
         i <- i + 1
         flush ()
         if parts.Count = 0 then parts.Add(Lit "")
@@ -116,13 +125,15 @@ let lex (src: string) (startLine: int) : Token list =
             add (FLOAT(Double.Parse(src.Substring(start, i - start), Globalization.CultureInfo.InvariantCulture)))
         else add (INT(Int64.Parse(src.Substring(start, i - start))))
     while i < n do
+        mark ()
         let c = src.[i]
         let digitNext k = Char.IsDigit(at k) || (at k = '.' && Char.IsDigit(at (k + 1)))
         if c = ' ' || c = '\t' || c = '\r' then i <- i + 1
         elif c = '\n' then
             line <- line + 1
             i <- i + 1
-            let inParens = stack.Count > 0 && stack.Peek() <> '{'
+            lineStart <- i
+            let inParens = stack.Count > 0 && (let o, _, _ = stack.Peek() in o <> '{')
             let continues = match last () with SYM s -> s <> ")" && s <> "]" && s <> "}" | _ -> false
             if not inParens && not continues then term ()
         elif c = '#' && (" \t\r\n\000".IndexOf(at 1) >= 0) then
@@ -168,7 +179,11 @@ let lex (src: string) (startLine: int) : Token list =
         else
             match symbols |> List.tryFind (fun s -> String.CompareOrdinal(src, i, s, 0, s.Length) = 0) with
             | Some s -> (sym s; i <- i + s.Length)
-            | None -> fail line ($"unexpected character '{c}'")
+            | None -> failAt tokLine tokCol ($"unexpected character '{c}'")
+    mark ()
+    if stack.Count > 0 then
+        let o, l, c = stack.Peek()
+        failAt l c $"'{o}' is never closed"
     term ()
     add EOF
     List.ofSeq toks

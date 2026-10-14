@@ -1,12 +1,14 @@
 /// Tokens and the surface AST (stage 1-2 output).
 module Ast
 
-exception CompileError of int * string
-let fail line msg = raise (CompileError(line, msg))
+/// line, column (0 = unknown, -1 = end of the line), message
+exception CompileError of int * int * string
+let fail line msg = raise (CompileError(line, 0, msg))
+let failAt line col msg = raise (CompileError(line, col, msg))
 
 type Part =
     | Lit of string
-    | Code of string * int // source, line
+    | Code of string * int * int // source, line, column
 
 type Tok =
     | INT of int64
@@ -20,7 +22,7 @@ type Tok =
     | TERM
     | EOF
 
-type Token = { tok: Tok; line: int }
+type Token = { tok: Tok; line: int; col: int }
 
 type Expr =
     | EInt of int64
@@ -60,7 +62,7 @@ let showTok (t: Tok) =
     match t with
     | INT v -> $"INT {v}"
     | FLOAT v -> $"FLOAT {v}"
-    | STR parts -> "STR " + (parts |> List.map (function Lit s -> quote s | Code(c, _) -> "{" + c + "}") |> String.concat "")
+    | STR parts -> "STR " + (parts |> List.map (function Lit s -> quote s | Code(c, _, _) -> "{" + c + "}") |> String.concat "")
     | BOOL b -> if b then "BOOL T" else "BOOL F"
     | ID s -> $"ID {s}"
     | SYM s -> $"SYM {s}"
@@ -68,6 +70,21 @@ let showTok (t: Tok) =
     | SCANOP s -> $"SCANOP {s}"
     | TERM -> "TERM"
     | EOF -> "EOF"
+
+/// A token as an error message shows it: its source text, or a description.
+let describeTok (t: Tok) =
+    match t with
+    | INT v -> $"'{v}'"
+    | FLOAT v -> $"'{v}'"
+    | STR _ -> "a string"
+    | BOOL b -> if b then "'T'" else "'F'"
+    | ID s -> $"'{s}'"
+    | SYM("f[" | "m{" as s) -> $"'{s.Substring 1}'"
+    | SYM s -> $"'{s}'"
+    | FOLDOP s -> $"'/{s}'"
+    | SCANOP s -> $"'\\{s}'"
+    | TERM -> "end of line"
+    | EOF -> "end of file"
 
 let rec showExpr (e: Expr) : string =
     let list xs = xs |> List.map showExpr |> String.concat "; "

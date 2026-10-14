@@ -9,6 +9,25 @@ let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "pop"; "
 let private zeroArity = Stdlib.zeroArity
 let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>=" ]
 
+/// Keywords of other languages: a statement starting with one gets a hint.
+let private foreign =
+    let fn = "define a function by assigning a block: f = {_*2}"
+    dict [ "if", "NS has no 'if': write cond ? a : b (or cond ? a)"
+           "else", "NS has no 'else': write cond ? a : b"
+           "for", "NS has no 'for': iterate with a block, e.g. 0..n{println:_} or xs{...}"
+           "while", "NS has no 'while' keyword: write cond ~{ body }"
+           "return", "NS has no 'return': a block's value is its last expression"
+           "def", fn; "fn", fn; "func", fn; "function", fn; "lambda", fn
+           "let", "declare a variable by assigning it: x = 1"; "var", "declare a variable by assigning it: x = 1"
+           "const", "declare a variable by assigning it: x = 1" ]
+
+/// Can this token start an expression? (then a missing operator or ',' is the likely mistake)
+let private startsExpr (t: Tok) =
+    match t with
+    | INT _ | FLOAT _ | STR _ | BOOL _ | ID _ -> true
+    | SYM("(" | "[" | "{" | "%[" | "Q[" | "PQ[" | "G[" | "DG[") -> true
+    | _ -> false
+
 /// Directory of the file being parsed, and every file already imported (each is included once).
 type private Imports = { dir: string; seen: HashSet<string> }
 
@@ -19,12 +38,25 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
     let advance () = pos <- pos + 1
     let isSym s = peek () = SYM s
     let accept s = if isSym s then (advance (); true) else false
-    let expect s = if not (accept s) then fail (line ()) ($"expected '{s}' but found {showTok (peek ())}")
+    /// Fails at token j; a missing thing at the end of a line is reported after the line's last token.
+    let errAt j msg =
+        match tokens.[j].tok with
+        | TERM | EOF when j > 0 ->
+            let mutable k = j - 1
+            while k > 0 && tokens.[k].tok = TERM do k <- k - 1
+            if tokens.[k].line = tokens.[j].line then failAt tokens.[j].line tokens.[j].col msg
+            else failAt tokens.[k].line -1 msg
+        | _ -> failAt tokens.[j].line tokens.[j].col msg
+    let err msg = errAt pos msg
+    let found () =
+        let t = peek ()
+        describeTok t + (if startsExpr t then " (missing an operator or ','?)" else "")
+    let expect s = if not (accept s) then err ($"expected '{s}' but found {found ()}")
     let isFunc name = fnames.Contains name || builtins.Contains name
 
     member p.Program() =
         let body = p.Stmts EOF
-        if peek () <> EOF then fail (line ()) ($"unexpected {showTok (peek ())}")
+        if peek () <> EOF then err ($"unexpected {describeTok (peek ())}")
         body
 
     member p.Stmts(closer: Tok) : Stmt list =
@@ -40,17 +72,21 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                 | STR [ Lit file ] ->
                     advance ()
                     let path = System.IO.Path.GetFullPath(System.IO.Path.Combine(imports.dir, file))
-                    if not (System.IO.File.Exists path) then fail (line ()) ($"import: file not found: {path}")
+                    if not (System.IO.File.Exists path) then errAt (pos - 1) ($"import: file not found: {path}")
                     if imports.seen.Add path then
-                        let toks = Lexer.lex (System.IO.File.ReadAllText path) 1
+                        let toks = Lexer.lex (System.IO.File.ReadAllText path) 1 1
                         let sub = Parser(Array.ofList toks, fnames, nextId, { imports with dir = System.IO.Path.GetDirectoryName path })
                         out.AddRange(sub.Program())
-                | t -> fail (line ()) ($"import expects a file name string, found {showTok (t)}")
+                | t -> err ($"import expects a file name string, found {describeTok t}")
             else
+                let start = peek ()
                 out.Add(SLine(line ()))
                 out.Add(p.Stmt())
                 if peek () = TERM then advance ()
-                elif peek () <> closer then fail (line ()) ($"expected end of statement, found {showTok (peek ())}")
+                elif peek () <> closer then
+                    match start with
+                    | ID kw when foreign.ContainsKey kw -> err ($"unexpected {describeTok (peek ())} after '{kw}'; {foreign.[kw]}")
+                    | _ -> err ($"expected end of statement, found {found ()}")
         List.ofSeq out
 
     member p.Block(closer: string) =
@@ -92,7 +128,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                 let mutable e = EVar name
                 while accept "@" do e <- EIndex(e, p.IndexOperand())
                 e
-            | t -> fail (line ()) ($"not an lvalue: {showTok (t)}")
+            | t -> err ($"cannot assign to {describeTok t}")
         let first = one ()
         let rest = ResizeArray [ first ]
         while accept "," do rest.Add(one ())
@@ -190,7 +226,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                     advance ()
                     let args = if accept ":" then p.ExprList() else []
                     e <- ECall(f, e :: args)
-                | t -> fail (line ()) ($"expected method name, found {showTok (t)}")
+                | t -> err ($"expected a function name after '.', found {describeTok t}")
             | _ -> go <- false
         e
 
@@ -229,10 +265,10 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         else
             match peek () with
             | INT _ | ID _ | SYM "(" -> p.Base()
-            | t -> fail (line ()) ($"range end must be a number, name or (expr), found {showTok (t)}")
+            | t -> err ($"a range end must be a number, a name or (expr), found {describeTok t}")
 
     member p.Base() : Expr =
-        let ln = line ()
+        let at = pos
         let t = peek ()
         advance ()
         match t with
@@ -244,8 +280,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             parts
             |> List.map (function
                 | Lit s -> EStr s
-                | Code(src, l) ->
-                    let sub = Parser(Array.ofList (Lexer.lex src l), fnames, nextId, imports)
+                | Code(src, l, c) ->
+                    let sub = Parser(Array.ofList (Lexer.lex src l c), fnames, nextId, imports)
                     sub.InterpExpr())
             |> EInterp
         | ID name when isFunc name && isSym ":" -> (advance (); ECall(name, p.ExprList()))
@@ -289,7 +325,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             nextId.Value <- nextId.Value + 1
             let id = nextId.Value
             EBlock(id, p.SectionBlock "}")
-        | t -> fail ln ($"unexpected {showTok (t)}")
+        | SYM "=" when at > 0 && tokens.[at - 1].tok = SYM "=" -> errAt at "'==' is not an operator: '=' compares"
+        | t -> errAt at ($"expected an expression, found {describeTok t}")
 
     /// After `(`: a `;` at this paren's top level makes it a statement group `(s1; s2; value)`.
     member p.GroupAhead() =
@@ -308,7 +345,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
     member p.InterpExpr() =
         let e = p.Expr()
         while peek () = TERM do advance ()
-        if peek () <> EOF then fail (line ()) "bad interpolation"
+        if peek () <> EOF then err ($"expected '}}' to end the interpolation, found {describeTok (peek ())}")
         e
 
 /// Parses a file's tokens; `path` anchors relative imports.
