@@ -182,7 +182,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         List.ofSeq items
 
     member p.Expr() : Expr =
-        let c = p.Or()
+        let c = p.Coalesce()
         if accept "?" then
             let a = p.Expr()
             if accept ":" then ETern(c, a, p.Expr()) else onlyIf c a
@@ -243,6 +243,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             e <- EBin(op.Value, e, next ())
             op <- List.tryFind isSym ops
         e
+
+    /// `a ?? b`: b when a is null (a missing map key); right-associative.
+    member p.Coalesce() : Expr =
+        let l = p.Or()
+        if accept "??" then EBin("??", l, p.Coalesce()) else l
 
     member p.Or() = p.LeftAssoc([ "|" ], p.Xor)
     member p.Xor() = p.LeftAssoc([ "^" ], p.And)

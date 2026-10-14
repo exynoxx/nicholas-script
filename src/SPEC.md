@@ -79,6 +79,7 @@ int:"42"      float:x     str:3.5     bool:n
 | 7 compare | `= != < > <= >=` | none |
 | 7.5 not   | `!x` (binds looser than compare, like Python `not`: `!_%2` = `!(_%2)`) | right |
 | 8 logic   | `&` then `^` (xor) then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
+| 8.5 coalesce | `a ?? b` (b when a is a missing map key, see maps) | right |
 | 9 ternary | `x ?{…}` `x ?[…]` match (§5); `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (value 0); branches of unrelated types run as a statement (value 0) | right |
 | 10 call   | `f:a,b` (args extend to end of statement / closing bracket). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary | right |
 | 11 assign | `x = e`, `a,b = b,a` | right |
@@ -175,7 +176,7 @@ Maps, sets and queues are **reference types** (mutated in place, shared on assig
 
 | Op                 | Map `m`             | Set `s`           | Queue / PQ `q`               |
 |--------------------|---------------------|-------------------|------------------------------|
-| get / peek         | `m@k` (zero value if missing) | —       | `q@0` front/top without removing (Q also: `q@-1` back) |
+| get / peek         | `m@k` (null if missing), `m@k ?? d` | —       | `q@0` front/top without removing (Q also: `q@-1` back) |
 | set / insert       | `m@k = v`           | `s+=x`            | `q+=x` (Q: push back; PQ: insert by priority) |
 | remove             | `m-=k`              | `s-=x`            | `q.pop` returns and removes front/top |
 | contains           | `m@?k`              | `s@?x`            | `q@?x` (linear scan)         |
@@ -191,7 +192,7 @@ Conversions: `set:arr`, `Q:arr`, `PQ:arr`, `arr:s` (to array; map → array of k
 Truthiness: an empty map/set/queue is falsy.
 
 ```
-c = [->]; "hello"{c@_ = c@_+1}          # char counts
+c = [->]; "hello"{c@_+=1}          # char counts
 s = %[]; [3,1,3]{s+=_}; println:#s         # 2
 q = PQ[[0,1]]; q ~{ d,n = q.pop; ... }    # Dijkstra skeleton
 ```
@@ -201,7 +202,10 @@ Lexing/typing rules for collections:
 - Empty literals: the first use in source order fixes the element type. A literal that is never used with a type defaults to int. A use inside a block that is called at two different types is a compile error.
 - `| & -` keep their single precedence level, so mixed set expressions need parens. On sets, the right operand's type decides the meaning: a set means union/inter/diff, an element means add/remove.
 - `@` on a map takes a plain key: no negative indexes and no slices.
-- Maps iterate and print in hash order. Reading a missing key returns the zero value and does not insert it.
+- Maps iterate and print in hash order. Reading a missing key gives null, which no value can hold: it is a runtime error
+  unless caught by `m@k ?? d` (d when k is missing; m and k are evaluated once, no insert).
+  Compound assignment is the exception: `m@k op= x` reads a missing key as the zero value (0, 0.0, `""`, F, `[]`), so `c@_+=1` counts.
+  `??` is right-associative and binds looser than `|`: `(m@k??0)+1`. On anything but a map read it returns its left side.
 - Popping or peeking an empty queue is a runtime error.
 - Destructuring: N lvalues with one array on the right unpack it (`d,n = q.pop`). All right-hand expressions are evaluated before any assignment.
 

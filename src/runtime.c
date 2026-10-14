@@ -300,10 +300,11 @@ void *ns_map_put(void *p, const void *k) { // the value's storage for k, inserti
   if (i < 0) { static const char z[72]; retv(m->kd, k); i = insert(m, k, z); }
   return m->vals + i * m->vsz;
 }
-void ns_map_get(void *p, const void *k, void *out) { // zero value if missing
+void ns_map_get(void *p, const void *k, void *out) { // a missing key is null, which no value can hold
   Map *m = p;
   int64_t i = find(m, k);
-  if (i >= 0) cpy(m->vd, out, m->vals + i * m->vsz); else zero(m->vd, out);
+  if (i < 0) ns_panic("null: missing map key (use m@k ?? default)");
+  cpy(m->vd, out, m->vals + i * m->vsz);
 }
 void *ns_map_vals(void *p) {
   Map *m = p; Arr *r = ns_arr_new(intern('A', m->vd), m->len);

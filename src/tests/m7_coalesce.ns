@@ -1,0 +1,22 @@
+# m@k is null for a missing key; ?? supplies a default (m and k evaluated once)
+m = ["a"->1]
+println:m@"a" ?? 5
+println:m@"z" ?? 5
+println:(m@"z"??0)+1
+c = [->]; "hello"{c@_ = (c@_??0)+1}
+println:c@"l"
+println:m@"x" ?? m@"y" ?? 9
+s = ["k"->"v"]
+println:s@"q" ?? "none"
+nested = [1->[2->3]]
+println:(nested@1)@2 ?? 0
+println:(nested@1)@7 ?? 0
+println:#m
+println:[1,2]@0 ?? 7
+# op= reads a missing key as zero
+w = [->]; ("a b a".split:" "){w@_+=1}
+println:w@"a"
+g = [->]; ["ab","ba","c"]{g@(_.chars.sort.join:"") ++= _}
+println:g@"ab"
+f = ["x"->1.5]; f@"y" *= 2
+println:f@"y"

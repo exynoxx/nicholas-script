@@ -1,8 +1,8 @@
 c = [->]
-"banana"{c@_ = c@_+1}
+"banana"{c@_ = (c@_??0)+1}
 println:c@"a"
 println:c@"n"
-println:c@"z"
+println:c@"z"??0
 println:#c
 println:c.keys.sort
 println:c.vals.sort

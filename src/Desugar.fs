@@ -94,6 +94,9 @@ and private stmt env (s: Stmt) : S list =
         List.map2 (fun t e -> Assign(t, ex e)) temps es
         @ List.map2 (fun lv t -> assign lv (mk (Var t))) lvs temps
     | SAssign(lvs, es) -> fail line $"{lvs.Length} names on the left but {es.Length} values on the right"
+    | SCompound(op, (EIndex _ as lv), e) ->
+        // `m@k op= e` reads a missing map key as the zero value (the typer picks it)
+        [ assign lv (mk (Bin(op, mk (Bin("??", ex lv, mk (Call("zero", [])))), ex e))) ]
     | SCompound(op, lv, e) -> [ assign lv (mk (Bin(op, ex lv, ex e))) ]
 
 /// Debug mode: after every assignment to a user variable, `println:"line: x = "+x`.
