@@ -35,6 +35,9 @@ let mutable private line = 0
 /// Type of the then-branch while typing an else-branch; resolves `rec + rec` in recursive functions.
 let mutable private expect: Ty option = None
 let mutable private counter = 0
+/// Blocks wrapped in `memo:`, and the cache variable of every memoized instance.
+let private memos = HashSet<int>()
+let private memoCaches = ResizeArray<string>()
 let private err msg = fail line msg
 
 let newHole () = THole(ref None)
@@ -83,6 +86,19 @@ let private lookup (name: string) =
                 if not (List.contains u i.caps) then i.caps <- i.caps @ [ u ]
         Some u
     | None -> None
+
+/// `memo:{..}`: an instance first looks its arguments up in its own global cache (a map, created at program start).
+let private memoize (arity: int) (body: S list) =
+    match List.rev body with
+    | Do value :: rest ->
+        let cache, key, r = Desugar.fresh "memo", Desugar.fresh "k", Desugar.fresh "r"
+        memoCaches.Add(declare global0 cache (TMap(newHole (), newHole ())))
+        let v n = mk (Var n)
+        let args = List.init arity (fun i -> v $"_{i + 1}")
+        let k = match args with [ a ] -> a | [] -> mk (Int 0L) | _ -> mk (Call("tuple", args))
+        let miss = mk (Seq(List.rev rest @ [ Assign(r, value); SetIdx(v cache, v key, v r) ], v r))
+        [ Assign(key, k); Do(mk (If(mk (Call("has", [ v cache; v key ])), mk (Index(v cache, v key)), miss))) ]
+    | _ -> body
 
 // ---------- conversions ----------
 
@@ -300,6 +316,8 @@ and private builtin name (args: E list) : E =
         | TArr el -> typed (Call("push", [ a; own (conv x el) ])) a.t
         | t -> err ($"push: not an array: {showTy t}")
     | "panic", [ msg ] -> call TInt
+    | "memo", [ { k = Fn(id, _) } as f ] -> (memos.Add id |> ignore; f)
+    | "memo", _ -> err "memo: expects a block, as in f = memo:{...}"
     | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map own xs)) (TTup(xs |> List.map (fun x -> x.t)))
     | "repeat", [ x; n ] -> typed (Call("repeat", [ own x; conv n TInt ])) (TArr x.t)
     | _ when Stdlib.names.Contains name -> stdCall name args
@@ -386,7 +404,7 @@ and private userCall id (args: E list) : E =
             instList.Add inst
             let saved, savedLine = cur, line
             cur <- fr
-            let ss = typeStmts body
+            let ss = typeStmts (if memos.Contains id then memoize tys.Length body else body)
             match List.rev ss with
             | Do r :: rest ->
                 inst.result <- conv r inst.ret
@@ -453,8 +471,15 @@ let private propagateCaptures () =
 
 let check (prog: S list) : Program =
     varTy.Clear(); globals.Clear(); fnDefs.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear()
+    memos.Clear(); memoCaches.Clear()
     cur <- global0
     let main = typeStmts prog
+    let caches =
+        memoCaches |> Seq.map (fun u ->
+            match resolve varTy.[u] with
+            | TMap(k, v) as t -> Assign(u, typed (Call("mapof", [ typed (Arr []) (TArr k); typed (Arr []) (TArr v) ])) t)
+            | t -> err $"memo cache of type {showTy t}") |> List.ofSeq
+    let main = caches @ main
     propagateCaptures ()
     { main = main
       globals = globals |> Seq.map (fun g -> g, varTy.[g]) |> List.ofSeq

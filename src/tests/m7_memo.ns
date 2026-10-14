@@ -1,0 +1,17 @@
+# memo:{..} caches a block's results per argument (Python's @lru_cache)
+fib = memo:{_<2 ? _ : (fib:_-1)+(fib:_-2)}
+println:fib:90
+println:1..10{fib:_}
+
+# several arguments: keyed on the tuple of arguments
+paths = memo:{_1=0 | _2=0 ? 1 : (paths:_1-1,_2)+(paths:_1,_2-1)}
+println:paths:16,16
+
+# the body runs once per distinct argument
+calls = 0
+shout = memo:{calls += 1; _ + "!"}
+println:shout:"hi"
+println:shout:"hi"
+println:calls
+println:shout:"yo"
+println:calls

@@ -220,6 +220,15 @@ Blocks capture variables from the enclosing scope **by reference** (`s=0; x{s+=_
 A name is bound before its block body is checked, so blocks can recurse: `f={_<2?_:f:_-1}`.
 A function's parameter types are inferred per call site (monomorphised at compile time).
 
+`memo:{…}` memoizes a block (Python's `@lru_cache`, unbounded): each call first looks its arguments up in a cache,
+keyed on the argument (or the tuple of arguments), and runs the body only on a miss. Each typed instance has its own cache.
+Captured variables are not part of the key.
+```
+fib = memo:{_<2 ? _ : (fib:_-1)+(fib:_-2)}
+fib:90                                       # 2880067194370816120, instantly
+paths = memo:{_1=0 | _2=0 ? 1 : (paths:_1-1,_2)+(paths:_1,_2-1)}
+```
+
 ## 5. Control flow
 ```
 c ? a : b                  # ternary

@@ -5,7 +5,7 @@ open System.Collections.Generic
 open Ast
 
 /// language primitives plus every function declared in runtime.c (see Stdlib.fs)
-let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ" ] + Stdlib.names
+let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ"; "memo" ] + Stdlib.names
 let private zeroArity = Stdlib.zeroArity
 let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>=" ]
 
@@ -114,7 +114,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             let lvs = p.LValues()
             advance ()
             match lvs with
-            | [ EVar f ] when isSym "{" -> fnames.Add f |> ignore
+            | [ EVar f ] when isSym "{" || (peek () = ID "memo" && tokens.[pos + 1].tok = SYM ":") -> fnames.Add f |> ignore
             | _ -> ()
             SAssign(lvs, p.ExprList())
         | Some op ->
