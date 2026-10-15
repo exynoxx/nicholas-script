@@ -280,6 +280,13 @@ and private typeBin op (a: E) (b: E) : E =
     | _, TArr _ when isArith || isBit ->
         let bIsArr = match resolve b.t with TArr _ -> true | _ -> false
         typeE (Lower.broadcast op a b bIsArr)
+    | _, TTup ts when isArith ->
+        // elementwise: `(a,b) + (c,d)` is `(a+c, b+d)`; a non-tuple right operand applies to every element
+        let ta, tb = Desugar.fresh "t", Desugar.fresh "t"
+        let bTup = match resolve b.t with TTup us -> us.Length = ts.Length || err ($"tuple {op}: arities {ts.Length} and {us.Length} differ") | _ -> false
+        let at x i = mk (Index(mk (Var x), mk (Int(int64 i))))
+        let elems = ts |> List.mapi (fun i _ -> mk (Bin(op, at ta i, (if bTup then at tb i else mk (Var tb)))))
+        typeE (mk (Seq([ Assign(ta, a); Assign(tb, b) ], mk (Call("tuple", elems)))))
     | _, (TInt | TFloat) when isArith ->
         match resolve b.t with
         | TArr _ -> err "scalar op array: put the array on the left"
