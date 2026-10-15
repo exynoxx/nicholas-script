@@ -8,3 +8,7 @@ println:lab:("x", 2),10
 println:[(1,2),(3,4)]{addp}
 manh (x, y, z) = x+y+z
 println:manh:"1 2 3".nums
+mid (_, b, _) = b
+println:mid:(1, "two", 3.0)
+second (_, x) (_, y) = x+y
+println:second:[1,2],[3,4]

@@ -53,13 +53,15 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
         // implicit names belong to the innermost block; named params of enclosing blocks stay visible.
         // A param is a fresh local copied from its `_i`, so assigning it never touches an outer variable.
         let outer = env |> Map.filter (fun k _ -> not (k.StartsWith "_" || k = "@" || k = "$"))
-        let env' = List.concat ps |> List.fold (fun (m: Map<_, _>) p -> m.Add(p, $"{p}'{id}")) (outer.Add("_", "_1"))
+        let env' = List.concat ps |> List.filter ((<>) "_") |> List.fold (fun (m: Map<_, _>) p -> m.Add(p, $"{p}'{id}")) (outer.Add("_", "_1"))
         let bind =
             ps |> List.mapi (fun i group ->
                 let arg = mk (Var $"_{i + 1}")
                 match group with
                 | [ p ] -> [ Assign($"{p}'{id}", arg) ]
-                | _ -> group |> List.mapi (fun k p -> Assign($"{p}'{id}", mk (Index(arg, mk (Int(int64 k)))))))
+                | _ ->
+                    group |> List.indexed |> List.filter (snd >> (<>) "_")
+                    |> List.map (fun (k, p) -> Assign($"{p}'{id}", mk (Index(arg, mk (Int(int64 k)))))))
             |> List.concat
         mk (Fn(id, bind @ block env' body))
     | EMatch(kind, x, arms) ->

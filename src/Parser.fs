@@ -136,10 +136,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             if accept "~{" then SWhile(e, p.Block "}") else SExpr e
 
     /// `name param {param} =` starts a function definition: Some(name, params, index of `=`).
-    /// A param is a name or `(a, b, …)`, which unpacks a tuple or array argument.
+    /// A param is a name or `(a, b, …)`, which unpacks a tuple or array argument (`_` skips an element).
     member p.FnDefAhead() =
         let name j = match tokens.[j].tok with ID n when assignable n -> Some n | _ -> None
         let rec group j acc =
+            let name j = if tokens.[j].tok = ID "_" then Some "_" else name j // `_` skips an element
             match name j, tokens.[j + 1].tok with
             | Some n, SYM "," -> group (j + 2) (n :: acc)
             | Some n, SYM ")" -> Some(List.rev (n :: acc), j + 2)
