@@ -222,6 +222,8 @@ and typeE (e: E) : E =
             let stages = chain it []
             let src = typeE stages.Head.src
             match resolve src.t with
+            | TInt | TFloat | TBool | TTup _ | TFn _ as t ->
+                err ($"cannot {showKind stages.Head.kind} over {showTy t}: it needs an array, string, map, set, queue, tree or graph")
             | TArr _ | TStr when stages.Length > 1 ->
                 typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t))
             | _ ->
