@@ -267,6 +267,17 @@ println:add:3,4             # => 7
 println:5.sq                # => 25
 [5,3,8].sort.println        # => [3,5,8]
 
+# Parameters can also be named, F#-style. A { } body holds several statements.
+hyp a b = a*a + b*b
+println:hyp:3,4             # => 25
+scale k xs = xs{_*k}        # named params are visible in inner blocks
+println:scale:2,[1,2,3]     # => [2,4,6]
+mean xs = {
+  s = xs/+
+  s / #xs
+}
+println:mean:[2,4,9]        # => 5
+
 # The last expression in a block is its value. Blocks may recurse.
 fib = {_<2 ? _ : (fib:_-1)+(fib:_-2)}
 println:fib:20              # => 6765
