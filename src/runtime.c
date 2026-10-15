@@ -610,6 +610,8 @@ char *ns_join(const char *elemd, void *arr, char *sep) {
   for (int64_t i = 0; i < a->len; i++) { if (i) put(&b, sep); tostr(&b, elemd, a->data + i * a->esz, 0); }
   return done(&b);
 }
+//@ join ([T]) str = ns_join0
+char *ns_join0(const char *elemd, void *arr) { return ns_join(elemd, arr, ""); }
 
 // ---------- sort and generic collection ops ----------
 static const char *sort_d; // qsort has no context argument
