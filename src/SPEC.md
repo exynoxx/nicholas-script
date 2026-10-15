@@ -227,6 +227,7 @@ Lexing/typing rules for collections:
 
 ### Compound assignment
 `x op= e` for every binary op (`+= -= *= /= %= ^^= &= |=`), meaning `x = x op e`, except that on maps/sets/queues every `op=` mutates in place, so aliases see the change. `m+=n` merges map `n` into `m`.
+`m@k ??= e` inserts e only when k is missing; e is not evaluated when k is present (`g@u ??= []`).
 
 ## 4. Functions
 ```

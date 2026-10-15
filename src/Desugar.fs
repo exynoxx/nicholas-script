@@ -106,6 +106,12 @@ and private stmt env (s: Stmt) : S list =
         List.map2 (fun t e -> Assign(t, ex e)) temps es
         @ List.map2 (fun lv t -> assign lv (mk (Var t))) lvs temps
     | SAssign(lvs, es) -> fail line $"{lvs.Length} names on the left but {es.Length} values on the right"
+    | SCompound("??", EIndex(x, i), e) ->
+        // `m@k ??= e`: evaluates e and inserts it only when k is missing
+        let k = fresh "k"
+        [ Assign(k, ex i)
+          Do(mk (If(mk (Call("has", [ ex x; mk (Var k) ])), mk (Int 0L), mk (Seq([ SetIdx(ex x, mk (Var k), ex e) ], mk (Int 0L)))))) ]
+    | SCompound("??", _, _) -> fail line "??= needs a map element: m@k ??= v"
     | SCompound(op, (EIndex _ as lv), e) ->
         // `m@k op= e` reads a missing map key as the zero value (the typer picks it)
         [ assign lv (mk (Bin(op, mk (Bin("??", ex lv, mk (Call("zero", [])))), ex e))) ]
