@@ -11,7 +11,7 @@ let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; 
 
 /// Keywords of other languages: a statement starting with one gets a hint.
 let private foreign =
-    let fn = "define a function by assigning a block: f = {_*2}"
+    let fn = "define a function as f x = x*2 (or f = {_*2})"
     dict [ "if", "NS has no 'if': write cond ? a : b (or cond ? a)"
            "else", "NS has no 'else': write cond ? a : b"
            "for", "NS has no 'for': iterate with a block, e.g. 0..n{println:_} or xs{...}"
@@ -109,6 +109,16 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         | body -> body
 
     member p.Stmt() : Stmt =
+        match p.FnDefAhead() with
+        | Some(f, ps: string list) ->
+            // `f a b = body` is `f = {body}` with a, b naming _1, _2; a `{…}` body holds statements
+            pos <- pos + ps.Length + 2
+            fnames.Add f |> ignore
+            nextId.Value <- nextId.Value + 1
+            let id = nextId.Value
+            let body = if accept "{" then p.Block "}" else [ SLine(line ()); SExpr(p.Expr()) ]
+            SAssign([ EVar f ], [ EBlock(id, ps, body) ])
+        | None ->
         match p.AssignAhead() with
         | Some "=" ->
             let lvs = p.LValues()
@@ -124,6 +134,15 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         | None ->
             let e = p.Expr()
             if accept "~{" then SWhile(e, p.Block "}") else SExpr e
+
+    /// `name param {param} =` starts a function definition: Some(name, params).
+    member p.FnDefAhead() =
+        let name j = match tokens.[j].tok with ID n when assignable n -> Some n | _ -> None
+        let mutable j = pos + 1
+        while (name j).IsSome do j <- j + 1
+        match name pos with
+        | Some f when j > pos + 1 && not (foreign.ContainsKey f) && tokens.[j].tok = SYM "=" -> Some(f, [ for k in pos + 1 .. j - 1 -> (name k).Value ])
+        | _ -> None
 
     /// Does `lvalue {, lvalue} =` (or `lvalue op=`) start here? Walks the tokens LValues would take; Some the operator.
     member p.AssignAhead() : string option =
@@ -387,7 +406,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         | SYM "{" ->
             nextId.Value <- nextId.Value + 1
             let id = nextId.Value
-            EBlock(id, p.SectionBlock "}")
+            EBlock(id, [], p.SectionBlock "}")
         | SYM "=" when at > 0 && tokens.[at - 1].tok = SYM "=" -> errAt at "'==' is not an operator: '=' compares"
         | t -> errAt at ($"expected an expression, found {describeTok t}")
 

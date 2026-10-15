@@ -53,7 +53,7 @@ type Expr =
     | EHas of Expr * Expr
     | EIter of IterKind * Expr * Stmt list
     | EIterOp of IterKind * Expr * string // fold or scan with an operator
-    | EBlock of int * Stmt list
+    | EBlock of int * string list * Stmt list // id, named params (`f a b = …`), body
     | EGroup of Stmt list               // (s1; s2; value)
     | EMatch of string * Expr * Expr    // "map" `x ?{}` | "filter" `x ?[]` | "whole" (array-literal pattern): subject, arms (`_` = subject/element)
 
@@ -118,7 +118,7 @@ let rec showExpr (e: Expr) : string =
     | EHas(x, k) -> $"EHas({showExpr x}, {showExpr k})"
     | EIter(k, src, body) -> $"EIter({showKind k}, {showExpr src}, {showStmts body})"
     | EIterOp(k, src, op) -> $"EIterOp({showKind k}, {showExpr src}, {op})"
-    | EBlock(id, body) -> $"EBlock({id}, {showStmts body})"
+    | EBlock(id, ps, body) -> $"EBlock({id}, {ps}, {showStmts body})"
     | EGroup body -> $"EGroup {showStmts body}"
     | EMatch(kind, x, arms) -> $"EMatch({kind}, {showExpr x}, {showExpr arms})"
 

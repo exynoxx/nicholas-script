@@ -235,7 +235,13 @@ add = {_1+_2}
 add:3,4            # call
 x.sq               # method call: sq:x
 x[>2]{*2}.sort.println
+add a b = a+b      # named parameters: same as add = {_1+_2}
+dist x y = {       # a { } body holds statements
+  d = x*x + y*y
+  d ^^ 0.5
+}
 ```
+Named parameters are local to the function: assigning one never changes an outer variable of the same name.
 Blocks capture variables from the enclosing scope **by reference** (`s=0; x{s+=_}` updates `s`). In v1 blocks may not escape (be returned or stored in collections), so captures live on the stack.
 A name is bound before its block body is checked, so blocks can recurse: `f={_<2?_:f:_-1}`.
 A function's parameter types are inferred per call site (monomorphised at compile time).
@@ -325,7 +331,8 @@ n = int:read; println: 1..(n+1)/*                       # factorial
 ```
 program   = { stmt TERM } ;
 TERM      = NEWLINE | ";" ;
-stmt      = assign | while | expr ;
+stmt      = fndef | assign | while | expr ;
+fndef     = IDENT IDENT { IDENT } "=" ( "{" block "}" | expr ) ;
 while     = expr "~{" block "}" ;
 assign    = lvalues "=" exprlist ;
 lvalues   = lvalue { "," lvalue } ;

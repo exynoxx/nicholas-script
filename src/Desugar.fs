@@ -49,7 +49,13 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
                 | "<" -> If(mk (Bin("<", acc, el)), acc, el)
                 | op -> Bin(op, acc, el)
             [ Do(mk body) ])
-    | EBlock(id, body) -> mk (Fn(id, block (Map [ "_", "_1" ]) body))
+    | EBlock(id, ps, body) ->
+        // implicit names belong to the innermost block; named params of enclosing blocks stay visible.
+        // A param is a fresh local copied from its `_i`, so assigning it never touches an outer variable.
+        let outer = env |> Map.filter (fun k _ -> not (k.StartsWith "_" || k = "@" || k = "$"))
+        let env' = ps |> List.fold (fun (m: Map<_, _>) p -> m.Add(p, $"{p}'{id}")) (outer.Add("_", "_1"))
+        let bind = ps |> List.mapi (fun i p -> Assign($"{p}'{id}", mk (Var $"_{i + 1}")))
+        mk (Fn(id, bind @ block env' body))
     | EMatch(kind, x, arms) ->
         let t = fresh "_"
         let arms = expr (env.Add("_", t).Add("_#", t)) arms

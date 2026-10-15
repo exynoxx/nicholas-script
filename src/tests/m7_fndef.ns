@@ -1,0 +1,20 @@
+add a b = a+b
+println:add:3,4
+sq x = x*x
+println:5.sq
+a = 100
+inc a = (a += 1; a)
+println:inc:1
+println:a
+scale k xs = xs{_*k}
+println:scale:3,[1,2,3]
+fib n = n<2 ? n : (fib:n-1)+(fib:n-2)
+println:fib:20
+dist x y = {
+  dx = x*x
+  dy = y*y
+  dx+dy
+}
+println:dist:3,4
+adder n = (g = {_+n}; g:10)
+println:adder:5
