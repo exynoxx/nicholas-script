@@ -146,6 +146,22 @@ The element type of an empty literal is inferred from its first use (`m@"x" = 1`
 Keys/elements may be any hashable value: `int float string bool` and arrays of those.
 Arrays compare lexicographically, so a PQ of `[priority, value]` arrays orders by priority: `q+=[d,n]`.
 
+### Sorted trees
+
+`BT[3,1,2]` (empty `BT[]`, notation `BT T`) is a sorted set: a balanced binary search tree (treap). `BT:xs` converts a
+collection; `BT:xs,{key}` orders by the key block instead (`BT:words,{#_}` by length); elements with equal keys are
+ordered by their own value, and an element is stored once. The key is computed when an element is inserted, removed or looked up.
+A reference type, like sets.
+
+| Op | Meaning |
+|----|---------|
+| `t+=x`, `t-=x` | insert / remove, in place |
+| `t@?x` | contains |
+| `t.min`, `t.max` | smallest / largest element (by key) |
+| `t.pop` | removes and returns the smallest |
+| `#t`, `arr:t` | size; elements in order |
+| `t{…}` `t[…]` `t/…` | in order; map and filter return arrays |
+
 ### Graphs
 
 | Type | Literal | Empty | Notation in docs |

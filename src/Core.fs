@@ -14,6 +14,7 @@ type Ty =
     | TQ of Ty
     | TPQ of Ty
     | TGraph of Ty              // nodes of this type, int weights
+    | TTree of Ty * (int * Ty) option // sorted set of elements; optionally ordered by a key block (its id, the key type)
     | TTup of Ty list
     | TFn of int
     | THole of Ty option ref
@@ -72,6 +73,8 @@ let rec showTy t =
     | TSet e -> "%" + showTy e
     | TQ e -> "Q " + showTy e
     | TPQ e -> "PQ " + showTy e
+    | TTree(e, None) -> "BT " + showTy e
+    | TTree(e, Some(_, k)) -> "BT " + showTy e + " by " + showTy k
     | TGraph e -> "G " + showTy e
     | TTup ts -> "(" + (ts |> List.map showTy |> String.concat ",") + ")"
     | TFn id -> $"fn{id}"

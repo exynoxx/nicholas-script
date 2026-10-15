@@ -5,7 +5,7 @@ open System.Collections.Generic
 open Ast
 
 /// language primitives plus every function declared in runtime.c (see Stdlib.fs)
-let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ"; "memo" ] + Stdlib.names
+let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ"; "BT"; "memo" ] + Stdlib.names
 let private zeroArity = Stdlib.zeroArity
 let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>=" ]
 
@@ -25,7 +25,7 @@ let private foreign =
 let private startsExpr (t: Tok) =
     match t with
     | INT _ | FLOAT _ | STR _ | BOOL _ | ID _ -> true
-    | SYM("(" | "[" | "{" | "%[" | "Q[" | "PQ[" | "G[" | "DG[") -> true
+    | SYM("(" | "[" | "{" | "%[" | "Q[" | "PQ[" | "BT[" | "G[" | "DG[") -> true
     | _ -> false
 
 /// `c ? a` without `:` runs a only when c holds; its value is 0
@@ -379,7 +379,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                     while accept "," do items.Add(p.Expr())
                     expect "]"
                     EArr(List.ofSeq items)
-        | SYM("%[" | "Q[" | "PQ[" | "G[" | "DG[" as s) ->
+        | SYM("%[" | "Q[" | "PQ[" | "BT[" | "G[" | "DG[" as s) ->
             let items = if isSym "]" then [] else p.ExprList()
             expect "]"
             ECollLit((if s = "%[" then "set" else s.TrimEnd '['), items)

@@ -1,5 +1,5 @@
 // NS runtime. Type-dependent operations are driven by descriptor strings:
-// I F S B, A<t>, M<k><v>, H<t>, Q<t>, P<t>, G<t> (graph), U<n><t1>..<tn> (boxed tuple), V<n><t1>..<tn> (value tuple,
+// I F S B, A<t>, M<k><v>, H<t>, Q<t>, P<t>, G<t> (graph), T<t> (sorted tree), K<k><t> (sorted tree keyed by k), U<n><t1>..<tn> (boxed tuple), V<n><t1>..<tn> (value tuple,
 // members I F B only); n is one digit. Element storage size esz(d): B=1, I F=8, S A M H Q P U=8 (pointer), V=8n
 // (a bool member of V is stored as int64 0/1). S A M H Q P G U are pointers. Containers store elements inline at stride esz; boxed tuples
 // store members consecutively, each at its own esz. A value given by a descriptor ("generic value") is passed
@@ -34,7 +34,7 @@ typedef struct { int64_t rc; const char *d; } Hdr;
 static void *obj(const char *d, size_t n) { Hdr *h = alloc(sizeof(Hdr) + n); h->rc = 1; h->d = d; return h + 1; }
 static struct { Hdr h; char s[1]; } empty = {{-1, "S"}, ""}; // immortal ""
 static inline int ptrk(const char *d) { // pointer kinds: S A M H Q P U (I F B V are plain bytes)
-  switch (*d) { case 'S': case 'A': case 'M': case 'H': case 'Q': case 'P': case 'G': case 'U': return 1; default: return 0; }
+  switch (*d) { case 'S': case 'A': case 'M': case 'H': case 'Q': case 'P': case 'G': case 'U': case 'T': case 'K': return 1; default: return 0; }
 }
 static inline int64_t esz(const char *d) { return *d == 'B' ? 1 : *d == 'V' ? 8 * (d[1] - '0') : 8; }
 void ns_retain(void *p) { if (p && HD(p)->rc >= 0) HD(p)->rc++; }
@@ -46,8 +46,8 @@ static inline void cpy(const char *d, void *dst, const void *src) { memmove(dst,
 // Returns a pointer just past the descriptor starting at d.
 static const char *skip(const char *d) {
   switch (*d) {
-  case 'A': case 'H': case 'Q': case 'P': case 'G': return skip(d + 1);
-  case 'M': return skip(skip(d + 1));
+  case 'A': case 'H': case 'Q': case 'P': case 'G': case 'T': return skip(d + 1);
+  case 'M': case 'K': return skip(skip(d + 1));
   case 'U': case 'V': { int n = d[1] - '0'; for (d += 2; n--;) d = skip(d); return d; }
   default: return d + 1;
   }
@@ -211,7 +211,7 @@ int64_t ns_eq(const char *d, const void *a, const void *b) {
     }
     return 1;
   }
-  case 'Q': case 'P': { // compare contents in iteration order
+  case 'Q': case 'P': case 'T': case 'K': { // compare contents in iteration order
     void *x = ns_toarr(d, ldp(a)), *y = ns_toarr(d, ldp(b));
     int64_t r = ns_eq(HD(x)->d, &x, &y);
     ns_release(x); ns_release(y);
@@ -366,6 +366,92 @@ void ns_pop(const char *d, void *coll, void *out) { // moves the container's ref
   if (!--q->len) q->tail = NULL;
 }
 
+// ---------- BT: sorted set as a treap; keyed (K) nodes store the key, then the element, and order by key then element ----------
+typedef struct TN { struct TN *l, *r; uint64_t pr; char v[]; } TN;
+typedef struct { int64_t len; TN *root; const char *kd, *ed; int64_t ksz, esz; } Tree; // kd NULL: ordered by the element
+void *ns_bt_new(const char *d) {
+  Tree *t = obj(d, sizeof(Tree));
+  if (*d == 'K') { t->kd = d + 1; t->ksz = esz(t->kd); t->ed = skip(d + 1); } else t->ed = d + 1;
+  t->esz = esz(t->ed);
+  return t;
+}
+static int64_t bt_cmp(Tree *t, const char *a, const char *b) { // a, b: node payloads
+  int64_t c = t->kd ? ns_cmp(t->kd, a, b) : 0;
+  return c ? c : ns_cmp(t->ed, a + t->ksz, b + t->ksz);
+}
+static uint64_t bt_rand(void) { static uint64_t x = 88172645463325252ULL; x ^= x << 13; x ^= x >> 7; x ^= x << 17; return x; }
+static TN *bt_ins(Tree *t, TN *n, TN *x) { // x replaces nothing: an equal payload leaves the tree as is
+  if (!n) { t->len++; return x; }
+  int64_t c = bt_cmp(t, x->v, n->v);
+  if (!c) return n;
+  if (c < 0) { n->l = bt_ins(t, n->l, x); if (n->l->pr > n->pr) { TN *l = n->l; n->l = l->r; l->r = n; return l; } }
+  else { n->r = bt_ins(t, n->r, x); if (n->r->pr > n->pr) { TN *r = n->r; n->r = r->l; r->l = n; return r; } }
+  return n;
+}
+static TN *bt_merge(TN *a, TN *b) {
+  if (!a || !b) return a ? a : b;
+  if (a->pr > b->pr) { a->r = bt_merge(a->r, b); return a; }
+  b->l = bt_merge(a, b->l); return b;
+}
+static TN *bt_drop(Tree *t, TN *n, const char *v, TN **found) {
+  if (!n) return NULL;
+  int64_t c = bt_cmp(t, v, n->v);
+  if (c < 0) n->l = bt_drop(t, n->l, v, found);
+  else if (c > 0) n->r = bt_drop(t, n->r, v, found);
+  else { *found = n; return bt_merge(n->l, n->r); }
+  return n;
+}
+static void bt_kill(Tree *t, TN *n) { if (t->kd) relv(t->kd, n->v); relv(t->ed, n->v + t->ksz); free(n); }
+static void bt_free(Tree *t, TN *n) { if (n) { bt_free(t, n->l); bt_free(t, n->r); bt_kill(t, n); } }
+static void bt_walk(Tree *t, TN *n, Arr *r) { if (n) { bt_walk(t, n->l, r); ns_arr_push(r, n->v + t->ksz); bt_walk(t, n->r, r); } }
+void *bt_arr(Tree *t) { Arr *r = ns_arr_new(intern('A', t->ed), t->len); bt_walk(t, t->root, r); return r; }
+static char *bt_payload(Tree *t, char *buf, const void *k, const void *x) { // k is ignored unless keyed
+  if (t->kd) memcpy(buf, k, t->ksz);
+  memcpy(buf + t->ksz, x, t->esz); return buf;
+}
+//@ btadd (BT[T],K,T) int
+int64_t ns_btadd(const char *dT, const char *dK, void *p, const void *k, const void *x) {
+  Tree *t = p; TN *n = alloc(sizeof(TN) + t->ksz + t->esz); int64_t len = t->len;
+  bt_payload(t, n->v, k, x); n->pr = bt_rand();
+  t->root = bt_ins(t, t->root, n);
+  if (t->len == len) free(n);
+  else { if (t->kd) retv(t->kd, k); retv(t->ed, x); }
+  return 0;
+}
+//@ btdel (BT[T],K,T) int
+int64_t ns_btdel(const char *dT, const char *dK, void *p, const void *k, const void *x) {
+  Tree *t = p; char buf[144]; TN *f = NULL;
+  t->root = bt_drop(t, t->root, bt_payload(t, buf, k, x), &f);
+  if (f) { t->len--; bt_kill(t, f); }
+  return 0;
+}
+//@ bthas (BT[T],K,T) bool
+int64_t ns_bthas(const char *dT, const char *dK, void *p, const void *k, const void *x) {
+  Tree *t = p; char buf[144]; bt_payload(t, buf, k, x);
+  for (TN *n = t->root; n;) { int64_t c = bt_cmp(t, buf, n->v); if (!c) return 1; n = c < 0 ? n->l : n->r; }
+  return 0;
+}
+static TN *bt_end(Tree *t, int right) {
+  if (!t->root) ns_panic("empty tree");
+  TN *n = t->root; while (right ? n->r : n->l) n = right ? n->r : n->l;
+  return n;
+}
+//@ min (BT[T]) T = ns_btmin
+void ns_btmin(const char *dT, void *p, void *out) { Tree *t = p; cpy(t->ed, out, bt_end(t, 0)->v + t->ksz); }
+//@ max (BT[T]) T = ns_btmax
+void ns_btmax(const char *dT, void *p, void *out) { Tree *t = p; cpy(t->ed, out, bt_end(t, 1)->v + t->ksz); }
+//@ pop (BT[T]) T = ns_btpop
+void ns_btpop(const char *dT, void *p, void *out) { // removes the smallest element, moving it into out
+  Tree *t = p; TN *n = bt_end(t, 0), **at = &t->root;
+  while (*at != n) at = &(*at)->l;
+  *at = n->r; t->len--;
+  memcpy(out, n->v + t->ksz, t->esz);
+  if (t->kd) relv(t->kd, n->v);
+  free(n);
+}
+//@ arr (BT[T]) [T] = ns_btarr
+void *ns_btarr(const char *dT, void *p) { return bt_arr(p); }
+
 // ---------- strings ----------
 static char *str_n(const char *s, size_t n) { char *r = obj("S", n + 1); memcpy(r, s, n); return r; }
 char *ns_concat(char *a, char *b) {
@@ -499,6 +585,7 @@ static void tostr(Buf *b, const char *d, const void *v, int q) {
   case 'H': citems(b, "%[", d, v); break;
   case 'Q': citems(b, "Q[", d, v); break;
   case 'P': citems(b, "PQ[", d, v); break;
+  case 'T': case 'K': { Arr *a = ns_toarr(d, ldp(v)); items(b, "BT[", HD(a)->d + 1, a); ns_release(a); break; }
   case 'G': gstr(b, d + 1, ldp(v)); break;
   case 'M': {
     Map *m = ldp(v); int first = 1;
@@ -554,6 +641,7 @@ void *ns_toarr(const char *d, void *c) {
     for (int64_t i = 0; i < q->len; i++) ns_arr_push(r, AT(q, i));
     return sort_in(d + 1, r);
   }
+  case 'T': case 'K': return bt_arr(c);
   default: ns_panic("not a collection"); return NULL;
   }
 }
@@ -666,6 +754,7 @@ void ns_release(void *p) {
   }
   case 'U': { int64_t o = 0; EACH_MEMBER(d, e, o) relv(e, (char *)p + o); break; }
   case 'Q': for (Node *n = ((Queue *)p)->head, *nx; n; n = nx) { nx = n->next; relv(d + 1, n->v); free(n); } break;
+  case 'T': case 'K': bt_free(p, ((Tree *)p)->root); break;
   }
   free(HD(p));
 }

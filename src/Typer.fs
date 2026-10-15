@@ -54,6 +54,8 @@ let private unify a b =
         | TArr x, TArr y | TSet x, TSet y | TQ x, TQ y | TPQ x, TPQ y | TGraph x, TGraph y -> go x y
         | TMap(k1, v1), TMap(k2, v2) -> go k1 k2 && go v1 v2
         | TTup xs, TTup ys -> xs.Length = ys.Length && List.forall2 go xs ys
+        | TTree(x, None), TTree(y, None) -> go x y
+        | TTree(x, Some(f, k1)), TTree(y, Some(g, k2)) -> f = g && go x y && go k1 k2
         | x, y -> x = y
     if go a b then true
     else
@@ -275,6 +277,8 @@ and private typeBin op (a: E) (b: E) : E =
     | "-", TGraph n -> if isEdge n b then stdCall "deledge" [ a; b ] else stdCall "delnode" [ a; b ]
     | "+", (TSet el | TQ el | TPQ el) -> typed (Call("add", [ a; own (conv b el) ])) L
     | "-", TSet el -> typed (Call("del", [ a; conv b el ])) L
+    | "+", TTree _ -> treeOp "btadd" a b
+    | "-", TTree _ -> treeOp "btdel" a b
     | "+", TMap _ -> typed (Call("merge", [ a; conv b L ])) L
     | "-", TMap(k, _) -> typed (Call("del", [ a; conv b k ])) L
     | _, TArr _ when isArith || isBit ->
@@ -320,7 +324,7 @@ and private builtin name (args: E list) : E =
     let bound (x: E) = match resolve x.t with TArr _ -> typed (Call("len", [ x ])) TInt | _ -> conv x TInt
     let elemOf (x: E) =
         match resolve x.t with
-        | TArr e | TSet e | TQ e | TPQ e -> e
+        | TArr e | TSet e | TQ e | TPQ e | TTree(e, _) -> e
         | TStr -> TStr
         | TMap(k, _) | TGraph k -> k
         | t -> err ($"{name}: not a collection: {showTy t}")
@@ -337,6 +341,7 @@ and private builtin name (args: E list) : E =
     | "not", [ x ] -> typed (Call("not", [ conv x TBool ])) TBool
     | "len", [ x ] -> (elemOf x |> ignore; call TInt)
     | "has", [ c; x ] when (match resolve c.t with TGraph n -> isEdge n x | _ -> false) -> stdCall "hasedge" [ c; x ]
+    | "has", [ c; x ] when (match resolve c.t with TTree _ -> true | _ -> false) -> treeOp "bthas" c x
     | "has", [ c; x ] -> typed (Call("has", [ c; conv x (elemOf c) ])) TBool
     | "range", [ a; b ] -> typed (Call("range", [ bound a; bound b ])) (TArr TInt)
     | "slice", [ x; a; b ] ->
@@ -348,6 +353,24 @@ and private builtin name (args: E list) : E =
         let el = elemOf xs
         let t = match name with "set" -> TSet el | "Q" -> TQ el | _ -> TPQ el
         typed (Call(name, [ (match resolve xs.t with TArr _ -> xs | _ -> stdCall "arr" [ xs ]) ])) t
+    | "BT", xs :: f ->
+        // `BT[..]` / `BT:xs` / `BT:xs,{key}`: an empty tree, then each element added with `+`
+        let key =
+            match f with
+            | [] -> None
+            | [ f ] -> (match resolve f.t with TFn id -> Some(id, newHole ()) | _ -> err "BT: the second argument must be a key block")
+            | _ -> err "BT: expects a collection and an optional key block"
+        let t = TTree(elemOf xs, key)
+        let tv = typed (Var(declare cur (Desugar.fresh "bt") t)) t
+        let fill =
+            match xs.k with
+            | Arr [] -> []
+            | _ ->
+                let el = Desugar.fresh "_"
+                let it = { kind = IEach; src = xs; el = el; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do(mk (Bin("+", tv, mk (Var el)))) ] }
+                [ Do(typeE (mk (Iter it))) ]
+        let (Var u) = tv.k
+        typed (Seq(Assign(u, typed (Call("BT", [])) t) :: fill, tv)) t
     | "push", [ a; x ] ->
         match resolve a.t with
         | TArr el -> typed (Call("push", [ a; own (conv x el) ])) a.t
@@ -377,6 +400,7 @@ and private stdCall name (args: E list) : E =
         | Stdlib.SSet t -> TSet(toTy env t)
         | Stdlib.SQ t -> TQ(toTy env t)
         | Stdlib.SPQ t -> TPQ(toTy env t)
+        | Stdlib.SBT t -> TTree(toTy env t, None)
         | Stdlib.STup ts -> TTup(List.map (toTy env) ts)
         | Stdlib.SFn _ -> err "nested block types are not supported"
     /// binds unbound variables from the actual type; true when no conversion is needed
@@ -386,7 +410,7 @@ and private stdCall name (args: E list) : E =
             match env.TryGetValue v with
             | true, b -> resolve b = t
             | _ -> (env.[v] <- t; true)
-        | Stdlib.SArr p, TArr t | Stdlib.SGraph p, TGraph t | Stdlib.SSet p, TSet t | Stdlib.SQ p, TQ t | Stdlib.SPQ p, TPQ t -> bind env p t
+        | Stdlib.SArr p, TArr t | Stdlib.SGraph p, TGraph t | Stdlib.SSet p, TSet t | Stdlib.SQ p, TQ t | Stdlib.SPQ p, TPQ t | Stdlib.SBT p, TTree(t, _) -> bind env p t
         | Stdlib.SMap(pk, pv), TMap(k, v) -> bind env pk k && bind env pv v
         | Stdlib.STup ps, TTup ts -> ps.Length = ts.Length && List.forall2 (bind env) ps ts
         | Stdlib.SFn _, TFn _ -> true
@@ -409,6 +433,7 @@ and private stdCall name (args: E list) : E =
                     typed (BlockRef inst) a.t
                 | _ -> err ($"{name}: the block must return {Stdlib.showSTy rt}")
             | Stdlib.SFn _, _ -> err ($"{name} expects a block argument")
+            | Stdlib.SBT _, TTree _ -> (bind env p a.t |> ignore; a) // keeps its key block
             | p, _ ->
                 bind env p a.t |> ignore
                 own (conv a (toTy env p))) sg.parms args
@@ -417,6 +442,25 @@ and private stdCall name (args: E list) : E =
     let ret = toTy env sg.ret
     let rdesc = if sg.rdesc then [ typed Desc ret ] else []
     typed (StdCall(sg, descs @ rdesc @ args)) ret
+
+/// `t + x`, `t - x`, `has(t, x)` on a tree: the runtime gets the element and its key (the element itself
+/// when the tree has no key block); `+`/`-` change t in place and yield it.
+and private treeOp f (c: E) (x: E) : E =
+    let (TTree(el, key)) = resolve c.t
+    let tmp (e: E) = typed (Var(declare cur (Desugar.fresh "t") e.t)) e.t
+    let x = own (conv x el)
+    let tc, tx = tmp c, tmp x
+    let k =
+        match key with
+        | None -> tx
+        | Some(id, kt) ->
+            let k = userCall id [ tx ]
+            if not (unify kt k.t) then err ($"BT: the key block returns {showTy k.t}, not {showTy kt}")
+            k
+    let assign (v: E) (e: E) = let (Var u) = v.k in Assign(u, e)
+    let call = stdCall f [ tc; k; tx ]
+    let result = if f = "bthas" then call else typed (Seq([ Do call ], tc)) c.t
+    typed (Seq([ assign tc c; assign tx x ], result)) result.t
 
 and private userCall id (args: E list) : E =
     let tys = args |> List.map (fun a -> resolve a.t)

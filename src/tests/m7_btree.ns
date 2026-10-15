@@ -1,0 +1,39 @@
+t = BT[5,1,4,1,3]
+println:t
+println:#t
+t += 2
+t -= 4
+println:t
+println:(t@?3, t@?4)
+println:(t.min, t.max)
+println:t.pop
+println:t
+w = BT:["pear","fig","banana","kiwi"],{#_}
+println:w
+w += "plum"
+println:(w.min, w.max, #w)
+w -= "kiwi"
+println:w
+println:w@?"fig"
+p = BT:[(1,"a"),(3,"b"),(2,"c")],{-_._1}
+println:p.pop
+println:p{_._2}
+e = BT[]
+e += 7
+e += 3
+println:e
+println:w/{$+_}
+ws = [10,20,30]
+ins = {v = _1; v += _2; #v}
+u = BT:[0,1,2],{ws@_}
+println:ins:u,1
+println:u
+d = {k = BT:_1,{-_}; k.pop}
+println:d:[4,9,2]
+n = 0
+big = BT[]
+i = 0
+(i < 100000) ~{ big += (i*7919)%100003; i += 1 }
+s = 0
+(#big > 0) ~{ s += big.pop }
+println:s

@@ -1,7 +1,7 @@
 /// The standard library lives in runtime.c. Each function there is declared by a signature comment
 ///   //@ name (param, ...) result [= c_symbol]
 /// with types int float str bool, type variables (single capitals), [t] arrays, {k:v} maps, %[t] sets, Q[t] and PQ[t]
-/// queues, G[t] graphs, (a,b) tuples and fn(t)->r blocks.
+/// queues, BT[t] sorted trees, G[t] graphs, (a,b) tuples and fn(t)->r blocks.
 /// The C function receives one descriptor (const char*) per type variable first, then its arguments;
 /// a result type containing a tuple also passes the result's descriptor (after the type variables'), so the
 /// runtime never rebuilds a tuple layout itself. Type-variable values travel as 64-bit slots, a block as
@@ -25,6 +25,7 @@ type STy =
     | SSet of STy
     | SQ of STy
     | SPQ of STy
+    | SBT of STy
 
 let rec showSTy (t: STy) =
     match t with
@@ -41,6 +42,7 @@ let rec showSTy (t: STy) =
     | SSet t -> "%[" + showSTy t + "]"
     | SQ t -> "Q[" + showSTy t + "]"
     | SPQ t -> "PQ[" + showSTy t + "]"
+    | SBT t -> "BT[" + showSTy t + "]"
 
 type Sig = { name: string; parms: STy list; ret: STy; csym: string; tvars: string list; rdesc: bool }
 
@@ -58,6 +60,7 @@ let rec private parseTy (s: string) : STy =
     | _ when s.StartsWith "%[" -> SSet(parseTy (s.Substring(2, s.Length - 3)))
     | _ when s.StartsWith "Q[" -> SQ(parseTy (s.Substring(2, s.Length - 3)))
     | _ when s.StartsWith "PQ[" -> SPQ(parseTy (s.Substring(3, s.Length - 4)))
+    | _ when s.StartsWith "BT[" -> SBT(parseTy (s.Substring(3, s.Length - 4)))
     | _ when s.StartsWith "{" ->
         match splitTop ':' (s.Substring(1, s.Length - 2)) with
         | [ k; v ] -> SMap(parseTy k, parseTy v)
@@ -85,7 +88,7 @@ and private splitTop (sep: char) (s: string) : string list =
 let rec private vars (t: STy) =
     match t with
     | SVar v -> [ v ]
-    | SArr t | SGraph t | SSet t | SQ t | SPQ t -> vars t
+    | SArr t | SGraph t | SSet t | SQ t | SPQ t | SBT t -> vars t
     | SMap(k, v) -> vars k @ vars v
     | STup ts -> List.collect vars ts
     | SFn(a, b) -> vars a @ vars b
@@ -94,7 +97,7 @@ let rec private vars (t: STy) =
 let rec private hasTup (t: STy) =
     match t with
     | STup _ -> true
-    | SArr t | SGraph t | SSet t | SQ t | SPQ t -> hasTup t
+    | SArr t | SGraph t | SSet t | SQ t | SPQ t | SBT t -> hasTup t
     | SMap(k, v) -> hasTup k || hasTup v
     | _ -> false
 

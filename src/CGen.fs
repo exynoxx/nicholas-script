@@ -286,6 +286,7 @@ let generate (prog: Program) : string =
         | "range", _ -> rt "void *" "ns_range" [ arg 0; arg 1 ]
         | "slice", [ x; _; _ ] ->
             rt "void *" (if resolve x.t = TStr then "ns_slice_s" else "ns_arr_slice") [ arg 0; arg 1; arg 2 ]
+        | "BT", [] -> rt "void *" "ns_bt_new" [ d e.t ] // empty; the typer adds the elements
         | ("set" | "Q" | "PQ"), [ _ ] ->
             let ctor = match f with "set" -> "ns_set_new" | "Q" -> "ns_q_new" | _ -> "ns_pq_new"
             let coll = rt "void *" ctor [ d e.t ]

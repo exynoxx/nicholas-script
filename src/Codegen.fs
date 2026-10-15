@@ -304,6 +304,7 @@ let generate (prog: Program) : string =
         | "range", _ -> rt "ptr" "ns_range" [ "i64", arg 0; "i64", arg 1 ]
         | "slice", [ x; _; _ ] ->
             rt "ptr" (if resolve x.t = TStr then "ns_slice_s" else "ns_arr_slice") [ "ptr", arg 0; "i64", arg 1; "i64", arg 2 ]
+        | "BT", [] -> rt "ptr" "ns_bt_new" [ d e.t ] // empty; the typer adds the elements
         | ("set" | "Q" | "PQ"), [ xs ] ->
             let ctor = match f with "set" -> "ns_set_new" | "Q" -> "ns_q_new" | _ -> "ns_pq_new"
             let coll = rt "ptr" ctor [ d e.t ]

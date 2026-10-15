@@ -11,7 +11,7 @@ let isScalar t = match resolve t with TInt | TFloat | TBool | THole _ | TUnk -> 
 /// A tuple of scalars is a value: an LLVM struct in registers, stored inline (8 bytes per member), never boxed.
 let isValueTuple t = match resolve t with TTup ts -> List.forall isScalar ts | _ -> false
 
-/// Runtime descriptor: I F S B, A<t>, M<k><v>, H<t>, Q<t>, P<t>, G<t>, U<n>.. (boxed tuple), V<n>.. (value tuple).
+/// Runtime descriptor: I F S B, A<t>, M<k><v>, H<t>, Q<t>, P<t>, G<t>, T<t>, K<k><t> (tree keyed by k), U<n>.. (boxed tuple), V<n>.. (value tuple).
 let rec desc t =
     match resolve t with
     | TFloat -> "F"
@@ -22,6 +22,8 @@ let rec desc t =
     | TSet e -> "H" + desc e
     | TQ e -> "Q" + desc e
     | TPQ e -> "P" + desc e
+    | TTree(e, None) -> "T" + desc e
+    | TTree(e, Some(_, k)) -> "K" + desc k + desc e
     | TGraph e -> "G" + desc e
     | TTup ts -> (if isValueTuple t then "V" else "U") + string ts.Length + (ts |> List.map desc |> String.concat "")
     | _ -> "I"
@@ -51,7 +53,8 @@ let isPtr t = llty t = "ptr"
 let describe (prog: Typer.Program) =
     let rec parts t =
         t :: (match resolve t with
-              | TArr e | TSet e | TQ e | TPQ e | TGraph e -> parts e
+              | TArr e | TSet e | TQ e | TPQ e | TGraph e | TTree(e, None) -> parts e
+              | TTree(e, Some(_, k)) -> parts k @ parts e
               | TMap(k, v) -> parts k @ parts v
               | TTup ts -> List.collect parts ts
               | _ -> [])

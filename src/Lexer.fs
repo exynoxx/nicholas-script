@@ -47,7 +47,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         add (SYM s)
         match s with
         | "(" -> stack.Push('(', tokLine, tokCol)
-        | "[" | "f[" | "%[" | "Q[" | "PQ[" | "G[" | "DG[" -> stack.Push('[', tokLine, tokCol)
+        | "[" | "f[" | "%[" | "Q[" | "PQ[" | "BT[" | "G[" | "DG[" -> stack.Push('[', tokLine, tokCol)
         | "{" | "m{" | "~{" | "/{" | "\\{" | "?{" -> stack.Push('{', tokLine, tokCol)
         | "?[" -> stack.Push('?', tokLine, tokCol)
         | ")" | "]" | "}" ->
@@ -176,7 +176,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             match w with
             | "T" -> add (BOOL true)
             | "F" -> add (BOOL false)
-            | ("Q" | "PQ" | "G" | "DG") when at 0 = '[' && not (endsExpr ()) -> (i <- i + 1; sym (w + "["))
+            | ("Q" | "PQ" | "BT" | "G" | "DG") when at 0 = '[' && not (endsExpr ()) -> (i <- i + 1; sym (w + "["))
             | _ -> add (ID w)
         elif c = '@' then
             if endsExpr () then
