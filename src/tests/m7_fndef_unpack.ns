@@ -1,0 +1,10 @@
+addp (a, b) = a+b
+println:addp:(3, 4)
+println:addp:[5, 6]
+dot (a, b) (c, d) = a*c + b*d
+println:dot:(1, 2),(3, 4)
+lab (name, n) k = "{name}:{n*k}"
+println:lab:("x", 2),10
+println:[(1,2),(3,4)]{addp}
+manh (x, y, z) = x+y+z
+println:manh:"1 2 3".nums

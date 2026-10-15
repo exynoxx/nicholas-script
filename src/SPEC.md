@@ -242,6 +242,7 @@ dist x y = {       # a { } body holds statements
 }
 ```
 Named parameters are local to the function: assigning one never changes an outer variable of the same name.
+A parameter `(a, b, …)` unpacks a tuple or array argument: `dot (a, b) (c, d) = a*c + b*d`, `dot:(1,2),(3,4)`.
 Blocks capture variables from the enclosing scope **by reference** (`s=0; x{s+=_}` updates `s`). In v1 blocks may not escape (be returned or stored in collections), so captures live on the stack.
 A name is bound before its block body is checked, so blocks can recurse: `f={_<2?_:f:_-1}`.
 A function's parameter types are inferred per call site (monomorphised at compile time).
@@ -332,7 +333,8 @@ n = int:read; println: 1..(n+1)/*                       # factorial
 program   = { stmt TERM } ;
 TERM      = NEWLINE | ";" ;
 stmt      = fndef | assign | while | expr ;
-fndef     = IDENT IDENT { IDENT } "=" ( "{" block "}" | expr ) ;
+fndef     = IDENT param { param } "=" ( "{" block "}" | expr ) ;
+param     = IDENT | "(" IDENT { "," IDENT } ")" ;
 while     = expr "~{" block "}" ;
 assign    = lvalues "=" exprlist ;
 lvalues   = lvalue { "," lvalue } ;

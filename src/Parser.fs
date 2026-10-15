@@ -110,9 +110,9 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
 
     member p.Stmt() : Stmt =
         match p.FnDefAhead() with
-        | Some(f, ps: string list) ->
+        | Some(f, ps, eq) ->
             // `f a b = body` is `f = {body}` with a, b naming _1, _2; a `{…}` body holds statements
-            pos <- pos + ps.Length + 2
+            pos <- eq + 1
             fnames.Add f |> ignore
             nextId.Value <- nextId.Value + 1
             let id = nextId.Value
@@ -135,13 +135,29 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             let e = p.Expr()
             if accept "~{" then SWhile(e, p.Block "}") else SExpr e
 
-    /// `name param {param} =` starts a function definition: Some(name, params).
+    /// `name param {param} =` starts a function definition: Some(name, params, index of `=`).
+    /// A param is a name or `(a, b, …)`, which unpacks a tuple or array argument.
     member p.FnDefAhead() =
         let name j = match tokens.[j].tok with ID n when assignable n -> Some n | _ -> None
-        let mutable j = pos + 1
-        while (name j).IsSome do j <- j + 1
+        let rec group j acc =
+            match name j, tokens.[j + 1].tok with
+            | Some n, SYM "," -> group (j + 2) (n :: acc)
+            | Some n, SYM ")" -> Some(List.rev (n :: acc), j + 2)
+            | _ -> None
+        let param j =
+            match name j with
+            | Some n -> Some([ n ], j + 1)
+            | None when tokens.[j].tok = SYM "(" -> group (j + 1) []
+            | None -> None
+        let rec pars j acc =
+            match param j with
+            | Some(ps, j) -> pars j (ps :: acc)
+            | None -> List.rev acc, j
         match name pos with
-        | Some f when j > pos + 1 && not (foreign.ContainsKey f) && tokens.[j].tok = SYM "=" -> Some(f, [ for k in pos + 1 .. j - 1 -> (name k).Value ])
+        | Some f when not (foreign.ContainsKey f) ->
+            match pars (pos + 1) [] with
+            | ps, j when not ps.IsEmpty && tokens.[j].tok = SYM "=" -> Some(f, ps, j)
+            | _ -> None
         | _ -> None
 
     /// Does `lvalue {, lvalue} =` (or `lvalue op=`) start here? Walks the tokens LValues would take; Some the operator.

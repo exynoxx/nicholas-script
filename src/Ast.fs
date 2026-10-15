@@ -53,7 +53,7 @@ type Expr =
     | EHas of Expr * Expr
     | EIter of IterKind * Expr * Stmt list
     | EIterOp of IterKind * Expr * string // fold or scan with an operator
-    | EBlock of int * string list * Stmt list // id, named params (`f a b = …`), body
+    | EBlock of int * string list list * Stmt list // id, named params (`f a (b, c) = …`; a group unpacks), body
     | EGroup of Stmt list               // (s1; s2; value)
     | EMatch of string * Expr * Expr    // "map" `x ?{}` | "filter" `x ?[]` | "whole" (array-literal pattern): subject, arms (`_` = subject/element)
 
