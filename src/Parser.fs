@@ -157,6 +157,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                 indices (j + 1) |> Option.bind (fun j -> if tok j = SYM "," then lvs (j + 1) (n + 1) else Some(j, n))
             | _ -> None
         match lvs pos 1 with
+        | _ when tok pos = SYM "(" ->
+            // `(a,b) = t`: a parenthesised destructuring
+            match lvs (pos + 1) 1 with
+            | Some(j, n) when n > 1 && tok j = SYM ")" && tok (j + 1) = SYM "=" -> Some "="
+            | _ -> None
         | Some(j, _) when tok j = SYM "=" -> Some "="
         | Some(j, 1) -> (match tok j with SYM op when compounds.Contains op -> Some op | _ -> None)
         | _ -> None
@@ -171,9 +176,10 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                 while accept "@" do e <- EIndex(e, p.IndexOperand())
                 e
             | t -> err ($"cannot assign to {describeTok t}")
-        let first = one ()
-        let rest = ResizeArray [ first ]
+        let paren = accept "("
+        let rest = ResizeArray [ one () ]
         while accept "," do rest.Add(one ())
+        if paren then expect ")"
         List.ofSeq rest
 
     member p.ExprList() =
@@ -290,6 +296,9 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             | SYM "." ->
                 advance ()
                 match peek () with
+                | ID f when f.Length = 2 && f.[0] = '_' && f.[1] >= '1' && f.[1] <= '9' ->
+                    advance ()
+                    e <- EIndex(e, EInt(int64 f.[1] - int64 '1')) // `t._1` is `t@0`
                 | ID f ->
                     advance ()
                     let args = if accept ":" then p.ExprList() else []
