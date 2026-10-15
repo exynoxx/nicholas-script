@@ -361,11 +361,14 @@ let generate (prog: Program) : string =
         if wrapped.Add inst.name then
             let saved = c
             c <- { body = StringBuilder(); locals = StringBuilder(); vars = HashSet(); caps = Set.empty; tmp = 0 }
-            let _, pt = inst.parms.Head
             let caps = inst.caps |> List.mapi (fun i _ -> instr "void *" $"((void **)env)[{i}]")
-            let a = loadFrom "x" pt
-            retain a pt
-            let r = rt (cty inst.ret) ("f_" + mangle inst.name) (a :: caps)
+            // one parameter: x points at it; several: x is an array of pointers to them
+            let args =
+                inst.parms |> List.mapi (fun i (_, pt) ->
+                    let a = loadFrom (if inst.parms.Length = 1 then "x" else $"((void *const *)x)[{i}]") pt
+                    retain a pt
+                    a)
+            let r = rt (cty inst.ret) ("f_" + mangle inst.name) (args @ caps)
             storeTo r inst.ret "out"
             let sg = $"static void {w}(void *env, const void *x, void *out)"
             protos.Append(sg + ";\n") |> ignore

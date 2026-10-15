@@ -19,7 +19,7 @@ type STy =
     | SVar of string
     | SArr of STy
     | STup of STy list
-    | SFn of STy * STy
+    | SFn of STy list * STy // parameters, result
     | SGraph of STy
     | SMap of STy * STy
     | SSet of STy
@@ -36,7 +36,7 @@ let rec showSTy (t: STy) =
     | SVar v -> v
     | SArr t -> "[" + showSTy t + "]"
     | STup ts -> "(" + (ts |> List.map showSTy |> String.concat ",") + ")"
-    | SFn(a, b) -> "fn(" + showSTy a + ")->" + showSTy b
+    | SFn(ps, b) -> "fn(" + (ps |> List.map showSTy |> String.concat ",") + ")->" + showSTy b
     | SGraph t -> "G[" + showSTy t + "]"
     | SMap(k, v) -> "{" + showSTy k + ":" + showSTy v + "}"
     | SSet t -> "%[" + showSTy t + "]"
@@ -55,7 +55,7 @@ let rec private parseTy (s: string) : STy =
     | "bool" -> SBool
     | _ when s.StartsWith "fn(" ->
         let close = s.IndexOf ")->"
-        SFn(parseTy (s.Substring(3, close - 3)), parseTy (s.Substring(close + 3)))
+        SFn(splitTop ',' (s.Substring(3, close - 3)) |> List.map parseTy, parseTy (s.Substring(close + 3)))
     | _ when s.StartsWith "G[" -> SGraph(parseTy (s.Substring(2, s.Length - 3)))
     | _ when s.StartsWith "%[" -> SSet(parseTy (s.Substring(2, s.Length - 3)))
     | _ when s.StartsWith "Q[" -> SQ(parseTy (s.Substring(2, s.Length - 3)))
@@ -91,7 +91,7 @@ let rec private vars (t: STy) =
     | SArr t | SGraph t | SSet t | SQ t | SPQ t | SBT t -> vars t
     | SMap(k, v) -> vars k @ vars v
     | STup ts -> List.collect vars ts
-    | SFn(a, b) -> vars a @ vars b
+    | SFn(ps, b) -> List.collect vars ps @ vars b
     | _ -> []
 
 let rec private hasTup (t: STy) =

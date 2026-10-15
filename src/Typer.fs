@@ -426,8 +426,8 @@ and private stdCall name (args: E list) : E =
     let args =
         List.map2 (fun (p: Stdlib.STy) (a: E) ->
             match p, resolve a.t with
-            | Stdlib.SFn(pt, rt), TFn id ->
-                let call = userCall id [ typed (Int 0L) (toTy env pt) ]
+            | Stdlib.SFn(pts, rt), TFn id ->
+                let call = userCall id (pts |> List.map (fun pt -> typed (Int 0L) (toTy env pt)))
                 match call.k, rt with
                 | UserCall(inst, _), Stdlib.SBool when unify call.t TBool -> typed (BlockRef inst) a.t
                 | UserCall(inst, _), Stdlib.SVar v ->

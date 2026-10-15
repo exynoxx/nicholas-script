@@ -955,6 +955,30 @@ void *ns_sortby(const char *dT, const char *dK, void *arr, ns_fn f, void *env) {
   free(keys); free(ix);
   return r;
 }
+static struct { const char *dR; Arr *a; ns_fn f; void *env; } sw; // qsort context for sort with a comparer
+static int sw_call(int64_t i, int64_t j) { // comparer on elements i, j: a bool block means i < j, an int block its sign
+  const void *xy[2] = {sw.a->data + i * sw.a->esz, sw.a->data + j * sw.a->esz};
+  char r[8] = {0};
+  sw.f(sw.env, xy, r);
+  return *sw.dR == 'B' ? (r[0] ? -1 : 0) : *(int64_t *)r < 0 ? -1 : *(int64_t *)r > 0;
+}
+static int sw_cmp(const void *x, const void *y) { // stable: ties keep the original order
+  int64_t i = *(const int64_t *)x, j = *(const int64_t *)y;
+  int c = sw_call(i, j);
+  if (*sw.dR == 'B' && !c) c = -sw_call(j, i);
+  return c ? c : CMP(i, j);
+}
+//@ sort ([T], fn(T,T)->R) [T] = ns_sortwith
+void *ns_sortwith(const char *dT, const char *dR, void *arr, ns_fn f, void *env) {
+  Arr *a = arr; int64_t *ix = alloc(a->len * 8);
+  for (int64_t i = 0; i < a->len; i++) ix[i] = i;
+  sw.dR = dR; sw.a = a; sw.f = f; sw.env = env;
+  qsort(ix, a->len, 8, sw_cmp);
+  Arr *r = ns_arr_new(HD(arr)->d, a->len);
+  for (int64_t i = 0; i < a->len; i++) ns_arr_push(r, a->data + ix[i] * a->esz);
+  free(ix);
+  return r;
+}
 static void bykey(const char *dT, const char *dK, void *arr, ns_fn f, void *env, int sign, void *out) { // first best
   Arr *a = arr;
   if (!a->len) ns_panic("minkey/maxkey of empty array");

@@ -389,12 +389,18 @@ let generate (prog: Program) : string =
         if wrapped.Add inst.name then
             let saved = c
             c <- { body = StringBuilder(); allocas = StringBuilder(); locals = Dictionary(); caps = Set.empty; tmp = 0 }
-            let _, pt = inst.parms.Head
             let caps = inst.caps |> List.mapi (fun i _ -> let slot = instr $"getelementptr ptr, ptr %%env, i64 {i}" in instr $"load ptr, ptr {slot}")
-            let a = loadFrom "%x" pt
-            retain a pt // the instance owns its parameter; C passes a borrowed element
+            // one parameter: x points at it; several: x is an array of pointers to them
+            let args =
+                inst.parms |> List.mapi (fun i (_, pt) ->
+                    let p =
+                        if inst.parms.Length = 1 then "%x"
+                        else let slot = instr $"getelementptr ptr, ptr %%x, i64 {i}" in instr $"load ptr, ptr {slot}"
+                    let a = loadFrom p pt
+                    retain a pt // the instance owns its parameter; C passes a borrowed element
+                    llty pt + " " + a)
             let r = tmp ()
-            let ps = (llty pt + " " + a) :: (caps |> List.map (fun p -> "ptr " + p))
+            let ps = args @ (caps |> List.map (fun p -> "ptr " + p))
             let argList = String.concat ", " ps
             emit $"{r} = call {llty inst.ret} @\"{inst.name}\"({argList})"
             let sr = if resolve inst.ret = TBool then instr $"zext i1 {r} to i8" else r
