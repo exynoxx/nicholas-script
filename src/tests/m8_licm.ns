@@ -1,0 +1,29 @@
+# loop-invariant code motion: results must not change
+weight s = s{ord}/+
+w = "hello"
+println:(1..4){(1..3){_+weight:w}}
+# partial and invariant, inside a loop that never runs: must not divide by zero
+f x = 10/x
+z = 0
+println:#(0..0){f:z}
+# not invariant: y changes in the loop
+sq x = x*x
+y = 1
+y < 4 ~{ println:sq:y; y += 1 }
+# invariant array result, mutated per iteration: each use needs its own copy
+base n = 0..n
+println:(1..3){b = base:3; b@0 = _; b}
+# static arguments: xs and k never change in the recursion, so sort:xs runs once per outside call
+hits xs k i = i = #xs ? 0 : ((xs@i = (sort:xs)@k) ? 1 : 0) + hits:xs,k,i+1
+println:hits:[3,1,2,3],3,0
+println:hits:[5,4],0,0
+# redundant pure call: the second weight:w reads a
+a = weight:w
+c = weight:w + 1
+println:a+c
+# dead pure call
+unused = weight:w
+# borrowed parameter through a recursion (run with NS_ASAN=1 to check refcounts)
+cnt s i = i = #s ? 0 : (s@i = "l" ? 1 : 0) + cnt:s,i+1
+println:cnt:"hello",0
+println:["ab","lol"]{cnt:_,0}

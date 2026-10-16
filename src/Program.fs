@@ -37,7 +37,7 @@ let private pipelineSrc (stage: string) (src: string) (path: string) : string =
             let core = Desugar.desugar ast
             if stage = "core" then Core.showStmts core
             else
-                let typed = Typer.check core
+                let typed = Typer.check core |> Opt.run
                 if stage = "typed" then showTyped typed
                 elif stage = "repr" then Repr.describe typed
                 elif stage = "c" then CGen.generate typed

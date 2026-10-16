@@ -111,6 +111,11 @@ let generate (prog: Program) : string =
     let release (v: string) t = if isPtr t then rt "void" "ns_release" [ "ptr", v ] |> ignore
     let retain (v: string) t = if isPtr t then rt "void" "ns_retain" [ "ptr", v ] |> ignore
 
+    // a variable no callee can reassign: not captured by any instance, not a global a function touches
+    let allCaps = prog.insts |> Seq.collect (fun i -> i.caps) |> HashSet
+    let lendable (u: string) =
+        not (allCaps.Contains u) && (not (globals.Contains u) || (inMain && not (fnGlobals.Contains u)))
+
     let wrappers = StringBuilder()
     let wrapped = HashSet<string>()
 
@@ -148,14 +153,21 @@ let generate (prog: Program) : string =
         | Call(f, args) -> call e f args
         | StdCall(sg, args) -> stdCall e sg args
         | UserCall(f, args) ->
-            // user functions own all their arguments
-            let vs = List.map ex args
+            // user functions own their arguments, except borrowed parameters: those are lent and dropped after
             let inst = instByName.[f]
-            let ps = List.zip vs (inst.parms |> List.map snd) |> List.map (fun (v, t) -> llty t + " " + v)
+            let evs =
+                List.zip args inst.parms |> List.mapi (fun j (a, (p, _)) ->
+                    if inst.borrowed.Contains p && isPtr a.t then
+                        match a.k with
+                        | Var u when lendable u && List.forall noAssign (List.skip (j + 1) args) -> exB a
+                        | _ -> ex a, true
+                    else ex a, false)
+            let ps = List.zip evs (inst.parms |> List.map snd) |> List.map (fun ((v, _), t) -> llty t + " " + v)
             let cs = inst.caps |> List.map (fun u -> "ptr " + ptrOf u)
             let r = tmp ()
             let argList = ps @ cs |> String.concat ", "
             emit $"{r} = call {llty inst.ret} @\"{inst.name}\"({argList})"
+            List.zip evs args |> List.iter (fun (v, a) -> drop v a.t)
             r
         | Index(x, i) ->
             let [ (xv, xo); (iv, io) ] = exArgs 0 [ x; i ]
@@ -392,12 +404,12 @@ let generate (prog: Program) : string =
             let caps = inst.caps |> List.mapi (fun i _ -> let slot = instr $"getelementptr ptr, ptr %%env, i64 {i}" in instr $"load ptr, ptr {slot}")
             // one parameter: x points at it; several: x is an array of pointers to them
             let args =
-                inst.parms |> List.mapi (fun i (_, pt) ->
+                inst.parms |> List.mapi (fun i (u, pt) ->
                     let p =
                         if inst.parms.Length = 1 then "%x"
                         else let slot = instr $"getelementptr ptr, ptr %%x, i64 {i}" in instr $"load ptr, ptr {slot}"
                     let a = loadFrom p pt
-                    retain a pt // the instance owns its parameter; C passes a borrowed element
+                    if not (inst.borrowed.Contains u) then retain a pt // the instance owns its parameter; C passes a borrowed element
                     llty pt + " " + a)
             let r = tmp ()
             let ps = args @ (caps |> List.map (fun p -> "ptr " + p))
@@ -466,7 +478,7 @@ let generate (prog: Program) : string =
         stmts inst.body
         let r = ex inst.result
         for KeyValue(u, p) in List.ofSeq c.locals do
-            if isPtr prog.varTy.[u] then release (instr $"load ptr, ptr {p}") prog.varTy.[u]
+            if isPtr prog.varTy.[u] && not (inst.borrowed.Contains u) then release (instr $"load ptr, ptr {p}") prog.varTy.[u]
         emit ($"ret {llty inst.ret} {r}")
         let ps = (inst.parms |> List.map (fun (u, t) -> $"{llty t} %%\"p.{u}\"")) @ (inst.caps |> List.map (fun u -> $"ptr %%\"c.{u}\""))
         let parmList = String.concat ", " ps

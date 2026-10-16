@@ -1,0 +1,31 @@
+# in-place reuse: x = x{f} writes into x's own array; results must not change
+xs = [1,2,3]
+xs = xs{_*2}
+println:xs
+xs = xs{_+@}
+println:xs
+xs = xs*10
+println:xs
+# reads x inside the body: must build a new array
+xs = xs{_+xs@0}
+println:xs
+# different element type: must build a new array
+ys = xs{"a"*(_%3+1)}
+println:ys
+ys = ys{_+"!"}
+println:ys
+# another variable holds a copy; it must not change
+zs = xs
+xs = xs{0}
+println:xs
+println:zs
+# inside a function called twice on the same literal
+f a = (a = a{_+1}; a)
+println:f:[1,2]
+println:f:[1,2]
+# body calls a function that reads the global
+g = 5
+h v = v + #ws
+ws = [1,2,3]
+ws = ws{h:_}
+println:ws

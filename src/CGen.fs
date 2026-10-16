@@ -109,6 +109,11 @@ let generate (prog: Program) : string =
     let release (v: string) t = if isPtr t then rt "void" "ns_release" [ v ] |> ignore
     let retain (v: string) t = if isPtr t then rt "void" "ns_retain" [ v ] |> ignore
 
+    // a variable no callee can reassign: not captured by any instance, not a global a function touches
+    let allCaps = prog.insts |> Seq.collect (fun i -> i.caps) |> HashSet
+    let lendable (u: string) =
+        not (allCaps.Contains u) && (not (globals.Contains u) || (inMain && not (fnGlobals.Contains u)))
+
     let wrappers = StringBuilder()
     let protos = StringBuilder()
     let wrapped = HashSet<string>()
@@ -147,11 +152,19 @@ let generate (prog: Program) : string =
         | Call(f, args) -> call e f args
         | StdCall(sg, args) -> stdCall e sg args
         | UserCall(f, args) ->
-            // user functions own all their arguments
-            let vs = List.map ex args
+            // user functions own their arguments, except borrowed parameters: those are lent and dropped after
             let inst = instByName.[f]
+            let evs =
+                List.zip args inst.parms |> List.mapi (fun j (a, (p, _)) ->
+                    if inst.borrowed.Contains p && isPtr a.t then
+                        match a.k with
+                        | Var u when lendable u && List.forall noAssign (List.skip (j + 1) args) -> exB a
+                        | _ -> ex a, true
+                    else ex a, false)
             let cs = inst.caps |> List.map (fun u -> "&" + lv u)
-            rt (cty inst.ret) ("f_" + mangle inst.name) (vs @ cs)
+            let r = rt (cty inst.ret) ("f_" + mangle inst.name) ((evs |> List.map fst) @ cs)
+            List.zip evs args |> List.iter (fun (v, a) -> drop v a.t)
+            r
         | Index(x, i) ->
             let [ (xv, xo); (iv, io) ] = exArgs 0 [ x; i ]
             let r =
@@ -364,9 +377,9 @@ let generate (prog: Program) : string =
             let caps = inst.caps |> List.mapi (fun i _ -> instr "void *" $"((void **)env)[{i}]")
             // one parameter: x points at it; several: x is an array of pointers to them
             let args =
-                inst.parms |> List.mapi (fun i (_, pt) ->
+                inst.parms |> List.mapi (fun i (u, pt) ->
                     let a = loadFrom (if inst.parms.Length = 1 then "x" else $"((void *const *)x)[{i}]") pt
-                    retain a pt
+                    if not (inst.borrowed.Contains u) then retain a pt
                     a)
             let r = rt (cty inst.ret) ("f_" + mangle inst.name) (args @ caps)
             storeTo r inst.ret "out"
@@ -420,9 +433,9 @@ let generate (prog: Program) : string =
     and stmts ss = List.iter stmt ss
 
     let newCtx caps = { body = StringBuilder(); locals = StringBuilder(); vars = HashSet(); caps = caps; tmp = 0 }
-    let releaseLocals () =
+    let releaseLocals (borrowed: HashSet<string>) =
         for u in List.ofSeq c.vars do
-            if isPtr prog.varTy.[u] then release (lv u) prog.varTy.[u]
+            if isPtr prog.varTy.[u] && not (borrowed.Contains u) then release (lv u) prog.varTy.[u]
     let fns = StringBuilder()
 
     for inst in prog.insts do
@@ -430,7 +443,7 @@ let generate (prog: Program) : string =
         for (u, _) in inst.parms do emit $"{lv u} = p_{mangle u};"
         stmts inst.body
         let r = ex inst.result
-        releaseLocals ()
+        releaseLocals inst.borrowed
         emit $"return {r};"
         let ps = (inst.parms |> List.map (fun (u, t) -> $"{cty t} p_{mangle u}")) @ (inst.caps |> List.map (fun u -> $"void *c_{mangle u}"))
         let parmList = if ps.IsEmpty then "void" else String.concat ", " ps
@@ -441,7 +454,7 @@ let generate (prog: Program) : string =
     c <- newCtx Set.empty
     inMain <- true
     stmts prog.main
-    releaseLocals ()
+    releaseLocals (HashSet())
     emit "return 0;"
     fns.Append($"int main(void) {{\n{c.locals}{c.body}}}\n") |> ignore
 

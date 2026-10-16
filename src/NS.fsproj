@@ -23,6 +23,7 @@
     <Compile Include="Desugar.fs" />
     <Compile Include="Lower.fs" />
     <Compile Include="Typer.fs" />
+    <Compile Include="Opt.fs" />
     <Compile Include="Repr.fs" />
     <Compile Include="Codegen.fs" />
     <Compile Include="CGen.fs" />

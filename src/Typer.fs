@@ -16,7 +16,9 @@ and Inst =
       mutable body: S list
       mutable result: E
       owned: HashSet<string>
-      calls: HashSet<string> }
+      calls: HashSet<string>
+      /// parameters the callee only reads: callers lend them without a retain (set by Opt)
+      borrowed: HashSet<string> }
 
 type Program =
     { main: S list
@@ -489,7 +491,8 @@ and private userCall id (args: E list) : E =
                   body = []
                   result = typed (Int 0L) TInt
                   owned = HashSet()
-                  calls = HashSet() }
+                  calls = HashSet()
+                  borrowed = HashSet() }
             let fr = { parent = Some defFr; vars = Dictionary(); inst = Some inst }
             inst.parms <- tys |> List.mapi (fun i t -> declare fr ($"_{i + 1}") t, t)
             insts.[key] <- inst
