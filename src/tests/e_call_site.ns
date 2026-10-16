@@ -1,0 +1,5 @@
+f = {
+  _@0 + 1
+}
+println:f:[1]
+println:f:3

@@ -487,7 +487,12 @@ and private userCall id (args: E list) : E =
             instList.Add inst
             let saved, savedLine = cur, line
             cur <- fr
-            let ss = typeStmts (if memos.Contains id then memoize tys.Length body else body)
+            let ss =
+                try typeStmts (if memos.Contains id then memoize tys.Length body else body)
+                with CompileError(l, c, msg) when not (msg.Contains "(when called at line ") ->
+                    // the body is fine in general; say which call's argument types broke it
+                    let ats = if tys.IsEmpty then "" else " with " + (tys |> List.map showTy |> String.concat ", ")
+                    raise (CompileError(l, c, $"{msg} (when called at line {savedLine}{ats})"))
             match List.rev ss with
             | Do r :: rest ->
                 inst.result <- conv r inst.ret

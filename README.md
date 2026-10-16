@@ -141,7 +141,7 @@ println:"{a} {b}"           # => 2 1    ({expr} inside a string interpolates)
 x += 1; x *= 2; x ^^= 2
 println:x                   # => 676
 
-# A line ending in an operator or comma keeps going.
+# A line ending in an operator or comma keeps going onto an indented line.
 t = 1 +
   2
 println:t                   # => 3

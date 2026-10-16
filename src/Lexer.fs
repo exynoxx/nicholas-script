@@ -29,6 +29,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
     let mutable tokLine, tokCol = line, 0
     let mark () = (tokLine <- line; tokCol <- i - lineStart + 1)
     let mutable sectionPending = false
+    let mutable stmtIndent = 0 // indentation of the line the current statement starts on
     let at k = if i + k < n then src.[i + k] else '\000'
     let last () = if toks.Count = 0 then TERM else toks.[toks.Count - 1].tok
     let endsExpr () =
@@ -155,8 +156,13 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             i <- i + 1
             lineStart <- i
             let inParens = stack.Count > 0 && (let o, _, _ = stack.Peek() in o <> '{' && o <> '?')
-            let continues = match last () with SYM s -> s <> ")" && s <> "]" && s <> "}" | _ -> false
-            if not inParens && not continues then term ()
+            let indent = skipWs i - i
+            match last () with
+            | SYM s when s.EndsWith "(" || s.EndsWith "[" || s.EndsWith "{" -> stmtIndent <- indent
+            // a trailing operator continues the statement only onto a more indented line, so a
+            // forgotten operand errors on its own line instead of swallowing the next statement
+            | SYM s when s <> ")" && s <> "]" && s <> "}" && (inParens || indent > stmtIndent) -> ()
+            | _ -> if not inParens then (term (); stmtIndent <- indent)
         elif c = '#' && (" \t\r\n\000".IndexOf(at 1) >= 0) then
             while i < n && src.[i] <> '\n' do i <- i + 1
         elif c = ';' then (term (); i <- i + 1)

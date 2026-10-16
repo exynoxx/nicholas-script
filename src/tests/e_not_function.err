@@ -1,0 +1,3 @@
+1:5: error: 'undefinedfn' is not a function: define it with a block, e.g. f = {_+1}
+1 | x = undefinedfn:1
+  |     ^

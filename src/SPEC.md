@@ -20,7 +20,8 @@ Types are never written; every expression has one type known at compile time.
 ### Statement termination
 - A **newline** ends a statement.
 - `;` ends a statement when several share one line: `a=1; b=2; println:a+b`.
-- A newline does **not** end a statement when inside open `(` or `[`, or when the line ends with a binary operator or `,`.
+- A newline does **not** end a statement when inside open `(` or `[`, or when the line ends with a binary operator or `,`
+  and the next line is indented more than the statement's first line (so a forgotten operand errors on its own line).
 - Inside `{ }` the same rules apply; statements in a block are separated by newline or `;`.
 
 ## 2. Types

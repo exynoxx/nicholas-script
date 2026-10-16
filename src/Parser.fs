@@ -94,6 +94,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                 elif peek () <> closer then
                     match start with
                     | ID kw when foreign.ContainsKey kw -> err ($"unexpected {describeTok (peek ())} after '{kw}'; {foreign.[kw]}")
+                    | _ when isSym ":" && (match tokens.[pos - 1].tok with ID _ -> true | _ -> false) ->
+                        errAt (pos - 1) ($"{describeTok tokens.[pos - 1].tok} is not a function: define it with a block, e.g. f = {{_+1}}")
                     | _ -> err ($"expected end of statement, found {found ()}")
         List.ofSeq out
 
