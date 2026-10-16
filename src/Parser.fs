@@ -104,10 +104,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         expect closer
         body
 
-    /// Function section: a body that is just a function name calls it on `_`, so `x{int}` is `x{int:_}`.
+    /// Function section: a body that is just a function name calls it on `_`, so `x{int}` is `x{int:_}`; `x[!ws]` is `x[!ws:_]`.
     member p.SectionBlock(closer: string) =
         match p.Block closer with
         | [ SLine l; SExpr(EVar f) ] when isFunc f -> [ SLine l; SExpr(ECall(nameMark + f, [ EVar "_" ])) ]
+        | [ SLine l; SExpr(EUn("!", EVar f)) ] when isFunc f -> [ SLine l; SExpr(EUn("!", ECall(nameMark + f, [ EVar "_" ]))) ]
         | body -> body
 
     member p.Stmt() : Stmt =

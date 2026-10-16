@@ -1,0 +1,5 @@
+# !f in a section block negates the function: x[!ws] is x[!ws:_]
+println:"a b\tc"[!ws]
+println:"aB3"{!isupper}
+big = {_>2}
+println:[0,3,4,1][!big]
