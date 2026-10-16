@@ -200,10 +200,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         elif c = '~' && at 1 = '{' && endsExpr () then (sym "~{"; i <- i + 2)
         elif c = '?' && at 1 = '{' then (sym "?{"; i <- i + 2)
         elif c = '?' && at 1 = '[' && endsExpr () && not (ternaryArray ()) then (sym "?["; i <- i + 2)
-        elif c = '[' then
-            let adjacent = i > 0 && not (Char.IsWhiteSpace src.[i - 1])
-            sym (if endsExpr () && adjacent then "f[" else "[")
-            i <- i + 1
+        elif c = '[' then (sym (if endsExpr () then "f[" else "["); i <- i + 1)
         elif c = '%' && at 1 = '[' && not (endsExpr ()) then (sym "%["; i <- i + 2)
         else
             match symbols |> List.tryFind (fun s -> String.CompareOrdinal(src, i, s, 0, s.Length) = 0) with
