@@ -7,8 +7,9 @@ let fail line msg = raise (CompileError(line, 0, msg))
 let failAt line col msg = raise (CompileError(line, col, msg))
 
 /// Prefixes on ECall names the user wrote, so the typer can let a variable in scope shadow the function:
-/// `'f` is `f:args` (a non-function variable `f` makes it an error), `?f` a bare name (`x{f}`, `read`: the variable wins).
-let callMark, nameMark = "'", "?"
+/// `'f` is `f:args` (a non-function variable `f` makes it an error), `?f` a bare name (`x{f}`, `read`: the variable wins),
+/// `!f` the negated function `!f` whose one argument is the block `{!f:_}` (a variable `f` makes it a plain `!f`).
+let callMark, nameMark, negMark = "'", "?", "!"
 
 type Part =
     | Lit of string

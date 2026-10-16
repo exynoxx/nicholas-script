@@ -206,12 +206,14 @@ and typeE (e: E) : E =
                 // branches with unrelated types (e.g. two statement groups) run as a statement whose value is 0
                 let asStmt (x: E) = typed (Seq([ Do x ], typed (Int 0L) TInt)) TInt
                 typed (If(c, asStmt a, asStmt b)) TInt
-        | Call(name, args) when name.StartsWith callMark || name.StartsWith nameMark ->
+        | Call(name, args) when name.StartsWith callMark || name.StartsWith nameMark || name.StartsWith negMark ->
             let f = name.Substring 1
             match lookup f with
             | Some u when (match resolve varTy.[u] with TFn _ -> false | _ -> true) ->
                 if name.StartsWith nameMark then typeE { e with k = Var f }
+                elif name.StartsWith negMark then typeE { e with k = Call("not", [ mk (Var f) ]) }
                 else err ($"'{f.Split('\'').[0]}' is a variable here, not a function")
+            | _ when name.StartsWith negMark -> typeE args.Head
             | _ -> typeE { e with k = Call(f, args) }
         | Call(name, args) ->
             match lookup name with

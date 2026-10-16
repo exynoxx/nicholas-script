@@ -78,7 +78,7 @@ int:"42"      float:x     str:3.5     bool:n
 | 5 add     | `+ - ++` | left |
 | 5.5 shift | `<< >>` (ints; `>>` is arithmetic) | left |
 | 7 compare | `= != < > <= >=` | none |
-| 7.5 not   | `!x` (binds looser than compare, like Python `not`: `!_%2` = `!(_%2)`) | right |
+| 7.5 not   | `!x` (binds looser than compare, like Python `not`: `!_%2` = `!(_%2)`); `!f` of a function or block is the negated function: `g = !ws`, `xs.sortby:!isupper`, `!{_>2}` | right |
 | 8 logic   | `&` then `^` (xor) then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
 | 8.5 coalesce | `a ?? b` (b when a is a missing map key, see maps) | right |
 | 9 ternary | `x ?{…}` `x ?[…]` match (§5); `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (value 0); branches of unrelated types run as a statement (value 0) | right |
@@ -112,7 +112,7 @@ Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter;
 
 ### Block shortcuts
 - **Operator section**: a block body starting with a binary operator gets `_` on its left: `x{*2}`, `x[>2]`, `x{^^2}`. `-` never starts a section (`x{-1}` is the constant -1).
-- **Function section**: a map, filter or plain block whose whole body is a function name calls it on `_`: `x{int}` is `x{int:_}`, `x[even]`, `sortby:xs,{str}`; `!f` negates it: `s[!ws]` is `s[!ws:_]`.
+- **Function section**: a map, filter or plain block whose whole body is a function name calls it on `_`: `x{int}` is `x{int:_}`, `x[even]`, `sortby:xs,{str}`; so does a negated one: `s[!ws]` is `s[!ws:_]`.
 - Nested blocks: the innermost block owns `_`, `@`, `$`.
 - `_` current element, `@` (bare) current index, `$` fold accumulator.
 - `_1`, `_2`, … for multi-argument blocks. Inside a map/filter/fold/scan block they destructure the element instead (`_1` = `_@0`): `xs.pairwise{_2-_1}`, `(zip:a,b){_1*_2}`.

@@ -1,5 +1,15 @@
-# !f in a section block negates the function: x[!ws] is x[!ws:_]
+# !f of a function is the negated function; in a section x[!ws] is x[!ws:_]
 println:"a b\tc"[!ws]
 println:"aB3"{!isupper}
 big = {_>2}
 println:[0,3,4,1][!big]
+small = !big
+println:[1,5]{small}
+blank = !ws
+println:blank:" "
+println:"aBc".chars.sortby:!isupper
+println:[3,1,4].minkey:!{_>2}
+f = !{a = _; a > 2}
+println:[1,5]{f}
+b = T
+println:!b

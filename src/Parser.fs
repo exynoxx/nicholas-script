@@ -108,7 +108,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
     member p.SectionBlock(closer: string) =
         match p.Block closer with
         | [ SLine l; SExpr(EVar f) ] when isFunc f -> [ SLine l; SExpr(ECall(nameMark + f, [ EVar "_" ])) ]
-        | [ SLine l; SExpr(EUn("!", EVar f)) ] when isFunc f -> [ SLine l; SExpr(EUn("!", ECall(nameMark + f, [ EVar "_" ]))) ]
+        | [ SLine _; SExpr(ECall(f, [ EBlock(_, [], body) ])) ] when f.StartsWith negMark -> body
         | body -> body
 
     member p.Stmt() : Stmt =
@@ -129,7 +129,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             match lvs with
             | [ EVar f ] when isSym "{" || (peek () = ID "memo" && tokens.[pos + 1].tok = SYM ":") -> fnames.Add f |> ignore
             | _ -> ()
-            SAssign(lvs, p.ExprList())
+            let rhs = p.ExprList()
+            match lvs, rhs with
+            | [ EVar f ], [ ECall(g, _) ] when g.StartsWith negMark -> fnames.Add f |> ignore // g = !ws
+            | [ EVar f ], [ EBlock _ ] -> fnames.Add f |> ignore // g = !{..}
+            | _ -> ()
+            SAssign(lvs, rhs)
         | Some op ->
             let lv = p.LValues().Head
             advance ()
@@ -298,7 +303,18 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
     member p.Xor() = p.LeftAssoc([ "^" ], p.And)
     member p.And() = p.LeftAssoc([ "&" ], p.Not)
 
-    member p.Not() = if accept "!" then EUn("!", p.Not()) else p.Compare()
+    /// `!f` of a function is the negated function `{!f:_}`; `!{..}` negates the block's value.
+    member p.Not() =
+        if not (accept "!") then p.Compare()
+        else
+            let l = line ()
+            match p.Not() with
+            | EVar f when isFunc f ->
+                nextId.Value <- nextId.Value + 1
+                ECall(negMark + f, [ EBlock(nextId.Value, [], [ SLine l; SExpr(EUn("!", ECall(nameMark + f, [ EVar "_" ]))) ]) ])
+            | EBlock(id, ps, body) when (match List.tryLast body with Some(SExpr _) -> true | _ -> false) ->
+                let (SExpr r) = List.last body in EBlock(id, ps, List.take (body.Length - 1) body @ [ SExpr(EUn("!", r)) ])
+            | x -> EUn("!", x)
 
     member p.Compare() =
         let l = p.Shift()
