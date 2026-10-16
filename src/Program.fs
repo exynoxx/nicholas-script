@@ -17,7 +17,7 @@ let private showTyped (p: Typer.Program) =
 /// `path:line:col: error: msg`, then the source line with a caret under the column.
 let private showError (path: string) line col (msg: string) =
     let src = try File.ReadAllLines path with _ -> [||]
-    if line < 1 || line > src.Length then $"{path}:{line}: error: {msg}"
+    if line < 1 || line > src.Length then (let loc = if col > 0 then $"{line}:{col}" else string line in $"{path}:{loc}: error: {msg}")
     else
         let text = src.[line - 1].Replace('\t', ' ')
         let col = if col = -1 then text.TrimEnd().Length + 1 else col
@@ -27,8 +27,8 @@ let private showError (path: string) line col (msg: string) =
         $"{path}:{loc}: error: {msg}\n{line} | {text}{caret}"
 
 /// Runs the pipeline up to `stage` and returns its printable output.
-let private pipeline (stage: string) (path: string) : string =
-    let toks = Lexer.lex (File.ReadAllText path) 1 1
+let private pipelineSrc (stage: string) (src: string) (path: string) : string =
+    let toks = Lexer.lex src 1 1
     if stage = "tokens" then toks |> List.map (fun t -> $"{t.line}: {showTok t.tok}") |> String.concat "\n"
     else
         let ast = Parser.parse toks path
@@ -41,7 +41,10 @@ let private pipeline (stage: string) (path: string) : string =
                 if stage = "typed" then showTyped typed
                 elif stage = "repr" then Repr.describe typed
                 elif stage = "c" then CGen.generate typed
+                elif stage = "check" then ""
                 else Codegen.generate typed
+
+let private pipeline stage path = pipelineSrc stage (File.ReadAllText path) path
 
 let private run (exe: string) (args: string) (stdin: string option) =
     let psi = ProcessStartInfo(exe, args, RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = stdin.IsSome)
@@ -166,6 +169,7 @@ commands:
   core <file>                dump stage 3: desugared core
   typed <file>               dump stage 4: typed core (functions, captures, conversions)
   repr <file>                dump stage 5: the layout chosen for each type (register, storage, size)
+  check <file>               type-check stdin as <file>, print errors only (editor diagnostics)
   test [dir]                 run golden tests: dir/*.ns vs *.out (stdin from *.in); default ./tests
   help                       show this page
 
@@ -220,6 +224,8 @@ let main argv =
             let ll = pipeline "ll" path
             Console.Write((if flag "--pure" then pureLL ll else ll))
             0)
+    // check: lex, parse and type stdin as if it were <file> (imports resolve next to it); used by the VS Code extension
+    | [ "check"; path ] -> report path (fun () -> (pipelineSrc "check" (Console.In.ReadToEnd()) path |> ignore; 0))
     | [ "c"; path ] -> report path (fun () -> (Console.Write(pureC (pipeline "c" path)); 0))
     | [ ("tokens" | "ast" | "core" | "typed" | "repr") as stage; path ] ->
         report path (fun () -> (Console.WriteLine((pipeline stage path)); 0))

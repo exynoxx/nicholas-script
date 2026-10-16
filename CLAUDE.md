@@ -49,3 +49,4 @@ by the `CompileRuntime` target in `NS.fsproj`.
 - `src/examples/` — larger programs with `.out` (and `.in`) files; also golden tests.
 - `src/bench/` — NS vs Rust vs Python, `bench.sh`.
 - `src/tests/lib/` — files used by the import test.
+- `src/vscode/` — VS Code extension: grammar + live error squiggles via `ns check` (symlink it into `~/.vscode/extensions/ns-lang`).
