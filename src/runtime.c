@@ -488,6 +488,16 @@ void *ns_split(char *s, char *sep) {
 char *ns_lower(char *s) { char *r = str_n(s, strlen(s)); for (char *c = r; *c; c++) if (*c >= 'A' && *c <= 'Z') *c += 32; return r; }
 //@ upper (str) str
 char *ns_upper(char *s) { char *r = str_n(s, strlen(s)); for (char *c = r; *c; c++) if (*c >= 'a' && *c <= 'z') *c -= 32; return r; }
+// character classes: every char of a non-empty string matches (so they work on one char or a whole word)
+static int64_t all_of(const char *s, int (*f)(int)) { if (!*s) return 0; for (; *s; s++) if (!f((unsigned char)*s)) return 0; return 1; }
+//@ ws (str) bool
+int64_t ns_ws(char *s) { return all_of(s, isspace); }
+//@ isupper (str) bool
+int64_t ns_isupper(char *s) { return all_of(s, isupper); }
+//@ islower (str) bool
+int64_t ns_islower(char *s) { return all_of(s, islower); }
+//@ isdigit (str) bool
+int64_t ns_isdigit(char *s) { return all_of(s, isdigit); }
 //@ ord (str) int
 int64_t ns_ord(char *s) { return (unsigned char)s[0]; }
 //@ chr (int) str

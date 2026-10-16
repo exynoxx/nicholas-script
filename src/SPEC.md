@@ -319,7 +319,7 @@ Current library (see `grep '^//@' runtime.c`):
 - I/O: `read` (a line, `""` at EOF), `lines` (all remaining stdin lines); zero-argument functions are called by bare name. With a path: `read:"f.txt"` (whole file), `lines:"f.txt"` (its lines, without `\n`); a missing file is a runtime error
 - math: `min max` (two values or one array), `abs pow sqrt floor ceil round gcd lcm sum prod` (`sum/prod` of `[]` are 0/1)
 - bits: `rotl rotr popcount hex`; operators `& | ^ << >> >>>`; literals `0xff 0b101`
-- strings: `lower upper trim replace chars split join ord chr find starts ends nums`; `"hello".starts:"he"` → `T`
+- strings: `lower upper trim replace chars split join ord chr find starts ends nums ws isupper islower isdigit`; the last four are T when every char of a non-empty string is whitespace, A–Z, a–z, 0–9: `"aB 3"[isupper]` → `"B"`, `s[ws]`; `"hello".starts:"he"` → `T`
 - graphs: `G DG nodes edges rev subgraph`, plus the operator forms above (`nbrs weight hasedge addedge deledge delnode gunion ginter gdiff`)
 - arrays: `sort rev uniq zip find bsearch sortby minkey maxkey flatmap pairwise tuple2 tuple3`; `pairwise:[1,2,3]` → `[(1,2),(2,3)]`; `flatmap` flattens one level of an array of arrays or of same-typed pairs or triples: `[[1,2],[3]]` and `[(1,2),(3,4)]` → `[1,2,3,4]`; `xs.sort:{_1>_2}` sorts with a comparer block on two elements (bool: first goes before second; int: negative/zero/positive like `{_1-_2}`; stable); `maxkey:ws,{#_}` → the longest word (first one on ties), `minkey` the shortest; on a map, `c.maxkey` is the key with the largest value
 

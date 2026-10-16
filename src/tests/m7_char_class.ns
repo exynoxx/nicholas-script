@@ -1,0 +1,7 @@
+println:"aB3 x\t"[ws]
+println:"aB3 xY"[isupper]
+println:"aB3 xY"[islower]
+println:"aB3 xY"[isdigit]
+println:["ABC".isupper, " ".ws, "".ws, "12a".isdigit]
+ws = "hi there".split:" "
+println:ws
