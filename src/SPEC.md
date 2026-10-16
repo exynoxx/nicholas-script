@@ -247,6 +247,7 @@ Named parameters are local to the function: assigning one never changes an outer
 A parameter `(a, b, …)` unpacks a tuple or array argument (`_` skips an element: `mid (_, b, _) = b`): `dot (a, b) (c, d) = a*c + b*d`, `dot:(1,2),(3,4)`.
 Blocks capture variables from the enclosing scope **by reference** (`s=0; x{s+=_}` updates `s`). In v1 blocks may not escape (be returned or stored in collections), so captures live on the stack.
 A name is bound before its block body is checked, so blocks can recurse: `f={_<2?_:f:_-1}`.
+A variable or parameter named like a builtin or stdlib function shadows it in its scope: after `max = 3`, `xs{max}` is `3` per element and `max:xs` is an error ('max' is a variable here); `.max` method calls still reach the function.
 A function's parameter types are inferred per call site (monomorphised at compile time).
 
 `memo:{…}` memoizes a block (Python's `@lru_cache`, unbounded): each call first looks its arguments up in a cache,

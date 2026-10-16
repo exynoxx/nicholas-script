@@ -1,0 +1,2 @@
+max = 3
+println:max:[1,2]

@@ -35,6 +35,9 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
     | EBin(op, a, b) -> mk (Bin(op, ex a, ex b))
     | EUn(op, x) -> call (match op with "-" -> "neg" | "!" -> "not" | _ -> "len") [ x ]
     | ETern(c, a, b) -> mk (If(ex c, ex a, ex b))
+    | ECall(f, args) when f.StartsWith callMark || f.StartsWith nameMark -> // a block param may shadow the function
+        let n = f.Substring 1
+        call (f.Substring(0, 1) + defaultArg (Map.tryFind n env) n) args
     | ECall(f, args) -> call f args
     | EIndex(x, ERange(a, b)) -> call "slice" [ x; a; b ]
     | EIndex(x, i) -> mk (Index(ex x, ex i))

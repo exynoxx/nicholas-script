@@ -107,7 +107,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
     /// Function section: a body that is just a function name calls it on `_`, so `x{int}` is `x{int:_}`.
     member p.SectionBlock(closer: string) =
         match p.Block closer with
-        | [ SLine l; SExpr(EVar f) ] when isFunc f -> [ SLine l; SExpr(ECall(f, [ EVar "_" ])) ]
+        | [ SLine l; SExpr(EVar f) ] when isFunc f -> [ SLine l; SExpr(ECall(nameMark + f, [ EVar "_" ])) ]
         | body -> body
 
     member p.Stmt() : Stmt =
@@ -384,8 +384,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                     let sub = Parser(Array.ofList (Lexer.lex src l c), fnames, nextId, imports)
                     sub.InterpExpr())
             |> EInterp
-        | ID name when isFunc name && isSym ":" -> (advance (); ECall(name, p.ExprList()))
-        | ID name when zeroArity.Contains name -> ECall(name, [])
+        | ID name when isFunc name && isSym ":" -> (advance (); ECall(callMark + name, p.ExprList()))
+        | ID name when zeroArity.Contains name -> ECall(nameMark + name, [])
         | ID name -> EVar name
         | SYM "(" when p.GroupAhead() -> EGroup(p.Block ")")
         | SYM "(" ->

@@ -6,6 +6,10 @@ exception CompileError of int * int * string
 let fail line msg = raise (CompileError(line, 0, msg))
 let failAt line col msg = raise (CompileError(line, col, msg))
 
+/// Prefixes on ECall names the user wrote, so the typer can let a variable in scope shadow the function:
+/// `'f` is `f:args` (a non-function variable `f` makes it an error), `?f` a bare name (`x{f}`, `read`: the variable wins).
+let callMark, nameMark = "'", "?"
+
 type Part =
     | Lit of string
     | Code of string * int * int // source, line, column

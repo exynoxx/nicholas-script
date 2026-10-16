@@ -1,0 +1,2 @@
+2: error: 'max' is a variable here, not a function
+2 | println:max:[1,2]
