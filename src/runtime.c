@@ -580,7 +580,13 @@ static void gstr(Buf *b, const char *dT, Graph *g);
 static void tostr(Buf *b, const char *d, const void *v, int q) {
   char tmp[40];
   switch (*d) {
-  case 'I': snprintf(tmp, sizeof tmp, "%lld", (long long)ldi(v)); put(b, tmp); break;
+  case 'I': { // by hand: snprintf dominates building strings from ints
+    int64_t x = ldi(v); uint64_t u = x < 0 ? -(uint64_t)x : (uint64_t)x;
+    char *p = tmp + sizeof tmp - 1; *p = 0;
+    do *--p = '0' + u % 10; while (u /= 10);
+    if (x < 0) *--p = '-';
+    put(b, p); break;
+  }
   case 'F': fmt_float(tmp, ldf(v)); put(b, tmp); break;
   case 'B': put(b, ldb(v) ? "T" : "F"); break;
   case 'S': if (q) put(b, "\""); put(b, ldp(v)); if (q) put(b, "\""); break;
@@ -622,6 +628,29 @@ char *ns_join(const char *elemd, void *arr, char *sep) {
 }
 //@ join ([T]) str = ns_join0
 char *ns_join0(const char *elemd, void *arr) { return ns_join(elemd, arr, ""); }
+
+// String builder for Opt (no //@: not user-callable): joins of map loops, `a + b + c`, `s = s + x` loops.
+// An A<B> whose buffer holds {Hdr, chars}, so done turns the buffer itself into the string object.
+void *ns_sb_new(void) {
+  Arr *a = obj("AB", sizeof(Arr));
+  a->esz = 1; a->cap = 64; a->data = alloc(a->cap); a->len = sizeof(Hdr);
+  return a;
+}
+int64_t ns_sb_put(const char *d, void *w, const void *x) { // appends x as print shows it
+  Arr *a = w; Buf b = {a->data, a->len, a->cap};
+  tostr(&b, d, x, 0);
+  a->data = b.p; a->len = b.n; a->cap = b.cap;
+  return 0;
+}
+char *ns_sb_done(void *w, char *sep) { // sep: put after every element by a join; the last one is dropped
+  Arr *a = w;
+  if (a->len > (int64_t)sizeof(Hdr)) a->len -= strlen(sep);
+  Hdr *h = grow(a->data, a->len + 1);
+  ((char *)h)[a->len] = 0;
+  h->rc = 1; h->d = "S";
+  a->data = NULL; a->len = a->cap = 0;
+  return (char *)(h + 1);
+}
 
 // ---------- sort and generic collection ops ----------
 static const char *sort_d; // qsort has no context argument

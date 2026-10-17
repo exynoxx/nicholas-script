@@ -29,7 +29,7 @@ by the `CompileRuntime` target in `NS.fsproj`.
 | — | `Core.fs` | | core IR: `Ty` (with `THole` unification vars), `E`/`K`, `S`, `Iter` |
 | 4 | `Typer.fs` | core → typed core (`Typer.Program`) | inference + unification, left-operand conversion (`conv`, `typeBin`), scopes/captures (`Frame`, `propagateCaptures`), monomorphising blocks per call site (`userCall`, `Inst`), primitives in `builtin` (`print`, casts, `neg`, `len`, `has`, `set`…), runtime stdlib in `stdCall` |
 | — | `Lower.fs` | | type-directed rewrites the typer invokes: `iter` (fuses map/filter/fold/scan chains into one loop), `broadcast` (array arithmetic), `convArr` |
-| 4b | `Opt.fs` | typed core → typed core | effect summaries; LICM, static-argument hoisting, pure-call CSE, dead pure code, borrowed parameters, in-place `x = x{f}` (FBIP) |
+| 4b | `Opt.fs` | typed core → typed core | effect summaries; LICM, static-argument hoisting, pure-call CSE, dead pure code, borrowed parameters, in-place `x = x{f}` (FBIP), string building (`ns_sb_*` builder for `.join` of loops, 3+-part `+`, `s = s + e` loops) |
 | 5 | `Repr.fs` | | memory layout per type: `llty` register type, `storage`/`esz` in containers, `desc` runtime descriptor, value vs boxed tuples |
 | 6 | `Codegen.fs` | typed core → LLVM IR text | `generate`; refcount retain/release, inline element access |
 | 6b | `CGen.fs` | typed core → C text | twin of `Codegen.fs` (same refcounting/layouts, goto control flow); `ns c f.ns`, `--c` on run/build/test, `$CC` (default `cc`) |

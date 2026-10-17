@@ -1,0 +1,46 @@
+# join of a map/filter loop: elements go into one builder, `{str}` is skipped
+xs = [3,1,4,1,5]
+println:xs{str}.join
+println:xs{_*2}.join:", "
+println:xs[_>1]{str}.join:"-"
+println:xs[_>9]{str}.join:"-"
+println:[1.5,2.0]{_*2}.join:"|"
+println:[T,F]{!_}.join:","
+println:[[1,2],[3]]{_}.join:";"
+sep = "+"
+println:xs{_}.join:sep
+w = "a,b,c".split:","
+println:w{_+_}.join
+
+# 3+ parts: one builder
+a = 7
+b = "x"
+println:"a={a} b={b} c={a*2}!"
+println:b + a + b + 1.5 + T
+
+# s = s + e in a loop that touches s nowhere else
+s = ""
+i = 0
+(i < 5) ~{ s += "{i},"; i += 1 }
+println:s
+t = "start:"
+xs{t = t + _}
+println:t
+u = "<"
+[1,2]{ [7,8]{ u = u + "{_}" } }
+println:u
+e = "empty"
+[]{e = e + "never"}
+println:e
+
+# not rewritten: s is read in the loop, doubled, or read by a callee
+r = ""
+xs{r = r + #r}
+println:r
+d = "ab"
+i = 0
+(i < 3) ~{ d = d + d; i += 1 }
+println:d
+g = ""
+show = { println:g }
+xs{g = g + _; show:0}
