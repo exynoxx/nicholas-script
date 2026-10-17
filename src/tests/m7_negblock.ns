@@ -1,0 +1,8 @@
+# x[!{..}]: the negated block is a function called on each element; it must return bool
+println:[1,2,3][!{_>2}]
+println:[1,2,3]{!{_>2}}
+println:"aBc"[!{isupper:_}]
+g = !{_%2=0}
+println:[1,2,3,4][g]
+println:[1,2,3,4].sortby:!{_>2}
+println:[1,2,3][!(_>2)]

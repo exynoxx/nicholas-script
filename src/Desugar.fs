@@ -33,7 +33,7 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
     | ECollLit(kind, xs) -> mk (Call(kind, [ mk (Arr(List.map ex xs)) ]))
     | ERange(a, b) -> call "range" [ a; b ]
     | EBin(op, a, b) -> mk (Bin(op, ex a, ex b))
-    | EUn(op, x) -> call (match op with "-" -> "neg" | "!" -> "not" | _ -> "len") [ x ]
+    | EUn(op, x) -> call (match op with "-" -> "neg" | "!" -> "not" | "!b" -> "notbool" | _ -> "len") [ x ]
     | ETern(c, a, b) -> mk (If(ex c, ex a, ex b))
     | ECall(f, args) when f.StartsWith callMark || f.StartsWith nameMark || f.StartsWith negMark -> // a block param may shadow the function
         let n = f.Substring 1

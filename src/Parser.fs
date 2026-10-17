@@ -104,10 +104,14 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         expect closer
         body
 
-    /// Function section: a body that is just a function name calls it on `_`, so `x{int}` is `x{int:_}`; `x[!ws]` is `x[!ws:_]`.
+    /// Function section: a body that is just a function name calls it on `_`, so `x{int}` is `x{int:_}`; `x[!ws]` is `x[!ws:_]`;
+    /// `x[!{..}]` binds the negated block to a hidden name and calls it on `_`.
     member p.SectionBlock(closer: string) =
         match p.Block closer with
         | [ SLine l; SExpr(EVar f) ] when isFunc f -> [ SLine l; SExpr(ECall(nameMark + f, [ EVar "_" ])) ]
+        | [ SLine l; SExpr(EBlock(id, [], body) as b) ] when (match List.tryLast body with Some(SExpr(EUn("!b", _))) -> true | _ -> false) ->
+            let f = $"not'{id}"
+            [ SLine l; SAssign([ EVar f ], [ b ]); SExpr(ECall(callMark + f, [ EVar "_" ])) ]
         | [ SLine _; SExpr(ECall(f, [ EBlock(_, [], body) ])) ] when f.StartsWith negMark -> body
         | body -> body
 
@@ -313,7 +317,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                 nextId.Value <- nextId.Value + 1
                 ECall(negMark + f, [ EBlock(nextId.Value, [], [ SLine l; SExpr(EUn("!", ECall(nameMark + f, [ EVar "_" ]))) ]) ])
             | EBlock(id, ps, body) when (match List.tryLast body with Some(SExpr _) -> true | _ -> false) ->
-                let (SExpr r) = List.last body in EBlock(id, ps, List.take (body.Length - 1) body @ [ SExpr(EUn("!", r)) ])
+                // "!b": the block must return a bool (no truthiness), checked by the typer
+                let (SExpr r) = List.last body in EBlock(id, ps, List.take (body.Length - 1) body @ [ SExpr(EUn("!b", r)) ])
             | x -> EUn("!", x)
 
     member p.Compare() =

@@ -133,6 +133,7 @@ let rec private tryConv (e: E) (ty: Ty) : E option =
     if unify a b then Some e
     else
         match a, b with
+        | TFn _, _ -> None // a block is not a value: no truthiness or text
         | _ when isScalar a && isScalar b -> Some(typed (Conv e) b)
         | _, TStr | _, TBool -> Some(typed (Conv e) b)
         | TArr _, TArr y when isScalar y -> Some(typeE (Lower.convArr e (castName y)))
@@ -141,7 +142,16 @@ let rec private tryConv (e: E) (ty: Ty) : E option =
 and private conv (e: E) (ty: Ty) : E =
     match tryConv e ty with
     | Some e -> e
-    | None -> err ($"cannot convert {showTy e.t} to {showTy ty}")
+    | None ->
+        match resolve e.t with
+        | TFn _ -> err ($"a block can't be used as {showTy ty}; to filter or test, write the condition itself: x[_>2], not x[{{_>2}}]")
+        | _ -> err ($"cannot convert {showTy e.t} to {showTy ty}")
+
+/// Blocks can't escape, so none can be put into an array (also catches a map whose body is a block: x{{..}}).
+and private stored (x: E) : E =
+    match resolve x.t with
+    | TFn _ -> err "a block can't be stored in an array; to map, write x{_+1}, not x{{_+1}}"
+    | _ -> x
 
 // ---------- expressions ----------
 
@@ -159,7 +169,7 @@ and typeE (e: E) : E =
             | None -> err ($"undefined variable '{name}'")
         | Arr [] -> typed (Arr []) (TArr(newHole ()))
         | Arr xs ->
-            let xs = List.map typeE xs
+            let xs = List.map (typeE >> stored) xs
             let el = xs.Head.t
             typed (Arr(xs |> List.map (fun x -> own (conv x el)))) (TArr el)
         | Bin(op, { k = Bin("??", { k = Index(x, i) }, { k = Call("zero", []) }) }, b) ->
@@ -360,6 +370,9 @@ and private builtin name (args: E list) : E =
         | _ -> typed (Call("neg", [ conv x TInt ])) TInt
     | "entries", [ x ] -> (match resolve x.t with TMap _ -> stdCall "items" [ x ] | _ -> x)
     | "not", [ x ] -> typed (Call("not", [ conv x TBool ])) TBool
+    | "notbool", [ x ] -> // `!{..}`: the block's value must be a bool
+        if unify (resolve x.t) TBool then typed (Call("not", [ x ])) TBool
+        else err ($"!{{..}} negates a block that must return bool, but this one returns {showTy x.t}")
     | "len", [ x ] -> (elemOf x |> ignore; call TInt)
     | "has", [ c; x ] when (match resolve c.t with TGraph n -> isEdge n x | _ -> false) -> stdCall "hasedge" [ c; x ]
     | "has", [ c; x ] when (match resolve c.t with TTree _ -> true | _ -> false) -> treeOp "bthas" c x
@@ -394,7 +407,7 @@ and private builtin name (args: E list) : E =
         typed (Seq(Assign(u, typed (Call("BT", [])) t) :: fill, tv)) t
     | "push", [ a; x ] ->
         match resolve a.t with
-        | TArr el -> typed (Call("push", [ a; own (conv x el) ])) a.t
+        | TArr el -> typed (Call("push", [ a; own (conv (stored x) el) ])) a.t
         | t -> err ($"push: not an array: {showTy t}")
     | "panic", [ msg ] -> call TInt
     | "memo", [ { k = Fn(id, _) } as f ] -> (memos.Add id |> ignore; f)

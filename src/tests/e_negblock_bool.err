@@ -1,0 +1,2 @@
+1: error: !{..} negates a block that must return bool, but this one returns int (when called at line 1 with int)
+1 | println:[1,2,3][!{_+1}]
