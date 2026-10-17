@@ -49,6 +49,7 @@ Best of 3 runs in seconds, with all three languages measured in the same session
 | hashcount | 0.104 | 0.116 | 2.869 | 1.1× slower | 24.7× faster |
 | fib | 0.338 | 0.284 | 15.567 | 1.2× faster | 54.8× faster |
 | dijkstra | 0.222 | 0.618 | 6.382 | 2.8× slower | 10.3× faster |
+| dfs | 0.785 | 1.237 | 4.347 | 1.6× slower | 3.5× faster |
 
 Sources and runner: [`src/bench`](src/bench).
 
