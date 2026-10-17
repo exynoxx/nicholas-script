@@ -1,0 +1,12 @@
+# x${key}: sort by key (stable); a map sorts its (key, value) pairs
+xs = [3,1,2,1]
+println:xs${_}
+println:xs${-_}
+println:xs${_}{*10}[>10]
+w = ["bb","a","ccc","dd"]
+println:w${#_}
+m = ["a"->3,"b"->1,"c"->2]
+println:m${_2}
+println:m${-_2}{_1}.join
+println:m.items.sort
+println:"hello"${_}

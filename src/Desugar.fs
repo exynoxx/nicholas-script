@@ -43,6 +43,17 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
     | EIndex(x, i) -> mk (Index(ex x, ex i))
     | EHas(x, k) -> call "has" [ x; k ]
     | EIter(kind, src, body) -> iter env kind (ex src) (fun env' -> block env' body)
+    | ESort(src, body) ->
+        // x{(key, @, _)}.sort{_3}: the index breaks ties, so equal keys keep their order; a map sorts its (k,v) pairs
+        let keyed =
+            iter env IMap (mk (Call("entries", [ ex src ]))) (fun env' ->
+                let ss = block env' body
+                let last = ss |> List.findIndexBack (function Do _ -> true | _ -> false)
+                ss |> List.mapi (fun j s ->
+                    match s with
+                    | Do key when j = last -> Do(mk (Call("tuple", [ key; mk (Var env'.["@"]); mk (Var env'.["_"]) ])))
+                    | s -> s))
+        iter env IMap (mk (Call("sort", [ keyed ]))) (fun env' -> [ Do(mk (Index(mk (Var env'.["_"]), mk (Int 2L)))) ])
     | EIterOp(kind, src, op) ->
         iter env kind (ex src) (fun (env': Map<string, string>) ->
             let acc, el = mk (Var env'.["$"]), mk (Var env'.["_"])

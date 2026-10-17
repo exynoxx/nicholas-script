@@ -343,6 +343,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             | SYM "m{" -> (advance (); e <- EIter(IMap, e, p.SectionBlock "}"))
             | SYM "f[" -> (advance (); e <- EIter(IFilter, e, p.SectionBlock "]"))
             | SYM "/{" -> (advance (); e <- EIter(IFold, e, p.Block "}"))
+            | SYM "${" -> (advance (); e <- ESort(e, p.SectionBlock "}"))
             | SYM "\\{" -> (advance (); e <- EIter(IScan, e, p.Block "}"))
             | FOLDOP op -> (advance (); e <- EIterOp(IFold, e, op))
             | SCANOP op -> (advance (); e <- EIterOp(IScan, e, op))

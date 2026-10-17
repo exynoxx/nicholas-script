@@ -12,7 +12,7 @@ let private symbols =
 
 /// A block starting with one of these gets an implicit `_` on its left (operator section).
 let private sectionOps = set [ "+"; "*"; "/"; "%"; "^^"; "++"; "^"; "<<"; ">>"; ">>>"; ">>>"; "="; "!="; "<"; ">"; "<="; ">="; "&"; "|" ]
-let private openers = set [ "{"; "m{"; "f["; "/{"; "\\{" ]
+let private openers = set [ "{"; "m{"; "f["; "/{"; "\\{"; "${" ]
 let private foldOps = [ "+"; "*"; ">"; "<"; "&"; "|"; "^"; "-" ]
 
 /// `startCol` is the column of src's first character (interpolations are lexed on their own).
@@ -49,7 +49,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         match s with
         | "(" -> stack.Push('(', tokLine, tokCol)
         | "[" | "f[" | "%[" | "Q[" | "PQ[" | "BT[" | "G[" | "DG[" -> stack.Push('[', tokLine, tokCol)
-        | "{" | "m{" | "~{" | "/{" | "\\{" | "?{" -> stack.Push('{', tokLine, tokCol)
+        | "{" | "m{" | "~{" | "/{" | "\\{" | "?{" | "${" -> stack.Push('{', tokLine, tokCol)
         | "?[" -> stack.Push('?', tokLine, tokCol)
         | ")" | "]" | "}" ->
             if stack.Count = 0 then failAt tokLine tokCol $"'{s}' has no matching opening bracket"
@@ -169,6 +169,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         elif Char.IsDigit c || (c = '.' && Char.IsDigit(at 1) && not (endsExpr ())) then lexNumber ()
         elif c = '-' && digitNext 1 && not (endsExpr ()) then lexNumber ()
         elif c = '"' then lexString ()
+        elif c = '$' && at 1 = '{' && endsExpr () then (sym "${"; i <- i + 2) // `x${key}` sorts by key
         elif c = '$' then (add (ID "$"); i <- i + 1)
         elif c = '_' then
             let start = i

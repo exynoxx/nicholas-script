@@ -794,6 +794,12 @@ void *ns_zip(const char *dA, const char *dB, const char *dR, void *a, void *b) {
   }
   return r;
 }
+//@ items ({K:V}) [(K,V)]
+void *ns_items(const char *dK, const char *dV, const char *dR, void *m) { // (key, value) pairs in hash order
+  void *k = ns_toarr("M", m), *v = ns_map_vals(m), *r = ns_zip(dK, dV, dR, k, v);
+  ns_release(k); ns_release(v);
+  return r;
+}
 static void tuplen(const char *dT, const char *dR, void *a, int n, void *out) { // first n elements as a tuple
   Arr *x = a;
   if (x->len < n) ns_panic("tuple: array too short");

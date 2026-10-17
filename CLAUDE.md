@@ -22,7 +22,7 @@ by the `CompileRuntime` target in `NS.fsproj`.
 
 | stage | file | in → out | look here for |
 |---|---|---|---|
-| 1 | `Lexer.fs` | text → `Token list` | every context-sensitive decision: `m{` map vs `{` block, `f[` filter vs `[` literal, `/{` `\{` fold/scan, `FOLDOP`/`SCANOP` (`/+`), `~{` while, `?{` `?[` match (`?[..]:` stays a ternary), `-` number vs minus, `#` comment vs length, operator sections (`sectionOps`, inserts `_`), newline continuation |
+| 1 | `Lexer.fs` | text → `Token list` | every context-sensitive decision: `m{` map vs `{` block, `f[` filter vs `[` literal, `/{` `\{` fold/scan, `${` sort, `${` sort, `FOLDOP`/`SCANOP` (`/+`), `~{` while, `?{` `?[` match (`?[..]:` stays a ternary), `-` number vs minus, `#` comment vs length, operator sections (`sectionOps`, inserts `_`), newline continuation |
 | 2 | `Parser.fs` | tokens → surface AST (`Ast.Expr`/`Stmt`) | recursive descent, one member per precedence level (`Expr` ternary → `Or` … `Pow` → `Prefix` → `Postfix` → `Primary` → `Base`). `f:args` calls only when `isFunc` (builtins + `Stdlib.names` + names assigned a block). `.method`, `@` index, `import` splicing, `SectionBlock` (`x{int}` = `x{int:_}`), `RangeEnd` (`0..n-1`), `GroupAhead` (`(s1; s2)` → `EGroup`), else-less ternary in `Expr` |
 | — | `Ast.fs` | | token + surface AST types, `CompileError`/`fail`, printers |
 | 3 | `Desugar.fs` | AST → `Core` (untyped) | type-free sugar: interpolation → `+`, ranges/slices → calls, `[x]*n` → `repeat`, parallel assign via temps, `_ @ $` renamed to fresh per-block vars, fold ops `/>` `/<` → `If` |

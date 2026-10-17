@@ -21,7 +21,7 @@ type Tok =
     | STR of Part list
     | BOOL of bool
     | ID of string    // names, plus "_", "_1", "$" and bare "@"
-    | SYM of string   // operators and brackets; context forms: "f[" filter, "m{" map, "~{" while, "/{" "\{" fold/scan, "%[" "Q[" "PQ[" "BT[" "G[" "DG["
+    | SYM of string   // operators and brackets; context forms: "f[" filter, "m{" map, "${" sort, "~{" while, "/{" "\{" fold/scan, "%[" "Q[" "PQ[" "BT[" "G[" "DG["
     | FOLDOP of string
     | SCANOP of string
     | TERM
@@ -58,6 +58,7 @@ type Expr =
     | EHas of Expr * Expr
     | EIter of IterKind * Expr * Stmt list
     | EIterOp of IterKind * Expr * string // fold or scan with an operator
+    | ESort of Expr * Stmt list // `x${key}`
     | EBlock of int * string list list * Stmt list // id, named params (`f a (b, c) = …`; a group unpacks), body
     | EGroup of Stmt list               // (s1; s2; value)
     | EMatch of string * Expr * Expr    // "map" `x ?{}` | "filter" `x ?[]` | "whole" (array-literal pattern): subject, arms (`_` = subject/element)
@@ -123,6 +124,7 @@ let rec showExpr (e: Expr) : string =
     | EHas(x, k) -> $"EHas({showExpr x}, {showExpr k})"
     | EIter(k, src, body) -> $"EIter({showKind k}, {showExpr src}, {showStmts body})"
     | EIterOp(k, src, op) -> $"EIterOp({showKind k}, {showExpr src}, {op})"
+    | ESort(src, body) -> $"ESort({showExpr src}, {showStmts body})"
     | EBlock(id, ps, body) -> $"EBlock({id}, {ps}, {showStmts body})"
     | EGroup body -> $"EGroup {showStmts body}"
     | EMatch(kind, x, arms) -> $"EMatch({kind}, {showExpr x}, {showExpr arms})"

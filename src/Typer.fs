@@ -351,6 +351,7 @@ and private builtin name (args: E list) : E =
         | TArr _ -> typeE (Lower.broadcast "*" x (typed (Int -1L) TInt) false)
         | TGraph _ -> stdCall "rev" [ x ]
         | _ -> typed (Call("neg", [ conv x TInt ])) TInt
+    | "entries", [ x ] -> (match resolve x.t with TMap _ -> stdCall "items" [ x ] | _ -> x)
     | "not", [ x ] -> typed (Call("not", [ conv x TBool ])) TBool
     | "len", [ x ] -> (elemOf x |> ignore; call TInt)
     | "has", [ c; x ] when (match resolve c.t with TGraph n -> isEdge n x | _ -> false) -> stdCall "hasedge" [ c; x ]

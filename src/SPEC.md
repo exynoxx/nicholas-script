@@ -71,7 +71,7 @@ int:"42"      float:x     str:3.5     bool:n
 | Level | Ops | Assoc |
 |-------|-----|-------|
 | 0 primary | `a..b` range (start is an atom; end is `+ - * / %` over atoms, so `0..n-1` ends at n-1; postfix `{}` `[]` `/+` still apply to the range) | none |
-| 1 postfix | `x{…}` map, `x[…]` filter, `x/{…}` `x/op` fold, `x\{…}` `x\op` scan, `x@i` index, `.name` method call | left |
+| 1 postfix | `x{…}` map, `x[…]` filter, `x${…}` sort, `x/{…}` `x/op` fold, `x\{…}` `x\op` scan, `x@i` index, `.name` method call | left |
 | 2 prefix  | `-x` `#x` (length) | right |
 | 3 power   | `^^` | right |
 | 4 mul     | `* / %` | left |
@@ -106,8 +106,10 @@ x@1..3           # slice (elements 1,2); `@` takes a range operand
 | fold     | `x/{body}`      | `x/{$+_}`    | `$` = accumulator, seeded with first element; no seed syntax, folding an empty collection is a runtime error |
 | op-fold  | `x/op`          | `x/+`        | sum, `x/*` product, `x/>` max, `x/<` min, `x/&` all, `x/\|` any |
 | scan     | `x\{body}` `x\op` | `x\+`      | running fold, returns array |
+| sort     | `x${key}`       | `w${#_}`     | array sorted by key (stable; `x${-_}` descending); later ops see the sorted order: `w${#_}{upper}`. On a map `_` is a `(key, value)` tuple: `m${-_2}{_1}` = keys by value, largest first |
 
 `/op` is a fold only when no operand follows the op (`x/-1` is division).
+`${` directly after an expression is a sort; elsewhere `$` stays the fold accumulator.
 Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter; otherwise it starts a literal. `/` followed by `{` (spaces allowed: `x / {$+_}`) or an operator token is a fold; otherwise division.
 
 ### Block shortcuts
@@ -322,6 +324,7 @@ Current library (see `grep '^//@' runtime.c`):
 - bits: `rotl rotr popcount hex`; operators `& | ^ << >> >>>`; literals `0xff 0b101`
 - strings: `lower upper trim replace chars split join ord chr find starts ends nums ws isupper islower isdigit`; the last four are T when every char of a non-empty string is whitespace, A–Z, a–z, 0–9: `"aB 3"[isupper]` → `"B"`, `s[ws]`; `"hello".starts:"he"` → `T`
 - graphs: `G DG nodes edges rev subgraph`, plus the operator forms above (`nbrs weight hasedge addedge deledge delnode gunion ginter gdiff`)
+- maps: `items` → `[(key, value)]` in hash order
 - arrays: `sort rev uniq zip find bsearch sortby minkey maxkey flatmap pairwise tuple2 tuple3`; `pairwise:[1,2,3]` → `[(1,2),(2,3)]`; `flatmap` flattens one level of an array of arrays or of same-typed pairs or triples: `[[1,2],[3]]` and `[(1,2),(3,4)]` → `[1,2,3,4]`; `xs.sort:{_1>_2}` sorts with a comparer block on two elements (bool: first goes before second; int: negative/zero/positive like `{_1-_2}`; stable); `maxkey:ws,{#_}` → the longest word (first one on ties), `minkey` the shortest; on a map, `c.maxkey` is the key with the largest value
 
 ## 8. Examples
