@@ -48,7 +48,7 @@ let private mutatingBuiltins = set [ "push"; "add"; "del"; "merge" ]
 let private pureStd =
     set [ "rev"; "chars"; "split"; "lower"; "upper"; "ws"; "isupper"; "islower"; "isdigit"; "ord"; "chr"; "join"
           "sort"; "keys"; "vals"; "arr"; "min"; "max"; "hex"; "gcd"; "pow"; "zip"; "uniq"; "find"; "bsearch"; "sortby"
-          "minkey"; "maxkey"; "flatmap"; "pairwise"; "tuple2"; "tuple3"; "nums" ]
+          "minkey"; "maxkey"; "flatmap"; "pairwise"; "tuple2"; "tuple3"; "nums"; "take"; "items" ]
 /// Of those, the ones that never fail.
 let private totalStd = set [ "rev"; "chars"; "split"; "lower"; "upper"; "ws"; "isupper"; "islower"; "isdigit"; "join"; "sort"; "keys"; "vals"; "arr"; "hex"; "zip"; "uniq"; "pairwise"; "nums" ]
 

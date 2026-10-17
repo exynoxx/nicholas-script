@@ -217,6 +217,8 @@ and typeE (e: E) : E =
                 else err ($"'{f.Split('\'').[0]}' is a variable here, not a function")
             | _ when name.StartsWith negMark -> typeE args.Head
             | _ -> typeE { e with k = Call(f, args) }
+        | Call("take", [ { k = Iter it }; k ]) when (it.kind = IMap || it.kind = IFilter) && (lookup "take").IsNone ->
+            typeIter it (Some k)
         | Call(name, args) ->
             match lookup name with
             | Some u when (match resolve varTy.[u] with TFn _ -> true | _ -> false) ->
@@ -224,22 +226,7 @@ and typeE (e: E) : E =
                 userCall id (List.map (typeE >> own) args)
             | _ -> builtin name (List.map typeE args)
         | Index(x, i) -> typeIndex (typeE x) (typeE i)
-        | Iter it ->
-            // collect a chain of map/filter stages feeding this one (innermost first)
-            let rec chain (it: Iter) acc =
-                match it.src.k with
-                | Iter inner when it.src.t = TUnk && (inner.kind = IMap || inner.kind = IFilter) -> chain inner (it :: acc)
-                | _ -> it :: acc
-            let stages = chain it []
-            let src = typeE stages.Head.src
-            match resolve src.t with
-            | TInt | TFloat | TBool | TTup _ | TFn _ as t ->
-                err ($"cannot {showKind stages.Head.kind} over {showTy t}: it needs an array, string, map, set, queue, tree or graph")
-            | TArr _ | TStr when stages.Length > 1 ->
-                typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t))
-            | _ ->
-                // not fusable (maps/sets/queues keep their kind per stage): lower stage by stage
-                stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t))) src
+        | Iter it -> typeIter it None
         | Fn(id, body) ->
             fnDefs.[id] <- (body, cur)
             typed e.k (TFn id)
@@ -256,6 +243,26 @@ and typeE (e: E) : E =
             | t when filter -> err ($"?[ ] filters an array, not {showTy t}")
             | _ -> typeE (mk (Seq([ Assign(t, src) ], arms)))
         | Conv _ -> err "unexpected conversion"
+
+/// A chain of map/filter stages feeding `it` becomes one loop; `limit` (from `.take:k`) stops it after k results.
+and private typeIter (it: Iter) (limit: E option) : E =
+    // collect a chain of map/filter stages feeding this one (innermost first)
+    let rec chain (it: Iter) acc =
+        match it.src.k with
+        | Iter inner when it.src.t = TUnk && (inner.kind = IMap || inner.kind = IFilter) -> chain inner (it :: acc)
+        | _ -> it :: acc
+    let stages = chain it []
+    let src = typeE stages.Head.src
+    let limit = limit |> Option.map (fun k -> conv (typeE k) TInt)
+    match resolve src.t with
+    | TInt | TFloat | TBool | TTup _ | TFn _ as t ->
+        err ($"cannot {showKind stages.Head.kind} over {showTy t}: it needs an array, string, map, set, queue, tree or graph")
+    | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
+        typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit)
+    | _ ->
+        // not fusable (maps/sets/queues keep their kind per stage): lower stage by stage
+        let r = stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t) None)) src
+        match limit with Some k -> builtin "take" [ r; k ] | None -> r
 
 and private typeBin op (a: E) (b: E) : E =
     let isArith = List.contains op [ "+"; "-"; "*"; "/"; "%"; "^^" ]

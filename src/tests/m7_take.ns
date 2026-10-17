@@ -1,0 +1,20 @@
+# .take:n: first n, .take:-n last n; on a map/filter chain the loop stops after n results
+xs = [5,6,7,8,9]
+println:xs.take:2
+println:xs.take:-2
+println:xs.take:9
+println:xs.take:-9
+println:xs.take:0
+println:xs[>5]{*2}.take:2
+println:xs[>5]{*2}.take:-2
+println:xs{*2}.take:3
+println:xs[>5].take:2
+println:"hello".take:2
+println:"hello".take:-3
+println:"hello"[!="l"].take:2
+w = ["bb","a","ccc","dd"]
+println:w${#_}.take:3
+c = 0
+println:(0..1000000000)[(c+=1; _%7=0)].take:3
+println:c
+println:(1..20)[_%2].take:-2

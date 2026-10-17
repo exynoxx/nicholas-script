@@ -203,6 +203,11 @@ println:(zip:[1,2],[3,4]){_1*_2}         # => [3,8]
 println:["bb","a","ccc"]${#_}{upper}     # => ["A","BB","CCC"]
 println:["a"->3,"b"->1]${_2}{_1}         # => ["b","a"]
 
+# take:n keeps the first n (take:-n the last n). After a map/filter chain the
+# loop stops at n results, so this checks 15 numbers, not a billion:
+println:(0..1000000000)[_%7=0].take:3    # => [0,7,14]
+println:[5,6,7,8,9].take:-2              # => [8,9]
+
 # Fold and scan also take a bare operator.
 println:1..6/+              # => 15      sum
 println:1..6/*              # => 120     product

@@ -18,7 +18,7 @@ let private splitBody (body: S list) =
 
 /// A chain of map/filter stages ending in map/filter/fold/scan/each (innermost first, the head's `src` is
 /// the source) becomes ONE index loop: no intermediate arrays. A single stage is the plain case.
-let iter (stages: Iter list) (srcTy: Ty) : E =
+let iter (stages: Iter list) (srcTy: Ty) (limit: E option) : E =
     let s, t, n, c, r, key = Desugar.fresh "s", Desugar.fresh "t", Desugar.fresh "n", Desugar.fresh "c", Desugar.fresh "r", Desugar.fresh "k"
     let first = Desugar.fresh "first"
     let it0, term = List.head stages, List.last stages
@@ -94,12 +94,20 @@ let iter (stages: Iter list) (srcTy: Ty) : E =
         (counters |> List.tail |> List.map (fun k -> Assign(k, skip)))
         @ (if folding then [ Assign(first, mk (Bool true)) ] else [])
         @ (if term.kind <> IFold && term.kind <> IEach then [ Assign(r, empty ()) ] else [])
-    let loop = [ Assign(c, skip); While(bin "<" (v c) (v n), load @ pipe 0 @ [ Assign(c, bin "+" (v c) (i64 1L)) ]) ]
+    // `.take:k` on a map/filter chain: stop once k results are in (a negative k keeps the last -k, so it runs to the end)
+    let lim = Desugar.fresh "lim"
+    let pre = match limit with Some l -> Assign(lim, l) :: pre | None -> pre
+    let more =
+        match limit with
+        | Some _ -> bin "&" (bin "<" (v c) (v n)) (bin "|" (bin "<" (v lim) skip) (bin "<" (call "len" [ v r ]) (v lim)))
+        | None -> bin "<" (v c) (v n)
+    let loop = [ Assign(c, skip); While(more, load @ pipe 0 @ [ Assign(c, bin "+" (v c) (i64 1L)) ]) ]
     let emptyFold = [ when' (v first) [ Do(call "panic" [ mk (Str "fold of empty collection") ]) ] ]
+    let limited e = match limit with Some _ -> call "take" [ e; v lim ] | None -> e
     match term.kind with
-    | IMap -> seq (pre @ init @ loop) (v r)
+    | IMap -> seq (pre @ init @ loop) (limited (v r))
     | IFilter when graph -> seq (pre @ init @ loop) (call "subgraph" [ v s; call "keys" [ v r ] ])
-    | IFilter -> seq (pre @ init @ loop) (if resTy = TStr then call "join" [ v r; mk (Str "") ] else v r)
+    | IFilter -> seq (pre @ init @ loop) (limited (if resTy = TStr then call "join" [ v r; mk (Str "") ] else v r))
     | IFold -> seq (pre @ init @ loop @ emptyFold) (v term.acc)
     | IScan -> seq (pre @ init @ loop @ emptyFold) (v r)
     | IEach -> seq (pre @ init @ loop) skip
