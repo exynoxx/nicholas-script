@@ -175,15 +175,16 @@ ys = xs; ys@0 = 0
 println:xs@0                # => 9
 
 # ==================================================
-# 5. Blocks: map, filter, fold, scan
+# 5. Blocks: map, filter, fold, scan, sort
 # ==================================================
 
 # A block is code in {}. Inside it, _ is the current element and bare @ is
-# the current index. Four postfix operators take a block:
+# the current index. Five postfix operators take a block:
 println:1..6{_*_}           # => [1,4,9,16,25]     x{...}  map
 println:1..10[_%3=0]        # => [3,6,9]           x[...]  filter
 println:1..6/{$+_}          # => 15                x/{...} fold, $ is the accumulator
 println:1..6\{$+_}          # => [1,3,6,10,15]     x\{...} scan (running fold)
+println:[3,1,2]${-_}        # => [3,2,1]           x${...} sort by key (stable)
 println:"abc"{"{@}{_}"}     # => ["0a","1b","2c"]
 
 # A body that starts with an operator gets _ filled in on the left.
@@ -196,6 +197,11 @@ println:["1","22"]{int}+1   # => [2,23]
 # With pairs or tuples as elements, _1 _2 ... destructure them.
 println:[1,4,9,16].pairwise{_2-_1}       # => [3,5,7]
 println:(zip:[1,2],[3,4]){_1*_2}         # => [3,8]
+
+# Sorting is a chain step: later blocks see the sorted order. On a map, _ is a
+# (key, value) tuple.
+println:["bb","a","ccc"]${#_}{upper}     # => ["A","BB","CCC"]
+println:["a"->3,"b"->1]${_2}{_1}         # => ["b","a"]
 
 # Fold and scan also take a bare operator.
 println:1..6/+              # => 15      sum
