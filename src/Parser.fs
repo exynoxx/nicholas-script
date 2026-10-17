@@ -368,11 +368,21 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             | _ -> go <- false
         e
 
-    /// `x@i@j` is `(x@i)@j`: an index is a primary (maybe a range) with optional prefix - or #.
+    /// `x@i@j` is `(x@i)@j`: an index is a base with optional prefix - or #, maybe a slice range
+    /// (`x@-k..x` starts at -k). Slices may be open: `x@..n` from the start, `x@i..` to the end.
     member p.IndexOperand() : Expr =
-        if accept "-" then EUn("-", p.IndexOperand())
-        elif accept "#" then EUn("#", p.IndexOperand())
-        else p.Primary()
+        let rec start () =
+            if accept "-" then EUn("-", start ())
+            elif accept "#" then EUn("#", start ())
+            else p.Base()
+        if accept ".." then ERange(EInt 0L, p.RangeEnd())
+        else
+            let i = start ()
+            if not (accept "..") then i
+            else
+                match peek () with
+                | INT _ | ID _ | SYM("(" | "-" | "#") -> ERange(i, p.RangeEnd())
+                | _ -> ERange(i, EInt System.Int64.MaxValue) // slices clamp to the length
 
     member p.Primary() =
         let e = p.Base()

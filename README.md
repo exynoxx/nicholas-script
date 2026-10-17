@@ -208,6 +208,10 @@ println:["a"->3,"b"->1]${_2}{_1}         # => ["b","a"]
 println:(0..1000000000)[_%7=0].take:3    # => [0,7,14]
 println:[5,6,7,8,9].take:-2              # => [8,9]
 
+# Slices can be open-ended: x@..n from the start, x@i.. to the end.
+println:[5,6,7,8,9]@..2                  # => [5,6]
+println:[5,6,7,8,9]@-2..                 # => [8,9]
+
 # Fold and scan also take a bare operator.
 println:1..6/+              # => 15      sum
 println:1..6/*              # => 120     product
