@@ -116,6 +116,7 @@ let private build (path: string) (exe: string) : string option =
         if code = 0 then None else Some("clang failed:\n" + err)
     with
     | CompileError(line, col, msg) -> Some(showError path line col msg)
+    | :? IOException as ex -> Some($"{path}: error: {ex.Message}")
     | ex -> Some($"{path}: internal error: {ex.ToString()}")
 
 let private test (dir: string) =
