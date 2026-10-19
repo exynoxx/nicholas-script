@@ -254,6 +254,9 @@ Named parameters are local to the function: assigning one never changes an outer
 A parameter `(a, b, …)` unpacks a tuple or array argument (`_` skips an element: `mid (_, b, _) = b`): `dot (a, b) (c, d) = a*c + b*d`, `dot:(1,2),(3,4)`.
 Blocks capture variables from the enclosing scope **by reference** (`s=0; x{s+=_}` updates `s`). In v1 blocks may not escape (be returned or stored in collections), so captures live on the stack.
 A name is bound before its block body is checked, so blocks can recurse: `f={_<2?_:f:_-1}`.
+Top-level functions (`f a = …`, `f = {…}`, `f = memo:…`) may call functions defined later in the file, so they can be
+mutually recursive: `ev x = x=0 ? T : (od:x-1)` before `od x = x=0 ? F : (ev:x-1)`. Top-level code still calls a
+function only after its definition.
 A variable or parameter named like a builtin or stdlib function shadows it in its scope: after `max = 3`, `xs{max}` is `3` per element and `max:xs` is an error ('max' is a variable here); `.max` method calls still reach the function.
 A function's parameter types are inferred per call site (monomorphised at compile time).
 

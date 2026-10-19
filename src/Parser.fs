@@ -63,9 +63,30 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
     let isFunc name = fnames.Contains name || builtins.Contains name
 
     member p.Program() =
+        p.DeclareFunctions()
         let body = p.Stmts EOF
         if peek () <> EOF then err ($"unexpected {describeTok (peek ())}")
         body
+
+    /// Forward references: every top-level `f a b = …`, `f = {…}` and `f = memo:…` is a function name from the start,
+    /// so functions can call ones defined later (mutual recursion).
+    member p.DeclareFunctions() =
+        let mutable depth = 0
+        let mutable stmtStart = true
+        for j in 0 .. tokens.Length - 1 do
+            if stmtStart && depth = 0 then
+                pos <- j
+                match p.FnDefAhead(), tokens.[j].tok with
+                | Some(f, _, _), _ -> fnames.Add f |> ignore
+                | None, ID f when j + 2 < tokens.Length && tokens.[j + 1].tok = SYM "="
+                                  && (tokens.[j + 2].tok = SYM "{" || tokens.[j + 2].tok = ID "memo") -> fnames.Add f |> ignore
+                | _ -> ()
+            match tokens.[j].tok with
+            | SYM s when opensBracket s -> depth <- depth + 1
+            | SYM(")" | "]" | "}") -> depth <- depth - 1
+            | _ -> ()
+            stmtStart <- tokens.[j].tok = TERM
+        pos <- 0
 
     member p.Stmts(closer: Tok) : Stmt list =
         let out = ResizeArray<Stmt>()

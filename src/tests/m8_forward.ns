@@ -1,0 +1,8 @@
+# functions can call ones defined later: mutual recursion
+ev x = x=0 ? T : (od:x-1)
+od x = x=0 ? F : (ev:x-1)
+println:ev:10
+println:od:7
+twice x = (inc:x) + (inc:x)
+inc = {_+1}
+println:twice:3
