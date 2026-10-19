@@ -331,7 +331,7 @@ the compiler needs no change. A block argument is passed to C as a callback, e.g
 
 Current library (see `grep '^//@' runtime.c`):
 - I/O: `read` (a line, `""` at EOF), `lines` (all remaining stdin lines); zero-argument functions are called by bare name. With a path: `read:"f.txt"` (whole file), `lines:"f.txt"` (its lines, without `\n`); a missing file is a runtime error. `write:"f.txt",s` replaces the file with s and
-  returns the byte count
+  returns the byte count. `spawn:"cmd"` runs a shell command (its output goes straight to stdout/stderr) and returns its exit code
 - math: `min max` (two values or one array), `abs pow sqrt floor ceil round gcd lcm sum prod` (`sum/prod` of `[]` are 0/1)
 - bits: `rotl rotr popcount hex`; operators `& | ^ << >> >>>`; literals `0xff 0b101`
 - strings: `lower upper trim replace chars split join ord chr find starts ends nums ws isupper islower isdigit`; the last four are T when every char of a non-empty string is whitespace, A–Z, a–z, 0–9: `"aB 3"[isupper]` → `"B"`, `s[ws]`; `"hello".starts:"he"` → `T`

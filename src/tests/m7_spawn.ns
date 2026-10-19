@@ -1,0 +1,6 @@
+print: "before "
+println: spawn:"echo child"
+println: spawn:"exit 3"
+p = "/tmp/ns_m7_spawn.txt"
+spawn:"printf hi > {p}"
+println: read:p

@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <sys/wait.h>
 
 typedef struct { int64_t len, cap; char *data; int64_t esz; } Arr;
 typedef struct Map { int64_t len, cap, used, ksz, vsz; const char *kd, *vd; char *keys, *vals, *st; } Map; // st: 0 empty, 1 full, 2 tomb; vd NULL = set
@@ -558,6 +559,14 @@ char *ns_read_file(char *path) {
 }
 //@ lines (str) [str] = ns_lines_file
 void *ns_lines_file(char *path) { FILE *f = fopen_or_die(path); void *r = flines(f); fclose(f); return r; }
+// Runs cmd through /bin/sh (stdout/stderr pass through); returns its exit code, 128+signal if killed.
+//@ spawn (str) int
+int64_t ns_spawn(char *cmd) {
+  fflush(stdout); // keep earlier prints before the child's output
+  int st = system(cmd);
+  if (st == -1) { fprintf(stderr, "error: cannot spawn %s\n", cmd); exit(1); }
+  return WIFEXITED(st) ? WEXITSTATUS(st) : 128 + WTERMSIG(st);
+}
 // Replaces the file with s; returns the number of bytes written.
 //@ write (str,str) int
 int64_t ns_write(char *path, char *s) {
