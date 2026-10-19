@@ -1,0 +1,8 @@
+p = "/tmp/ns_m7_write.txt"
+println: write:p,"one\ntwo\n"
+print: read:p
+println: lines:p
+write:p,1..4{_*2}.join:","
+println: read:p
+println: write:p,""
+println: #(read:p)

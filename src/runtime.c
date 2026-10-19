@@ -558,6 +558,15 @@ char *ns_read_file(char *path) {
 }
 //@ lines (str) [str] = ns_lines_file
 void *ns_lines_file(char *path) { FILE *f = fopen_or_die(path); void *r = flines(f); fclose(f); return r; }
+// Replaces the file with s; returns the number of bytes written.
+//@ write (str,str) int
+int64_t ns_write(char *path, char *s) {
+  FILE *f = fopen(path, "wb");
+  if (!f) { fprintf(stderr, "error: cannot write %s\n", path); exit(1); }
+  size_t m = strlen(s), n = fwrite(s, 1, m, f);
+  if (fclose(f) != 0 || n != m) { fprintf(stderr, "error: cannot write %s\n", path); exit(1); }
+  return (int64_t)n;
+}
 
 static void fmt_float(char *out, double x) {
   for (int prec = 15; prec <= 17; prec++) {
