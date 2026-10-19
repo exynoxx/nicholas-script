@@ -1,0 +1,3 @@
+3:9: error: 'a' is not a function: define it with a block, e.g. f = {_+1}
+3 | use x = a:x
+  |         ^

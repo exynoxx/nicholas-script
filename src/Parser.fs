@@ -39,7 +39,7 @@ let private opensBracket (s: string) = s.EndsWith "(" || s.EndsWith "[" || s.End
 /// Directory of the file being parsed, and every file already imported (each is included once).
 type private Imports = { dir: string; seen: HashSet<string> }
 
-type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, imports: Imports) =
+type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictionary<string, string>, nextId: int ref, imports: Imports) =
     let mutable pos = 0
     let peek () = tokens.[pos].tok
     let line () = tokens.[pos].line
@@ -61,6 +61,14 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
         describeTok t + (if startsExpr t then " (missing an operator or ','?)" else "")
     let expect s = if not (accept s) then err ($"expected '{s}' but found {found ()}")
     let isFunc name = fnames.Contains name || builtins.Contains name
+    let markCall (mark: string) f args =
+        match stdAliases.TryGetValue f with
+        | true, b -> ECall(b, args)
+        | _ -> ECall(mark + f, args)
+    let aliasStd a f =
+        if stdAliases.ContainsKey f || (builtins.Contains f && not (fnames.Contains f) && not (zeroArity.Contains f)) then
+            stdAliases.[a] <- (match stdAliases.TryGetValue f with | true, b -> b | _ -> f)
+            fnames.Add a |> ignore
 
     member p.Program() =
         p.DeclareFunctions()
@@ -104,7 +112,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                     if not (System.IO.File.Exists path) then errAt (pos - 1) ($"import: file not found: {path}")
                     if imports.seen.Add path then
                         let toks = Lexer.lex (System.IO.File.ReadAllText path) 1 1
-                        let sub = Parser(Array.ofList toks, fnames, nextId, { imports with dir = System.IO.Path.GetDirectoryName path })
+                        let sub = Parser(Array.ofList toks, fnames, stdAliases, nextId, { imports with dir = System.IO.Path.GetDirectoryName path })
                         out.AddRange(sub.Program())
                 | t -> err ($"import expects a file name string, found {describeTok t}")
             else
@@ -129,7 +137,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
     /// `x[!{..}]` binds the negated block to a hidden name and calls it on `_`.
     member p.SectionBlock(closer: string) =
         match p.Block closer with
-        | [ SLine l; SExpr(EVar f) ] when isFunc f -> [ SLine l; SExpr(ECall(nameMark + f, [ EVar "_" ])) ]
+        | [ SLine l; SExpr(EVar f) ] when isFunc f -> [ SLine l; SExpr(markCall nameMark f [ EVar "_" ]) ]
         | [ SLine l; SExpr(EBlock(id, [], body) as b) ] when (match List.tryLast body with Some(SExpr(EUn("!b", _))) -> true | _ -> false) ->
             let f = $"not'{id}"
             [ SLine l; SAssign([ EVar f ], [ b ]); SExpr(ECall(callMark + f, [ EVar "_" ])) ]
@@ -158,8 +166,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             match lvs, rhs with
             | [ EVar f ], [ ECall(g, _) ] when g.StartsWith negMark -> fnames.Add f |> ignore // g = !ws
             | [ EVar f ], [ EBlock _ ] -> fnames.Add f |> ignore // g = !{..}
+            | [ EVar a ], [ EVar f ] when stdAliases.ContainsKey f || (builtins.Contains f && not (fnames.Contains f)) -> aliasStd a f
+            | [ EVar a ], [ EVar f ] when fnames.Contains f -> fnames.Add a |> ignore
             | _ -> ()
-            SAssign(lvs, rhs)
+            match lvs, rhs with
+            | [ EVar a ], [ EVar _ ] when stdAliases.ContainsKey a -> SExpr(EInt 0L)
+            | _ -> SAssign(lvs, rhs)
         | Some op ->
             let lv = p.LValues().Head
             advance ()
@@ -336,7 +348,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             match p.Not() with
             | EVar f when isFunc f ->
                 nextId.Value <- nextId.Value + 1
-                ECall(negMark + f, [ EBlock(nextId.Value, [], [ SLine l; SExpr(EUn("!", ECall(nameMark + f, [ EVar "_" ]))) ]) ])
+                ECall(negMark + f, [ EBlock(nextId.Value, [], [ SLine l; SExpr(EUn("!", markCall nameMark f [ EVar "_" ])) ]) ])
             | EBlock(id, ps, body) when (match List.tryLast body with Some(SExpr _) -> true | _ -> false) ->
                 // "!b": the block must return a bool (no truthiness), checked by the typer
                 let (SExpr r) = List.last body in EBlock(id, ps, List.take (body.Length - 1) body @ [ SExpr(EUn("!b", r)) ])
@@ -384,7 +396,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
                 | ID f ->
                     advance ()
                     let args = if accept ":" then p.ExprList() else []
-                    e <- ECall(f, e :: args)
+                    e <- ECall((match stdAliases.TryGetValue f with | true, b -> b | _ -> f), e :: args)
                 | t -> err ($"expected a function name after '.', found {describeTok t}")
             | _ -> go <- false
         e
@@ -435,10 +447,10 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
             |> List.map (function
                 | Lit s -> EStr s
                 | Code(src, l, c) ->
-                    let sub = Parser(Array.ofList (Lexer.lex src l c), fnames, nextId, imports)
+                    let sub = Parser(Array.ofList (Lexer.lex src l c), fnames, stdAliases, nextId, imports)
                     sub.InterpExpr())
             |> EInterp
-        | ID name when isFunc name && isSym ":" -> (advance (); ECall(callMark + name, p.ExprList()))
+        | ID name when isFunc name && isSym ":" -> (advance (); markCall callMark name (p.ExprList()))
         | ID name when zeroArity.Contains name -> ECall(nameMark + name, [])
         | ID name -> EVar name
         | SYM "(" when p.GroupAhead() -> EGroup(p.Block ")")
@@ -511,4 +523,4 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, nextId: int ref, i
 let parse (tokens: Token list) (path: string) : Stmt list =
     let path = System.IO.Path.GetFullPath path
     let imports = { dir = System.IO.Path.GetDirectoryName path; seen = HashSet [ path ] }
-    Parser(Array.ofList tokens, HashSet<string>(), ref 0, imports).Program()
+    Parser(Array.ofList tokens, HashSet<string>(), Dictionary(), ref 0, imports).Program()

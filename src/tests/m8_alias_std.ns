@@ -1,0 +1,15 @@
+# m = max aliases the stdlib max; after max is shadowed by a variable, m still calls the stdlib function
+m = max
+mx = m
+top xs = m:xs
+max = 3
+println:max
+println:m:[4,9,2]
+println:m:5,7
+println:[1,8,3].m
+println:mx:[6,1]
+println:top:[2,5]
+println:[[1,2],[7,3]]{m}
+u = upper
+upper = "x"
+println:"ab".u + upper

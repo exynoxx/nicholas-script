@@ -257,6 +257,9 @@ A name is bound before its block body is checked, so blocks can recurse: `f={_<2
 Top-level functions (`f a = …`, `f = {…}`, `f = memo:…`) may call functions defined later in the file, so they can be
 mutually recursive: `ev x = x=0 ? T : (od:x-1)` before `od x = x=0 ? F : (ev:x-1)`. Top-level code still calls a
 function only after its definition.
+`a = f` with `f` a function makes `a` an alias: `a:x`, `x.a` and `xs{a}` call `f` (`fa = fact` then `fa:5`). An alias
+cannot later be reassigned to another function. Aliasing a stdlib function works the same (`m = max`, `u = upper`), and the alias keeps
+calling it after the name is shadowed by a variable (`max = 3` then `m:xs`).
 A variable or parameter named like a builtin or stdlib function shadows it in its scope: after `max = 3`, `xs{max}` is `3` per element and `max:xs` is an error ('max' is a variable here); `.max` method calls still reach the function.
 A function's parameter types are inferred per call site (monomorphised at compile time).
 

@@ -1,0 +1,4 @@
+# an alias exists from its assignment on, like a variable
+f x = x
+use x = a:x
+a = f

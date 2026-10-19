@@ -1,0 +1,12 @@
+# a = f names the same function: calls to a are calls to f
+f x = x*2
+a = f
+b = a
+useb x = b:x
+println:useb:4
+println:a:"ab"
+fact n = n < 2 ? 1 : n * (fact:n-1)
+fa = fact
+println:fa:5
+loc x = { h = f; h:x+1 }
+println:loc:1
