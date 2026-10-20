@@ -702,6 +702,16 @@ let private sbPutS (w: E) (x: E) =
 
 let private sbDoneE (w: E) (sep: E) = typed (StdCall(sbDone, [ w; sep ])) TStr
 
+// slices used on the spot: compared or searched in place instead of built (`ns_subeq`, `ns_subfind`)
+let private subEq =
+    sbSig "subeq" [ Stdlib.SVar "T"; Stdlib.SInt; Stdlib.SInt; Stdlib.SVar "T"; Stdlib.SInt; Stdlib.SInt ] Stdlib.SBool [ "T" ]
+let private subFind = sbSig "subfind" [ Stdlib.SStr; Stdlib.SInt; Stdlib.SInt; Stdlib.SStr ] Stdlib.SInt []
+let rec private sliceOf (e: E) =
+    match e.k with
+    | Seq([], x) -> sliceOf x
+    | Call("slice", [ x; i; j ]) -> Some [ x; i; j ]
+    | _ -> None
+
 /// Rewrites every statement list nested in `ss` with `f`, innermost first.
 let rec private rewriteStmts (f: S -> S list) (ss: S list) : S list =
     ss |> List.collect (fun s -> f (mapS (rewriteE f) (rewriteStmts f) s))
@@ -790,6 +800,13 @@ and private strE (cx: Ctx) (e: E) : E =
         let w, init = newBuilder cx
         let puts = strParts e |> List.map (strE cx >> sbPutS w)
         typed (Seq(init :: puts, sbDoneE w (typed (Str "") TStr))) TStr
+    | Bin(("=" | "!=") as op, a, b) when (match resolve a.t with TStr | TArr _ -> true | _ -> false)
+                                         && ((sliceOf a).IsSome || (sliceOf b).IsSome) ->
+        let whole (x: E) = sliceOf x |> Option.defaultValue [ x; typed (Int 0L) TInt; typed (Int System.Int64.MaxValue) TInt ]
+        let eq = typed (StdCall(subEq, typed Desc a.t :: List.map (strE cx) (whole a @ whole b))) TBool
+        if op = "=" then eq else typed (Call("not", [ eq ])) TBool
+    | StdCall(sg, [ s; x ]) when sg.csym = "ns_find_str" && (sliceOf s).IsSome ->
+        typed (StdCall(subFind, List.map (strE cx) ((sliceOf s).Value @ [ x ]))) TInt
     | _ -> mapE (strE cx) (strStmts cx) e
 
 /// Runs the optimisations over every function instance and main:

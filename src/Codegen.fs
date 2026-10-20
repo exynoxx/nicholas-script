@@ -254,6 +254,10 @@ let generate (prog: Program) : string =
         | TInt, _ when cmpOp.ContainsKey op -> let (i, _, _) = cmpOp.[op] in instr $"icmp {i} i64 {av}, {bv}"
         | TFloat, _ when cmpOp.ContainsKey op -> let (_, f, _) = cmpOp.[op] in instr $"fcmp {f} double {av}, {bv}"
         | TBool, _ when cmpOp.ContainsKey op -> let (_, _, u) = cmpOp.[op] in instr $"icmp {u} i1 {av}, {bv}"
+        | TStr, ("=" | "!=") ->
+            let r = rt "i64" "ns_str_eq" [ "ptr", av; "ptr", bv ]
+            let pred = if op = "=" then "ne" else "eq"
+            instr $"icmp {pred} i64 {r}, 0"
         | TTup ts, ("=" | "!=") when Repr.isValueTuple a.t ->
             // value tuple: compare members in registers (bools are widened to i64)
             let eqs = ts |> List.mapi (fun i m ->

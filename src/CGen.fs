@@ -244,6 +244,9 @@ let generate (prog: Program) : string =
         let wrap o = instr "int64_t" $"(int64_t)((uint64_t){av} {o} (uint64_t){bv})"
         match resolve a.t, op with
         | (TInt | TFloat | TBool), _ when cmpOp.ContainsKey op -> instr "bool" $"{av} {cmpOp.[op]} {bv}"
+        | TStr, ("=" | "!=") ->
+            let r = rt "int64_t" "ns_str_eq" [ av; bv ]
+            instr "bool" (if op = "=" then $"{r} != 0" else $"{r} == 0")
         | TTup ts, ("=" | "!=") when Repr.isValueTuple a.t ->
             // value tuple: compare members directly
             let all = ts |> List.mapi (fun i _ -> $"{av}.m{i} == {bv}.m{i}") |> String.concat " && "

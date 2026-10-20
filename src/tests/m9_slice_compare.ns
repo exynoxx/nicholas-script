@@ -1,0 +1,24 @@
+# slices compared or searched in place (no slice built)
+s = "abcabc"
+h = #s/2
+println: (s@..h) = s@h..
+println: (s@..h) != s@h..
+println: (s@1..3) = "bc"
+println: "bc" = s@1..3
+println: (s@-2..) = "bc"
+println: (s@4..99) = "bc"
+println: (s@3..1) = ""
+println: (s+s)@1..-1.find: s
+println: (s@2..).find: "ab"
+println: (s@2..).find: "zz"
+xs = [1, 2, 3, 1, 2]
+println: (xs@..2) = xs@3..
+println: (xs@..2) = [1, 2]
+println: (xs@..3) = xs@2..
+# one-character strings are shared, not allocated
+w = "hello"
+println: w@1
+println: w@-1
+println: #w[_ = "l"]
+println: w{_ + "!"} .join
+println: (w@0) = "h"

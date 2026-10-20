@@ -467,9 +467,36 @@ char *ns_repeat(char *s, int64_t k) {
   for (int64_t i = 0; i < k; i++) memcpy(r + i * n, s, n);
   return r;
 }
-char *ns_str_at(char *s, int64_t i) { return str_n(s + idx(i, strlen(s)), 1); }
+// Immortal one-byte strings, shared: `s@i` and string iteration (`chars`) allocate nothing per character.
+static struct { Hdr h; char s[2]; } chrs[256];
+static char *chr(unsigned char c) {
+  if (!chrs[c].h.d) { chrs[c].h.rc = -1; chrs[c].h.d = "S"; chrs[c].s[0] = c; }
+  return chrs[c].s;
+}
+// a non-negative index only needs the string checked up to it, not its whole length
+char *ns_str_at(char *s, int64_t i) { return chr(s[idx(i, i >= 0 ? (int64_t)strnlen(s, i + 1) : (int64_t)strlen(s))]); }
+int64_t ns_str_eq(char *a, char *b) { return a == b || !strcmp(a, b); }
+// Slices used on the spot (Opt rewrites them): a@i..j = b@k..l and find in s@i..j, without building the slices.
+int64_t ns_subeq(const char *d, const void *pa, int64_t i, int64_t j, const void *pb, int64_t k, int64_t l) {
+  if (*d == 'S') {
+    char *a = ldp(pa), *b = ldp(pb);
+    clamp(&i, &j, strlen(a)); clamp(&k, &l, strlen(b));
+    return j - i == l - k && !memcmp(a + i, b + k, j - i);
+  }
+  Arr *a = ldp(pa), *b = ldp(pb);
+  clamp(&i, &j, a->len); clamp(&k, &l, b->len);
+  if (j - i != l - k) return 0;
+  for (; i < j; i++, k++) if (!ns_eq(d + 1, a->data + i * a->esz, b->data + k * b->esz)) return 0;
+  return 1;
+}
+int64_t ns_subfind(char *s, int64_t i, int64_t j, char *x) { // byte index in the slice, -1 if absent
+  clamp(&i, &j, strlen(s));
+  int64_t m = strlen(x);
+  for (int64_t p = i; p + m <= j; p++) if (!memcmp(s + p, x, m)) return p - i;
+  return -1;
+}
 char *ns_slice_s(char *s, int64_t i, int64_t j) { clamp(&i, &j, strlen(s)); return str_n(s + i, j - i); }
-static void spush(Arr *r, const char *s, size_t n) { char *c = str_n(s, n); apush(r, &c); }
+static void spush(Arr *r, const char *s, size_t n) { char *c = n == 1 ? chr(*s) : str_n(s, n); apush(r, &c); }
 //@ chars (str) [str]
 void *ns_chars(char *s) {
   Arr *r = ns_arr_new("AS", strlen(s));
