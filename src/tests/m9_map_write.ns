@@ -1,0 +1,7 @@
+m = map: [(1,10),(2,20)]
+m{_ = _ + @}
+println: m
+k = m{_ = 1; _ + 5}
+println: k
+println: m
+println: m{_ = 0}

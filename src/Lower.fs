@@ -56,7 +56,17 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) : E =
             [ Assign(key, mk (Index(v t, v c))); Assign(it0.ix, v key); Assign(it0.el, mk (Index(v s, v key))) ]
         | Some _ -> [ Assign(it0.el, bin "+" (v s) (bin "*" (v c) (v t))); Assign(it0.ix, v c) ]
         | None -> [ Assign(it0.el, mk (Index(v t, v c))); Assign(it0.ix, v c) ]
-    let bodyE (st: Iter) = let ss, value = splitBody st.body in seq ss value
+    // mapping a map, a top-level `_ = e` assigns the value and writes it back: `m{_ = _ + 1}` updates m in place
+    let writeBack (st: Iter) =
+        if not (isMap && (term.kind = IMap || term.kind = IEach)) then st.body
+        else
+            let last = st.body.Length - 1
+            st.body |> List.indexed |> List.collect (fun (i, stmt) ->
+                match stmt with
+                | Do { k = Bin("=", { k = Var x }, e) } when x = st.el ->
+                    [ Assign(x, e); SetIdx(v s, v key, v x) ] @ (if i = last then [ Do(v x) ] else [])
+                | stmt -> [ stmt ])
+    let bodyE (st: Iter) = let ss, value = splitBody (writeBack st) in seq ss value
     let skip = i64 0L
     let when' cond (then': S list) = Do(mk (If(cond, seq then' skip, skip)))
     let empty () =
