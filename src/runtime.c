@@ -893,6 +893,11 @@ void *ns_map(const char *dK, const char *dV, void *a) { // inverse of items; a l
   for (int64_t i = 0; i < x->len; i++) { const char *t = tup(ed, x->data + i * x->esz); ns_map_set(r, t, t + vo); }
   return r;
 }
+//@ map (%[(K,V)]) {K:V} = ns_map_h
+void *ns_map_h(const char *dK, const char *dV, void *s) { // set of pairs, in hash order
+  void *a = ns_toarr(HD(s)->d, s), *r = ns_map(dK, dV, a);
+  ns_release(a); return r;
+}
 //@ take ([T], int) [T]
 void *ns_take(const char *dT, void *a, int64_t n) { // first n, or the last -n when negative
   int64_t len = ((Arr *)a)->len;

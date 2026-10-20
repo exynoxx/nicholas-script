@@ -379,7 +379,7 @@ Current library (see `grep '^//@' runtime.c`):
 - bits: `rotl rotr popcount hex`; operators `& | ^ << >> >>>`; literals `0xff 0b101`
 - strings: `lower upper trim replace chars split join ord chr find starts ends nums ws isupper islower isdigit`; the last four are T when every char of a non-empty string is whitespace, A–Z, a–z, 0–9: `"aB 3"[isupper]` → `"B"`, `s[ws]`; `"hello".starts:"he"` → `T`
 - graphs: `G DG nodes edges rev subgraph`, plus the operator forms above (`nbrs weight hasedge addedge deledge delnode gunion ginter gdiff`)
-- maps: `items` → `[(key, value)]` in hash order; `map:pairs` is its inverse, `[(key, value)]` → map (a later pair wins): `map:flatten:grid{r = @; _{((r,@),_)}}` → `(row,col)` → cell
+- maps: `items` → `[(key, value)]` in hash order; `map:pairs` is its inverse, `[(key, value)]` (or a set of pairs) → map (a later pair wins): `map:flatten:grid{r = @; _{((r,@),_)}}` → `(row,col)` → cell
 - arrays: `take sort rev uniq zip find bsearch sortby minkey maxkey flatten pairwise tuple2 tuple3`; `pairwise:[1,2,3]` → `[(1,2),(2,3)]`; `flatten` flattens one level of an array of arrays or of same-typed pairs or triples: `[[1,2],[3]]` and `[(1,2),(3,4)]` → `[1,2,3,4]`; `xs.sort:{_1>_2}` sorts with a comparer block on two elements (bool: first goes before second; int: negative/zero/positive like `{_1-_2}`; stable); `maxkey:ws,{#_}` → the longest word (first one on ties), `minkey` the shortest; on a map, `c.maxkey` is the key with the largest value
 
 ## 8. Examples
