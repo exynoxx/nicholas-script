@@ -228,7 +228,8 @@ and typeE (e: E) : E =
             | _ when name.StartsWith negMark -> typeE args.Head
             | _ -> typeE { e with k = Call(f, args) }
         | Call("take", [ { k = Iter it }; k ]) when (it.kind = IMap || it.kind = IFilter) && (lookup "take").IsNone ->
-            typeIter it (Some k)
+            typeIter it (Some k) false
+        | Call("len", [ { k = Iter it } ]) when it.kind = IFilter && (lookup "len").IsNone -> typeIter it None true
         | Call(name, args) ->
             match lookup name with
             | Some u when (match resolve varTy.[u] with TFn _ -> true | _ -> false) ->
@@ -236,7 +237,7 @@ and typeE (e: E) : E =
                 userCall id (List.map (typeE >> own) args)
             | _ -> builtin name (List.map typeE args)
         | Index(x, i) -> typeIndex (typeE x) (typeE i)
-        | Iter it -> typeIter it None
+        | Iter it -> typeIter it None false
         | Fn(id, body) ->
             fnDefs.[id] <- (body, cur)
             typed e.k (TFn id)
@@ -255,7 +256,8 @@ and typeE (e: E) : E =
         | Conv _ -> err "unexpected conversion"
 
 /// A chain of map/filter stages feeding `it` becomes one loop; `limit` (from `.take:k`) stops it after k results.
-and private typeIter (it: Iter) (limit: E option) : E =
+/// `count` (`#` of a filter): over an array, the loop counts the kept elements instead of collecting them.
+and private typeIter (it: Iter) (limit: E option) (count: bool) : E =
     // collect a chain of map/filter stages feeding this one (innermost first)
     let rec chain (it: Iter) acc =
         match it.src.k with
@@ -269,12 +271,14 @@ and private typeIter (it: Iter) (limit: E option) : E =
     match resolve src.t with
     | TFloat | TBool | TTup _ | TFn _ as t ->
         err ($"cannot {showKind stages.Head.kind} over {showTy t}: it needs an int, array, string, map, set, queue, tree or graph")
+    | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true)
     | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
-        typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit)
+        typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
     | _ ->
         // not fusable (maps/sets/queues keep their kind per stage): lower stage by stage
-        let r = stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t) None)) src
-        match limit with Some k -> builtin "take" [ r; k ] | None -> r
+        let r = stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t) None false)) src
+        let r = match limit with Some k -> builtin "take" [ r; k ] | None -> r
+        if count then builtin "len" [ r ] else r
 
 and private typeBin op (a: E) (b: E) : E =
     let isArith = List.contains op [ "+"; "-"; "*"; "/"; "%"; "^^" ]

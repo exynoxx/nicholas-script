@@ -253,14 +253,29 @@ let private analyse (prog: Program) =
     cx
 
 /// `e`'s inputs, when it computes a value worth hoisting or reusing: it contains a call, has a hoistable type,
-/// has no effect, mutates nothing and writes only its own temporaries. Also says whether it may fail.
+/// has no effect, mutates nothing and writes only its own temporaries (assigned before e reads them, so a
+/// counter `(r = r + 1; 0)` that updates an outer temporary is not one). Also says whether it may fail.
 let private pureInputs (cx: Ctx) (e: E) : (bool * Set<string>) option =
     if not (containsCall e) || not (hoistableTy e.t) then None
     else
         let s = newSum ()
         sumE cx s e
         if s.effect || s.refWrite || s.mutates.Count > 0 || not (Seq.forall isTemp s.writes) then None
-        else Some(s.partial, s.reads |> Seq.filter (fun u -> not (s.writes.Contains u)) |> Set.ofSeq)
+        else
+            // in evaluation order: a read before any write is an input; writing an input reaches outside e
+            let defined, inputs = HashSet<string>(), HashSet<string>()
+            let mutable outer = false
+            let rec order (x: E) =
+                match x.k with
+                | Var u -> if not (defined.Contains u) then inputs.Add u |> ignore
+                | _ -> mapE (fun c -> order c; c) (fun ss -> List.iter orderS ss; ss) x |> ignore
+            and orderS (st: S) =
+                match st with
+                | Assign(u, rhs) -> order rhs; (if inputs.Contains u then outer <- true); defined.Add u |> ignore
+                | While(c, body) -> order c; List.iter orderS body
+                | st -> mapS (fun c -> order c; c) id st |> ignore
+            order e
+            if outer then None else Some(s.partial, Set.ofSeq inputs)
 
 /// Unknown variables count as references.
 let private refVar (cx: Ctx) (u: string) =

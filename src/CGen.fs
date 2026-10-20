@@ -244,6 +244,10 @@ let generate (prog: Program) : string =
         let wrap o = instr "int64_t" $"(int64_t)((uint64_t){av} {o} (uint64_t){bv})"
         match resolve a.t, op with
         | (TInt | TFloat | TBool), _ when cmpOp.ContainsKey op -> instr "bool" $"{av} {cmpOp.[op]} {bv}"
+        | TTup ts, ("=" | "!=") when Repr.isValueTuple a.t ->
+            // value tuple: compare members directly
+            let all = ts |> List.mapi (fun i _ -> $"{av}.m{i} == {bv}.m{i}") |> String.concat " && "
+            instr "bool" (if op = "=" then all else $"!({all})")
         | t, ("=" | "!=") when t <> TStr ->
             let r = rt "int64_t" "ns_eq" [ d t; spill av t; spill bv t ]
             instr "bool" (if op = "=" then $"{r} != 0" else $"{r} == 0")
@@ -317,10 +321,11 @@ let generate (prog: Program) : string =
             args |> List.iteri (fun i _ -> rt "void" "ns_tup_set" [ t; string i; cell i ] |> ignore)
             t
         | "tget", [ x; { k = Int k } ] when Repr.isValueTuple x.t -> instr (cty e.t) $"{arg 0}.m{k}"
-        | "tget", [ _; { k = Int k } ] ->
-            let out = outCell e.t
-            rt "void" "ns_tup_get" [ arg 0; string k; out ] |> ignore
-            loadFrom out e.t
+        | "tget", [ x; { k = Int k } ] ->
+            // boxed tuple: the member sits at a fixed offset in the object; borrowed from it, so retain
+            let v = loadFrom $"((char *){arg 0} + {Repr.tupOffset x.t (int k)})" e.t
+            retain v e.t
+            v
         | "repeat", [ _; _ ] -> rt "void *" "ns_arr_repeat" [ d e.t; cell 0; arg 1 ]
         | "panic", _ -> (rt "void" "ns_panic" [ arg 0 ] |> ignore; "0")
         | "copy", _ -> rt "void *" "ns_arr_copy" [ arg 0 ]

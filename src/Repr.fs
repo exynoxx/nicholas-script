@@ -46,6 +46,9 @@ let storage t = match resolve t with TBool -> "i8" | _ -> llty t
 /// Storage size in bytes (the runtime derives the same number from the descriptor).
 let esz t = match resolve t with TBool -> 1 | TTup ts when isValueTuple t -> 8 * ts.Length | _ -> 8
 
+/// Byte offset of member k inside a boxed tuple's object (members stored back to back, `esz` each).
+let tupOffset t k = match resolve t with TTup ts -> ts |> List.take k |> List.sumBy esz | _ -> failwith "tupOffset: not a tuple"
+
 /// Refcounted heap object?
 let isPtr t = llty t = "ptr"
 

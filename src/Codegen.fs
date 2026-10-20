@@ -254,6 +254,13 @@ let generate (prog: Program) : string =
         | TInt, _ when cmpOp.ContainsKey op -> let (i, _, _) = cmpOp.[op] in instr $"icmp {i} i64 {av}, {bv}"
         | TFloat, _ when cmpOp.ContainsKey op -> let (_, f, _) = cmpOp.[op] in instr $"fcmp {f} double {av}, {bv}"
         | TBool, _ when cmpOp.ContainsKey op -> let (_, _, u) = cmpOp.[op] in instr $"icmp {u} i1 {av}, {bv}"
+        | TTup ts, ("=" | "!=") when Repr.isValueTuple a.t ->
+            // value tuple: compare members in registers (bools are widened to i64)
+            let eqs = ts |> List.mapi (fun i m ->
+                let x, y = instr $"extractvalue {llty a.t} {av}, {i}", instr $"extractvalue {llty a.t} {bv}, {i}"
+                if resolve m = TFloat then instr $"fcmp oeq double {x}, {y}" else instr $"icmp eq i64 {x}, {y}")
+            let all = eqs.Tail |> List.fold (fun acc q -> instr $"and i1 {acc}, {q}") eqs.Head
+            if op = "=" then all else instr $"xor i1 {all}, true"
         | t, ("=" | "!=") when t <> TStr ->
             let r = rt "i64" "ns_eq" [ d t; "ptr", spill av t; "ptr", spill bv t ]
             let pred = if op = "=" then "ne" else "eq"
@@ -339,10 +346,14 @@ let generate (prog: Program) : string =
         | "tget", [ x; { k = Int k } ] when Repr.isValueTuple x.t ->
             let m = instr $"extractvalue {llty x.t} {arg 0}, {k}"
             if resolve e.t = TBool then instr $"icmp ne i64 {m}, 0" else m
-        | "tget", [ _; { k = Int k } ] ->
-            let out = outCell e.t
-            rt "void" "ns_tup_get" [ "ptr", arg 0; "i64", string k; "ptr", out ] |> ignore
-            loadFrom out e.t
+        | "tget", [ x; { k = Int k } ] ->
+            // boxed tuple: the member sits at a fixed offset in the object; borrowed from it, so retain
+            let p = instr $"getelementptr i8, ptr {arg 0}, i64 {Repr.tupOffset x.t (int k)}"
+            // members are packed, so one after a bool member may be unaligned
+            let v = instr $"load {Repr.storage e.t}, ptr {p}, align 1"
+            let v = if resolve e.t = TBool then instr $"trunc i8 {v} to i1" else v
+            retain v e.t
+            v
         | "repeat", [ x; _ ] -> rt "ptr" "ns_arr_repeat" [ d e.t; cell 0; "i64", arg 1 ]
         | "panic", _ -> (rt "void" "ns_panic" [ "ptr", arg 0 ] |> ignore; "0")
         | "copy", _ -> rt "ptr" "ns_arr_copy" [ "ptr", arg 0 ]
