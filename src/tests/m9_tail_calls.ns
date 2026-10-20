@@ -1,0 +1,33 @@
+# self tail calls run as loops: 1e6 deep never grows the stack
+sum n acc = {(n = 0) ? acc : sum: n-1, acc+n}
+println: sum: 1000000, 0
+
+# pointer parameters: passed on unchanged (array, string) or rebuilt each step
+walk xs i acc = {(i = #xs) ? acc : walk: xs, i+1, acc + xs@i}
+println: walk: 0..1000000, 0, 0
+cnt = 0
+go s n = {(n = 0) ? cnt : (cnt += #s; go: s, n-1)}
+println: go: "ab", 1000000
+grow xs n = {(n = 0) ? xs : grow: xs ++ n, n-1}
+println: grow: [], 5
+rev s acc = {(#s = 0) ? acc : rev: s@1..#s, s@0 + acc}
+println: rev: "hello", ""
+
+# tuple result, nested ternaries, tail calls in both branches
+collatz n steps = {(n = 1) ? (n, steps) : (n % 2 = 0) ? (collatz: n/2, steps+1) : collatz: 3*n+1, steps+1}
+println: collatz: 27, 0
+
+# a non-tail self call stays a call; the tail one loops
+fib n = {(n < 2) ? n : (fib: n-1) + fib: n-2}
+println: fib: 20
+dig n acc = {(n < 10) ? acc + n : (t = n % 10; dig: n/10, acc + t)}
+println: dig: 987654321, 0
+
+# swaps: arguments are evaluated before any parameter is reassigned
+gcd a b = {(b = 0) ? a : gcd: b, a % b}
+println: gcd: 1071, 462
+
+# a capture read inside the loop
+k = 3
+countdown n acc = {(n <= 0) ? acc : countdown: n-k, acc+1}
+println: countdown: 10, 0
