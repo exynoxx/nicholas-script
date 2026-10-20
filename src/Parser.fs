@@ -7,7 +7,7 @@ open Ast
 /// language primitives plus every function declared in runtime.c (see Stdlib.fs)
 let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ"; "BT"; "memo" ] + Stdlib.names
 let private zeroArity = Stdlib.zeroArity
-let private compounds = set [ "+="; "-="; "*="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>="; "??=" ]
+let private compounds = set [ "+="; "-="; "*="; "**="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>="; "??=" ]
 
 /// Keywords of other languages: a statement starting with one gets a hint.
 let private foreign =
@@ -229,7 +229,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
             | ID _ when tok (j + 1) = SYM ":" -> None
             | _ -> Some(skip j)
         let rec rangeEnd j =
-            atom j |> Option.bind (fun j -> match tok j with SYM("+" | "-" | "*" | "/" | "%") -> rangeEnd (j + 1) | _ -> Some j)
+            atom j |> Option.bind (fun j -> match tok j with SYM("+" | "-" | "*" | "**" | "/" | "%") -> rangeEnd (j + 1) | _ -> Some j)
         let operand j = atom j |> Option.bind (fun j -> if tok j = SYM ".." then rangeEnd (j + 1) else Some j)
         let rec indices j = if tok j = SYM "@" then operand (j + 1) |> Option.bind indices else Some j
         let rec lvs j n =
@@ -371,7 +371,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
 
     member p.Shift() = p.LeftAssoc([ "<<"; ">>"; ">>>" ], p.Add)
     member p.Add() = p.LeftAssoc([ "+"; "-"; "++" ], p.Mul)
-    member p.Mul() = p.LeftAssoc([ "*"; "/"; "%" ], p.Pow)
+    member p.Mul() = p.LeftAssoc([ "*"; "**"; "/"; "%" ], p.Pow)
 
     member p.Pow() =
         let b = p.Prefix()
@@ -431,7 +431,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
         if accept ".." then ERange(e, p.RangeEnd()) else e
 
     /// `a..n-1` ends at n-1: the end is + - * / % over atoms, so postfix forms (`{}` `[]` `/+`) still apply to the range.
-    member p.RangeEnd() = p.LeftAssoc([ "+"; "-" ], fun () -> p.LeftAssoc([ "*"; "/"; "%" ], p.Atom))
+    member p.RangeEnd() = p.LeftAssoc([ "+"; "-" ], fun () -> p.LeftAssoc([ "*"; "**"; "/"; "%" ], p.Atom))
 
     /// Range operands: a literal, a name or a parenthesised expression, optionally with prefix - or #.
     member p.Atom() =

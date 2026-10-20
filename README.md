@@ -112,7 +112,7 @@ println:"1"+1               # => 11     (int -> string, then concatenate)
 println:1+"1"               # => 2      (string -> int, then add)
 println:1+2.7               # => 3      (float -> int truncates)
 println:1.0+2               # => 3.0
-println:"ab"*3              # => ababab
+println:"ab"**3             # => ababab  (** repeats)
 println:"9 lives"+0         # => 9 lives0
 println:0+"9 lives"         # => 9      (strtol-style: longest valid prefix)
 
@@ -165,11 +165,13 @@ println:xs++7               # => [9,1,4,1,5,7]     (append)
 println:1..5                # => [1,2,3,4]
 println:0..5-1              # => [0,1,2,3]
 println:0..xs               # => [0,1,2,3,4]   (an array as the end means its length)
-println:[0]*4               # => [0,0,0,0]
+println:[0]**4              # => [0,0,0,0]   (** repeats)
+println:[2,3]**2            # => [2,3,2,3]
 
 # Arithmetic broadcasts over arrays.
 println:[1,2,3]*2           # => [2,4,6]
 println:[1,2,3]+[10,20,30]  # => [11,22,33]
+println:[0]*4               # => [0]     (* never repeats)
 
 # Arrays and strings are values: assignment copies.
 ys = xs; ys@0 = 0
@@ -187,6 +189,10 @@ println:1..6/{$+_}          # => 15                x/{...} fold, $ is the accumu
 println:1..6\{$+_}          # => [1,3,6,10,15]     x\{...} scan (running fold)
 println:[3,1,2]${-_}        # => [3,2,1]           x${...} sort by key (stable)
 println:"abc"{"{@}{_}"}     # => ["0a","1b","2c"]
+
+# An int in front of a block counts from 0: n{...} is 0..n{...}.
+println:5{_*_}              # => [0,1,4,9,16]
+println:5/+                 # => 10
 
 # A body that starts with an operator gets _ filled in on the left.
 println:1..6{*10}           # => [10,20,30,40,50]
@@ -228,6 +234,8 @@ println:1..11[!_%2]{^^2}/+  # => 220     sum of squares of the evens
 
 # Strings act as arrays of one-character strings for these operators.
 println:"hello"[!_="l"]     # => heo    (filtering a string gives a string)
+println:"a b c"/" "         # => ["a","b","c"]   (str / str splits)
+println:-"hello"            # => olleh  (unary - reverses a string)
 println:#"hello"            # => 5
 
 # ==================================================
@@ -334,6 +342,7 @@ println:m@"zzz"??0          # => 0
 println:m@?"b"              # => T    (@? is "contains")
 m -= "b"
 println:#m                  # => 2
+# coll ** 0 (or ** F) empties a map, set or queue in place: m ** F
 
 # Empty literals get their type from the first use.
 cnt = [->]

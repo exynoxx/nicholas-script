@@ -819,6 +819,40 @@ void ns_release(void *p) {
 }
 
 // ---------- extra stdlib ----------
+// `coll ** n` (Typer.typeBin): a falsy n (0, F) empties a set, map, queue or PQ in place; a truthy n keeps it. Returns coll.
+static void *keep(void *p, int64_t n) {
+  const char *d = HD(p)->d;
+  if (!n) switch (*d) {
+  case 'M': case 'H': {
+    Map *m = p;
+    for (int64_t i = 0; i < m->cap; i++) {
+      if (m->st[i] == 1) { relv(m->kd, m->keys + i * m->ksz); if (m->vd) relv(m->vd, m->vals + i * m->vsz); }
+      m->st[i] = 0;
+    }
+    m->len = m->used = 0;
+    break;
+  }
+  case 'Q': {
+    Queue *q = p;
+    for (Node *x = q->head, *nx; x; x = nx) { nx = x->next; relv(d + 1, x->v); free(x); }
+    q->head = q->tail = NULL; q->len = 0;
+    break;
+  }
+  case 'P': {
+    PQ *a = p;
+    for (int64_t i = 0; i < a->len; i++) relv(d + 1, a->data + i * a->esz);
+    a->len = 0;
+    break;
+  }
+  }
+  ns_retain(p); return p;
+}
+//@ keep (%[T],int) %[T] = ns_keep_c
+//@ keep (Q[T],int) Q[T] = ns_keep_c
+//@ keep (PQ[T],int) PQ[T] = ns_keep_c
+void *ns_keep_c(const char *dT, void *p, int64_t n) { return keep(p, n); }
+//@ keep ({K:V},int) {K:V} = ns_keep_m
+void *ns_keep_m(const char *dK, const char *dV, void *p, int64_t n) { return keep(p, n); }
 //@ hex (int) str
 char *ns_hex(int64_t v) { char b[17]; snprintf(b, sizeof b, "%llx", (unsigned long long)v); return str_n(b, strlen(b)); }
 //@ gcd (int,int) int

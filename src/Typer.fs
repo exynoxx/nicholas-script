@@ -263,10 +263,12 @@ and private typeIter (it: Iter) (limit: E option) : E =
         | _ -> it :: acc
     let stages = chain it []
     let src = typeE stages.Head.src
+    // an int in front of a block is the range 0..n: `5{_*_}`, `10[>6]`, `5/+`
+    let src = match resolve src.t with TInt -> builtin "range" [ typed (Int 0L) TInt; src ] | _ -> src
     let limit = limit |> Option.map (fun k -> conv (typeE k) TInt)
     match resolve src.t with
-    | TInt | TFloat | TBool | TTup _ | TFn _ as t ->
-        err ($"cannot {showKind stages.Head.kind} over {showTy t}: it needs an array, string, map, set, queue, tree or graph")
+    | TFloat | TBool | TTup _ | TFn _ as t ->
+        err ($"cannot {showKind stages.Head.kind} over {showTy t}: it needs an int, array, string, map, set, queue, tree or graph")
     | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
         typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit)
     | _ ->
@@ -311,6 +313,15 @@ and private typeBin op (a: E) (b: E) : E =
     | "-", TTree _ -> treeOp "btdel" a b
     | "+", TMap _ -> typed (Call("merge", [ a; conv b L ])) L
     | "-", TMap(k, _) -> typed (Call("del", [ a; conv b k ])) L
+    // `**` repeats: `[2,3]**2` = [2,3,2,3], `"ab"**3` = "ababab" (`[x]**n` becomes `repeat` in Desugar)
+    | "**", TArr _ -> stdCall "flatmap" [ builtin "repeat" [ a; b ] ]
+    | "**", TStr -> typed (Bin("*", a, conv b TInt)) TStr
+    | "**", (TSet _ | TMap _ | TQ _ | TPQ _) -> stdCall "keep" [ a; conv b TInt ] // `st**F`, `m**0`: empty in place
+    | "**", (TInt | TFloat) -> err "** repeats arrays and strings; power is ^^"
+    | "/", TStr ->
+        match resolve b.t with
+        | TStr -> stdCall "split" [ a; b ] // `"a,b"/","` = split:"a,b",","
+        | t -> err ($"str / {showTy t}: only str / str (split) is defined")
     | _, TArr _ when isArith || isBit ->
         let bIsArr = match resolve b.t with TArr _ -> true | _ -> false
         typeE (Lower.broadcast op a b bIsArr)
@@ -326,7 +337,7 @@ and private typeBin op (a: E) (b: E) : E =
         | TArr _ -> err "scalar op array: put the array on the left"
         | _ -> same ()
     | "+", TStr -> same ()
-    | "*", TStr -> typed (Bin("*", a, conv b TInt)) TStr
+    | "*", TStr -> err "operator * not defined for str: use ** to repeat a string"
     | ("+" | "-" | "*"), TBool -> same ()
     | _ -> err ($"operator {op} not defined for {showTy L}")
 
@@ -366,7 +377,7 @@ and private builtin name (args: E list) : E =
         match resolve x.t with
         | TInt | TFloat -> call x.t
         | TArr _ -> typeE (Lower.broadcast "*" x (typed (Int -1L) TInt) false)
-        | TGraph _ -> stdCall "rev" [ x ]
+        | TGraph _ | TStr -> stdCall "rev" [ x ] // `-dg` reverses the edges, `-"abc"` is "cba"
         | _ -> typed (Call("neg", [ conv x TInt ])) TInt
     | "entries", [ x ] -> (match resolve x.t with TMap _ -> stdCall "items" [ x ] | _ -> x)
     | "not", [ x ] -> typed (Call("not", [ conv x TBool ])) TBool

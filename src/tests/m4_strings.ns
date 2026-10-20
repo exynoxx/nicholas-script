@@ -3,7 +3,7 @@ println:#s
 println:s@1
 println:s@-1
 println:s@1..4
-println:s{_*2}
+println:s{_**2}
 println:#s[_!="l"]
 println:s/{_+$}
 println:"abc"\+

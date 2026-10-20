@@ -4,7 +4,7 @@ println:"{v}*{v}={v*v}"
 x = 2.5; ok = v>2
 println:"x={x} ok={ok}"
 s = "ab"+"cd"
-println:s*2
+println:s**2
 println:"x"+1.5
 println:"b"+T
 println:"\{v}"

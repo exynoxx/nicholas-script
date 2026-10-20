@@ -28,7 +28,7 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
     | EVar n -> mk (Var(defaultArg (Map.tryFind n env) n))
     | EArr xs -> mk (Arr(List.map ex xs))
     | ETuple xs -> call "tuple" xs
-    | EBin("*", EArr [ x ], n) -> call "repeat" [ x; n ] // [x]*n repeats; other array*int broadcasts
+    | EBin("**", EArr [ x ], n) -> call "repeat" [ x; n ] // [x]**n: n copies of x; other arrays are repeated in Typer.typeBin
     | EMapLit ps -> mk (Call("mapof", [ mk (Arr(ps |> List.map (fst >> ex))); mk (Arr(ps |> List.map (snd >> ex))) ]))
     | ECollLit(kind, xs) -> mk (Call(kind, [ mk (Arr(List.map ex xs)) ]))
     | ERange(a, b) -> call "range" [ a; b ]

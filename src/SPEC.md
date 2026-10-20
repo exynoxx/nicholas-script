@@ -35,13 +35,14 @@ Each variable's type is fixed by its first assignment. Re-assigning a value of a
 
 ### Implicit conversion — the left operand rules
 For any binary operator, **the left operand's type is the result type**; the right operand is converted to it.
+This is the last of three steps; see the operator matrix in §3 for the overloads and elementwise rules checked first.
 
 ```
 "1"+1     # "11"   (int -> string, then concat)
 1+"1"     # 2      (string -> int, then add)
 1+2.7     # 3      (float -> int, truncates)
 1.0+2     # 3.0
-"a"*3     # "aaa"  (string * int = repeat)
+"a"**3    # "aaa"  (** repeats; "a"*3 is a compile error)
 T+1       # T      (bool or)
 ```
 
@@ -70,11 +71,11 @@ int:"42"      float:x     str:3.5     bool:n
 
 | Level | Ops | Assoc |
 |-------|-----|-------|
-| 0 primary | `a..b` range (start is an atom; end is `+ - * / %` over atoms, so `0..n-1` ends at n-1; postfix `{}` `[]` `/+` still apply to the range) | none |
+| 0 primary | `a..b` range (start is an atom; end is `+ - * ** / %` over atoms, so `0..n-1` ends at n-1; postfix `{}` `[]` `/+` still apply to the range) | none |
 | 1 postfix | `x{…}` map, `x[…]` filter, `x${…}` sort, `x/{…}` `x/op` fold, `x\{…}` `x\op` scan, `x@i` index, `.name` method call | left |
 | 2 prefix  | `-x` `#x` (length) | right |
 | 3 power   | `^^` | right |
-| 4 mul     | `* / %` | left |
+| 4 mul     | `* ** / %` | left |
 | 5 add     | `+ - ++` | left |
 | 5.5 shift | `<< >>` (ints; `>>` is arithmetic) | left |
 | 7 compare | `= != < > <= >=` | none |
@@ -86,6 +87,37 @@ int:"42"      float:x     str:3.5     bool:n
 | 11 assign | `x = e`, `a,b = b,a` | right |
 
 `=` in expression position is equality; at statement start with an lvalue on the left it is assignment.
+
+### Operator matrix
+A binary operator is resolved at compile time in three steps; the first that applies wins:
+
+1. **Structural overload**: an exact (left type, operator, right type) entry in the table below.
+2. **Elementwise**: arrays and tuples with arithmetic (`+ - * / % ^^`, and `^ << >> >>>` on arrays) apply the
+   operator per element, against a scalar or a same-shaped right operand (see Broadcasting).
+3. **Left-operand conversion**: the right operand is converted to the left type (§2).
+
+| left | op | right | result |
+|---|---|---|---|
+| array | `**` | int | the array repeated n times: `[2,3]**2` → `[2,3,2,3]`; `[x]**n` is n copies of x, nested arrays deep-copied |
+| str | `**` | int | the string repeated: `"ab"**3` → `"ababab"` |
+| array, str | `**` | bool | `T` keeps it, `F` gives empty (bool converts to 1/0): `"s"**(n>1)` |
+| set, map, queue, PQ | `**` | int, bool | 0 or `F` empties it in place (aliases see it); anything else leaves it unchanged |
+| int, float | `**` | any | compile error (power is `^^`) |
+| str | `*` | any | compile error (use `**`) |
+| array, tuple | `+ - * / % ^^` | scalar | elementwise: `[1,2]*2` → `[2,4]`, `(1,2)*3` → `(3,6)` |
+| array, tuple | `+ - * / % ^^` | same shape | pairwise: `[1,2]+[10,20]` → `[11,22]` |
+| int, float | arithmetic | array | compile error (put the array on the left) |
+| str | `/` | str | split: `"a,b"/","` → `["a","b"]` |
+| str | `/` | other non-block | compile error |
+| str, collection | `/{…}` `/op` | block or op | fold (unchanged) |
+| int | `{…}` `[…]` `/` `\` `${…}` | block or op | runs over `0..n`: `5{_*_}` → `[0,1,4,9,16]`, `5/+` → `10` |
+| array | `++` | array / element | concat / append |
+| set | `& \| + -` | set | intersect, union, union, difference |
+| set, queue, PQ | `+` `-` | element | add / remove |
+| map | `+` / `-` | map / key | merge / delete key |
+| graph | `+` `-` | edge / node | add edge / delete edge or node; `& \| -` with a graph: set ops on graphs |
+| — | unary `-` | str | reversed: `-"abc"` → `"cba"` (like `-dg` reversing a graph) |
+| any | `= != < > <= >=` | any | right converted to left type; bool (no broadcasting) |
 
 ### Arrays and ranges
 ```
@@ -130,11 +162,11 @@ Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter;
 
 ### Broadcasting
 Arithmetic between an array and a scalar, or two arrays of equal length, applies elementwise:
-`x*2`, `x+y`, `x^^2`. Left-operand conversion rules apply per element. Unequal lengths are a runtime error; `scalar op array` is a compile error.
+`x*2`, `x+y`, `x^^2`. Left-operand conversion rules apply per element. `*` never repeats: `[0]*4` is `[0]`; use `[0]**4`. Unequal lengths are a runtime error; `scalar op array` is a compile error.
 
 ### Strings
 Strings are byte strings. They behave as arrays of 1-character strings for `{}`, `[]`, `/`, `\`, `@`, `#` only.
-Strings never broadcast: `+` concatenates, `*int` repeats. `ord:"a"` → 97, `chr:97` → `"a"`.
+Strings never broadcast: `+` concatenates, `**int` repeats, `/str` splits (`"a b"/" "` → `["a","b"]`). `ord:"a"` → 97, `chr:97` → `"a"`.
 
 `nums:s` returns every integer in a string (`-` is a sign unless it follows a letter or digit): `nums:"1-3 x=-4"` → `[1,3,-4]`.
 `"hello"{_*2}` → `["hh","ee","ll","ll","oo"]`.
@@ -234,7 +266,7 @@ Lexing/typing rules for collections:
 - Destructuring: N lvalues with one array on the right unpack it (`d,n = q.pop`). All right-hand expressions are evaluated before any assignment.
 
 ### Compound assignment
-`x op= e` for every binary op (`+= -= *= /= %= ^^= &= |=`), meaning `x = x op e`, except that on maps/sets/queues every `op=` mutates in place, so aliases see the change. `m+=n` merges map `n` into `m`.
+`x op= e` for every binary op (`+= -= *= **= /= %= ^^= &= |=`), meaning `x = x op e`, except that on maps/sets/queues every `op=` mutates in place, so aliases see the change. `m+=n` merges map `n` into `m`.
 `m@k ??= e` inserts e only when k is missing; e is not evaluated when k is present (`g@u ??= []`).
 
 ## 4. Functions
@@ -326,11 +358,11 @@ Debug mode: `--debug` (on run/build/test) prints `line: name = value` after ever
 
 ## 7. Built-ins and standard library
 Language primitives (in the compiler): `print` (no newline), `println`, casts `int float str bool`, `#` length, `@?` contains, ranges and slices,
-collection literals and `set: Q: PQ: arr:`, `pop`, `keys`, `vals`, tuples, `[x]*n`.
+collection literals and `set: Q: PQ: arr:`, `pop`, `keys`, `vals`, tuples, `[x]**n`.
 Printing and `str` show a string bare, but strings nested in arrays, maps and tuples are quoted: `println:["a"]` → `["a"]`. `join` does not quote; `xs.join:sep` puts sep between elements, `xs.join` just concatenates.
 
 Tuples: `(a,b)`, `(a,b,c)` … up to 9 elements of any types; immutable; `t@0` (literal index), `t._1` (1-based, = `t@0`), `a,b = t` or `(a,b) = t`; `+ - * / % ^^` work elementwise (`(1,2)+(10,20)` → `(11,22)`, `(1,2)*3` → `(3,6)`); `tuple2:xs` `tuple3:xs` take the first 2 or 3 array elements; compare lexicographically; usable as map keys, set and PQ elements.
-Repeat: `[x]*n` (a one-element array literal times an int) builds n copies; nested arrays are deep-copied.
+Repeat: `xs**n` repeats an array, `s**n` a string; `[x]**n` builds n copies of x, nested arrays deep-copied.
 
 Everything else is the **standard library, implemented in `runtime.c`**. Each function is declared there by a signature line
 ```
@@ -378,7 +410,7 @@ logic     = not { ("&" | "|") not } ;
 not       = "!" not | compare ;
 compare   = add [ CMPOP add ] ;
 add       = mul { ("+" | "-") mul } ;
-mul       = pow { ("*" | "/" | "%") pow } ;
+mul       = pow { ("*" | "**" | "/" | "%") pow } ;
 pow       = prefix [ "^^" pow ] ;
 prefix    = ("-" | "#") prefix | postfix ;
 postfix   = primary { "{" block "}" | "[" block "]"
@@ -387,7 +419,7 @@ postfix   = primary { "{" block "}" | "[" block "]"
                     | "@" prefix
                     | "." IDENT } ;
 primary   = atom [ ".." rangeend ] ;
-rangeend  = rterm { ("+" | "-") rterm } ;  rterm = atom { ("*" | "/" | "%") atom } ;
+rangeend  = rterm { ("+" | "-") rterm } ;  rterm = atom { ("*" | "**" | "/" | "%") atom } ;
 atom      = [ "-" | "#" ] ( INT | IDENT | "(" expr ")" | "(" stmts ")" ) | base ;   (* "(" stmts ")" needs a top-level ";" *)
 base      = INT | FLOAT | STRING | BOOL | IDENT | "_" | "_" INT | "$" | "@"
           | "[" [ exprlist ] "]" | "[" pairs "]" | "[->]"
@@ -399,4 +431,4 @@ stmts     = stmt { TERM stmt } ;
 ```
 
 ## 10. Decisions log
-Resolved: exclusive ranges, no fold seed, floor int division, keep `^^`, by-reference capture, `!` below compare, range at primary level, `#` comment vs length, call-vs-ternary by binding.
+Resolved: exclusive ranges, no fold seed, floor int division, keep `^^`, by-reference capture, `!` below compare, range at primary level, `#` comment vs length, call-vs-ternary by binding, `**` repeats and `*` is always elementwise, int before a block is `0..n`, `str/str` splits, structural overloads before elementwise before conversion (operator matrix, §3).

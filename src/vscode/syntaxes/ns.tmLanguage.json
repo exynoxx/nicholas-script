@@ -86,7 +86,7 @@
       "patterns": [
         { "match": "->|=>|\\.\\.|@\\?|@", "name": "keyword.operator.special.ns" },
         { "match": "[?:]", "name": "keyword.operator.ternary.ns" },
-        { "match": ">>>=?|\\^\\^=?|\\+\\+=?|<<=?|>>=?|[!<>]=|[-+*/%&|^]=|[-+*/%^&|!<>=#]", "name": "keyword.operator.ns" }
+        { "match": ">>>=?|\\^\\^=?|\\*\\*=?|\\+\\+=?|<<=?|>>=?|[!<>]=|[-+*/%&|^]=|[-+*/%^&|!<>=#]", "name": "keyword.operator.ns" }
       ]
     },
     "braces": {

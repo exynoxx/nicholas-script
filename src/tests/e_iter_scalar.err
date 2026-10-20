@@ -1,2 +1,2 @@
-2: error: cannot filter over int: it needs an array, string, map, set, queue, tree or graph
+2: error: cannot filter over float: it needs an int, array, string, map, set, queue, tree or graph
 2 | n[>1]

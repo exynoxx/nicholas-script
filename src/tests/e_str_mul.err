@@ -1,0 +1,2 @@
+1: error: operator * not defined for str: use ** to repeat a string
+1 | println:"ab"*3

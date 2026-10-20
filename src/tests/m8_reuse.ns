@@ -10,7 +10,7 @@ println:xs
 xs = xs{_+xs@0}
 println:xs
 # different element type: must build a new array
-ys = xs{"a"*(_%3+1)}
+ys = xs{"a"**(_%3+1)}
 println:ys
 ys = ys{_+"!"}
 println:ys

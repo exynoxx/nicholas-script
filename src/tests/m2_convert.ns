@@ -2,7 +2,7 @@ println:"1"+1
 println:1+"1"
 println:1+2.7
 println:1.0+2
-println:"a"*3
+println:"a"**3
 println:T+1
 x = 5; x = 2.9
 println:x

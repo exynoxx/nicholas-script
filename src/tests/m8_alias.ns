@@ -4,7 +4,7 @@ a = f
 b = a
 useb x = b:x
 println:useb:4
-println:a:"ab"
+println:a:3
 fact n = n < 2 ? 1 : n * (fact:n-1)
 fa = fact
 println:fa:5

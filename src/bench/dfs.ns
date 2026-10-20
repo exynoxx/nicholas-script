@@ -2,9 +2,9 @@
 # Recursion goes ~1M deep: run with `ulimit -s unlimited`.
 a = nums:read:"graph.txt"
 n = a@0; m = a@1
-adj = [[0]*0]*n
+adj = [[0]**0]**n
 0..m{u = a@(2+2*_); v = a@(3+2*_); adj@u ++= v; adj@v ++= u}
-seen = [F]*n
+seen = [F]**n
 k = 0; chk = 0; size = 0; comps = 0; big = 0
 dfs = {u = _; seen@u = T; size += 1; k += 1; chk = (chk + k*u) % 1000000007; adj@u{!(seen@_) ? dfs:_}; 0}
 0..n[!(seen@_)]{comps += 1; size = 0; dfs:_; big = max:big,size}

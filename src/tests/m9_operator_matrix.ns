@@ -1,0 +1,28 @@
+# ** repeats; * is elementwise on arrays and tuples
+println:"ab"**3
+println:[1,2]**0
+println:(1,2)+(10,20)
+println:(3,4)*2
+# an int in front of a block is the range 0..n
+println:5{_*_}
+println:10[>6]
+println:5/+
+println:4\+
+s = 0
+3{s += _}
+println:s
+# str / str splits; str / block still folds over the characters
+println:"a,b,c"/","
+println:("k=v"/"=")@1
+println:"hello"/{$+_}
+# unary - reverses a string
+println:-"abc"
+# ** with a bool keeps or empties; collections ** 0 / F empty in place
+println:"s"**(3>1)
+println:[1,2]**F
+st = %[1,2]; st ** F
+println:#st
+m = ["a"->1]; m **= 0
+println:#m
+q = Q[1,2]; q ** 1
+println:#q

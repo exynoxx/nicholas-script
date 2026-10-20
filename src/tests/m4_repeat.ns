@@ -1,9 +1,13 @@
-z = [0]*4
+z = [0]**4
 println:z
-g = [[0]*3]*2
+g = [[0]**3]**2
 g@0@1 = 5
 println:g
 h = g; h@1@1 = 7
 println:g
-println:["ab"]*3
+println:["ab"]**3
 println:[2,3]*2
+println:[2,3]**2
+println:[0]*4
+x = [1]; x **= 3
+println:x
