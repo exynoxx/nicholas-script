@@ -1,0 +1,318 @@
+# nsc: blocks as values. A block (or a function name) passed to a stdlib `fn(..)->R` parameter becomes an instance
+# plus a C-callable wrapper `void w(ptr env, ptr x, ptr out)`; env holds pointers to the captured variables.
+# Blocks capture by reference: a function defined inside another one gets a pointer parameter per enclosing local
+# it uses (FNSCOPE: the locals visible where it was defined). Also: memo:{..}, x${key}, .take:n on map/filter loops.
+FNSCOPE = ["" -> [""]]
+FNSCOPE = [->]
+FV = ["" -> T]
+FV = [->]
+MEMO = ["" -> T]
+MEMO = [->]
+WRAPS = ["" -> ""]
+WRAPS = [->]
+ITLIM = ""
+# fixes LOC's type before fndef reads LOC.keys
+LOC@"" = ""
+LOC = [->]
+
+# --- parser helpers ---
+
+# `!f` of a function is the block {!f:_}; `!{..}` negates the block's value. Marked "neg" so a section inlines it.
+notblk e = {
+  (NK@e = "var" & (isfunc: NS@e)) ? (
+    c = setkids: (mk: "call", NS@e, -1, -1, -1), [mk: "var", "_", -1, -1, -1];
+    mk: "blk", "neg", (setkids: (mk: "group", "", -1, -1, -1), [un: "!", c]), -1, -1
+  ) : (NK@e = "blk" & NN@(NA@e) > 0) ? (
+    g = NA@e;
+    q = NX@g + NN@g - 1;
+    KIDS@q = un: "!", KIDS@q;
+    NS@e = "neg";
+    e
+  ) : un: "!", e
+}
+
+# --- functions and their captures ---
+
+fndef name f = {
+  FNNODE@name = f
+  FNSCOPE@name = LOC.keys
+  0
+}
+
+memodef name rv = {
+  (NN@rv != 1 | NK@(kid: rv, 0) != "blk") ? gerr: rv, "memo: expects a block, as in f = memo:\{...}"
+  fndef: name, (kid: rv, 0)
+  MEMO@name = T
+  0
+}
+
+# the names used anywhere under node n, into FV
+fvwalk n = {
+  n >= 0 ? (
+    (NK@n = "var") ? (FV@(NS@n) = T;);
+    (NK@n != "assign") ? fvwalk: NA@n;
+    fvwalk: NB@n;
+    fvwalk: NC@n;
+    j = 0;
+    j < NN@n ~{ fvwalk: (kid: n, j); j += 1 }
+  )
+  0
+}
+
+isparam f s = {
+  r = F
+  NK@f = "fn" ? (
+    j = 0;
+    j < NN@f ~{ r = r | NS@(kid: f, j) = s; j += 1 }
+  )
+  r
+}
+
+# the enclosing locals function name uses (passed by pointer from the call site)
+capsof name = {
+  r = [""]
+  r = []
+  ((FNSCOPE@?name) & #(FNSCOPE@name) > 0) ? (
+    f = FNNODE@name;
+    FV = [->];
+    fvwalk: NA@f;
+    sc = FNSCOPE@name;
+    j = 0;
+    j < #sc ~{
+      s = sc@j;
+      (FV@?s & s@0 != "_" & s != "@" & s != "$" & (LOC@?s) & !(isparam: f, s)) ? (r = r ++ s;);
+      j += 1
+    }
+  )
+  r
+}
+
+# the instance of function name for argument types ts and captures cs (types ct)
+getinst name ts cs ct n = {
+  f = FNNODE@name
+  key = "{f}|" + name + "|" + (ts{tyname: _}.join: ",") + "|" + (ct{tyname: _}.join: ",")
+  (INST@?key) ? INST@key : instance: name, f, ts, key, n, cs, ct
+}
+
+# --- memo:{..}: a per-instance global cache map from the argument (several: their joined text) to the result ---
+
+memokey ts = {
+  s = strconst: ""
+  j = 0
+  j < #ts ~{
+    # ponytail: several arguments are keyed on their text joined by a control char, tuples would be exact
+    s = rt: "ptr", "ns_concat", ["ptr", "ptr"], [s, (tostr: "%p{j}", ts@j)]
+    s = rt: "ptr", "ns_concat", ["ptr", "ptr"], [s, (strconst: chr: 1)]
+    j += 1
+  }
+  s
+}
+
+# looks the arguments up and returns the cached result; else falls through. Returns [cache, key pointer].
+memopre i ts n = {
+  g = "memo.{i}"
+  kt = #ts = 1 ? ts@0 : TS
+  mt = tymap: kt, IRET@i
+  GLOBT@g = mt
+  c0 = ins: "load ptr, ptr @g.{g}"
+  l1 = newlbl: 0
+  l2 = newlbl: 0
+  emit: "br i1 " + (ins: "icmp eq ptr {c0}, null") + ", label %{l1}, label %{l2}"
+  label: l1
+  emit: "store ptr " + (rt: "ptr", "ns_map_new", ["ptr"], [dref: mt]) + ", ptr @g.{g}"
+  br: l2
+  label: l2
+  c = ins: "load ptr, ptr @g.{g}"
+  key = #ts = 1 ? "%p0" : memokey: ts
+  kp = spill: key, kt
+  ref = rt: "ptr", "ns_map_ref", ["ptr", "ptr"], [c, kp]
+  l3 = newlbl: 0
+  l4 = newlbl: 0
+  emit: "br i1 " + (ins: "icmp ne ptr {ref}, null") + ", label %{l3}, label %{l4}"
+  label: l3
+  # ponytail: a bool-returning memo would load i1 from i8 storage here (its type is not known yet)
+  emit: "ret {llt: IRET@i} " + (ldslot: ref, IRET@i)
+  label: l4
+  [c, kp]
+}
+
+memopost mp v t = stslot: (rt: "ptr", "ns_map_put", ["ptr", "ptr"], [mp@0, mp@1]), v, t
+
+# --- stdlib calls with a fn parameter ---
+
+hasfn ps = {
+  r = F
+  j = 0
+  j < #ps ~{ r = r | (ps@j.starts: "fn("); j += 1 }
+  r
+}
+
+# does this call go to an overload that takes a block?
+isfncall name n = {
+  r = F
+  j = 0
+  j < #SGNAME ~{ r = r | (SGNAME@j = name & #(SGPAR@j) = NN@n & (hasfn: SGPAR@j)); j += 1 }
+  r
+}
+
+# the function a block argument names (a block literal gets a hidden name)
+fnname a n = {
+  k = NK@a
+  nm = (k = "var") ? NS@a : "blk.{a}"
+  nm = ALIAS@?nm ? ALIAS@nm : nm
+  (k = "blk") ? fndef: nm, a
+  ((k != "blk" & k != "var") | !(FNNODE@?nm)) ? gerr: n, "expected a block or a function name"
+  nm
+}
+
+# a stack array of pointers to the captured variables (null when none)
+mkenv cs = {
+  e = "null"
+  #cs > 0 ? (
+    TMP += 1;
+    e = "%e{TMP}";
+    ALLOC = ALLOC ++ "  {e} = alloca [{#cs} x ptr]";
+    j = 0;
+    j < #cs ~{ emit: "store ptr {varref: cs@j}, ptr " + (ins: "getelementptr ptr, ptr {e}, i64 {j}"); j += 1 }
+  )
+  e
+}
+
+# block argument a for parameter p = "fn(T,..)->R": [type, value, type, value] of the wrapper and its env
+blkarg a p n = {
+  cl = p.find: ")"
+  pps = splittop: p@3..cl, ","
+  pret = p@(cl + 3)..
+  ats = pps{res: (sigty: _, -1)}
+  name = fnname: a, n
+  cs = capsof: name
+  ct = cs{vartype: _}
+  # the block's body may call the stdlib too, which resets SENV / SVARS
+  se = SENV
+  sv = SVARS
+  i = getinst: name, ats, cs, ct, n
+  SENV = se
+  SVARS = sv
+  isb = pret = "bool"
+  isb ? 0 : unify: (sigty: pret, -1), IRET@i
+  w = wrapper: i, ats, cs, isb
+  ["ptr", "@" + w, "ptr", (mkenv: cs)]
+}
+
+wrapper i ats cs isb = {
+  key = "{i}|{isb}"
+  (WRAPS@?key) ? WRAPS@key : mkwrapper: i, ats, cs, isb, key
+}
+
+mkwrapper i ats cs isb key = {
+  w = "w.{i}.{#WRAPS}"
+  WRAPS@key = w
+  b0 = BODY; a0 = ALLOC; t0 = TMP; l0 = LOC; lt0 = LOCT; f0 = INFN
+  BODY = []; ALLOC = []; TMP = 0; LOC = [->]; LOCT = [->]; INFN = T
+  a = []
+  j = 0
+  j < #ats ~{
+    p = #ats = 1 ? "%x" : ins: "load ptr, ptr " + (ins: "getelementptr ptr, ptr %x, i64 {j}")
+    a = a ++ ((llt: ats@j) + " " + (ldslot: p, ats@j))
+    j += 1
+  }
+  j = 0
+  j < #cs ~{ a = a ++ ("ptr " + (ins: "load ptr, ptr " + (ins: "getelementptr ptr, ptr %env, i64 {j}"))); j += 1 }
+  rty = IRET@i
+  r = ins: "call {llt: rty} @{INAME@i}({a.join: ", "})"
+  # the runtime releases the keys it gets: hand it a reference of its own
+  (!isb & (llt: rty) = "ptr") ? rt: "void", "ns_retain", ["ptr"], [r]
+  isb ? (stslot: "%out", (truth: r, rty), TB) : stslot: "%out", r, rty
+  emit: "ret void"
+  OUTF = OUTF ++ ("define void @{w}(ptr %env, ptr %x, ptr %out) \{\nentry:\n" + (ALLOC.join: "\n") + "\n" + (BODY.join: "\n") + "\n}\n")
+  BODY = b0; ALLOC = a0; TMP = t0; LOC = l0; LOCT = lt0; INFN = f0
+  w
+}
+
+# one non-block argument: [llvm type, operand]
+plainarg p v t n = {
+  pt = sigty: p, (res: t)
+  pt < 0 ? gerr: n, "argument is {tyname: t}, not {p}"
+  v = conv: v, t, pt, n
+  (isvar: p) ? ["ptr", (spill: v, pt)] : p = "bool" ? ["i64", (ins: "zext i1 {v} to i64")] : [(llt: pt), v]
+}
+
+argof a p n = {
+  v = ex: a
+  plainarg: p, v, ET, n
+}
+
+# a call of stdlib name whose overload takes a block; the first #pv arguments are already evaluated (values pv, types pt)
+stdfn name n an pv pt = {
+  best = -1
+  j = 0
+  j < #SGNAME ~{
+    (best < 0 & SGNAME@j = name & #(SGPAR@j) = #an & (hasfn: SGPAR@j)) ? (best = j;)
+    j += 1
+  }
+  best < 0 ? gerr: n, "{name}: no overload takes these arguments"
+  ps = SGPAR@best
+  SENV = [->]
+  SVARS = []
+  tys = []
+  args = []
+  j = 0
+  j < #an ~{
+    p = ps@j
+    r = (p.starts: "fn(") ? (blkarg: an@j, p, n) : (j < #pv) ? (plainarg: p, pv@j, pt@j, n) : argof: an@j, p, n
+    q = 0
+    q < #r ~{ tys = tys ++ r@q; args = args ++ r@(q + 1); q += 2 }
+    j += 1
+  }
+  ret = SGRET@best
+  rty = sigty: ret, -1
+  ds = SVARS{dref: SENV@_}
+  dt = ds{"ptr"}
+  out = (isvar: ret) ? newvar: rty : ""
+  v = (isvar: ret) ? (rt: "void", SGSYM@best, dt ++ tys ++ "ptr", ds ++ args ++ out; ins: "load {llt: rty}, ptr {out}") :
+    ret = "bool" ? ins: "icmp ne i64 " + (rt: "i64", SGSYM@best, dt ++ tys, ds ++ args) + ", 0" :
+    rt: (llt: rty), SGSYM@best, dt ++ tys, ds ++ args
+  ET = rty
+  v
+}
+
+# --- iteration forms ---
+
+# x${key}: a stable sort by key (sortby); a string sorts its characters
+sortblk n = {
+  s = ex: NA@n
+  t = ET
+  (kind: t) = "S" ? (s = rt: "ptr", "ns_chars", ["ptr"], [s]; t = tyarr: TS)
+  # a map sorts its (key, value) pairs
+  (kind: t) = "M" ? (
+    pt = tyarr: (tytup: [(elem: t), (val: t)]);
+    s = rt: "ptr", "ns_items", ["ptr", "ptr", "ptr", "ptr"], [(dref: elem: t), (dref: val: t), (dref: pt), s];
+    t = pt
+  )
+  b = mk: "blk", "", NB@n, -1, -1
+  ITERBLK = T
+  r = stdfn: "sortby", n, [NA@n, b], [s], [t]
+  ITERBLK = F
+  r
+}
+
+# x{..}.take:k / x[..].take:k: the loop stops after k results (a negative k keeps the last -k)
+taketo n = {
+  lim = conv: (ex: (kid: n, 1)), ET, TI, n
+  ITLIM = lim
+  v = ex: (kid: n, 0)
+  t = ET
+  (kind: t) = "S" ? (ET = TS; rt: "ptr", "ns_take_s", ["ptr", "i64"], [v, lim]) : rt: "ptr", "ns_take", ["ptr", "ptr", "i64"], [(dref: elem: t), v, lim]
+}
+
+# inside a map/filter loop with a limit: leave once #out reaches it
+limchk out lim le = {
+  lim != "" ? (
+    c = ins: "icmp sge i64 " + (ins: "load i64, ptr {out}") + ", {lim}";
+    c = ins: "and i1 {c}, " + (ins: "icmp sge i64 {lim}, 0");
+    l = newlbl: 0;
+    emit: "br i1 {c}, label %{le}, label %{l}";
+    label: l
+  )
+  0
+}

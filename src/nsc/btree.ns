@@ -1,0 +1,23 @@
+# nsc: sorted trees keyed by a block, BT:xs,{key}. The tree type R carries its key block as TYB: a type of kind
+# "K<block name>" whose child is the key type (runtime descriptor K<key><elem>). Each insert, removal and lookup
+# calls the key block's instance on the element.
+
+# BT:xs,{key} from the array a (type ta)
+btkeyed a ta n = {
+  et = elem: ta
+  name = fnname: (kid: n, 1), n
+  # ponytail: the key is computed wherever the tree is used, so it may only capture globals
+  cs = capsof: name
+  (#cs > 0) ? gerr: n, "BT: a key block may not capture local variables"
+  i = getinst: name, [et], cs, cs{vartype: _}, n
+  fillcoll: "R", a, ta, (ty: "K" + name, IRET@i, -1), n
+}
+
+# the key of element x (type et) under key block type kb
+btkey x et kb = {
+  s = TYK@(res: kb)
+  name = s@1..
+  cs = capsof: name
+  i = getinst: name, [et], cs, cs{vartype: _}, 0
+  ins: "call {llt: IRET@i} @{INAME@i}({llt: et} {x})"
+}

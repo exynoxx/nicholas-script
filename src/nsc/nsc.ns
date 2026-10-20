@@ -1,0 +1,55 @@
+# nsc: the NS compiler written in NS.  usage: nsc file.ns [-o out]
+# Builds out (default: file without .ns) by writing out.ll and linking it with runtime.c (found next to nsc) by clang.
+import "lex.ns"
+import "parse.ns"
+import "sig.ns"
+import "types.ns"
+import "gen.ns"
+import "tuple.ns"
+import "colls.ns"
+import "bcast.ns"
+import "blocks.ns"
+import "btree.ns"
+import "graph.ns"
+
+# command line: /proc/<pid>/cmdline of this process (the shell's parent), NUL-separated
+cmdline u = {
+  # claim a fresh file name (mkdir is atomic), so concurrent nsc runs don't collide
+  (spawn: "mkdir /tmp/nsc-args-{TMPID}.d 2>/dev/null") != 0 ~{ TMPID += 1 }
+  f = "/tmp/nsc-args-{TMPID}.d/a"
+  spawn: "tr '\\0' '\\n' < /proc/$PPID/cmdline > {f}; readlink /proc/$PPID/exe >> {f}"
+  r = lines: f
+  spawn: "rm -rf /tmp/nsc-args-{TMPID}.d"
+  r
+}
+
+TMPID = 0
+
+main u = {
+  a = cmdline: 0
+  exe = a@-1
+  a = a@..-1
+  src = ""
+  out = ""
+  emitll = F
+  j = 1
+  j < #a ~{
+    (a@j = "-o") ? (out = a@(j + 1); j += 1) : (a@j = "--ll") ? (emitll = T;) : (src = a@j;)
+    j += 1
+  }
+  (src = "") ? crash: "usage: nsc file.ns [-o out] [--ll]"
+  (out = "") ? (out = (src.ends: ".ns") ? src@..-3 : src + ".out";)
+  rtc = (dirname: exe) + "/runtime.c"
+  loadsigs: rtc
+  lex: src
+  root = parse: 0
+  ll = generate: root
+  emitll ? (print: ll;) : (
+    write: out + ".ll", ll;
+    code = spawn: "clang -O2 -w -o '{out}' '{out}.ll' '{rtc}' -lm";
+    (code != 0) ? crash: "clang failed"
+  )
+  0
+}
+
+main: 0

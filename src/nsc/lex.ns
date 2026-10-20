@@ -1,0 +1,332 @@
+# nsc lexer: source text -> tokens, stored in parallel arrays (NS has no records).
+# Kinds: n int, f float, s string, b bool, i name, o symbol, fo fold op, so scan op, t end of statement, e end of file.
+TK = []
+TV = []
+TL = []
+SYMS = [">>>=", ">>>", "^^=", "++=", "<<=", ">>=", "^^", "++", "<<", ">>", "^=", "!=", "<=", ">=", "..", "->", "=>", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "??=", "??", "+", "-", "*", "/", "%", "=", "<", ">", "&", "|", "^", "?", ":", ",", ".", "(", ")", "[", "]", "\{", "}", "#", "!"]
+SECOPS = ["+", "*", "/", "%", "^^", "++", "^", "<<", ">>", ">>>", "=", "!=", "<", ">", "<=", ">=", "&", "|"]
+OPENERS = ["\{", "m\{", "f[", "/\{", "\\\{", "$\{"]
+FOLDOPS = ["+", "*", ">", "<", "&", "|", "^", "-"]
+# lexer state (globals, saved around the nested lex of an interpolation)
+LS = ""
+LI = 0
+LN = 1
+LSTK = []
+LIND = 0
+LSEC = F
+CR = chr: 13
+LDIR = "."
+LSEEN = [->]
+FILES = []
+LFILE = 0
+
+crash msg = {
+  println: msg
+  z = [0]
+  z@5
+}
+
+lexerr msg = crash: "{FILES@LFILE}:{LN}: error: {msg}"
+
+# a token's line number also says which file it is in
+where l = "{FILES@(l / 1000000)}:{l % 1000000}"
+
+tok k v = {
+  LSEC ? (
+    LSEC = F;
+    (k = "o" & SECOPS@?v) ? (TK = TK ++ "i"; TV = TV ++ "_"; TL = TL ++ (LFILE * 1000000 + LN))
+  )
+  TK = TK ++ k
+  TV = TV ++ v
+  TL = TL ++ (LFILE * 1000000 + LN)
+  0
+}
+
+isopen s = s = "(" | s = "[" | s = "?\{" | s = "?[" | s = "BT[" | s = "G[" | s = "DG[" | s = "f[" | s = "%[" | s = "Q[" | s = "PQ[" | s = "\{" | s = "m\{" | s = "~\{" | s = "/\{" | s = "\\\{" | s = "$\{"
+
+sym s = {
+  tok: "o", s
+  (isopen: s) ? (LSTK = LSTK ++ (s = "?[" ? "?" : s@-1);)
+  (s = ")" | s = "]" | s = "}") ? (
+    #LSTK = 0 ? lexerr: "'{s}' has no matching opening bracket";
+    o = LSTK@-1;
+    w = o = "(" ? ")" : o = "[" | o = "?" ? "]" : "}";
+    s != w ? lexerr: "expected '{w}', found '{s}'";
+    LSTK = LSTK@..(#LSTK - 1)
+  )
+  OPENERS@?s ? (LSEC = T;)
+  0
+}
+
+endsx u = {
+  #TK = 0 ? F : (
+    k = TK@-1;
+    v = TV@-1;
+    (k = "n" | k = "f" | k = "s" | k = "b" | k = "i" | k = "fo" | k = "so" | (k = "o" & (v = ")" | v = "]" | v = "}")))
+  )
+}
+
+term u = {
+  #TK > 0 & TK@-1 != "t" ? tok: "t", ""
+  0
+}
+
+charat j = j < #LS ? LS@j : ""
+at k = charat: LI + k
+
+isdig c = c != "" & (isdigit: c)
+isalpha c = c != "" & ((isupper: c) | (islower: c))
+isalnum c = (isdig: c) | (isalpha: c)
+
+skipws j = {
+  j < #LS & (LS@j = " " | LS@j = "\t") ~{ j += 1 }
+  j
+}
+
+# the index of the closing '"' of the string whose '"' is at j
+skipstr j = {
+  j += 1
+  j < #LS & LS@j != "\"" ~{ j += LS@j = "\\" ? 2 : 1 }
+  j
+}
+
+newline u = {
+  LN += 1
+  LI += 1
+  inpar = #LSTK > 0 & LSTK@-1 != "\{" & LSTK@-1 != "?"
+  ind = (skipws: LI) - LI
+  k = #TK > 0 ? TK@-1 : "t"
+  v = #TK > 0 ? TV@-1 : ""
+  opens = k = "o" & (v@-1 = "(" | v@-1 = "[" | v@-1 = "\{")
+  cont = k = "o" & v != ")" & v != "]" & v != "}" & (inpar | ind > LIND)
+  opens ? (LIND = ind;) : cont ? 0 : !inpar ? (term: 0; LIND = ind)
+  0
+}
+
+number u = {
+  st = LI
+  (LS@LI = "-") ? (LI += 1;)
+  ((at: 0) = "0" & ((at: 1) = "x" | (at: 1) = "b")) ? radixnum: st : decimal: st
+  0
+}
+
+decimal st = {
+  isdig: (at: 0) ~{ LI += 1 }
+  ((at: 0) = "." & (isdig: (at: 1))) ? (
+    LI += 1;
+    isdig: (at: 0) ~{ LI += 1 };
+    tok: "f", LS@st..LI
+  ) : tok: "n", LS@st..LI
+  0
+}
+
+# 0xff / 0b101: 64-bit patterns, values >= 2^63 wrap to negative
+radixnum st = {
+  hx = (at: 1) = "x"
+  LI += 2
+  v = 0
+  go = T
+  go ~{
+    d = "0123456789abcdef".find: (at: 0).lower
+    (d >= 0 & (hx | d < 2) & (at: 0) != "") ? (v = v * (hx ? 16 : 2) + d; LI += 1) : (go = F;)
+  }
+  tok: "n", str: (LS@st = "-" ? -v : v)
+}
+
+# at `?[`: is this `c ?[..] : d`, a ternary whose branch is an array literal? (else a `?[ ]` match filter)
+ternarr u = {
+  j = LI + 1
+  d = 0
+  fin = F
+  j < #LS & !fin ~{
+    c = LS@j
+    (c = "\"") ? (j = skipstr: j;) : (c = "(" | c = "[" | c = "\{") ? (d += 1;) : (c = ")" | c = "]" | c = "}") ? (d -= 1; (d = 0) ? (fin = T;));
+    fin ? 0 : (j += 1;)
+  }
+  (charat: (skipws: j + 1)) = ":"
+}
+
+# a string literal; "a{x}b" becomes the tokens ("a" + (x) + "b")
+string u = {
+  LI += 1
+  parts = []
+  codes = []
+  lns = []
+  buf = ""
+  bs = LI
+  LI < #LS & LS@LI != "\"" ~{
+    c = LS@LI
+    (c = "\\") ? (
+      d = at: 1;
+      buf = buf + (LS@bs..LI) + (d = "n" ? "\n" : d = "t" ? "\t" : d);
+      LI += 2;
+      bs = LI
+    ) : c = "\{" ? (
+      buf = buf + (LS@bs..LI);
+      parts = parts ++ buf; codes = codes ++ F; lns = lns ++ LN;
+      buf = "";
+      st = LI + 1;
+      depth = 1;
+      LI += 1;
+      depth > 0 ~{
+        LI >= #LS ? lexerr: "string interpolation is never closed";
+        e = LS@LI;
+        (e = "\{") ? (depth += 1;) : e = "}" ? (depth -= 1;) : e = "\"" ? (LI = skipstr: LI;);
+        LI += 1
+      };
+      parts = parts ++ (LS@st..(LI - 1)); codes = codes ++ T; lns = lns ++ LN;
+      bs = LI
+    ) : (
+      (c = "\n") ? (LN += 1;);
+      LI += 1
+    )
+  }
+  LI >= #LS ? lexerr: "string is never closed"
+  buf = buf + (LS@bs..LI)
+  LI += 1
+  #codes = 0 ? tok: "s", buf : (
+    buf != "" ? (parts = parts ++ buf; codes = codes ++ F; lns = lns ++ LN);
+    sym: "(";
+    codes@0 ? (tok: "s", ""; sym: "+");
+    j = 0;
+    j < #parts ~{
+      j > 0 ? sym: "+";
+      codes@j ? (
+        sym: "(";
+        sub: parts@j, lns@j;
+        sym: ")"
+      ) : tok: "s", parts@j;
+      j += 1
+    };
+    sym: ")"
+  )
+  0
+}
+
+# lexes an interpolated expression in place, then restores the outer lexer state
+sub src ln = {
+  s0 = LS; i0 = LI; n0 = LN; k0 = LSTK; d0 = LIND
+  LS = src; LI = 0; LN = ln; LSTK = []
+  lexloop: 0
+  #LSTK > 0 ? lexerr: "'{LSTK@-1}' is never closed"
+  (TK@-1 = "t") ? (TK = TK@..(#TK - 1); TV = TV@..(#TV - 1); TL = TL@..(#TL - 1))
+  LS = s0; LI = i0; LN = n0; LSTK = k0; LIND = d0
+  0
+}
+
+# `/op` is a fold only when no operand follows the operator
+foldop u = {
+  r = ""
+  j = 0
+  j < #FOLDOPS & r = "" ~{
+    op = FOLDOPS@j
+    ((at: 1) = op) ? (
+      q = skipws: LI + 2;
+      c = q < #LS ? LS@q : "";
+      (c = "" | "\n;)]},.\{[/\\#"@?c) ? (r = op;)
+    );
+    j += 1
+  }
+  r
+}
+
+word u = {
+  st = LI
+  isalnum: (at: 0) ~{ LI += 1 }
+  w = LS@st..LI
+  (w = "import" & !(endsx: 0)) ? doimport: 0 :
+    (w = "T" | w = "F") ? tok: "b", w :
+    (w = "Q" | w = "PQ" | w = "BT" | w = "G" | w = "DG") & (at: 0) = "[" & !(endsx: 0) ? (LI += 1; sym: w + "[") :
+    tok: "i", w
+  0
+}
+
+symbol u = {
+  s = ""
+  j = 0
+  j < #SYMS & s = "" ~{
+    c = SYMS@j
+    ((LS@LI..(LI + #c)) = c) ? (s = c;);
+    j += 1
+  }
+  (s = "") ? lexerr: "unexpected character '{LS@LI}'"
+  sym: s
+  LI += #s
+  0
+}
+
+under u = {
+  st = LI
+  LI += 1
+  isdig: (at: 0) ~{ LI += 1 }
+  tok: "i", LS@st..LI
+}
+
+lexloop u = {
+  LI < #LS ~{
+    c = LS@LI
+    n1 = at: 1
+    (c = " " | c = "\t" | c = CR) ? (LI += 1;) :
+      c = "\n" ? newline: 0 :
+      c = "#" & (n1 = "" | n1 = " " | n1 = "\t" | n1 = CR | n1 = "\n") ? (LI < #LS & LS@LI != "\n" ~{ LI += 1 };) :
+      c = ";" ? (term: 0; LI += 1) :
+      (isdig: c) ? number: 0 :
+      c = "." & (isdig: n1) & !(endsx: 0) ? number: 0 :
+      c = "-" & ((isdig: n1) | (n1 = "." & (isdig: (at: 2)))) & !(endsx: 0) ? number: 0 :
+      c = "\"" ? string: 0 :
+      c = "$" & n1 = "\{" & (endsx: 0) ? (sym: "$\{"; LI += 2) :
+      c = "$" ? (tok: "i", "$"; LI += 1) :
+      c = "_" ? under: 0 :
+      (isalpha: c) ? word: 0 :
+      c = "@" & !(endsx: 0) ? (tok: "i", "@"; LI += 1) :
+      c = "@" & n1 = "?" ? (sym: "@?"; LI += 2) :
+      c = "@" ? (sym: "@"; LI += 1) :
+      (c = "/" | c = "\\") & (endsx: 0) & (charat: (skipws: LI + 1)) = "\{" ? (sym: c + "\{"; LI = (skipws: LI + 1) + 1) :
+      (c = "/" | c = "\\") & (endsx: 0) & (foldop: 0) != "" ? (tok: (c = "/" ? "fo" : "so"), foldop: 0; LI += 2) :
+      c = "\{" ? (sym: (endsx: 0) ? "m\{" : "\{"; LI += 1) :
+      c = "~" & n1 = "\{" & (endsx: 0) ? (sym: "~\{"; LI += 2) :
+      c = "[" ? (sym: (endsx: 0) ? "f[" : "["; LI += 1) :
+      c = "%" & n1 = "[" & !(endsx: 0) ? (sym: "%["; LI += 2) :
+      c = "?" & n1 = "\{" ? (sym: "?\{"; LI += 2) :
+      c = "?" & n1 = "[" & (endsx: 0) & !(ternarr: 0) ? (sym: "?["; LI += 2) :
+      symbol: 0
+  }
+  0
+}
+
+dirname path = {
+  j = #path - 1
+  j >= 0 & path@j != "/" ~{ j -= 1 }
+  j < 0 ? "." : j = 0 ? "/" : path@..j
+}
+
+# import "file.ns": the file's tokens are spliced in here (path relative to the importing file, each file once)
+doimport u = {
+  LI = skipws: LI
+  (charat: LI) != "\"" ? lexerr: "import expects a file name string"
+  j = skipstr: LI
+  name = LS@(LI + 1)..j
+  LI = j + 1
+  path = name@0 = "/" ? name : LDIR + "/" + name
+  !(LSEEN@?path) ? (LSEEN@path = T; lexfile: path)
+  0
+}
+
+lexfile path = {
+  s0 = LS; i0 = LI; n0 = LN; k0 = LSTK; d0 = LIND; r0 = LDIR; f0 = LFILE
+  LS = read: path; LI = 0; LN = 1; LSTK = []; LIND = 0; LDIR = dirname: path
+  FILES = FILES ++ path
+  LFILE = #FILES - 1
+  LSEEN@path = T
+  lexloop: 0
+  #LSTK > 0 ? lexerr: "'{LSTK@-1}' is never closed"
+  term: 0
+  LS = s0; LI = i0; LN = n0; LSTK = k0; LIND = d0; LDIR = r0; LFILE = f0
+  0
+}
+
+lex path = {
+  lexfile: path
+  tok: "e", ""
+  0
+}

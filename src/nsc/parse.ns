@@ -1,0 +1,432 @@
+# nsc parser: tokens -> AST. A node is an int; its fields live in parallel arrays.
+# NK kind, NS text (name / operator / literal), NA NB NC child nodes (-1 = none), NL line, NX NN its list (KIDS@NX.. count NN).
+# Kinds: int flt str bool var bin un call idx range has arr maplit set tuple tern group blk iter foldop scanop
+#        assign (kids: lvalues then values, NA = number of lvalues) opset (NS op) while fn (NS name, kids params, NA body)
+NK = []
+NS = []
+NA = []
+NB = []
+NC = []
+NL = []
+NX = []
+NN = []
+KIDS = []
+P = 0
+FNS = [->]
+BUILTINS = ["print", "println", "int", "float", "str", "bool", "set", "Q", "PQ", "BT", "memo"]
+ZEROARY = [->]
+COMPOUNDS = ["+=", "-=", "*=", "/=", "%=", "^^=", "++=", "&=", "|=", "^=", "<<=", ">>=", "??="]
+
+perr msg = crash: "{where: TL@P}: error: {msg}"
+
+mk k s a b c = {
+  NK = NK ++ k
+  NS = NS ++ s
+  NA = NA ++ a
+  NB = NB ++ b
+  NC = NC ++ c
+  NL = NL ++ TL@(P < #TL ? P : #TL - 1)
+  NX = NX ++ #KIDS
+  NN = NN ++ 0
+  #NK - 1
+}
+
+setkids n ks = {
+  NX@n = #KIDS
+  NN@n = #ks
+  KIDS = KIDS ++ ks
+  n
+}
+
+kid n i = KIDS@(NX@n + i)
+kids n = KIDS@(NX@n)..(NX@n + NN@n)
+
+bin op a b = mk: "bin", op, a, b, -1
+un op a = mk: "un", op, a, -1, -1
+
+issym s = TK@P = "o" & TV@P = s
+accept s = (issym: s) ? (P += 1; T) : F
+expect s = !(accept: s) ? perr: "expected '{s}' but found '{TV@P}'"
+isfunc name = FNS@?name | BUILTINS@?name
+assignable name = name != "" & name@0 != "_" & name != "@" & name != "$"
+opensb s = s@-1 = "(" | s@-1 = "[" | s@-1 = "\{"
+isclose j = TK@j = "o" & (TV@j = ")" | TV@j = "]" | TV@j = "}")
+isopenb j = TK@j = "o" & (opensb: TV@j)
+
+# `name param {param} =`: the index of `=`, or -1
+fndefahead j = {
+  r = -1
+  (TK@j = "i" & (assignable: TV@j)) ? (
+    k = j + 1;
+    k.fnparamend > k ~{ k = k.fnparamend };
+    (k > j + 1 & TK@k = "o" & TV@k = "=") ? (r = k;)
+  )
+  r
+}
+
+# past one token, or a whole bracket group
+skipgroup j = {
+  (isopenb: j) ? (
+    j += 1;
+    d = 1;
+    d > 0 ~{
+      (isopenb: j) ? (d += 1;) : (isclose: j) ? (d -= 1;);
+      j += 1
+    }
+  ) : (j += 1;)
+  j
+}
+
+# an index operand (prefixes, a base, maybe `..` and a range end): the index after it, or -1
+skipatom j = {
+  (TK@j = "o" & (TV@j = "-" | TV@j = "#")) ~{ j += 1 }
+  (TK@j = "i" & TK@(j + 1) = "o" & TV@(j + 1) = ":") ? -1 : skipgroup: j
+}
+skiprend j = {
+  j = skipatom: j
+  (j >= 0 & TK@j = "o" & (TV@j = "+" | TV@j = "-" | TV@j = "*" | TV@j = "/" | TV@j = "%")) ~{ j = skipatom: j + 1 }
+  j
+}
+skipoperand j = {
+  j = skipatom: j
+  (j >= 0 & TK@j = "o" & TV@j = "..") ? (j = skiprend: j + 1;)
+  j
+}
+
+# does `lvalue {, lvalue} =` or `lvalue op=` start here? "=", the compound operator, or ""
+assignahead u = {
+  j = P
+  n = 0
+  r = ""
+  go = T
+  go ~{
+    (TK@j = "i" & (assignable: TV@j)) ? (
+      j += 1;
+      n += 1;
+      (j >= 0 & TK@j = "o" & TV@j = "@") ~{ j = skipoperand: j + 1 };
+      (j >= 0 & TK@j = "o" & TV@j = ",") ? (j += 1;) : (go = F;)
+    ) : (go = F; j = -1)
+  }
+  (j >= 0 & TK@j = "o") ? (
+    (TV@j = "=") ? (r = "=";) : (n = 1 & COMPOUNDS@?(TV@j)) ? (r = TV@j;)
+  )
+  r
+}
+
+# does a top-level end of statement come before this bracket closes?
+groupahead u = {
+  j = P
+  d = 0
+  r = F
+  fin = F
+  !fin ~{
+    (TK@j = "t" & d = 0) ? (r = T; fin = T) :
+      (TK@j = "e") ? (fin = T;) :
+      (isopenb: j) ? (d += 1;) :
+      (isclose: j) ? (d -= 1; d < 0 ? (fin = T;));
+    j += 1
+  }
+  r
+}
+
+# forward references: every top-level `f a b = …` and `f = {…}` names a function from the start
+declfns u = {
+  d = 0
+  st = T
+  j = 0
+  j < #TK ~{
+    (st & d = 0) ? (
+      (fndefahead: j) >= 0 ? (FNS@(TV@j) = T;) :
+        (TK@j = "i" & TK@(j + 1) = "o" & TV@(j + 1) = "=" & (TK@(j + 2) = "o" | TK@(j + 2) = "i") & (TV@(j + 2) = "\{" | TV@(j + 2) = "memo")) ? (FNS@(TV@j) = T;)
+    );
+    (isopenb: j) ? (d += 1;) : (isclose: j) ? (d -= 1;);
+    st = TK@j = "t";
+    j += 1
+  }
+  0
+}
+
+atclose c = TK@P = "e" | (c != "e" & (issym: c))
+
+stmts c = {
+  ks = []
+  go = T
+  go ~{
+    (TK@P = "t") ~{ P += 1 }
+    (atclose: c) ? (go = F;) : (
+      ks = ks ++ (stmt: 0);
+      (TK@P = "t") ? (P += 1;) : !(atclose: c) ? perr: "expected end of statement, found '{TV@P}'"
+    )
+  }
+  setkids: (mk: "group", "", -1, -1, -1), ks
+}
+
+block c = {
+  b = stmts: c
+  expect: c
+  b
+}
+
+# `x{int}` is `x{int:_}`
+sectionblock c = {
+  b = block: c
+  (NN@b = 1 & NK@(kid: b, 0) = "var" & (isfunc: NS@(kid: b, 0))) ? (
+    v = kid: b, 0;
+    call = setkids: (mk: "call", NS@v, 1, -1, -1), [mk: "var", "_", -1, -1, -1];
+    b = setkids: (mk: "group", "", -1, -1, -1), [call]
+  )
+  (NN@b = 1 & NK@(kid: b, 0) = "blk" & NS@(kid: b, 0) = "neg") ? (b = NA@(kid: b, 0);)
+  b
+}
+
+stmt u = {
+  eq = fndefahead: P
+  eq >= 0 ? (
+    name = TV@P;
+    FNS@name = T;
+    ps = [];
+    P += 1;
+    P < eq ~{ ps = ps ++ ps.fnparam };
+    P = eq + 1;
+    body = (accept: "\{") ? (block: "}") : (setkids: (mk: "group", "", -1, -1, -1), [expr: 0]);
+    setkids: (mk: "fn", name, body, -1, -1), ps
+  ) : stmt2: 0
+}
+
+stmt2 u = {
+  op = (issym: "(") ? (P.parenassign) : assignahead: 0
+  (op = "=") ? (
+    lvs = lvalues: 0;
+    P += 1;
+    (#lvs = 1 & NK@(lvs@0) = "var" & ((issym: "\{") | (TK@P = "i" & TV@P = "memo"))) ? (FNS@(NS@(lvs@0)) = T;);
+    rhs = exprlist: 0;
+    n = setkids: (mk: "assign", "", #lvs, -1, -1), lvs ++ rhs;
+    (#lvs = 1 & #rhs = 1 & NK@(lvs@0) = "var" & NK@(rhs@0) = "var" & (isfunc: NS@(rhs@0))) ? (FNS@(NS@(lvs@0)) = T;);
+    (#lvs = 1 & #rhs = 1 & NK@(lvs@0) = "var" & NK@(rhs@0) = "blk") ? (FNS@(NS@(lvs@0)) = T;);
+    n
+  ) : op != "" ? (
+    lv = (lvalues: 0)@0;
+    P += 1;
+    mk: "opset", op@..(#op - 1), lv, (expr: 0), -1
+  ) : (
+    e = expr: 0;
+    (accept: "~\{") ? (mk: "while", "", e, (block: "}"), -1) : e
+  )
+}
+
+lvalues u = {
+  r = []
+  inpar = accept: "("
+  go = T
+  go ~{
+    (TK@P = "i" & (assignable: TV@P)) ? 0 : perr: "cannot assign to '{TV@P}'";
+    e = mk: "var", TV@P, -1, -1, -1;
+    P += 1;
+    (accept: "@") ~{ e = mk: "idx", "", e, (indexoperand: 0), -1 };
+    r = r ++ e;
+    go = accept: ","
+  }
+  inpar ? expect: ")"
+  r
+}
+
+exprlist u = {
+  r = [expr: 0]
+  (accept: ",") ~{ r = r ++ (expr: 0) }
+  r
+}
+
+expr u = {
+  c = coalesce: 0
+  (accept: "?") ? (
+    a = expr: 0;
+    (accept: ":") ? (mk: "tern", "", c, a, (expr: 0)) : (mk: "tern", "", c, a, -1)
+  ) : (accept: "?\{") ? F.matchx: c : (accept: "?[") ? T.matchx: c : c
+}
+
+coalesce u = {
+  l = orx: 0
+  (accept: "??") ? (bin: "??", l, (coalesce: 0)) : l
+}
+
+orx u = {
+  e = xorx: 0
+  (issym: "|") ~{ P += 1; e = bin: "|", e, (xorx: 0) }
+  e
+}
+
+xorx u = {
+  e = andx: 0
+  (issym: "^") ~{ P += 1; e = bin: "^", e, (andx: 0) }
+  e
+}
+
+andx u = {
+  e = notx: 0
+  (issym: "&") ~{ P += 1; e = bin: "&", e, (notx: 0) }
+  e
+}
+
+notx u = (accept: "!") ? ((notx: 0).notblk) : compare: 0
+
+compare u = {
+  l = shiftx: 0
+  (TK@P = "o" & (TV@P = "=" | TV@P = "!=" | TV@P = "<" | TV@P = ">" | TV@P = "<=" | TV@P = ">=")) ? (
+    op = TV@P;
+    P += 1;
+    l = bin: op, l, (shiftx: 0)
+  )
+  l
+}
+
+shiftx u = {
+  e = addx: 0
+  (TK@P = "o" & (TV@P = "<<" | TV@P = ">>" | TV@P = ">>>")) ~{ op = TV@P; P += 1; e = bin: op, e, (addx: 0) }
+  e
+}
+
+addx u = {
+  e = mulx: 0
+  (TK@P = "o" & (TV@P = "+" | TV@P = "-" | TV@P = "++")) ~{ op = TV@P; P += 1; e = bin: op, e, (mulx: 0) }
+  e
+}
+
+mulx u = {
+  e = powx: 0
+  (TK@P = "o" & (TV@P = "*" | TV@P = "/" | TV@P = "%")) ~{ op = TV@P; P += 1; e = bin: op, e, (powx: 0) }
+  e
+}
+
+powx u = {
+  b = prefix: 0
+  (accept: "^^") ? (bin: "^^", b, (powx: 0)) : b
+}
+
+prefix u = (accept: "-") ? (un: "-", (prefix: 0)) : (accept: "#") ? (un: "#", (prefix: 0)) : postfix: 0
+
+postfix u = {
+  e = primary: 0
+  go = T
+  go ~{
+    k = TK@P
+    v = TV@P
+    (k = "o" & v = "m\{") ? (P += 1; e = mk: "iter", "map", e, (sectionblock: "}"), -1) :
+      (k = "o" & v = "f[") ? (P += 1; e = mk: "iter", "filter", e, (sectionblock: "]"), -1) :
+      (k = "o" & v = "/\{") ? (P += 1; e = mk: "iter", "fold", e, (block: "}"), -1) :
+      (k = "o" & v = "$\{") ? (P += 1; e = mk: "iter", "sort", e, (sectionblock: "}"), -1) :
+      (k = "o" & v = "\\\{") ? (P += 1; e = mk: "iter", "scan", e, (block: "}"), -1) :
+      k = "fo" ? (P += 1; e = mk: "foldop", v, e, -1, -1) :
+      k = "so" ? (P += 1; e = mk: "scanop", v, e, -1, -1) :
+      (k = "o" & v = "@") ? (P += 1; e = mk: "idx", "", e, (indexoperand: 0), -1) :
+      (k = "o" & v = "@?") ? (P += 1; e = mk: "has", "", e, (indexoperand: 0), -1) :
+      (k = "o" & v = ".") ? (P += 1; e = method: e) :
+      (go = F;)
+  }
+  e
+}
+
+method e = {
+  f = TV@P
+  TK@P != "i" ? perr: "expected a function name after '.', found '{f}'"
+  P += 1
+  (f@0 = "_" & #f = 2 & (isdigit: f@1)) ? (mk: "idx", "", e, (mk: "int", (str: (int: f@1) - 1), -1, -1, -1), -1) : (
+    args = (accept: ":") ? (exprlist: 0) : [];
+    setkids: (mk: "call", f, -1, -1, -1), [e] ++ args
+  )
+}
+
+indexoperand u = {
+  (accept: "..") ? (mk: "range", "", (mk: "int", "0", -1, -1, -1), (rangeend: 0), -1) : (
+    i = idxstart: 0;
+    !(accept: "..") ? i : (TK@P = "n" | TK@P = "i" | (issym: "(") | (issym: "-") | (issym: "#")) ? (mk: "range", "", i, (rangeend: 0), -1) : (mk: "range", "", i, -1, -1)
+  )
+}
+
+idxstart u = (accept: "-") ? (un: "-", (idxstart: 0)) : (accept: "#") ? (un: "#", (idxstart: 0)) : base: 0
+
+primary u = {
+  e = base: 0
+  (accept: "..") ? (mk: "range", "", e, (rangeend: 0), -1) : e
+}
+
+rangeend u = {
+  e = rterm: 0
+  (TK@P = "o" & (TV@P = "+" | TV@P = "-")) ~{ op = TV@P; P += 1; e = bin: op, e, (rterm: 0) }
+  e
+}
+
+rterm u = {
+  e = atom: 0
+  (TK@P = "o" & (TV@P = "*" | TV@P = "/" | TV@P = "%")) ~{ op = TV@P; P += 1; e = bin: op, e, (atom: 0) }
+  e
+}
+
+atom u = {
+  (accept: "-") ? (un: "-", (atom: 0)) : (accept: "#") ? (un: "#", (atom: 0)) : (
+    (TK@P = "n" | TK@P = "i" | (issym: "(")) ? (base: 0) : perr: "a range end must be a number, a name or (expr), found '{TV@P}'"
+  )
+}
+
+base u = {
+  k = TK@P
+  v = TV@P
+  P += 1
+  (k = "n") ? (mk: "int", v, -1, -1, -1) :
+    k = "f" ? (mk: "flt", v, -1, -1, -1) :
+    k = "b" ? (mk: "bool", v, -1, -1, -1) :
+    k = "s" ? (mk: "str", v, -1, -1, -1) :
+    (k = "i" & (isfunc: v) & (issym: ":")) ? (P += 1; setkids: (mk: "call", v, -1, -1, -1), (exprlist: 0)) :
+    (k = "i" & ZEROARY@?v & !(FNS@?v)) ? (setkids: (mk: "call", v, 1, -1, -1), []) :
+    k = "i" ? (mk: "var", v, -1, -1, -1) :
+    (k = "o" & v = "(") ? (paren: 0) :
+    (k = "o" & v = "[") ? (brack: 0) :
+    (k = "o" & v = "%[") ? (coll: "set") :
+    (k = "o" & v = "Q[") ? (coll: "Q") :
+    (k = "o" & v = "PQ[") ? (coll: "PQ") :
+    (k = "o" & v = "BT[") ? (coll: "BT") :
+    (k = "o" & (v = "G[" | v = "DG[")) ? (coll: v@..-1) :
+    (k = "o" & v = "?\{") ? F.matchx: -1 :
+    (k = "o" & v = "\{") ? (mk: "blk", "", (sectionblock: "}"), -1, -1) :
+    (P -= 1; perr: "expected an expression, found '{v}'")
+}
+
+paren u = {
+  (groupahead: 0) ? (block: ")") : (
+    e = expr: 0;
+    (accept: ",") ? (
+      items = [e] ++ (exprlist: 0);
+      expect: ")";
+      setkids: (mk: "tuple", "", -1, -1, -1), items
+    ) : (expect: ")"; e)
+  )
+}
+
+brack u = {
+  (accept: "->") ? (expect: "]"; mk: "maplit", "", -1, -1, -1) :
+    (accept: "]") ? (mk: "arr", "", -1, -1, -1) : (
+      first = expr: 0;
+      (accept: "->") ? (
+        items = [first, expr: 0];
+        (accept: ",") ~{ k = expr: 0; expect: "->"; items = items ++ k ++ (expr: 0) };
+        expect: "]";
+        setkids: (mk: "maplit", "", -1, -1, -1), items
+      ) : (
+        items = [first];
+        (accept: ",") ~{ items = items ++ (expr: 0) };
+        expect: "]";
+        setkids: (mk: "arr", "", -1, -1, -1), items
+      )
+    )
+}
+
+coll kind = {
+  items = (issym: "]") ? [] : exprlist: 0
+  expect: "]"
+  setkids: (mk: kind, "", -1, -1, -1), items
+}
+
+parse u = {
+  declfns: 0
+  P = 0
+  stmts: "e"
+}

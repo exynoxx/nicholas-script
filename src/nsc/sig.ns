@@ -1,0 +1,58 @@
+# The stdlib is runtime.c: every function there is declared by `//@ name (param, ...) result [= c_symbol]`.
+# One entry per overload: name, parameter types (strings, parsed when a call is typed), result type, C symbol.
+SGNAME = []
+SGPAR = [[""]]
+SGRET = []
+SGSYM = []
+SGPAR = []
+
+# splits s on sep where it is not nested in brackets
+splittop s sep = {
+  r = []
+  d = 0
+  st = 0
+  j = 0
+  #s > 0 ? (
+    j < #s ~{
+      c = s@j;
+      (c = "(" | c = "[" | c = "\{") ? (d += 1;) :
+        (c = ")" | c = "]" | c = "}") ? (d -= 1;) :
+        (c = sep & d = 0) ? (r = r ++ (s@st..j).trim; st = j + 1);
+      j += 1
+    };
+    r = r ++ (s@st..).trim
+  )
+  r
+}
+
+loadsigs path = {
+  ls = lines: path
+  j = 0
+  j < #ls ~{
+    l = ls@j
+    (l.starts: "//@ ") ? (
+      body = (l@4..).trim;
+      csym = "";
+      e = body.find: " = ";
+      e >= 0 ? (csym = (body@(e + 3)..).trim; body = body@..e);
+      name = body@..(body.find: " ");
+      op = body.find: "(";
+      d = 0;
+      cl = -1;
+      q = op;
+      cl < 0 ~{
+        c = body@q;
+        (c = "(") ? (d += 1;) : (c = ")") ? (d -= 1; (d = 0) ? (cl = q;));
+        q += 1
+      };
+      SGNAME = SGNAME ++ name;
+      SGPAR = SGPAR ++ [splittop: body@(op + 1)..cl, ","];
+      SGRET = SGRET ++ (body@(cl + 1)..).trim;
+      SGSYM = SGSYM ++ (csym = "" ? "ns_" + name : csym);
+      #(SGPAR@-1) = 0 ? (ZEROARY@name = T;);
+      BUILTINS = BUILTINS ++ name
+    );
+    j += 1
+  }
+  0
+}

@@ -1,0 +1,111 @@
+# nsc graphs: G[..] / DG[..] literals, g@u g@(u,v) g@?.., g += / -= edge or node, g|h g&h g-h, -g, g{..} g[..].
+# A graph type is kind "G" (runtime descriptor G<node>), its TYA the node type. The stdlib (G:, .nodes, .edges,
+# .rev, .arr) types from the `G[T]` signatures in runtime.c. Dispatched to from gen.ns by method calls.
+
+# the iteration nodes whose source was a graph, with that graph's operand (a filter keeps the induced subgraph)
+GITER = [0 -> ""]
+GITER = [->]
+GOPS = ["|" -> "ns_gunion", "&" -> "ns_ginter", "-" -> "ns_gdiff"]
+
+tygraph nt = ty: "G", nt, -1
+
+# is x (type xt) an edge (u,v) / (u,v,w) of a graph with node type nt rather than a node? Unifies the members.
+isedge nt xt = {
+  isnode = (kind: nt) != "?" & (unify: xt, nt)
+  m = (kind: xt) = "T" ? #(tmems: xt) : 0
+  !isnode & (m = 2 | m = 3) & (unify: xt, (tytup: (m = 2 ? [nt, nt] : [nt, nt, TI])))
+}
+
+# G[edges] / DG[edges]
+exglit n = {
+  a = exarr: n
+  et = elem: ET
+  nt = hole: 0
+  m = (kind: et) = "T" ? #(tmems: et) : 2
+  (unify: et, (tytup: (m = 3 ? [nt, nt, TI] : [nt, nt]))) ? 0 : gerr: n, "a graph literal takes edges (u,v) or (u,v,w), not {tyname: et}"
+  r = rt: "ptr", (NK@n = "G" ? "ns_graph" : "ns_dgraph"), ["ptr", "ptr"], [(dref: nt), a]
+  ET = tygraph: nt
+  r
+}
+
+# g@(u,v): the weight of an edge (0 if absent); g@u: the neighbours of u
+gidx x tx i n = {
+  nt = elem: tx
+  y = ex: i
+  yt = ET
+  e = isedge: nt, yt
+  r = e ? rt: "i64", "ns_weight", ["ptr", "ptr", "ptr", "ptr"], [(dref: nt), (dref: yt), x, (spill: y, yt)] :
+    rt: "ptr", "ns_nbrs", ["ptr", "ptr", "ptr"], [(dref: nt), x, (spill: (conv: y, yt, nt, n), nt)]
+  ET = e ? TI : tyarr: nt
+  r
+}
+
+# g@?(u,v) / g@?u, as an i64
+ghas x tx y yt n = {
+  nt = elem: tx
+  (isedge: nt, yt) ? rt: "i64", "ns_hasedge", ["ptr", "ptr", "ptr", "ptr"], [(dref: nt), (dref: yt), x, (spill: y, yt)] :
+    rt: "i64", "ns_has", ["ptr", "ptr", "ptr"], [(dref: tx), x, (spill: (conv: y, yt, nt, n), nt)]
+}
+
+# g|h g&h g-h make a new graph; g + edge, g - edge, g - node change g in place
+graphop op a ta b tb n = {
+  nt = elem: ta
+  r = ((kind: tb) = "G" & GOPS@?op) ? (unify: ta, tb; rt: "ptr", GOPS@op, ["ptr", "ptr", "ptr"], [(dref: nt), a, b]) :
+    (op = "+" | op = "-") ? gedit: op, a, ta, b, tb, n :
+    gerr: n, "operator {op} is not defined on {tyname: ta}"
+  ET = ta
+  r
+}
+
+gedit op a ta b tb n = {
+  nt = elem: ta
+  (isedge: nt, tb) ? rt: "ptr", (op = "+" ? "ns_addedge" : "ns_deledge"), ["ptr", "ptr", "ptr", "ptr"], [(dref: nt), (dref: tb), a, (spill: b, tb)] :
+    op = "-" ? rt: "ptr", "ns_delnode", ["ptr", "ptr", "ptr"], [(dref: nt), a, (spill: (conv: b, tb, nt, n), nt)] :
+    gerr: n, "g + x needs an edge (u,v) or (u,v,w), not {tyname: tb}"
+}
+
+# -g: the edges reversed
+grev v t = rt: "ptr", "ns_grev", ["ptr", "ptr"], [(dref: elem: t), v]
+
+# an iteration over a graph runs over the map node -> neighbours (array)
+gtomap g tg n = {
+  GITER@n = g
+  nt = elem: tg
+  mt = tymap: nt, (tyarr: nt)
+  m = rt: "ptr", "ns_map_new", ["ptr"], [dref: mt]
+  nd = rt: "ptr", "ns_nodes", ["ptr", "ptr"], [(dref: nt), g]
+  cnt = ins: "load i64, ptr {nd}"
+  iv = newvar: TI
+  emit: "store i64 0, ptr {iv}"
+  lc = newlbl: 0
+  lb = newlbl: 0
+  le = newlbl: 0
+  br: lc
+  label: lc
+  i = ins: "load i64, ptr {iv}"
+  emit: "br i1 " + (ins: "icmp slt i64 {i}, {cnt}") + ", label %{lb}, label %{le}"
+  label: lb
+  p = rt: "ptr", "ns_arr_at", ["ptr", "i64"], [nd, i]
+  nb = rt: "ptr", "ns_nbrs", ["ptr", "ptr", "ptr"], [(dref: nt), g, p]
+  emit: "store ptr {nb}, ptr " + (rt: "ptr", "ns_map_put", ["ptr", "ptr"], [m, p])
+  emit: "store i64 " + (ins: "add i64 {i}, 1") + ", ptr {iv}"
+  br: lc
+  label: le
+  ET = mt
+  m
+}
+
+# after iteration n (result r, type ET): a filter over a graph keeps the subgraph induced by the kept nodes
+gpost n r = {
+  g = (GITER@?n) ? GITER@n : ""
+  GITER -= n
+  (g != "" & NS@n = "filter") ? gsub: g, r : r
+}
+
+gsub g m = {
+  nt = elem: ET
+  vt = val: ET
+  ks = rt: "ptr", "ns_keys", ["ptr", "ptr", "ptr"], [(dref: nt), (dref: vt), m]
+  ET = tygraph: nt
+  rt: "ptr", "ns_subgraph", ["ptr", "ptr", "ptr"], [(dref: nt), g, ks]
+}

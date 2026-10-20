@@ -1,0 +1,1094 @@
+# nsc code generator: typed AST walk that emits LLVM IR text. Typing and emission are one pass: every
+# expression returns its value (an LLVM operand) and leaves its type in ET. Functions are instantiated per
+# argument types at their first call. Types still unknown while emitting appear as `id` / `did` placeholders,
+# filled in by `finish` once the whole program is typed.
+BODY = []
+ALLOC = []
+TMP = 0
+LOC = [->]
+LOCT = [->]
+GLOBT = [->]
+INFN = F
+ET = 0
+OUTF = []
+DECL = [->]
+STRC = []
+STRMAP = [->]
+FNNODE = [->]
+ALIAS = [->]
+INST = [->]
+INAME = []
+IRET = []
+# set while instantiating a sort key block: there `_1 _2` take its tuple element apart
+ITERBLK = F
+
+gerr n msg = crash: "{where: NL@n}: error: {msg}"
+
+emit s = {
+  BODY = BODY ++ ("  " + s)
+  0
+}
+
+ins s = {
+  TMP += 1
+  r = "%t{TMP}"
+  BODY = BODY ++ "  {r} = {s}"
+  r
+}
+
+newlbl u = {
+  TMP += 1
+  "L{TMP}"
+}
+
+label l = {
+  BODY = BODY ++ (l + ":")
+  0
+}
+
+br l = emit: "br label %{l}"
+
+newvar t = {
+  TMP += 1
+  r = "%v{TMP}"
+  ALLOC = ALLOC ++ "  {r} = alloca {llt: t}"
+  r
+}
+
+# --- string constants and runtime calls ---
+
+hex2 c = {
+  h = hex: c
+  #h < 2 ? "0" + h : h
+}
+
+llstr s = {
+  r = []
+  j = 0
+  j < #s ~{
+    c = s@j
+    o = ord: c
+    r = r ++ (o < 32 | o > 126 | c = "\"" | c = "\\" | c = "`" ? "\\" + (hex2: o) : c)
+    j += 1
+  }
+  r.join
+}
+
+strconst s = {
+  (STRMAP@?s) ? STRMAP@s : (
+    nm = "@.s{#STRC}";
+    n = #s + 1;
+    STRC = STRC ++ "{nm} = private unnamed_addr constant \{ i64, ptr, [{n} x i8] } \{ i64 -1, ptr null, [{n} x i8] c\"{llstr: s}\\00\" }";
+    v = "getelementptr inbounds (\{ i64, ptr, [{n} x i8] }, ptr {nm}, i32 0, i32 2)";
+    STRMAP@s = v;
+    v
+  )
+}
+
+dref t = "`d{t}`"
+
+# calls runtime function sym; tys and vals are the argument types and operands
+rt ret sym tys vals = {
+  (DECL@?sym) ? 0 : (DECL@sym = "declare {ret} @{sym}({tys.join: ", "})";)
+  a = []
+  j = 0
+  j < #tys ~{ a = a ++ (tys@j + " " + vals@j); j += 1 }
+  (ret = "void") ? (emit: "call void @{sym}({a.join: ", "})"; "") : ins: "call {ret} @{sym}({a.join: ", "})"
+}
+
+# a pointer to a stack copy of v (runtime functions take generic values by pointer)
+spill v t = {
+  p = newvar: t
+  emit: "store {llt: t} {v}, ptr {p}"
+  p
+}
+
+# container storage: bools take one byte
+ldslot p t = (kind: t) = "B" ? (ins: "trunc i8 " + (ins: "load i8, ptr {p}") + " to i1") : ins: "load {llt: t}, ptr {p}"
+stslot p v t = {
+  (kind: t) = "B" ? (emit: "store i8 " + (ins: "zext i1 {v} to i8") + ", ptr {p}") : emit: "store {llt: t} {v}, ptr {p}"
+  0
+}
+
+# --- conversions (the left operand's type wins) ---
+
+tostr v t = (kind: t) = "S" ? v : rt: "ptr", "ns_tostr", ["ptr", "ptr"], [(dref: t), (spill: v, t)]
+
+conv v t to n = {
+  (unify: t, to) ? v : (
+    a = kind: t;
+    b = kind: to;
+    (b = "S") ? tostr: v, t :
+      b = "B" ? truth: v, t :
+      a = "I" & b = "F" ? ins: "sitofp i64 {v} to double" :
+      (t.bccanconv: to) ? v.bcconv: t, to, n :
+      a = "F" & b = "I" ? ins: "fptosi double {v} to i64" :
+      a = "B" & b = "I" ? ins: "zext i1 {v} to i64" :
+      a = "B" & b = "F" ? ins: "uitofp i1 {v} to double" :
+      a = "S" & b = "I" ? rt: "i64", "ns_s2i", ["ptr"], [v] :
+      a = "S" & b = "F" ? rt: "double", "ns_s2f", ["ptr"], [v] :
+      gerr: n, "cannot convert {tyname: t} to {tyname: to}"
+  )
+}
+
+# can a value of type t be converted to type to? (as the else branch of a ternary is to the then branch's type)
+canconv t to = (unify: t, to) | ((isscalar: t) & (isscalar: to)) | (kind: to) = "S" | (kind: to) = "B" | (t.bccanconv: to)
+
+# truthiness: nonzero, non-empty
+truth v t = {
+  k = kind: t
+  (k = "?") ? (concrete: t; k = "I")
+  (k = "B") ? v :
+    k = "I" ? ins: "icmp ne i64 {v}, 0" :
+    k = "F" ? ins: "fcmp une double {v}, 0.0" :
+    k = "S" ? ins: "icmp ne i8 " + (ins: "load i8, ptr {v}") + ", 0" :
+    ins: "icmp ne i64 " + (ins: "load i64, ptr {v}") + ", 0"
+}
+
+# --- variables ---
+
+varref name = (LOC@?name) ? LOC@name : (GLOBT@?name) ? "@g.{name}" : ""
+vartype name = (LOC@?name) ? LOCT@name : GLOBT@name
+
+loadvar name n = {
+  r = varref: name
+  (r = "") ? gerr: n, "unknown variable '{name}'"
+  ET = vartype: name
+  ins: "load {llt: ET}, ptr {r}"
+}
+
+# stores v (of type t) into variable name, creating it on first assignment (local inside a function)
+setvar name v t n = {
+  r = varref: name
+  (r = "") ? (
+    INFN ? (r = newvar: t; LOC@name = r; LOCT@name = t) : (r = "@g.{name}"; GLOBT@name = t)
+  )
+  vt = vartype: name
+  v = conv: v, t, vt, n
+  emit: "store {llt: vt} {v}, ptr {r}"
+  0
+}
+
+# binds a block variable (_ @ $) to a fresh slot; returns the slot
+bindv name t = {
+  r = newvar: t
+  LOC@name = r
+  LOCT@name = t
+  r
+}
+
+# arrays are values: storing one read from a variable or a container copies it
+owned v t n = (kind: t) = "A" & (NK@n = "var" | NK@n = "idx") ? rt: "ptr", "ns_arr_copy", ["ptr"], [v] : v
+
+# --- expressions ---
+
+ex n = {
+  k = NK@n
+  (k = "int") ? (ET = TI; NS@n) :
+    k = "flt" ? (ET = TF; flt: NS@n) :
+    k = "str" ? (ET = TS; strconst: NS@n) :
+    k = "bool" ? (ET = TB; (NS@n = "T") ? "true" : "false") :
+    k = "var" ? (n.varx) :
+    k = "tuple" ? (n.extuple) :
+    k = "bin" ? exbin: n :
+    k = "un" ? exun: n :
+    k = "call" ? excall: n :
+    k = "idx" ? exidx: n :
+    k = "has" ? exhas: n :
+    k = "arr" ? exarr: n :
+    k = "maplit" ? exmap: n :
+    k = "set" ? exset: n :
+    k = "Q" | k = "PQ" | k = "BT" ? (n.excoll) :
+    k = "G" | k = "DG" ? (n.exglit) :
+    k = "match" ? (n.exmatch) :
+    k = "tern" ? extern: n :
+    k = "group" ? exgroup: n :
+    k = "iter" & NS@n = "sort" ? (n.sortblk) :
+    k = "iter" ? n.gpost: (exiter: n) :
+    k = "scanop" ? exiter: n :
+    k = "foldop" ? exiter: n :
+    k = "range" ? exrange: n :
+    k = "assign" | k = "opset" | k = "while" | k = "fn" ? (stmt1: n; ET = TI; "0") :
+    gerr: n, "unsupported expression '{k}'"
+}
+
+flt s = {
+  s = s@0 = "." ? "0" + s : s
+  (s@0 = "-" & s@1 = ".") ? "-0" + s@1.. : s
+}
+
+exgroup n = {
+  v = "0"
+  t = TI
+  j = 0
+  j < NN@n ~{
+    c = kid: n, j
+    k = NK@c
+    (k = "assign" | k = "opset" | k = "while" | k = "fn") ? (stmt1: c; v = "0"; t = TI) : (v = ex: c; t = ET);
+    j += 1
+  }
+  ET = t
+  v
+}
+
+exrange n = {
+  a = (ex: NA@n).bcbound: ET, n
+  b = NB@n < 0 ? "9223372036854775807" : (ex: NB@n).bcbound: ET, n
+  ET = tyarr: TI
+  rt: "ptr", "ns_range", ["i64", "i64"], [a, b]
+}
+
+exun n = {
+  op = NS@n
+  v = ex: NA@n
+  t = ET
+  k = kind: t
+  (op = "!") ? (ET = TB; ins: "xor i1 " + (truth: v, t) + ", true") :
+    op = "-" ? negate: v, t, n :
+    op = "#" ? (ET = TI; lenof: v, t) :
+    gerr: n, "unknown operator {op}"
+}
+
+negate v t n = {
+  (kind: t) = "F" ? ins: "fneg double {v}" : (kind: t) = "A" ? "*".bcast: v, t, "-1", TI, n : (kind: t) = "G" ? v.grev: t : (
+    r = ins: "sub i64 0, " + (conv: v, t, TI, n);
+    ET = TI;
+    r
+  )
+}
+
+lenof v t = (kind: t) = "S" ? rt: "i64", "ns_len", ["ptr", "ptr"], ["`dS`", (spill: v, t)] : ins: "load i64, ptr {v}"
+
+exbin n = {
+  op = NS@n
+  (op = "&" | op = "|") ? logic: n :
+    op = "??" ? excoal: n :
+    (op = "*" & NK@(NA@n) = "arr" & NN@(NA@n) = 1) ? (n.bcrepeat) : (
+      a = ex: NA@n;
+      ta = ET;
+      b = ex: NB@n;
+      tb = ET;
+      binop: op, a, ta, b, tb, n
+    )
+}
+
+CMPI = ["=" -> "eq", "!=" -> "ne", "<" -> "slt", ">" -> "sgt", "<=" -> "sle", ">=" -> "sge"]
+CMPF = ["=" -> "oeq", "!=" -> "une", "<" -> "olt", ">" -> "ogt", "<=" -> "ole", ">=" -> "oge"]
+CMPU = ["=" -> "eq", "!=" -> "ne", "<" -> "ult", ">" -> "ugt", "<=" -> "ule", ">=" -> "uge"]
+ARITH = ["+" -> "add", "-" -> "sub", "*" -> "mul", "<<" -> "shl", ">>" -> "ashr", ">>>" -> "lshr", "&" -> "and", "|" -> "or", "^" -> "xor"]
+FARITH = ["+" -> "fadd", "-" -> "fsub", "*" -> "fmul", "/" -> "fdiv", "%" -> "frem"]
+
+binop op a ta b tb n = {
+  (kind: ta) = "?" ? ((kind: tb) = "?" ? concrete: ta : unify: ta, tb)
+  k = kind: ta
+  (op = "++") ? concatx: a, ta, b, tb, n :
+    CMPI@?op ? cmpop: op, a, ta, (conv: b, tb, ta, n), n :
+    k = "T" ? op.tupbin: a, ta, b, tb, n :
+    (k = "S" & op = "+") ? (ET = TS; rt: "ptr", "ns_concat", ["ptr", "ptr"], [a, tostr: b, tb]) :
+    (k = "S" & op = "*") ? (ET = TS; rt: "ptr", "ns_repeat", ["ptr", "i64"], [a, conv: b, tb, TI, n]) :
+    (k = "A" | ((kind: tb) = "A" & (isscalar: ta))) & (op.bcarith) ? op.bcast: a, ta, b, tb, n :
+    k = "I" ? (ET = TI; intop: op, a, (conv: b, tb, TI, n), n) :
+    k = "F" ? (ET = TF; fltop: op, a, (conv: b, tb, TF, n), n) :
+    k = "B" ? (ET = TB; boolop: op, a, (conv: b, tb, TB, n), n) :
+    (k = "H" | k = "Q" | k = "P" | k = "R") ? op.collop: a, ta, b, tb, n :
+    k = "G" ? op.graphop: a, ta, b, tb, n :
+    gerr: n, "operator {op} is not defined on {tyname: ta}"
+}
+
+intop op a b n = {
+  (ARITH@?op) ? ins: "{ARITH@op} i64 {a}, {b}" :
+    op = "/" ? rt: "i64", "ns_idiv", ["i64", "i64"], [a, b] :
+    op = "%" ? rt: "i64", "ns_imod", ["i64", "i64"], [a, b] :
+    op = "^^" ? rt: "i64", "ns_ipow", ["i64", "i64"], [a, b] :
+    gerr: n, "operator {op} is not defined on int"
+}
+
+fltop op a b n = {
+  (FARITH@?op) ? ins: "{FARITH@op} double {a}, {b}" :
+    op = "^^" ? rt: "double", "pow", ["double", "double"], [a, b] :
+    gerr: n, "operator {op} is not defined on float"
+}
+
+boolop op a b n = {
+  (op = "+" | op = "|") ? ins: "or i1 {a}, {b}" :
+    op = "*" | op = "&" ? ins: "and i1 {a}, {b}" :
+    op = "^" ? ins: "xor i1 {a}, {b}" :
+    gerr: n, "operator {op} is not defined on bool"
+}
+
+cmpop op a ta b n = {
+  k = kind: ta
+  ET = TB
+  (k = "I") ? ins: "icmp {CMPI@op} i64 {a}, {b}" :
+    k = "F" ? ins: "fcmp {CMPF@op} double {a}, {b}" :
+    k = "B" ? ins: "icmp {CMPU@op} i1 {a}, {b}" :
+    (op = "=" | op = "!=") ? ins: "icmp {(op = "=" ? "ne" : "eq")} i64 " + (rt: "i64", "ns_eq", ["ptr", "ptr", "ptr"], [(dref: ta), (spill: a, ta), (spill: b, ta)]) + ", 0" :
+    ins: "icmp {CMPI@op} i64 " + (rt: "i64", "ns_cmp", ["ptr", "ptr", "ptr"], [(dref: ta), (spill: a, ta), (spill: b, ta)]) + ", 0"
+}
+
+# a ++ b: concatenation when b has a's type, else a copy of a with b appended
+concatx a ta b tb n = {
+  (kind: ta) != "A" ? gerr: n, "++ needs an array on the left, found {tyname: ta}"
+  ET = ta
+  (kind: tb) = "A" & (unify: ta, tb) ? rt: "ptr", "ns_arr_concat", ["ptr", "ptr"], [a, b] : (
+    c = rt: "ptr", "ns_arr_copy", ["ptr"], [a];
+    pushel: c, (elem: ta), b, tb, n;
+    ET = ta;
+    c
+  )
+}
+
+# appends b (converted to the element type et) to the array c in place
+pushel c et b tb n = {
+  b = conv: b, tb, et, n
+  stslot: (rt: "ptr", "ns_arr_append", ["ptr"], [c]), b, et
+}
+
+# `&` `|`: short-circuit on bools, bitwise on ints
+logic n = {
+  op = NS@n
+  a = ex: NA@n
+  ta = ET
+  (kind: ta) = "?" ? concrete: ta
+  ((kind: ta) = "H" | (kind: ta) = "G") ? (b = ex: NB@n; binop: op, a, ta, b, ET, n) : (kind: ta) = "I" ? (b = conv: (ex: NB@n), ET, TI, n; ET = TI; ins: "{ARITH@op} i64 {a}, {b}") : (
+    a = truth: a, ta;
+    r = newvar: TB;
+    emit: "store i1 {a}, ptr {r}";
+    l1 = newlbl: 0;
+    l2 = newlbl: 0;
+    (op = "&") ? emit: "br i1 {a}, label %{l1}, label %{l2}" : emit: "br i1 {a}, label %{l2}, label %{l1}";
+    label: l1;
+    b = ex: NB@n;
+    b = truth: b, ET;
+    emit: "store i1 {b}, ptr {r}";
+    br: l2;
+    label: l2;
+    ET = TB;
+    ins: "load i1, ptr {r}"
+  )
+}
+
+# m@k ?? d (on anything but a map read, ?? is its left side)
+excoal n = {
+  x = NA@n
+  (NK@x = "idx" & NK@(NB@x) != "range") ? (n.coalidx) : ex: x
+}
+
+coalmap n m tm = {
+  x = NA@n
+  key = conv: (ex: NB@x), ET, (elem: tm), n
+  vt = val: tm
+  ref = rt: "ptr", "ns_map_ref", ["ptr", "ptr"], [m, spill: key, elem: tm]
+  r = newvar: vt
+  l1 = newlbl: 0
+  l2 = newlbl: 0
+  l3 = newlbl: 0
+  emit: "br i1 " + (ins: "icmp ne ptr {ref}, null") + ", label %{l1}, label %{l2}"
+  label: l1
+  stslot: r, (ldslot: ref, vt), vt
+  br: l3
+  label: l2
+  d = conv: (ex: NB@n), ET, vt, n
+  emit: "store {llt: vt} {d}, ptr {r}"
+  br: l3
+  label: l3
+  ET = vt
+  ins: "load {llt: vt}, ptr {r}"
+}
+
+extern n = {
+  c = truth: (ex: NA@n), ET
+  l1 = newlbl: 0
+  l2 = newlbl: 0
+  l3 = newlbl: 0
+  emit: "br i1 {c}, label %{l1}, label %{l2}"
+  label: l1
+  a = ex: NB@n
+  ta = ET
+  r = NC@n >= 0 ? newvar: ta : ""
+  NC@n >= 0 ? emit: "store {llt: ta} {a}, ptr {r}"
+  br: l3
+  label: l2
+  ok = F
+  NC@n >= 0 ? (
+    b = ex: NC@n;
+    tb = ET;
+    ok = canconv: tb, ta;
+    ok ? emit: "store {llt: ta} {conv: b, tb, ta, n}, ptr {r}"
+  )
+  br: l3
+  label: l3
+  ok ? (ET = ta; ins: "load {llt: ta}, ptr {r}") : (ET = TI; "0")
+}
+
+exarr n = {
+  m = NN@n
+  et = hole: 0
+  vs = []
+  ts = []
+  j = 0
+  j < m ~{ vs = vs ++ (ex: (kid: n, j)); ts = ts ++ ET; j += 1 }
+  m > 0 ? (unify: et, ts@0;)
+  a = rt: "ptr", "ns_arr_new", ["ptr", "i64"], [(dref: tyarr: et), "{m}"]
+  j = 0
+  j < m ~{ pushel: a, et, (owned: vs@j, ts@j, (kid: n, j)), ts@j, n; j += 1 }
+  ET = tyarr: et
+  a
+}
+
+exmap n = {
+  kt = hole: 0
+  vt = hole: 0
+  m = rt: "ptr", "ns_map_new", ["ptr"], [dref: tymap: kt, vt]
+  j = 0
+  j < NN@n ~{
+    k = ex: (kid: n, j)
+    tk = ET
+    (j = 0) ? unify: kt, tk
+    k = conv: k, tk, kt, n
+    v = ex: (kid: n, j + 1)
+    tv = ET
+    (j = 0) ? unify: vt, tv
+    v = conv: (owned: v, tv, (kid: n, j + 1)), tv, vt, n
+    stslot: (rt: "ptr", "ns_map_put", ["ptr", "ptr"], [m, spill: k, kt]), v, vt
+    j += 2
+  }
+  ET = tymap: kt, vt
+  m
+}
+
+exset n = {
+  et = hole: 0
+  st = tyarr: et
+  s = rt: "ptr", "ns_set_new", ["ptr"], [dref: tyset: et]
+  j = 0
+  j < NN@n ~{
+    v = ex: (kid: n, j)
+    tv = ET
+    (j = 0) ? unify: et, tv
+    rt: "void", "ns_add", ["ptr", "ptr", "ptr"], [(dref: tyset: et), s, (spill: (conv: v, tv, et, n), et)]
+    j += 1
+  }
+  ET = tyset: et
+  s
+}
+
+exidx n = {
+  x = ex: NA@n
+  tx = ET
+  i = NB@n
+  k = kind: tx
+  (NK@i = "range") ? sliceof: x, tx, i, n :
+    k = "A" ? idxarr: x, tx, i, n :
+    k = "S" ? idxstr: x, i, n :
+    k = "M" ? idxmap: x, tx, i, n :
+    k = "T" ? x.idxtup: tx, i, n :
+    k = "Q" | k = "P" ? x.idxq: tx, i, n :
+    k = "G" ? x.gidx: tx, i, n :
+    gerr: n, "cannot index {tyname: tx}"
+}
+
+idxarr x tx i n = {
+  j = conv: (ex: i), ET, TI, n
+  p = rt: "ptr", "ns_arr_at", ["ptr", "i64"], [x, j]
+  ET = elem: tx
+  ldslot: p, ET
+}
+
+idxstr x i n = {
+  j = conv: (ex: i), ET, TI, n
+  ET = TS
+  rt: "ptr", "ns_str_at", ["ptr", "i64"], [x, j]
+}
+
+idxmap x tx i n = {
+  key = conv: (ex: i), ET, (elem: tx), n
+  out = newvar: val: tx
+  rt: "void", "ns_map_get", ["ptr", "ptr", "ptr"], [x, (spill: key, elem: tx), out]
+  ET = val: tx
+  ins: "load {llt: ET}, ptr {out}"
+}
+
+sliceof x tx i n = {
+  a = NA@i < 0 ? "0" : (ex: NA@i).bcbound: ET, n
+  b = NB@i < 0 ? "9223372036854775807" : (ex: NB@i).bcbound: ET, n
+  ET = tx
+  (kind: tx) = "S" ? rt: "ptr", "ns_slice_s", ["ptr", "i64", "i64"], [x, a, b] : rt: "ptr", "ns_arr_slice", ["ptr", "i64", "i64"], [x, a, b]
+}
+
+exhas n = {
+  x = ex: NA@n
+  tx = ET
+  y = ex: NB@n
+  tyy = ET
+  k = kind: tx
+  et = k = "S" ? TS : k = "G" ? tyy : elem: tx
+  y = conv: y, tyy, et, n
+  ET = TB
+  ins: "icmp ne i64 " + (k = "R" ? ("ns_bthas".btcall: x, tx, y) : k = "G" ? x.ghas: tx, y, tyy, n : (rt: "i64", "ns_has", ["ptr", "ptr", "ptr"], [(dref: tx), x, (spill: y, et)])) + ", 0"
+}
+
+# --- calls ---
+
+excall n = {
+  name = NS@n
+  name = ALIAS@?name ? ALIAS@name : name
+  (NA@n = 1 & (varref: NS@n) != "") ? loadvar: NS@n, n :
+    (FNNODE@?name & (varref: name) = "") ? usercall: name, n :
+    name = "println" | name = "print" ? printx: name, n :
+    name = "str" | name = "int" | name = "float" | name = "bool" ? cast: name, n :
+    name = "set" | name = "Q" | name = "PQ" | name = "BT" ? name.collconv: n :
+    (name = "take" & NN@n = 2 & NK@(kid: n, 0) = "iter" & (NS@(kid: n, 0) = "map" | NS@(kid: n, 0) = "filter")) ? (n.taketo) :
+    (SGNAME@?name) & (name.isfncall: n) ? (name.stdfn: n, (kids: n), [], []) :
+    (SGNAME@?name) ? stdcall: name, n :
+    gerr: n, "unknown function '{name}'"
+}
+
+printx name n = {
+  NN@n != 1 ? gerr: n, "{name} takes one argument"
+  v = ex: (kid: n, 0)
+  t = ET
+  rt: "void", "ns_" + name, ["ptr", "ptr"], [(dref: t), (spill: v, t)]
+  ET = TI
+  "0"
+}
+
+cast name n = {
+  NN@n != 1 ? gerr: n, "{name} takes one argument"
+  v = ex: (kid: n, 0)
+  to = name = "str" ? TS : name = "int" ? TI : name = "float" ? TF : TB
+  r = conv: v, ET, to, n
+  ET = to
+  r
+}
+
+# does the function body assign to name? (an array parameter it changes is copied on entry)
+assigns n name = {
+  n < 0 ? F : (
+    k = NK@n;
+    r = (k = "assign" | k = "opset") & (lvroot: (k = "opset" ? NA@n : (kid: n, 0))) = name;
+    r = r | (k = "assign" & NA@n > 1 & (anyroot: n, name));
+    r = r | (k != "assign" & (assigns: NA@n, name)) | (assigns: NB@n, name) | (assigns: NC@n, name);
+    j = 0;
+    j < NN@n & !r ~{ r = assigns: (kid: n, j), name; j += 1 };
+    r
+  )
+}
+
+anyroot n name = {
+  r = F
+  j = 0
+  j < NA@n ~{ r = r | (lvroot: (kid: n, j)) = name; j += 1 }
+  r
+}
+
+lvroot n = (NK@n = "var") ? NS@n : (NK@n = "idx") ? lvroot: NA@n : ""
+
+usercall name n = {
+  f = FNNODE@name
+  vs = []
+  ts = []
+  j = 0
+  j < NN@n ~{ vs = vs ++ (ex: (kid: n, j)); ts = ts ++ (res: ET); j += 1 }
+  cs = name.capsof
+  i = name.getinst: ts, cs, cs{vartype: _}, n
+  a = []
+  j = 0
+  j < #vs ~{ a = a ++ "{llt: ts@j} {vs@j}"; j += 1 }
+  a = a ++ cs{"ptr " + (varref: _)}
+  ET = IRET@i
+  ins: "call {llt: ET} @{INAME@i}({a.join: ", "})"
+}
+
+instance name f ts key n cs ct = {
+  ib = ITERBLK
+  ITERBLK = F
+  i = #INAME
+  INAME = INAME ++ "f.{name}.{i}"
+  IRET = IRET ++ (hole: 0)
+  INST@key = i
+  b0 = BODY; a0 = ALLOC; t0 = TMP; l0 = LOC; lt0 = LOCT; f0 = INFN
+  BODY = []; ALLOC = []; TMP = 0; LOC = [->]; LOCT = [->]; INFN = T
+  body = NA@f
+  np = NK@f = "fn" ? NN@f : #ts
+  np != #ts ? gerr: n, "{name} takes {np} argument(s), not {#ts}"
+  ps = []
+  j = 0
+  j < np ~{
+    pn = NK@f = "fn" ? NS@(kid: f, j) : (ib & np = 1 & (kind: ts@0) = "T") ? "_" : "_{j + 1}"
+    t = ts@j
+    ps = ps ++ "{llt: t} %p{j}"
+    r = bindv: pn, t
+    v = (kind: t) = "A" & (assigns: body, pn) ? rt: "ptr", "ns_arr_copy", ["ptr"], ["%p{j}"] : "%p{j}"
+    emit: "store {llt: t} {v}, ptr {r}"
+    (j = 0 & NK@f != "fn") ? (LOC@"_" = r; LOCT@"_" = t)
+    j += 1
+  }
+  f.tparams
+  j = 0
+  j < #cs ~{ ps = ps ++ "ptr %c{j}"; LOC@(cs@j) = "%c{j}"; LOCT@(cs@j) = ct@j; j += 1 }
+  mp = (MEMO@?name) ? (i.memopre: ts, n) : []
+  v = exgroup: body
+  t = ET
+  (unify: IRET@i, t) ? 0 : (v = conv: v, t, IRET@i, n;)
+  rtt = IRET@i
+  #mp > 0 ? mp.memopost: v, rtt
+  emit: "ret {llt: rtt} {v}"
+  OUTF = OUTF ++ ("define {llt: rtt} @{INAME@i}({ps.join: ", "}) \{\nentry:\n" + (ALLOC.join: "\n") + "\n" + (BODY.join: "\n") + "\n}\n")
+  BODY = b0; ALLOC = a0; TMP = t0; LOC = l0; LOCT = lt0; INFN = f0
+  i
+}
+
+# --- stdlib calls, typed from the //@ signatures in runtime.c ---
+SENV = [->]
+SVARS = []
+
+isvar p = #p = 1 & (isupper: p)
+
+# the type of signature type p, binding unbound type variables to the matching part of t (-1: t does not fit)
+sigty p t = {
+  t = t < 0 ? -1 : res: t
+  (p = "int") ? TI : p = "float" ? TF : p = "str" ? TS : p = "bool" ? TB :
+    (isvar: p) ? sigvar: p, t :
+    (p.starts: "%[") ? "H".sigcoll: p@2..-1, t :
+    (p.starts: "Q[") ? "Q".sigcoll: p@2..-1, t :
+    (p.starts: "PQ[") ? "P".sigcoll: p@3..-1, t :
+    (p.starts: "BT[") ? "R".sigcoll: p@3..-1, t :
+    (p.starts: "G[") ? "G".sigcoll: p@2..-1, t :
+    (p@0 = "(") ? p.sigtup: t :
+    (p@0 = "[") ? "A".sigcoll: p@1..-1, t :
+    (p@0 = "\{") ? sigmap: p, t :
+    -1
+}
+
+sigvar p t = {
+  (SENV@?p) ? 0 : (
+    SVARS = SVARS ++ p;
+    SENV@p = t >= 0 ? t : hole: 0
+  )
+  SENV@p
+}
+
+sigmap p t = {
+  kv = splittop: p@1..-1, ":"
+  ism = t >= 0 & TYK@t = "M"
+  (t >= 0 & !ism & TYK@t != "?") ? -1 : tymap: (sigty: kv@0, (ism ? TYA@t : -1)), (sigty: kv@1, (ism ? TYB@t : -1))
+}
+
+# does argument type t fit parameter p without conversion?
+sigfits p t = {
+  pt = sigty: p, t
+  pt >= 0 & (pt.tyeq: t)
+}
+
+stdcall name n = {
+  vs = []
+  ts = []
+  j = 0
+  j < NN@n ~{ vs = vs ++ (ex: (kid: n, j)); ts = ts ++ (res: ET); j += 1 }
+  # overloads with this arity: the first exact fit, else the first
+  best = -1
+  first = -1
+  j = 0
+  j < #SGNAME & best < 0 ~{
+    (SGNAME@j = name & #(SGPAR@j) = #ts) ? (
+      SENV = [->];
+      ok = T;
+      can = T;
+      q = 0;
+      q < #ts ~{ ok = ok & (sigfits: SGPAR@j@q, ts@q); q += 1 };
+      q = 0;
+      SENV = [->];
+      q < #ts ~{ can = can & (sigty: SGPAR@j@q, ts@q) >= 0; q += 1 };
+      ok ? (best = j;) : (first < 0 & can) ? (first = j;)
+    );
+    j += 1
+  }
+  best < 0 ? (best = first;)
+  best < 0 ? gerr: n, "{name}: no overload takes {#ts} argument(s) of these types"
+  ps = SGPAR@best
+  SENV = [->]
+  SVARS = []
+  tys = []
+  args = []
+  j = 0
+  j < #ts ~{
+    p = ps@j
+    pt = sigty: p, ts@j
+    pt < 0 ? gerr: n, "{name}: argument {j + 1} is {tyname: ts@j}, not {p}"
+    v = conv: vs@j, ts@j, pt, n
+    (isvar: p) ? (tys = tys ++ "ptr"; args = args ++ (spill: v, pt)) :
+      p = "bool" ? (tys = tys ++ "i64"; args = args ++ (ins: "zext i1 {v} to i64")) :
+      (tys = tys ++ (llt: pt); args = args ++ v)
+    j += 1
+  }
+  ret = SGRET@best
+  rty = sigty: ret, -1
+  rty < 0 ? gerr: n, "{name}: unsupported result type {ret}"
+  ds = SVARS{dref: SENV@_}
+  (ret.find: "(") >= 0 ? (ds = ds ++ (dref: rty);)
+  dt = ds{"ptr"}
+  ET = rty
+  out = ret.outret ? newvar: rty : ""
+  ret.outret ? (rt: "void", SGSYM@best, dt ++ tys ++ "ptr", ds ++ args ++ out; ins: "load {llt: rty}, ptr {out}") :
+    ret = "bool" ? ins: "icmp ne i64 " + (rt: "i64", SGSYM@best, dt ++ tys, ds ++ args) + ", 0" :
+    rt: (llt: rty), SGSYM@best, dt ++ tys, ds ++ args
+}
+
+# --- iteration: map / filter / fold over arrays, strings, ranges, maps and sets ---
+
+# saves the current bindings of the block variables, to restore after the loop
+SAVEDV = []
+SAVEDT = []
+
+savebind u = {
+  ["_", "@", "$"]{
+    SAVEDV = SAVEDV ++ ((LOC@?_) ? LOC@_ : "")
+    SAVEDT = SAVEDT ++ ((LOCT@?_) ? LOCT@_ : -1)
+  }
+  0
+}
+
+restorebind u = {
+  j = 2
+  j >= 0 ~{
+    nm = ["_", "@", "$"]@j
+    v = SAVEDV@-1
+    t = SAVEDT@-1
+    SAVEDV = SAVEDV@..(#SAVEDV - 1)
+    SAVEDT = SAVEDT@..(#SAVEDT - 1)
+    (v = "") ? (LOC -= nm; LOCT -= nm) : (LOC@nm = v; LOCT@nm = t)
+    j -= 1
+  }
+  0
+}
+
+exiter n = {
+  how = NK@n = "foldop" | NK@n = "scanop" ? NK@n : NS@n
+  lim = ITLIM
+  ITLIM = ""
+  sc = how = "scan" | how = "scanop"
+  fo = how = "fold" | how = "foldop" | sc
+  src = NA@n
+  body = NB@n
+  savebind: 0
+  # the source: a range loops over ints, everything else over an array (maps: their keys)
+  isrange = NK@src = "range"
+  lo = "0"
+  hi = "0"
+  arr = ""
+  ta = TI
+  et = TI
+  sk = ""
+  m = ""
+  tm = TI
+  isrange ? (
+    lo = (ex: NA@src).bcbound: ET, n;
+    hi = NB@src < 0 ? "9223372036854775807" : (ex: NB@src).bcbound: ET, n
+  ) : (
+    s = ex: src;
+    ta = ET;
+    sk = kind: ta;
+    (sk = "G") ? (s = s.gtomap: ta, n; ta = ET; sk = "M");
+    (sk = "A") ? (arr = s; et = elem: ta) :
+      sk = "S" ? (arr = rt: "ptr", "ns_chars", ["ptr"], [s]; et = TS) :
+      sk = "M" ? (m = s; tm = ta; arr = rt: "ptr", "ns_keys", ["ptr", "ptr", "ptr"], [(dref: elem: ta), (dref: val: ta), s]; et = val: ta) :
+      sk = "H" | sk = "Q" | sk = "P" | sk = "R" ? (arr = rt: "ptr", "ns_toarr", ["ptr", "ptr"], [(dref: ta), s]; et = elem: ta) :
+      gerr: n, "cannot iterate over {tyname: ta}";
+    hi = ins: "load i64, ptr {arr}"
+  )
+  rt0 = hole: 0
+  # result: map/filter build an array; fold keeps an accumulator
+  out = ""
+  acc = ""
+  (how = "map" | how = "filter") ? (out = rt: "ptr", "ns_arr_new", ["ptr", "i64"], [(dref: tyarr: (how = "map" ? rt0 : et)), "0"];) :
+    fo ? (acc = newvar: et; unify: rt0, et; sc ? (out = rt: "ptr", "ns_arr_new", ["ptr", "i64"], [(dref: tyarr: et), "0"];)) :
+    gerr: n, "{how} is not supported yet"
+  (sk = "M" & (how = "map" | how = "filter")) ? (out = rt: "ptr", "ns_map_new", ["ptr"], [dref: tymap: (elem: tm), (how = "map" ? rt0 : et)];)
+  iv = newvar: TI
+  n.tsavenum
+  vx = bindv: "_", et
+  vi = bindv: "@", (sk = "M" ? elem: tm : TI)
+  fo ? (
+    isrange ? (emit: "store i64 {lo}, ptr {acc}"; lo = ins: "add i64 {lo}, 1") : (
+      emit: "store {llt: et} " + (ldslot: (rt: "ptr", "ns_arr_at", ["ptr", "i64"], [arr, "0"]), et) + ", ptr {acc}";
+      lo = "1"
+    )
+  )
+  sc ? pushel: out, et, (ins: "load {llt: et}, ptr {acc}"), et, n
+  bindv: "$", et
+  LOC@"$" = acc
+  emit: "store i64 {lo}, ptr {iv}"
+  lc = newlbl: 0
+  lb = newlbl: 0
+  le = newlbl: 0
+  br: lc
+  label: lc
+  i = ins: "load i64, ptr {iv}"
+  emit: "br i1 " + (ins: "icmp slt i64 {i}, {hi}") + ", label %{lb}, label %{le}"
+  label: lb
+  isrange ? (emit: "store i64 {i}, ptr {vx}"; emit: "store i64 {i}, ptr {vi}") :
+    sk = "M" ? (
+      key = ldslot: (rt: "ptr", "ns_arr_at", ["ptr", "i64"], [arr, i]), elem: tm;
+      emit: "store {llt: elem: tm} {key}, ptr {vi}";
+      emit: "store {llt: et} " + (ldslot: (rt: "ptr", "ns_map_ref", ["ptr", "ptr"], [m, spill: key, elem: tm]), et) + ", ptr {vx}"
+    ) : (
+      emit: "store {llt: et} " + (ldslot: (rt: "ptr", "ns_arr_at", ["ptr", "i64"], [arr, i]), et) + ", ptr {vx}";
+      emit: "store i64 {i}, ptr {vi}"
+    )
+  (how = "foldop" | how = "scanop") ? (
+    a = ins: "load {llt: et}, ptr {acc}";
+    x = ins: "load {llt: et}, ptr {vx}";
+    r = NS@n = ">" ? pick: a, x, et, "<", n : NS@n = "<" ? pick: a, x, et, ">", n : binop: NS@n, a, et, x, et, n;
+    emit: "store {llt: et} {conv: r, ET, et, n}, ptr {acc}"
+  ) : (
+    v = exgroup: body;
+    t = ET;
+    (how = "map") ? (unify: rt0, t; out.bcpush: rt0, (owned: v, t, lastexpr: body), t, n, sk, vi, tm; out.limchk: lim, le) :
+      how = "filter" ? (
+        l1 = newlbl: 0;
+        l2 = newlbl: 0;
+        emit: "br i1 " + (truth: v, t) + ", label %{l1}, label %{l2}";
+        label: l1;
+        out.bcpush: et, (ins: "load {llt: et}, ptr {vx}"), et, n, sk, vi, tm;
+        out.limchk: lim, le;
+        br: l2;
+        label: l2
+      ) : emit: "store {llt: et} {conv: v, t, et, n}, ptr {acc}"
+  )
+  sc ? pushel: out, et, (ins: "load {llt: et}, ptr {acc}"), et, n
+  emit: "store i64 " + (ins: "add i64 {i}, 1") + ", ptr {iv}"
+  br: lc
+  label: le
+  restorebind: 0
+  n.trestnum
+  (how = "map" | how = "filter" | sc) ? (
+    ET = (sk = "M") ? tymap: (elem: tm), (how = "map" ? rt0 : et) : tyarr: (how = "map" ? rt0 : et);
+    (how = "filter" & sk = "S") ? (ET = TS; rt: "ptr", "ns_join0", ["ptr", "ptr"], ["`dS`", out]) : out
+  ) : (ET = et; ins: "load {llt: et}, ptr {acc}")
+}
+
+lastexpr n = (NK@n = "group" & NN@n > 0) ? kid: n, NN@n - 1 : n
+
+# x/> and x/<: the larger / smaller of a and x
+pick a x t op n = {
+  c = cmpop: op, a, t, x, n
+  ET = t
+  ins: "select i1 {c}, {llt: t} {x}, {llt: t} {a}"
+}
+
+# --- statements ---
+
+stmt1 n = {
+  k = NK@n
+  (k = "assign") ? assign: n :
+    k = "opset" ? opset: n :
+    k = "while" ? exwhile: n :
+    k = "fn" ? ((NS@n).fndef: n) :
+    ex: n
+  0
+}
+
+exwhile n = {
+  lc = newlbl: 0
+  lb = newlbl: 0
+  le = newlbl: 0
+  br: lc
+  label: lc
+  c = truth: (ex: NA@n), ET
+  emit: "br i1 {c}, label %{lb}, label %{le}"
+  label: lb
+  exgroup: NB@n
+  br: lc
+  label: le
+  0
+}
+
+assign n = {
+  nl = NA@n
+  nr = NN@n - nl
+  (nl = 1 & nr = 1) ? assign1: (kid: n, 0), (kid: n, 1), n : (
+    vs = [];
+    ts = [];
+    j = 0;
+    j < nr ~{ c = kid: n, nl + j; vs = vs ++ (owned: (ex: c), ET, c); ts = ts ++ ET; j += 1 };
+    (nr = 1 & (kind: ts@0) = "T") ? (n.tassign: vs@0, ts@0) : (nr = 1) ? (
+      (kind: ts@0) != "A" ? gerr: n, "{nl} names need {nl} values or one array";
+      j = 0;
+      j < nl ~{ store: (kid: n, j), (ldslot: (rt: "ptr", "ns_arr_at", ["ptr", "i64"], [vs@0, "{j}"]), elem: ts@0), (elem: ts@0), n; j += 1 }
+    ) : nl != nr ? gerr: n, "{nl} names but {nr} values" : (
+      j = 0;
+      j < nl ~{ store: (kid: n, j), vs@j, ts@j, n; j += 1 }
+    )
+  )
+  0
+}
+
+assign1 lv rv n = {
+  name = NS@lv
+  (NK@lv = "var" & NK@rv = "blk") ? (name.fndef: rv) :
+    (NK@lv = "var" & NK@rv = "call" & NS@rv = "memo") ? (name.memodef: rv) :
+    (NK@lv = "var" & NK@rv = "var" & (FNNODE@?(NS@rv) | ALIAS@?(NS@rv) | SGNAME@?(NS@rv)) & (varref: NS@rv) = "") ? (ALIAS@name = (ALIAS@?(NS@rv) ? ALIAS@(NS@rv) : NS@rv);) :
+    (NK@lv = "var" & NK@rv = "bin" & NS@rv = "++" & NK@(NA@rv) = "var" & NS@(NA@rv) = name & (varref: name) != "") ? appendto: lv, NB@rv, n :
+    store: lv, (owned: (ex: rv), ET, rv), ET, n
+  0
+}
+
+# x = x ++ e: appends in place
+appendto lv e n = {
+  name = NS@lv
+  tx = vartype: name
+  x = loadvar: name, n
+  v = ex: e
+  tv = ET
+  (kind: tv) = "A" & (unify: tx, tv) ? (
+    # x ++ array: append each element
+    t = elem: tx;
+    m = ins: "load i64, ptr {v}";
+    iv = newvar: TI;
+    emit: "store i64 0, ptr {iv}";
+    lc = newlbl: 0; lb = newlbl: 0; le = newlbl: 0;
+    br: lc;
+    label: lc;
+    i = ins: "load i64, ptr {iv}";
+    emit: "br i1 " + (ins: "icmp slt i64 {i}, {m}") + ", label %{lb}, label %{le}";
+    label: lb;
+    pushel: x, t, (ldslot: (rt: "ptr", "ns_arr_at", ["ptr", "i64"], [v, i]), t), t, n;
+    emit: "store i64 " + (ins: "add i64 {i}, 1") + ", ptr {iv}";
+    br: lc;
+    label: le
+  ) : (kind: tx) = "A" ? pushel: x, (elem: tx), (owned: v, tv, e), tv, n : gerr: n, "++ needs an array on the left"
+  0
+}
+
+# stores v into the lvalue lv (a variable or an indexed element)
+store lv v t n = {
+  (NK@lv = "var") ? setvar: NS@lv, v, t, n : (
+    p = slot: lv, n;
+    et = ET;
+    stslot: p, (conv: v, t, et, n), et
+  )
+  0
+}
+
+# the storage of the element lv = base@key (inserting a missing map key); leaves the element type in ET
+slot lv n = {
+  b = NA@lv
+  c = (NK@b = "var") ? loadvar: NS@b, n : (p = slot: b, n; ldslot: p, ET)
+  tc = ET
+  k = kind: tc
+  (k = "A") ? (
+    i = conv: (ex: NB@lv), ET, TI, n;
+    ET = elem: tc;
+    rt: "ptr", "ns_arr_at", ["ptr", "i64"], [c, i]
+  ) : k = "M" ? (
+    key = conv: (ex: NB@lv), ET, (elem: tc), n;
+    r = rt: "ptr", "ns_map_put", ["ptr", "ptr"], [c, spill: key, elem: tc];
+    ET = val: tc;
+    r
+  ) : gerr: n, "cannot assign into {tyname: tc}"
+}
+
+opset n = {
+  op = NS@n
+  lv = NA@n
+  (op = "??") ? setmissing: n :
+    (op = "++" & NK@lv = "var") ? appendto: lv, NB@n, n :
+    (NK@lv = "var" & (kind: vartype: NS@lv) = "M" & op = "-") ? mapdel: n :
+    (NK@lv = "var" & (kind: vartype: NS@lv) = "M" & op = "+") ? (n.bcmerge) :
+    (NK@lv = "var") ? opvar: n :
+    opslot: n
+  0
+}
+
+mapdel n = {
+  m = loadvar: NS@(NA@n), n
+  tm = ET
+  key = conv: (ex: NB@n), ET, (elem: tm), n
+  rt: "void", "ns_del", ["ptr", "ptr", "ptr"], [(dref: tm), m, (spill: key, elem: tm)]
+  0
+}
+
+opvar n = {
+  name = NS@(NA@n)
+  a = loadvar: name, n
+  ta = ET
+  b = ex: NB@n
+  r = binop: NS@n, a, ta, b, ET, n
+  setvar: name, r, ET, n
+}
+
+opslot n = {
+  op = NS@n
+  p = slot: NA@n, n
+  et = ET
+  a = ldslot: p, et
+  b = ex: NB@n
+  tb = ET
+  a = a.orzero: et, op, tb
+  r = (op = "++") ? (c = rt: "ptr", "ns_arr_copy", ["ptr"], [a]; pushel: c, (elem: et), b, tb, n; c) : binop: op, a, et, b, tb, n
+  (op = "++") ? (ET = et;)
+  stslot: p, (conv: r, ET, et, n), et
+}
+
+# s += x / s -= x on a set
+setupdate n = {
+  s = loadvar: NS@(NA@n), n
+  ts = ET
+  x = conv: (ex: NB@n), ET, (elem: ts), n
+  (NS@n = "+") ? rt: "void", "ns_add", ["ptr", "ptr", "ptr"], [(dref: ts), s, (spill: x, elem: ts)] :
+    NS@n = "-" ? rt: "void", "ns_del", ["ptr", "ptr", "ptr"], [(dref: ts), s, (spill: x, elem: ts)] :
+    gerr: n, "set {NS@n}= is not supported"
+  0
+}
+
+# m@k ??= e: inserts e only when k is missing
+setmissing n = {
+  lv = NA@n
+  NK@lv != "idx" ? gerr: n, "??= needs a map element on the left"
+  m = (NK@(NA@lv) = "var") ? loadvar: NS@(NA@lv), n : (p = slot: NA@lv, n; ldslot: p, ET)
+  tm = ET
+  key = conv: (ex: NB@lv), ET, (elem: tm), n
+  kp = spill: key, elem: tm
+  ref = rt: "ptr", "ns_map_ref", ["ptr", "ptr"], [m, kp]
+  l1 = newlbl: 0
+  l2 = newlbl: 0
+  emit: "br i1 " + (ins: "icmp eq ptr {ref}, null") + ", label %{l1}, label %{l2}"
+  label: l1
+  v = ex: NB@n
+  tv = ET
+  stslot: (rt: "ptr", "ns_map_put", ["ptr", "ptr"], [m, kp]), (conv: (owned: v, tv, NB@n), tv, (val: tm), n), val: tm
+  br: l2
+  label: l2
+  0
+}
+
+# --- the module ---
+
+# fills in the type placeholders (`id` -> LLVM type, `did` -> descriptor string)
+fillin text = {
+  parts = text.split: "`"
+  j = 1
+  j < #parts ~{
+    p = parts@j
+    id = (p@0 = "d") ? (int: p@1..) : int: p
+    parts@j = (p = "dS") ? strconst: "S" : (p@0 = "d") ? strconst: (desc: id) : llt: (concrete: id)
+    j += 2
+  }
+  parts.join
+}
+
+generate root = {
+  j = 0
+  j < NN@root ~{
+    c = kid: root, j
+    (NK@c = "fn") ? (FNNODE@(NS@c) = c;) :
+      (NK@c = "assign" & NA@c = 1 & NN@c = 2 & NK@(kid: c, 0) = "var" & NK@(kid: c, 1) = "blk") ? (FNNODE@(NS@(kid: c, 0)) = kid: c, 1;)
+    j += 1
+  }
+  exgroup: root
+  mainf = "define i32 @main() \{\nentry:\n" + (ALLOC.join: "\n") + "\n" + (BODY.join: "\n") + "\n  ret i32 0\n}\n"
+  globs = GLOBT.keys{"@g.{_} = internal global " + (llt: GLOBT@_) + " zeroinitializer"}
+  code = fillin: (DECL.vals.join: "\n") + "\n" + (globs.join: "\n") + "\n" + (OUTF.join: "\n") + "\n" + mainf
+  (STRC.join: "\n") + "\n" + code
+}

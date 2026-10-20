@@ -1,0 +1,85 @@
+# Types are interned ints: TYK kind (I F S B, A array, M map, H set, ? hole), TYA TYB children (-1 = none).
+# A hole is a unification variable: TYBIND points at what it was bound to (-1 = unbound).
+TYK = []
+TYA = []
+TYB = []
+TYBIND = []
+TYMAP = [->]
+
+ty k a b = {
+  key = "{k},{a},{b}"
+  (TYMAP@?key) ? TYMAP@key : (
+    TYK = TYK ++ k; TYA = TYA ++ a; TYB = TYB ++ b; TYBIND = TYBIND ++ -1;
+    TYMAP@key = #TYK - 1;
+    #TYK - 1
+  )
+}
+
+hole u = {
+  TYK = TYK ++ "?"; TYA = TYA ++ -1; TYB = TYB ++ -1; TYBIND = TYBIND ++ -1
+  #TYK - 1
+}
+
+TI = ty: "I", -1, -1
+TF = ty: "F", -1, -1
+TS = ty: "S", -1, -1
+TB = ty: "B", -1, -1
+
+tyarr t = t < 0 ? -1 : ty: "A", t, -1
+tyset t = t < 0 ? -1 : ty: "H", t, -1
+tymap k v = k < 0 | v < 0 ? -1 : ty: "M", k, v
+
+res t = {
+  (t >= 0 & TYK@t = "?" & TYBIND@t >= 0) ~{ t = TYBIND@t }
+  t
+}
+
+kind t = TYK@(res: t)
+elem t = TYA@(res: t)
+val t = TYB@(res: t)
+isscalar t = (kind: t) = "I" | (kind: t) = "F" | (kind: t) = "B"
+
+occurs h t = {
+  t = res: t
+  (t = h) ? T : TYK@t = "?" ? F : (TYA@t >= 0 & (occurs: h, TYA@t)) | (TYB@t >= 0 & (occurs: h, TYB@t))
+}
+
+unify a b = {
+  a = res: a
+  b = res: b
+  (a = b) ? T :
+    TYK@a = "?" ? ((occurs: a, b) ? F : (TYBIND@a = b; T)) :
+    TYK@b = "?" ? ((occurs: b, a) ? F : (TYBIND@b = a; T)) :
+    TYK@a != TYK@b ? F :
+    (TYA@a < 0 | (unify: TYA@a, TYA@b)) & (TYB@a < 0 | (unify: TYB@a, TYB@b))
+}
+
+# a hole that is still unbound where a concrete type is needed becomes int
+concrete t = {
+  t = res: t
+  (TYK@t = "?") ? (TYBIND@t = TI; TI) : (TYK@t = "T") ? (t.tconc) : t
+}
+
+desc t = {
+  t = concrete: t
+  k = TYK@t
+  (k = "T") ? (t.tdesc) : (k = "R") ? (TYB@t < 0 ? "T" : "K" + (desc: TYA@(TYB@t))) + (desc: TYA@t) : (k = "A" | k = "H" | k = "Q" | k = "P" | k = "G") ? k + (desc: TYA@t) : k = "M" ? k + (desc: TYA@t) + (desc: TYB@t) : k
+}
+
+# LLVM type in registers; a hole is a placeholder `id` filled in once the program is typed
+llt t = {
+  t = res: t
+  k = TYK@t
+  (k = "I") ? "i64" : k = "F" ? "double" : k = "B" ? "i1" : k = "?" ? "`{t}`" : k = "T" ? (t.tllt) : "ptr"
+}
+
+# canonical text of a type (instance keys, error messages)
+tyname t = {
+  t = res: t
+  k = TYK@t
+  (k = "I") ? "int" : k = "F" ? "float" : k = "S" ? "str" : k = "B" ? "bool" : k = "?" ? "?{t}" : k = "T" ? (t.ttyname) :
+    k = "G" ? "G[" + (tyname: TYA@t) + "]" :
+    k = "A" ? "[" + (tyname: TYA@t) + "]" : k = "H" ? "%[" + (tyname: TYA@t) + "]" :
+    k = "Q" ? "Q[" + (tyname: TYA@t) + "]" : k = "P" ? "PQ[" + (tyname: TYA@t) + "]" : k = "R" ? "BT[" + (tyname: TYA@t) + (TYB@t < 0 ? "" : ";" + TYK@(TYB@t)) + "]" :
+    "\{" + (tyname: TYA@t) + ":" + (tyname: TYB@t) + "}"
+}

@@ -48,6 +48,13 @@ by the `CompileRuntime` target in `NS.fsproj`.
 - Typer-only primitives (`neg`, `len`, …, in `Typer.builtin`) are *not* in `Parser.builtins`, so users can't
   call them by name.
 
+## Self-hosted compiler (`src/nsc/`)
+
+`nsc` is an NS compiler written in NS (lexer, parser, typer+codegen to LLVM IR; clang links it with `runtime.c`).
+`src/nsc/bootstrap.sh` builds it with `ns` and then with itself (stage 2 and 3 IR must be identical);
+`src/nsc/test.sh` runs the golden tests through it. Read `src/nsc/README.md` before editing: it lists the NS
+gotchas that matter when writing a large NS program.
+
 ## Other dirs
 
 - `src/examples/` — larger programs with `.out` (and `.in`) files; also golden tests.

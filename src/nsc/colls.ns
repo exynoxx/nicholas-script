@@ -1,0 +1,219 @@
+# nsc collections and matches: queues Q / PQ, sorted trees BT, set operators, `?{ }` / `?[ ]` matches, `??`.
+
+# --- parsing `x ?{ … }`, `x ?[ … ]`, `?{ … }` (subj = -1: no subject, each arm is a condition) ---
+
+matchx filter subj = {
+  closer = filter ? "]" : "}"
+  conds = []
+  ress = []
+  deflt = -1
+  (TK@P = "t") ~{ P += 1 }
+  !(issym: closer) ~{
+    deflt >= 0 ? perr: "the default arm (`_ => …`, or one without '=>') must be the last arm"
+    (TK@P = "i" & TV@P = "_" & TK@(P + 1) = "o" & TV@(P + 1) = "=>") ? (P += 2; deflt = stmt: 0) :
+      (filter | (matcharrow: 0)) ? (
+        c = mtest: subj;
+        (accept: ",") ~{ c = bin: "|", c, (mtest: subj) };
+        conds = conds ++ c;
+        ress = ress ++ ((accept: "=>") ? (stmt: 0) : (mk: "bool", "T", -1, -1, -1))
+      ) : (deflt = stmt: 0;)
+    sawt = TK@P = "t"
+    (TK@P = "t") ~{ P += 1 }
+    (!sawt & !(issym: closer)) ? perr: "expected '=>', a new arm or '{closer}', found '{TV@P}'"
+  }
+  expect: closer
+  (#conds = 0 & (filter | deflt < 0)) ? perr: "a match needs at least one arm"
+  (filter & deflt < 0) ? (deflt = mk: "bool", "F", -1, -1, -1;)
+  acc = deflt
+  whole = F
+  j = #conds - 1
+  j >= 0 ~{
+    acc = mk: "tern", "", conds@j, ress@j, acc
+    whole = whole | (haswhole: conds@j)
+    j -= 1
+  }
+  subj < 0 ? acc : mk: "match", (filter ? "filter" : whole ? "whole" : "map"), subj, acc, -1
+}
+
+# an arm's test: a comparison operator tests the subject with it, a value compares equal to it
+mtest subj = {
+  (subj >= 0 & TK@P = "o" & (TV@P = "=" | TV@P = "!=" | TV@P = "<" | TV@P = ">" | TV@P = "<=" | TV@P = ">=")) ? (
+    op = TV@P;
+    P += 1;
+    bin: op, (mk: "var", "_", -1, -1, -1), (shiftx: 0)
+  ) : subj >= 0 ? bin: "=", (mk: "var", "_", -1, -1, -1), (expr: 0) : expr: 0
+}
+
+# does `=>` come before the end of this arm?
+matcharrow u = {
+  j = P
+  d = 0
+  r = F
+  fin = F
+  !fin ~{
+    (d = 0 & TK@j = "o" & TV@j = "=>") ? (r = T; fin = T) :
+      (TK@j = "t" & d = 0) | TK@j = "e" ? (fin = T;) :
+      (isopenb: j) ? (d += 1;) :
+      (isclose: j) ? (d -= 1; d < 0 ? (fin = T;));
+    j += 1
+  }
+  r
+}
+
+# an array-literal pattern (`[1,2] => …`) matches an array subject as a whole
+haswhole c = NK@c = "bin" & (NS@c = "|" ? (haswhole: NA@c) | (haswhole: NB@c) : NK@(NB@c) = "arr")
+
+# --- match: an array subject maps (or filters) the arms over its elements; otherwise `_` is the subject ---
+
+MATCHN = 0
+
+exmatch n = {
+  how = NS@n
+  v = ex: NA@n
+  t = ET
+  body = setkids: (mk: "group", "", -1, -1, -1), [NB@n]
+  isarr = (kind: t) = "A"
+  (how = "filter" & !isarr) ? gerr: n, "?[ ] filters an array, not {tyname: t}"
+  (how != "whole" & isarr) ? matcheach: v, t, body, n : matchone: v, t, body
+}
+
+matcheach v t body n = {
+  MATCHN += 1
+  nm = "_m{MATCHN}"
+  setvar: nm, v, t, n
+  it = mk: "iter", (NS@n = "filter" ? "filter" : "map"), (mk: "var", nm, -1, -1, -1), body, -1
+  NL@it = NL@n
+  ex: it
+}
+
+matchone v t body = {
+  savebind: 0
+  emit: "store {llt: t} {v}, ptr " + (bindv: "_", t)
+  r = exgroup: body
+  restorebind: 0
+  r
+}
+
+# --- Q / PQ / BT literals and set: / Q: / PQ: / BT: conversions ---
+
+COLLK = ["set" -> "H", "Q" -> "Q", "PQ" -> "P", "BT" -> "R"]
+
+excoll n = {
+  a = exarr: n
+  fillcoll: COLLK@(NK@n), a, ET, -1, n
+}
+
+collconv name n = {
+  (NN@n != 1 & !(name = "BT" & NN@n = 2)) ? gerr: n, "{name}: expects one collection (only BT takes a key block)"
+  v = ex: (kid: n, 0)
+  t = ET
+  k = kind: t
+  a = (k = "A") ? v : k = "S" ? rt: "ptr", "ns_chars", ["ptr"], [v] : rt: "ptr", "ns_toarr", ["ptr", "ptr"], [(dref: t), v]
+  ET = (k = "A") ? t : k = "S" ? tyarr: TS : tyarr: elem: t
+  (NN@n = 2) ? a.btkeyed: ET, n : fillcoll: COLLK@name, a, ET, -1, n
+}
+
+# a new collection of kind k holding the elements of the array a (type ta); kb: a tree's key block type (-1: none)
+fillcoll k a ta kb n = {
+  et = elem: ta
+  ct = ty: k, et, kb
+  (k = "R") ? (
+    c = rt: "ptr", "ns_bt_new", ["ptr"], [dref: ct];
+    m = ins: "load i64, ptr {a}";
+    iv = newvar: TI;
+    emit: "store i64 0, ptr {iv}";
+    lc = newlbl: 0; lb = newlbl: 0; le = newlbl: 0;
+    br: lc;
+    label: lc;
+    i = ins: "load i64, ptr {iv}";
+    emit: "br i1 " + (ins: "icmp slt i64 {i}, {m}") + ", label %{lb}, label %{le}";
+    label: lb;
+    p = rt: "ptr", "ns_arr_at", ["ptr", "i64"], [a, i];
+    btcall: "ns_btadd", c, ct, (ldslot: p, et);
+    emit: "store i64 " + (ins: "add i64 {i}, 1") + ", ptr {iv}";
+    br: lc;
+    label: le
+  ) : (
+    c = rt: "ptr", (k = "H" ? "ns_set_new" : k = "Q" ? "ns_q_new" : "ns_pq_new"), ["ptr"], [dref: ct];
+    rt: "void", "ns_add_all", ["ptr", "ptr", "ptr"], [(dref: ct), c, a]
+  )
+  ET = ct
+  c
+}
+
+# ns_btadd / ns_btdel / ns_bthas on tree c (type tc) and element x (a tree without a key block: the key is the element)
+btcall f c tc x = {
+  et = elem: tc
+  kb = val: tc
+  p = spill: x, et
+  kt = kb < 0 ? et : elem: kb
+  k = kb < 0 ? p : spill: (x.btkey: et, kb), kt
+  rt: "i64", f, ["ptr", "ptr", "ptr", "ptr", "ptr"], [(dref: et), (dref: kt), c, k, p]
+}
+
+# --- operators on sets, queues and trees ---
+
+SETOPS = ["|" -> "ns_sunion", "+" -> "ns_sunion", "&" -> "ns_sinter", "-" -> "ns_sdiff"]
+
+collop op a ta b tb n = {
+  k = kind: ta
+  et = elem: ta
+  ET = ta
+  (k = "H" & (kind: tb) = "H" & SETOPS@?op) ? (unify: ta, tb; rt: "ptr", SETOPS@op, ["ptr", "ptr", "ptr"], [(dref: et), a, b]) :
+    (k = "R" & (op = "+" | op = "-")) ? (btcall: (op = "+" ? "ns_btadd" : "ns_btdel"), a, ta, (conv: b, tb, et, n); ET = ta; a) :
+    op = "+" ? (rt: "void", "ns_add", ["ptr", "ptr", "ptr"], [(dref: ta), a, (spill: (conv: b, tb, et, n), et)]; a) :
+    (k = "H" & op = "-") ? (rt: "void", "ns_del", ["ptr", "ptr", "ptr"], [(dref: ta), a, (spill: (conv: b, tb, et, n), et)]; a) :
+    gerr: n, "operator {op} is not defined on {tyname: ta}"
+}
+
+# q@0 peeks at the front (top); other indexes read the elements in order
+idxq x tx i n = {
+  et = elem: tx
+  (NK@i = "int" & NS@i = "0") ? (
+    out = newvar: et;
+    rt: "void", "ns_peek", ["ptr", "ptr", "ptr"], [(dref: tx), x, out];
+    ET = et;
+    ldslot: out, et
+  ) : idxarr: (rt: "ptr", "ns_toarr", ["ptr", "ptr"], [(dref: tx), x]), (tyarr: et), i, n
+}
+
+# signature type of a container parameter: k is the kind, p its element (-1: argument type t is another kind)
+sigcoll k p t = {
+  (t >= 0 & TYK@t != k & TYK@t != "?") ? -1 : (
+    e = sigty: p, (t >= 0 & TYK@t = k ? TYA@t : -1);
+    e < 0 ? -1 : ty: k, e, (t >= 0 & TYK@t = k ? TYB@t : -1)
+  )
+}
+
+# x@i ?? d: a map read falls back to d; any other index is just read
+coalidx n = {
+  x = NA@n
+  m = ex: NA@x
+  tm = ET
+  k = kind: tm
+  (k = "M") ? coalmap: n, m, tm :
+    k = "A" ? idxarr: m, tm, NB@x, n :
+    k = "S" ? idxstr: m, NB@x, n :
+    k = "Q" | k = "P" ? idxq: m, tm, NB@x, n :
+    gerr: n, "cannot index {tyname: tm}"
+}
+
+# op= on a missing map key reads its zero value (ns_map_put stores a null pointer): a hole value type is first
+# fixed by the operand (`g@k ++= x` makes it an array)
+orzero a t op tb = {
+  (kind: t) = "?" ? unify: t, (op = "++" ? tyarr: tb : tb)
+  k = kind: t
+  (k = "S" | k = "A" | k = "M" | k = "H") ? (
+    z = (k = "S") ? strconst: "" : k = "A" ? rt: "ptr", "ns_arr_new", ["ptr", "i64"], [(dref: t), "0"] : rt: "ptr", (k = "M" ? "ns_map_new" : "ns_set_new"), ["ptr"], [dref: t];
+    ins: "select i1 " + (ins: "icmp eq ptr {a}, null") + ", ptr {z}, ptr {a}"
+  ) : a
+}
+
+# [x]*n repeats x (nested arrays are copied per row); other array*int broadcasts
+repeatx n = {
+  x = ex: (kid: NA@n, 0)
+  t = ET
+  k = conv: (ex: NB@n), ET, TI, n
+  ET = tyarr: t
+  rt: "ptr", "ns_arr_repeat", ["ptr", "ptr", "i64"], [(dref: ET), (spill: x, t), k]
+}

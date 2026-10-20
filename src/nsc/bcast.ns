@@ -1,0 +1,109 @@
+# Array arithmetic: broadcasting (Lower.broadcast), [x]*n repeat, array element conversion (Lower.convArr),
+# array range bounds. Dispatched to from gen.ns.
+
+# is op elementwise on arrays? (arithmetic and bit operators)
+bcarith op = (ARITH@?op) | (FARITH@?op) | op = "^^"
+
+# a op b with an array on the left: elementwise; b is an array (element by element) or a scalar.
+# Each element pair goes through binop, so the left element's type wins as for scalars.
+bcast op a ta b tb n = {
+  (kind: ta) != "A" ? gerr: n, "scalar op array: put the array on the left"
+  barr = (kind: tb) = "A"
+  et = elem: ta
+  bt = barr ? elem: tb : tb
+  rt0 = hole: 0
+  m = ins: "load i64, ptr {a}"
+  barr ? (
+    lc = newlbl: 0;
+    lok = newlbl: 0;
+    emit: "br i1 " + (ins: "icmp eq i64 {m}, " + (ins: "load i64, ptr {b}")) + ", label %{lok}, label %{lc}";
+    label: lc;
+    rt: "void", "ns_panic", ["ptr"], [strconst: "array {op}: lengths differ"];
+    emit: "unreachable";
+    label: lok
+  )
+  out = rt: "ptr", "ns_arr_new", ["ptr", "i64"], [(dref: tyarr: rt0), m]
+  iv = newvar: TI
+  emit: "store i64 0, ptr {iv}"
+  lc = newlbl: 0
+  lb = newlbl: 0
+  le = newlbl: 0
+  br: lc
+  label: lc
+  i = ins: "load i64, ptr {iv}"
+  emit: "br i1 " + (ins: "icmp slt i64 {i}, {m}") + ", label %{lb}, label %{le}"
+  label: lb
+  x = ldslot: (rt: "ptr", "ns_arr_at", ["ptr", "i64"], [a, i]), et
+  y = barr ? ldslot: (rt: "ptr", "ns_arr_at", ["ptr", "i64"], [b, i]), bt : b
+  r = binop: op, x, et, y, bt, n
+  unify: rt0, ET
+  pushel: out, rt0, r, ET, n
+  emit: "store i64 " + (ins: "add i64 {i}, 1") + ", ptr {iv}"
+  br: lc
+  label: le
+  ET = tyarr: rt0
+  out
+}
+
+# [x]*k: k copies of x (nested arrays deep-copied per row); a is the one-element array [x]
+bcrepeat n = {
+  a = ex: NA@n
+  ta = ET
+  k = conv: (ex: NB@n), ET, TI, n
+  ET = ta
+  rt: "ptr", "ns_arr_repeat", ["ptr", "ptr", "i64"], [(dref: ta), (rt: "ptr", "ns_arr_at", ["ptr", "i64"], [a, "0"]), k]
+}
+
+# [a] -> [b] for a scalar (or str) element type b: converts each element
+bcconv v t to n = {
+  et = elem: t
+  bt = elem: to
+  m = ins: "load i64, ptr {v}"
+  out = rt: "ptr", "ns_arr_new", ["ptr", "i64"], [(dref: to), m]
+  iv = newvar: TI
+  emit: "store i64 0, ptr {iv}"
+  lc = newlbl: 0
+  lb = newlbl: 0
+  le = newlbl: 0
+  br: lc
+  label: lc
+  i = ins: "load i64, ptr {iv}"
+  emit: "br i1 " + (ins: "icmp slt i64 {i}, {m}") + ", label %{lb}, label %{le}"
+  label: lb
+  x = ldslot: (rt: "ptr", "ns_arr_at", ["ptr", "i64"], [v, i]), et
+  pushel: out, bt, x, et, n
+  emit: "store i64 " + (ins: "add i64 {i}, 1") + ", ptr {iv}"
+  br: lc
+  label: le
+  out
+}
+
+# can conv turn array type t into array type to elementwise?
+bccanconv t to = (kind: t) = "A" & (kind: to) = "A" & ((isscalar: elem: to) | (kind: elem: to) = "S")
+
+# a range or slice bound: an array means its length (0..xs = 0..#xs)
+bcbound v t n = (kind: t) = "A" ? ins: "load i64, ptr {v}" : conv: v, t, TI, n
+
+# m += m2: merges m2 into the map m
+bcmerge n = {
+  m = loadvar: NS@(NA@n), n
+  tm = ET
+  q = conv: (ex: NB@n), ET, tm, n
+  rt: "void", "ns_map_merge", ["ptr", "ptr"], [m, q]
+  0
+}
+
+# x@k ++= e on a fresh map key: the slot's zeroed value (null) becomes an empty array
+bcnonnull a et tb = {
+  (kind: et) = "?" ? unify: et, tyarr: tb
+  e = rt: "ptr", "ns_arr_new", ["ptr", "i64"], [(dref: et), "0"]
+  ins: "select i1 " + (ins: "icmp eq ptr {a}, null") + ", ptr {e}, ptr {a}"
+}
+
+# map/filter over a map builds a map: stores b under the current key (in vi); else appends b to the array c
+bcpush c et b tb n sk vi tm = {
+  (sk = "M") ? (
+    stslot: (rt: "ptr", "ns_map_put", ["ptr", "ptr"], [c, vi]), (conv: b, tb, et, n), et
+  ) : pushel: c, et, b, tb, n
+  0
+}

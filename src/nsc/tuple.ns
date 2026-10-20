@@ -1,0 +1,288 @@
+# nsc tuples. A tuple type is a cons list of kind "T" (TYA member, TYB rest) ending in TNIL (kind "N"),
+# so ty interning and unify need nothing special. A tuple of I/F/B members only is a value tuple (descriptor V<n>..,
+# an LLVM struct with bool members as i64, stored inline at 8 bytes per member); anything else is a boxed tuple
+# (U<n>.., a heap object built by ns_tup_new / ns_tup_set, read by ns_tup_get).
+TNIL = ty: "N", -1, -1
+
+tytup ms = {
+  r = TNIL
+  j = #ms - 1
+  j >= 0 ~{ r = ty: "T", ms@j, r; j -= 1 }
+  r
+}
+
+tmems t = {
+  r = []
+  t = res: t
+  (TYK@t = "T") ~{ r = r ++ TYA@t; t = res: TYB@t }
+  r
+}
+
+# all members I F B (a value tuple)
+tval t = {
+  ms = tmems: t
+  r = T
+  j = 0
+  j < #ms ~{ k = kind: ms@j; r = r & (k = "I" | k = "F" | k = "B"); j += 1 }
+  r
+}
+
+# some member's kind is still unknown
+thole t = {
+  ms = tmems: t
+  r = F
+  j = 0
+  j < #ms ~{ r = r | (kind: ms@j) = "?"; j += 1 }
+  r
+}
+
+tconc t = {
+  ms = tmems: t
+  j = 0
+  j < #ms ~{ concrete: ms@j; j += 1 }
+  res: t
+}
+
+tmllt m = (kind: m) = "F" ? "double" : "i64"
+
+tllt t = {
+  ms = tmems: t
+  (thole: t) ? "`{res: t}`" : (tval: t) ? "\{ " + (ms{tmllt: _}.join: ", ") + " }" : "ptr"
+}
+
+tdesc t = {
+  ms = tmems: t
+  ((tval: t) ? "V" : "U") + "{#ms}" + (ms{desc: _}.join: "")
+}
+
+ttyname t = "(" + ((tmems: t){tyname: _}.join: ",") + ")"
+
+# member j of tuple v (type t); leaves the member type in ET
+tget v t j = {
+  t = tconc: t
+  mt = (tmems: t)@j
+  r = ""
+  (tval: t) ? (
+    r = ins: "extractvalue {llt: t} {v}, {j}";
+    (kind: mt) = "B" ? (r = ins: "icmp ne i64 {r}, 0";)
+  ) : (
+    out = newvar: mt;
+    rt: "void", "ns_tup_get", ["ptr", "i64", "ptr"], [v, "{j}", out];
+    r = ins: "load {llt: mt}, ptr {out}"
+  )
+  ET = mt
+  r
+}
+
+# builds a tuple from operands vs of types ts; leaves its type in ET
+tmk vs ts = {
+  j = 0
+  j < #ts ~{ concrete: ts@j; j += 1 }
+  t = tytup: ts
+  r = ""
+  (tval: t) ? (
+    r = "undef";
+    j = 0;
+    j < #vs ~{
+      x = vs@j
+      (kind: ts@j) = "B" ? (x = ins: "zext i1 {x} to i64";)
+      r = ins: "insertvalue {llt: t} {r}, {tmllt: ts@j} {x}, {j}"
+      j += 1
+    }
+  ) : (
+    r = rt: "ptr", "ns_tup_new", ["ptr"], [dref: t];
+    j = 0;
+    j < #vs ~{ rt: "void", "ns_tup_set", ["ptr", "i64", "ptr"], [r, "{j}", (spill: vs@j, ts@j)]; j += 1 }
+  )
+  ET = t
+  r
+}
+
+extuple n = {
+  vs = []
+  ts = []
+  j = 0
+  j < NN@n ~{ c = kid: n, j; v = ex: c; vs = vs ++ (owned: v, ET, c); ts = ts ++ ET; j += 1 }
+  tmk: vs, ts
+}
+
+# t@i with a constant i (negative counts from the end)
+idxtup x tx i n = {
+  m = #(tmems: tx)
+  j = (NK@i = "int") ? int: NS@i : (NK@i = "un" & NS@i = "-" & NK@(NA@i) = "int") ? -(int: NS@(NA@i)) : gerr: n, "a tuple index must be a constant"
+  j < 0 ? (j += m;)
+  (j < 0 | j >= m) ? gerr: n, "tuple index {j} out of range for {tyname: tx}"
+  tget: x, tx, j
+}
+
+# elementwise arithmetic: tuple op tuple, or tuple op scalar
+tupbin op a ta b tb n = {
+  ms = tmems: ta
+  ist = (kind: tb) = "T"
+  (ist & #(tmems: tb) != #ms) ? gerr: n, "{tyname: ta} {op} {tyname: tb}: the tuples differ in length"
+  vs = []
+  ts = []
+  j = 0
+  j < #ms ~{
+    x = tget: a, ta, j
+    tx = ET
+    y = b
+    yt = tb
+    ist ? (y = tget: b, tb, j; yt = ET)
+    vs = vs ++ (binop: op, x, tx, y, yt, n)
+    ts = ts ++ ET
+    j += 1
+  }
+  tmk: vs, ts
+}
+
+# element j of a tuple or an array (destructuring); leaves its type in ET
+telem v t j n = {
+  k = kind: t
+  (k = "T") ? tget: v, t, j : k = "A" ? tarrel: v, t, j : gerr: n, "cannot unpack {tyname: t}"
+}
+
+tarrel v t j = {
+  ET = elem: t
+  ldslot: (rt: "ptr", "ns_arr_at", ["ptr", "i64"], [v, "{j}"]), ET
+}
+
+# a, b = t
+tassign n v t = {
+  NA@n != #(tmems: t) ? gerr: n, "{NA@n} names but a tuple of {#(tmems: t)}"
+  j = 0
+  j < NA@n ~{ x = tget: v, t, j; store: (kid: n, j), x, ET, n; j += 1 }
+  0
+}
+
+# `f (a, b) = …`: unpacks each tuple parameter into its names (`_` skips)
+tparams f = {
+  j = 0
+  j < NN@f ~{
+    p = kid: f, j
+    (NK@f = "fn" & NK@p = "tuple") ? tbindp: p
+    j += 1
+  }
+  0
+}
+
+tbindp p = {
+  v = loadvar: NS@p, p
+  t = ET
+  j = 0
+  j < NN@p ~{
+    q = kid: p, j
+    (NS@q != "_") ? (x = telem: v, t, j, p; r = bindv: NS@q, ET; emit: "store {llt: ET} {x}, ptr {r}")
+    j += 1
+  }
+  0
+}
+
+# `_1 _2 …` in an iteration block are parts of the element `_`
+isnumv name = #name > 1 & name@0 = "_" & (isdigit: name@1) & !(LOC@?name) & LOC@?"_"
+
+varx n = (isnumv: NS@n) ? numvar: n : loadvar: NS@n, n
+
+numvar n = {
+  v = loadvar: "_", n
+  telem: v, ET, (int: NS@n@1..) - 1, n
+}
+
+# iteration blocks hide the enclosing `_1 _2 …` (function parameters)
+TNSV = []
+TNST = []
+NUMVS = ["_1", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"]
+
+tsavenum u = {
+  j = 0
+  j < 9 ~{
+    nm = NUMVS@j
+    TNSV = TNSV ++ ((LOC@?nm) ? LOC@nm : "")
+    TNST = TNST ++ ((LOCT@?nm) ? LOCT@nm : -1)
+    (LOC@?nm) ? (LOC -= nm; LOCT -= nm)
+    j += 1
+  }
+  0
+}
+
+trestnum u = {
+  j = 8
+  j >= 0 ~{
+    nm = NUMVS@j
+    v = TNSV@-1
+    (v != "") ? (LOC@nm = v; LOCT@nm = TNST@-1)
+    TNSV = TNSV@..(#TNSV - 1)
+    TNST = TNST@..(#TNST - 1)
+    j -= 1
+  }
+  0
+}
+
+# --- parser: `f (a, b) = …` parameters and `(a, b) = t` ---
+
+# the index after the parameter at j (a name or `(name|_, …)`), or j
+fnparamend j = {
+  r = j
+  (TK@j = "i" & (assignable: TV@j)) ? (r = j + 1;) : (TK@j = "o" & TV@j = "(") ? (
+    k = j + 1;
+    go = T;
+    go ~{
+      (TK@k = "i" & ((assignable: TV@k) | TV@k = "_")) ? (
+        k += 1;
+        (TK@k = "o" & TV@k = ",") ? (k += 1;) : (TK@k = "o" & TV@k = ")") ? (r = k + 1; go = F) : (go = F;)
+      ) : (go = F;)
+    }
+  )
+  r
+}
+
+# parses one parameter; a group is a "tuple" node whose name is the hidden parameter's
+fnparam ps = {
+  (accept: "(") ? fngroup: #ps : (P += 1; mk: "var", TV@(P - 1), -1, -1, -1)
+}
+
+fngroup i = {
+  vs = []
+  go = T
+  go ~{ vs = vs ++ (mk: "var", TV@P, -1, -1, -1); P += 1; go = accept: "," }
+  expect: ")"
+  #vs = 1 ? vs@0 : setkids: (mk: "tuple", "(arg{i}", -1, -1, -1), vs
+}
+
+# `(a, b) = …`: "=" or ""
+parenassign u = {
+  j = P + 1
+  m = 0
+  go = T
+  go ~{
+    (TK@j = "i" & (assignable: TV@j)) ? (
+      j += 1;
+      m += 1;
+      (TK@j = "o" & TV@j = ",") ? (j += 1;) : (go = F;)
+    ) : (go = F; m = 0)
+  }
+  (m > 1 & TK@j = "o" & TV@j = ")" & TK@(j + 1) = "o" & TV@(j + 1) = "=") ? "=" : ""
+}
+
+# --- stdlib signatures with tuples ---
+
+sigtup p t = {
+  ps = splittop: p@1..-1, ","
+  ms = (t >= 0 & TYK@t = "T") ? tmems: t : []
+  ok = #ms = #ps
+  r = []
+  bad = F
+  j = 0
+  j < #ps ~{ x = sigty: ps@j, (ok ? ms@j : -1); bad = bad | x < 0; r = r ++ x; j += 1 }
+  bad ? -1 : tytup: r
+}
+
+# a result written through an out pointer
+outret ret = (isvar: ret) | ret@0 = "("
+
+# structural type equality (an interned type may hold bound holes)
+tyeq a b = {
+  a = res: a
+  b = res: b
+  (a = b) ? T : (a < 0 | b < 0) ? F : TYK@a != TYK@b | TYK@a = "?" ? F : (tyeq: TYA@a, TYA@b) & (tyeq: TYB@a, TYB@b)
+}
