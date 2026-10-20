@@ -881,6 +881,18 @@ void *ns_items(const char *dK, const char *dV, const char *dR, void *m) { // (ke
   ns_release(k); ns_release(v);
   return r;
 }
+static const char *dintern(const char *d);
+//@ map ([(K,V)]) {K:V}
+void *ns_map(const char *dK, const char *dV, void *a) { // inverse of items; a later pair overwrites an earlier key
+  (void)dK; (void)dV;
+  Arr *x = a; const char *ed = HD(a)->d + 1; // U2<k><v> or V2<k><v>
+  char md[64]; snprintf(md, sizeof md, "M%s", ed + 2);
+  void *r = ns_map_new(dintern(md));
+  const char *kd = ed + 2;
+  int64_t vo = *ed == 'V' ? 8 : esz(kd);
+  for (int64_t i = 0; i < x->len; i++) { const char *t = tup(ed, x->data + i * x->esz); ns_map_set(r, t, t + vo); }
+  return r;
+}
 //@ take ([T], int) [T]
 void *ns_take(const char *dT, void *a, int64_t n) { // first n, or the last -n when negative
   int64_t len = ((Arr *)a)->len;
@@ -920,10 +932,10 @@ void *ns_uniq(const char *dT, void *a) { // keeps first occurrences in order
   ns_release(seen);
   return r;
 }
-//@ flatmap ([[T]]) [T]
-//@ flatmap ([(T,T)]) [T]
-//@ flatmap ([(T,T,T)]) [T]
-void *ns_flatmap(const char *dT, void *a) { // one level: [[1,2],[3]] and [(1,2),(3,4)] -> flat
+//@ flatten ([[T]]) [T]
+//@ flatten ([(T,T)]) [T]
+//@ flatten ([(T,T,T)]) [T]
+void *ns_flatten(const char *dT, void *a) { // one level: [[1,2],[3]] and [(1,2),(3,4)] -> flat
   Arr *x = a, *r = ns_arr_new(intern('A', dT), x->len);
   const char *ed = HD(a)->d + 1;
   for (int64_t i = 0; i < x->len; i++) {

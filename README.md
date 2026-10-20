@@ -414,7 +414,7 @@ println:hex:255                     # => ff
 println:"hello".starts:"he"         # => T   (also: ends)
 println:nums:"x=10, y=-3"           # => [10,-3]   every integer in a string
 println:pairwise:[1,2,3]            # => [(1,2),(2,3)]
-println:flatmap:[[1,2],[3]]         # => [1,2,3]
+println:flatten:[[1,2],[3]]         # => [1,2,3]
 
 # Input: read gets one line of stdin ("" at EOF), lines gets all of them.
 #   n = int:read

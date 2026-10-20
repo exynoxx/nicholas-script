@@ -1,7 +1,0 @@
-println:flatmap:[[1,2],[3],[],[4,5]]
-println:flatmap:[["a","b"],["c","d"]]
-println:flatmap:[(1,2),(3,4)]
-println:flatmap:[("a","b","c"),("d","e","f")]
-println:flatmap:[(T,F),(F,T)]
-println:[[1.5],[2.5]].flatmap
-println:flatmap:[[[1],[2]],[[3]]]

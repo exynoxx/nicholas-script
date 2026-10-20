@@ -1,0 +1,7 @@
+println:flatten:[[1,2],[3],[],[4,5]]
+println:flatten:[["a","b"],["c","d"]]
+println:flatten:[(1,2),(3,4)]
+println:flatten:[("a","b","c"),("d","e","f")]
+println:flatten:[(T,F),(F,T)]
+println:[[1.5],[2.5]].flatten
+println:flatten:[[[1],[2]],[[3]]]

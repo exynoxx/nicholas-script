@@ -314,7 +314,7 @@ and private typeBin op (a: E) (b: E) : E =
     | "+", TMap _ -> typed (Call("merge", [ a; conv b L ])) L
     | "-", TMap(k, _) -> typed (Call("del", [ a; conv b k ])) L
     // `**` repeats: `[2,3]**2` = [2,3,2,3], `"ab"**3` = "ababab" (`[x]**n` becomes `repeat` in Desugar)
-    | "**", TArr _ -> stdCall "flatmap" [ builtin "repeat" [ a; b ] ]
+    | "**", TArr _ -> stdCall "flatten" [ builtin "repeat" [ a; b ] ]
     | "**", TStr -> typed (Bin("*", a, conv b TInt)) TStr
     | "**", (TSet _ | TMap _ | TQ _ | TPQ _) -> stdCall "keep" [ a; conv b TInt ] // `st**F`, `m**0`: empty in place
     | "**", (TInt | TFloat) -> err "** repeats arrays and strings; power is ^^"

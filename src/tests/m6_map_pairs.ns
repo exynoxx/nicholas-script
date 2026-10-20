@@ -1,0 +1,14 @@
+m = map:[(1,"a"),(2,"b"),(1,"c")]
+println:#m
+println:m@1
+println:m@2
+b = [(3,T),(4,F)].map
+println:b@3
+println:b@4
+g = ["ab","cd"]{arr:_}
+cells = map:flatten:g{r = @; _{((r,@),_)}}
+println:cells@(1,0)
+println:#cells
+s = map:[("x",[1,2]),("y",[3])]
+println:s@"x"
+println:#(map:"abca".chars.pairwise)
