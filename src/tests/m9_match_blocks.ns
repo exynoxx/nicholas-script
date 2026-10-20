@@ -1,0 +1,16 @@
+n = 3; c = 0
+r = n ?{
+  1 => "one"
+  2, 3 => {
+    c += 1
+    "few"
+  }
+  _ => { c = 99; "many" }
+}
+println:r
+println:c
+println:7 ?{ >5 => { x = _*2; x+1 }; _ => 0 }
+println:[1,5] ?{ >2 => { "big" }; "small" }
+k = 0
+2 ?{ 2 => { k += 5; k += 1 } }
+println:k

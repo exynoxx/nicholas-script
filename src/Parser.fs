@@ -290,8 +290,17 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
             | Some _, _ -> EBin("=", EVar "_", p.Expr())
             | None, _ -> p.Expr()
         let skipTerms () = while peek () = TERM do advance ()
-        // an arm's result may be a statement (`5 => c += 1`); its value is then 0
-        let result () = match p.Stmt() with SExpr e -> e | st -> EGroup [ st; SExpr(EInt 0L) ]
+        // an arm's result may be a statement (`5 => c += 1`); its value is then 0. `=> { s1; s2 }` runs several
+        // statements in the match's scope (`_` stays the subject); the last expression is the value, else 0
+        let result () =
+            if isSym "{" then
+                advance ()
+                let body = p.Block "}"
+                match body |> List.filter (function SLine _ -> false | _ -> true) |> List.tryLast with
+                | Some(SExpr _) -> EGroup body
+                | _ -> EGroup(body @ [ SExpr(EInt 0L) ])
+            else
+                match p.Stmt() with SExpr e -> e | st -> EGroup [ st; SExpr(EInt 0L) ]
         let arms = ResizeArray<Expr list * Expr>()
         let mutable deflt = None
         skipTerms ()

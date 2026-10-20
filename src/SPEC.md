@@ -294,10 +294,21 @@ n ?{                       # with a subject: arm values are compared with =
 [1,5,12] ?{ >10 => _*100; _ }               # array subject: the match maps over the elements
 [1,2,5,9] ?[ 1, 2; >8 ]                     # ?[ ] keeps the elements matching an arm → [1,2,9]
 l ?{ [1,2,3] => "exact"; [] => "empty"; _ => "other" }   # an array-literal pattern: l is matched whole
+n ?{
+  1 => "one"
+  2, 3 => {                # a block arm: several statements, the last expression is the value
+    c += 1
+    "few"
+  }
+  _ => { c = 0; "some" }
+}
 ```
 Arms are separated by newline or `;` and tried in order; the first match wins. Inside a subject match `_` is the
 subject (the element, for an array). If any pattern is an array literal (`[1,2] =>`, `[] =>`, `<[2] =>`), an array
-subject is compared as a whole value instead of mapped over. An arm's result may be a statement (`5 => c += 1`, value 0). Without a default
+subject is compared as a whole value instead of mapped over. An arm's result may be a statement (`5 => c += 1`, value 0), or a block `=> { … }` of statements separated by
+newlines or `;`: it runs in the match's own scope (`_` is still the subject, assignments are visible after the match),
+and its value is its last expression, or 0 if that is a statement. An arm block is not a function value; as in any block,
+a body starting with an operator gets `_` on its left (`=> { *2 }` is `_*2`). Without a default
 the match behaves like `c ? a`: arms run for effect and the value is 0. In `?[ ]` an arm without `=>` keeps its
 elements, `=> F` drops them, and `_ =>` decides the rest (default `F`). `?[` directly after an operand is a match
 filter unless its `]` is followed by `:` (then it is a ternary with an array literal: `c?[1]:[2]`).
