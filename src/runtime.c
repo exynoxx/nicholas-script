@@ -875,6 +875,19 @@ void *ns_zip(const char *dA, const char *dB, const char *dR, void *a, void *b) {
   }
   return r;
 }
+//@ cross ([A],[B]) [(A,B)]
+void *ns_cross(const char *dA, const char *dB, const char *dR, void *a, void *b) { // every (x, y), x-major
+  int val = dR[1] == 'V';
+  Arr *x = a, *y = b, *r = ns_arr_new(dR, 0);
+  for (int64_t i = 0; i < x->len; i++)
+    for (int64_t j = 0; j < y->len; j++) {
+      if (val) { char t[16] = {0}; memcpy(t, x->data + i * x->esz, x->esz); memcpy(t + 8, y->data + j * y->esz, y->esz); apush(r, t); continue; }
+      void *t = ns_tup_new(dR + 1);
+      ns_tup_set(t, 0, x->data + i * x->esz); ns_tup_set(t, 1, y->data + j * y->esz);
+      apush(r, &t);
+    }
+  return r;
+}
 //@ items ({K:V}) [(K,V)]
 void *ns_items(const char *dK, const char *dV, const char *dR, void *m) { // (key, value) pairs in hash order
   void *k = ns_toarr("M", m), *v = ns_map_vals(m), *r = ns_zip(dK, dV, dR, k, v);

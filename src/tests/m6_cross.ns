@@ -1,0 +1,5 @@
+println: cross: 1..2, -1..2
+println: [T,F].cross:[T,F]
+println: ((-1..1).cross:-1..1) [_ != (0,0)]
+println: cross: ["a","b"], [1,2]
+println: #(cross: [1], [1][F])
