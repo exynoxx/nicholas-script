@@ -1,0 +1,5 @@
+num_items = 3
+add_one x = x + 1
+println: add_one: num_items
+xs = [1,2]
+println: xs{add_one}

@@ -31,6 +31,7 @@ Composite: arrays `[T]` (homogeneous), functions (blocks).
 Deferred to v2: `uint`, `int8..int64`, explicit width ints.
 
 ### Inference
+Names start with a letter and may contain letters, digits and `_` (`num_items`); a leading `_` is reserved for the implicit `_ _1 _2 …`.
 Each variable's type is fixed by its first assignment. Re-assigning a value of another type converts it to the variable's type (implicit conversion, below).
 
 ### Implicit conversion — the left operand rules

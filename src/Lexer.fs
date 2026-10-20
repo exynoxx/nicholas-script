@@ -178,7 +178,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             add (ID(src.Substring(start, i - start)))
         elif Char.IsLetter c then
             let start = i
-            while Char.IsLetterOrDigit(at 0) do i <- i + 1
+            while Char.IsLetterOrDigit(at 0) || at 0 = '_' do i <- i + 1
             let w = src.Substring(start, i - start)
             match w with
             | "T" -> add (BOOL true)
