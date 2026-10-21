@@ -25,7 +25,8 @@ Types are never written; every expression has one type known at compile time.
   A trailing `..` is an open slice (`s@1..`) and ends the statement outside brackets.
   Likewise a more indented line that starts with a binary operator (`+ - * / = < ? :` …) or a map `{` continues the
   statement: `x = 10\n  - 1` is 9, `ys = xs\n  {_*2}` maps.
-- Inside `{ }` the same rules apply; statements in a block are separated by newline or `;`.
+- Inside `{ }` and a filter `xs[ ]` the same rules apply; their statements are separated by newline or `;`
+  (`xs[s = _@1\n  #s > 1]`). A plain `[1,\n 2]` array literal is like `( )`.
 
 ## 2. Types
 

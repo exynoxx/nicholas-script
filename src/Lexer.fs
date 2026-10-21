@@ -16,7 +16,7 @@ let private openers = set [ "{"; "m{"; "f["; "/{"; "\\{"; "${" ]
 let private foldOps = [ "+"; "*"; ">"; "<"; "&"; "|"; "^"; "-" ]
 
 /// `startCol` is the column of src's first character (interpolations are lexed on their own).
-let private opener (o: char) = if o = '?' then "?[" else string o
+let private opener (o: char) = match o with '?' -> "?[" | 'f' -> "[" | o -> string o
 
 let lex (src: string) (startLine: int) (startCol: int) : Token list =
     let toks = ResizeArray<Token>()
@@ -48,13 +48,14 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         add (SYM s)
         match s with
         | "(" -> stack.Push('(', tokLine, tokCol)
-        | "[" | "f[" | "%[" | "Q[" | "PQ[" | "BT[" | "G[" | "DG[" -> stack.Push('[', tokLine, tokCol)
+        | "f[" -> stack.Push('f', tokLine, tokCol) // a filter holds statements, like a block
+        | "[" | "%[" | "Q[" | "PQ[" | "BT[" | "G[" | "DG[" -> stack.Push('[', tokLine, tokCol)
         | "{" | "m{" | "~{" | "/{" | "\\{" | "?{" | "${" -> stack.Push('{', tokLine, tokCol)
         | "?[" -> stack.Push('?', tokLine, tokCol)
         | ")" | "]" | "}" ->
             if stack.Count = 0 then failAt tokLine tokCol $"'{s}' has no matching opening bracket"
             let o, l, c = stack.Pop()
-            let want = match o with '(' -> ")" | '[' | '?' -> "]" | _ -> "}"
+            let want = match o with '(' -> ")" | '[' | '?' | 'f' -> "]" | _ -> "}"
             if s <> want then failAt tokLine tokCol $"expected '{want}' to close the '{opener o}' at {l}:{c}, found '{s}'"
         | _ -> ()
         if openers.Contains s then sectionPending <- true
@@ -168,7 +169,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             line <- line + 1
             i <- i + 1
             lineStart <- i
-            let inParens = stack.Count > 0 && (let o, _, _ = stack.Peek() in o <> '{' && o <> '?')
+            let inParens = stack.Count > 0 && (let o, _, _ = stack.Peek() in o <> '{' && o <> '?' && o <> 'f')
             let indent = skipWs i - i
             match last () with
             | SYM s when s.EndsWith "(" || s.EndsWith "[" || s.EndsWith "{" -> stmtIndent <- indent

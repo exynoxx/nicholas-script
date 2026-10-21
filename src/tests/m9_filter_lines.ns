@@ -1,0 +1,15 @@
+# a filter `xs[..]` holds statements: a newline separates them, like in a block
+xs = ["abc","de","fgh"]
+println: xs[s = _@1..
+  #s > 1]
+println: xs[s = _@1
+  s != "e"]
+# the continuation rules still apply inside
+println: xs[#_ > 2 &
+    _@0 != "f"]
+println: xs[#_ > 2
+    & _@0 != "a"]
+println: [1,2,3][_ > (1 +
+  0)]
+println: [1,
+  2]
