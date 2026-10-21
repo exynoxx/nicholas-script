@@ -1,0 +1,12 @@
+xs = [1,2,3]
+s = xs /
+  {$+_}
+println: s
+t = xs \
+  {$+_}
+println: t
+u = xs /
+  {
+    $ * _
+  }
+println: u

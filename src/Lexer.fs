@@ -68,6 +68,10 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         let mutable j = j
         while j < n && (src.[j] = ' ' || src.[j] = '\t') do j <- j + 1
         j
+    let skipWsNl j =
+        let mutable j = j
+        while j < n && " \t\r\n".IndexOf src.[j] >= 0 do j <- j + 1
+        j
     /// `/op` is a fold, except `/-` followed by an operand (`10/-x`, `10/-#x`, `10/-.5`):
     /// `-` is the only fold operator that is also a prefix operator.
     let tryOpAfter () =
@@ -223,10 +227,13 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             if endsExpr () then
                 if at 1 = '?' then (sym "@?"; i <- i + 2) else (sym "@"; i <- i + 1)
             else (add (ID "@"); i <- i + 1)
-        elif (c = '/' || c = '\\') && endsExpr () && (let j = skipWs (i + 1) in j < n && src.[j] = '{') then
-            // `x / {..}` is a fold too: dividing by a block can never type-check
+        elif (c = '/' || c = '\\') && endsExpr () && (let j = skipWsNl (i + 1) in j < n && src.[j] = '{') then
+            // `x / {..}` is a fold too: dividing by a block can never type-check. The `{` may be on the next line.
             sym (string c + "{")
-            i <- skipWs (i + 1) + 1
+            let j = skipWsNl (i + 1)
+            for k in i + 1 .. j - 1 do
+                if src.[k] = '\n' then (line <- line + 1; lineStart <- k + 1)
+            i <- j + 1
         elif (c = '/' || c = '\\') && endsExpr () && (tryOpAfter ()).IsSome then
             let op = (tryOpAfter ()).Value
             add (if c = '/' then FOLDOP op else SCANOP op)
