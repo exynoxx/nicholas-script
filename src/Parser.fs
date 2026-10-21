@@ -433,7 +433,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
 
     member p.Primary() =
         let e = p.Base()
-        if accept ".." then ERange(e, p.RangeEnd()) else e
+        if not (accept "..") then e
+        else
+            let r = ERange(e, p.RangeEnd())
+            if isSym ".." then err "ranges don't chain and have no step: for 0,2,4,… write 0..5{_*2} or 0..10[_%2=0]"
+            r
 
     /// `a..n-1` ends at n-1: the end is + - * / % over atoms, so postfix forms (`{}` `[]` `/+`) still apply to the range.
     member p.RangeEnd() = p.LeftAssoc([ "+"; "-" ], fun () -> p.LeftAssoc([ "*"; "**"; "/"; "%" ], p.Atom))
