@@ -353,7 +353,8 @@ the match behaves like `c ? a`: arms run for effect and the value is 0. In `?[ ]
 elements, `=> F` drops them, and `_ =>` decides the rest (default `F`). Every `?[ ]` arm must give a value, which is
 tested for truthiness on its own (`?[>4 => "a"; _ => 0]` keeps the elements over 4); a statement arm, or an arm block
 that doesn't end in a value, is an error. `?[` directly after an operand is a match filter unless its `]` is followed
-by `:` (then it is a ternary with an array literal: `c?[1]:[2]`).
+by `:` (then it is a ternary with an array literal: `c?[1]:[2]`), except when the brackets can't be an array literal
+(`?[>4]`, arms with `=>` or `;`) or an earlier `?` is still waiting for its `:` (`c ? xs?[>4] : xs`).
 
 ## 6. Statements
 `import "file.ns"` splices in another file's statements (path relative to the importing file; each file is included once, so imports may repeat or be mutual).

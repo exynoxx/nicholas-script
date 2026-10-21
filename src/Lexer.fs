@@ -86,18 +86,34 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         while j < n && src.[j] <> '"' do j <- j + (if src.[j] = '\\' then 2 else 1)
         min j n
     /// At `?[`: is this `c ?[..] : d`, a ternary whose branch is an array literal? (else a `?[ ]` match filter)
+    /// Not when the brackets can't hold an array literal (`?[>4]`, `?[1 => T; _]`), nor when an earlier `?` of
+    /// this statement still waits for its `:` (`c ? xs?[1] : ys`: that `:` is the outer ternary's).
     let ternaryArray () =
         let mutable j, depth = i + 1, 0
-        let mutable fin = false
+        let mutable fin, arms = false, false
         while j < n && not fin do
             match src.[j] with
             | '"' -> j <- skipString j
             | '(' | '[' | '{' -> depth <- depth + 1
             | ')' | ']' | '}' -> (depth <- depth - 1; if depth = 0 then fin <- true)
+            | ';' when depth = 1 -> arms <- true
+            | '=' when depth = 1 && j + 1 < n && src.[j + 1] = '>' -> arms <- true
             | _ -> ()
             if not fin then j <- j + 1
+        let f = skipWs (i + 2)
+        let compares = "<>=".IndexOf(at (f - i)) >= 0 || (at (f - i) = '!' && at (f - i + 1) = '=')
+        // `?`s at this bracket depth since the statement began that no later `:` answers (`println:` is not one)
+        let mutable k, d, pending, colons = toks.Count - 1, 0, 0, 0
+        while k >= 0 && toks.[k].tok <> TERM && d >= 0 do
+            match toks.[k].tok with
+            | SYM(")" | "]" | "}") -> d <- d + 1
+            | SYM s when s.EndsWith "(" || s.EndsWith "[" || s.EndsWith "{" -> d <- d - 1
+            | SYM "?" when d = 0 -> if colons > 0 then colons <- colons - 1 else pending <- pending + 1
+            | SYM ":" when d = 0 -> colons <- colons + 1
+            | _ -> ()
+            k <- k - 1
         let k = skipWs (j + 1)
-        k < n && src.[k] = ':'
+        k < n && src.[k] = ':' && not arms && not compares && pending <= 0
     let lexString () =
         i <- i + 1
         let parts = ResizeArray<Part>()

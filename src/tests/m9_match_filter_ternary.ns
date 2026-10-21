@@ -1,0 +1,9 @@
+# ?[ in a ternary branch is a match filter when the : belongs to an outer ?
+xs = [1,5,9]
+println: T ? xs?[>4] : xs
+println: F ? xs?[1, 9] : xs
+println: T ? xs?[1, 9] : xs
+println: T ? xs?[=1 => T; _ => F] : [0]
+c = T
+println: c?[1]:[2]
+println: F?[1]:[2]
