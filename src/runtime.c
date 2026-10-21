@@ -991,6 +991,33 @@ void *ns_flatten(const char *dT, void *a) { // one level: [[1,2],[3]] and [(1,2)
   }
   return r;
 }
+//@ transpose ([[T]]) [[T]]
+void *ns_transpose(const char *dT, void *a) { // rows -> columns; a short row is skipped in the columns it lacks
+  Arr *x = a; int64_t w = 0;
+  for (int64_t i = 0; i < x->len; i++) { Arr *y = ldp(x->data + i * x->esz); if (y->len > w) w = y->len; }
+  const char *rd = intern('A', dT);
+  Arr *r = ns_arr_new(intern('A', rd), w);
+  for (int64_t j = 0; j < w; j++) {
+    Arr *c = ns_arr_new(rd, x->len);
+    for (int64_t i = 0; i < x->len; i++) { Arr *y = ldp(x->data + i * x->esz); if (j < y->len) ns_arr_push(c, y->data + j * y->esz); }
+    apush(r, &c);
+  }
+  return r;
+}
+//@ transpose ([str]) [str] = ns_transpose_s
+void *ns_transpose_s(void *a) { // ["abc","def"] -> ["ad","be","cf"]
+  Arr *x = a; size_t w = 0;
+  for (int64_t i = 0; i < x->len; i++) { size_t n = strlen(ldp(x->data + i * x->esz)); if (n > w) w = n; }
+  Arr *r = ns_arr_new("AS", w);
+  char *buf = malloc(x->len + 1);
+  for (size_t j = 0; j < w; j++) {
+    size_t n = 0;
+    for (int64_t i = 0; i < x->len; i++) { char *s = ldp(x->data + i * x->esz); if (j < strlen(s)) buf[n++] = s[j]; }
+    spush(r, buf, n);
+  }
+  free(buf);
+  return r;
+}
 //@ starts (str,str) bool
 int64_t ns_starts(char *s, char *p) { return strncmp(s, p, strlen(p)) == 0; }
 //@ ends (str,str) bool
