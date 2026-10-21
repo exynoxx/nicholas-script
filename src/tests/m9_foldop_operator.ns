@@ -1,0 +1,11 @@
+xs = [1,2,3]
+println:xs/+ * 2
+println:xs/+ > 5
+println:xs/* = 6
+println:xs\+ ++ [0]
+println:xs/> < 4 ? "yes" : "no"
+println:10/-#xs
+println:10.0/-.5
+println:12/- 4
+println:12/-(1+2)
+println:xs/- # comment

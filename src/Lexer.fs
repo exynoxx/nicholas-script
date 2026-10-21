@@ -67,14 +67,18 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         let mutable j = j
         while j < n && (src.[j] = ' ' || src.[j] = '\t') do j <- j + 1
         j
-    let isTerminator c = c = '\000' || "\n\r;)]},.{[/\\#:?=".IndexOf(c: char) >= 0
-    /// `/op` is a fold only when no operand follows the operator.
+    /// `/op` is a fold, except `/-` followed by an operand (`10/-x`, `10/-#x`, `10/-.5`):
+    /// `-` is the only fold operator that is also a prefix operator.
     let tryOpAfter () =
         foldOps |> List.tryFind (fun op ->
             if at 1 <> op.[0] then false
+            elif op <> "-" then true
             else
-                let j = skipWs (i + 2)
-                isTerminator (if j < n then src.[j] else '\000'))
+                let k = skipWs (i + 2) - i
+                let c = at k
+                not (Char.IsLetterOrDigit c || "_$@\"(-".IndexOf c >= 0
+                     || (c = '#' && " \t\r\n\000".IndexOf(at (k + 1)) < 0)
+                     || (c = '.' && Char.IsAsciiDigit(at (k + 1))) || (c = '%' && at (k + 1) = '[')))
     /// From the '"' at j: the index of the closing '"' (escapes skipped), or n if there is none.
     let skipString j =
         let mutable j = j + 1

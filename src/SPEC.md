@@ -142,7 +142,7 @@ x@..2  x@1..     # open slices: first 2 / from 1 to the end; x@-2.. is the last 
 | scan     | `x\{body}` `x\op` | `x\+`      | running fold, returns array |
 | sort     | `x${key}`       | `w${#_}`     | array sorted by key (stable; `x${-_}` descending); later ops see the sorted order: `w${#_}{upper}`. On a map `_` is a `(key, value)` tuple: `m${-_2}{_1}` = keys by value, largest first |
 
-`/op` is a fold only when no operand follows the op (`x/-1` is division).
+`/op` is always a fold (`xs/+ * 2` doubles the sum), except `/-` followed by an operand, which is division by a negation (`x/-1`, `x/-#y`, `x/-.5`).
 Chained maps and filters (and a fold or scan at the end) fuse into one loop with no intermediate arrays, so each
 element passes through every stage before the next element starts: side effects interleave per element.
 `c = 0; [1,2,3]{c += 1; c}{_ * c}` is `[1,4,9]`, not `[3,6,9]`.
