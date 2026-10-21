@@ -1,0 +1,8 @@
+s = "a\
+b"
+t = "{s
+}"
+u = "x
+y"
+println:s+t+u
+x = (1

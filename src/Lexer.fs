@@ -123,6 +123,10 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             k <- k - 1
         let k = skipWs (j + 1)
         k < n && src.[k] = ':' && not arms && not compares && pending <= 0
+    /// Advances `line` past the line breaks in src[a..b) (strings can span lines).
+    let countLines a b =
+        for j in a .. min b n - 1 do
+            if src.[j] = '\n' || (src.[j] = '\r' && (j + 1 >= n || src.[j + 1] <> '\n')) then (line <- line + 1; lineStart <- j + 1)
     let lexString () =
         i <- i + 1
         let parts = ResizeArray<Part>()
@@ -133,10 +137,12 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             | '\\' ->
                 let c = at 1
                 buf.Append(match c with 'n' -> '\n' | 't' -> '\t' | c -> c) |> ignore
+                countLines (i + 1) (i + 2)
                 i <- i + 2
             | '{' ->
                 flush ()
                 let start = i + 1
+                let codeLine, codeCol = line, start - lineStart + 1
                 let mutable depth = 1
                 i <- i + 1
                 while depth > 0 do
@@ -147,9 +153,10 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
                     | '"' -> i <- skipString i
                     | _ -> ()
                     i <- i + 1
-                parts.Add(Code(src.Substring(start, i - 1 - start), line, start - lineStart + 1))
+                parts.Add(Code(src.Substring(start, i - 1 - start), codeLine, codeCol))
+                countLines start i
             | c ->
-                if c = '\n' then (line <- line + 1; lineStart <- i + 1)
+                countLines i (i + 1)
                 buf.Append c |> ignore
                 i <- i + 1
         if i >= n then failAt tokLine tokCol "string is never closed (missing '\"')"
