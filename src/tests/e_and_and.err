@@ -1,0 +1,3 @@
+2:16: error: '&&' is not an operator: write &
+2 | println: x > 1 && x < 5
+  |                ^

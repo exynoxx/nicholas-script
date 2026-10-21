@@ -572,6 +572,9 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             let id = nextId.Value
             EBlock(id, [], p.SectionBlock "}")
         | SYM "=" when at > 0 && tokens.[at - 1].tok = SYM "=" -> errAt at "'==' is not an operator: '=' compares"
+        | SYM "=" when at > 0 && tokens.[at - 1].tok = SYM "!=" -> errAt at "'!==' is not an operator: '!=' compares"
+        | SYM ">" when at > 0 && tokens.[at - 1].tok = SYM "<" -> errAt (at - 1) "'<>' is not an operator: write != for not-equal"
+        | SYM("&" | "|" as s) when at > 0 && tokens.[at - 1].tok = SYM s -> errAt (at - 1) $"'{s}{s}' is not an operator: write {s}"
         | t -> errAt at ($"expected an expression, found {describeTok t}")
 
     /// Does `target` occur at this bracket's top level before the statement (or the bracket) ends?
