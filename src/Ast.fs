@@ -6,6 +6,12 @@ exception CompileError of int * int * string
 let fail line msg = raise (CompileError(line, 0, msg))
 let failAt line col msg = raise (CompileError(line, col, msg))
 
+/// Source (line, column) of AST and core nodes, by reference: the parser marks nodes, desugar copies the marks
+/// to the core nodes it builds, and the typer reports its errors there.
+let private positions = System.Runtime.CompilerServices.ConditionalWeakTable<obj, int * int>()
+let setPos (x: obj) (p: int * int) = positions.AddOrUpdate(x, p)
+let posOf (x: obj) = match positions.TryGetValue x with | true, p -> Some p | _ -> None
+
 /// Lines of the n-th imported file are offset by n * fileLines, so an error's line also names its file.
 /// Per thread: the test runner compiles files in parallel and reports each error on the thread that compiled it.
 let fileLines = 1_000_000

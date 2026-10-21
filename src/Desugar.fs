@@ -35,7 +35,13 @@ and private arityS (ss: S list) =
     |> List.fold max 0
 
 /// `env` renames the implicit names `_ @ $` to the variables of the innermost block.
+/// The core node keeps the source position of the AST node, for typer errors.
 let rec private expr (env: Map<string, string>) (e: Expr) : E =
+    let c = exprAt env e
+    posOf e |> Option.iter (setPos c)
+    c
+
+and private exprAt (env: Map<string, string>) (e: Expr) : E =
     let ex = expr env
     let call f args = mk (Call(f, List.map ex args))
     match e with

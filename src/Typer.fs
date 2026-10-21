@@ -34,6 +34,8 @@ let private instList = ResizeArray<Inst>()
 let private global0 = { parent = None; vars = Dictionary(); inst = None }
 let mutable private cur = global0
 let mutable private line = 0
+/// Column of the node being typed (0: unknown, e.g. in generated code)
+let mutable private col = 0
 /// Type of the then-branch while typing an else-branch; resolves `rec + rec` in recursive functions.
 let mutable private expect: Ty option = None
 let mutable private counter = 0
@@ -43,7 +45,7 @@ let private memoCaches = ResizeArray<string>()
 /// Element types of empty literals ([] %[] [->]), and the blocks (instance key prefix) whose call fixed an outer one.
 let private emptyEls = ResizeArray<Ty>()
 let private fixers = HashSet<string>()
-let private err msg = fail line msg
+let private err msg = failAt line col msg
 
 let newHole () = THole(ref None)
 
@@ -203,6 +205,15 @@ and private value (x: E) : E =
 and typeE (e: E) : E =
     if e.t <> TUnk then e
     else
+        match posOf e with
+        | Some(l, c) ->
+            let saved = line, col
+            line <- l
+            col <- c
+            try typeAt e finally (line <- fst saved; col <- snd saved)
+        | None -> typeAt e
+
+and private typeAt (e: E) : E =
         match e.k with
         | Int _ -> typed e.k TInt
         | Float _ -> typed e.k TFloat
@@ -599,7 +610,7 @@ and private userCall id (args: E list) : E =
             inst.parms <- tys |> List.mapi (fun i t -> declare fr ($"_{i + 1}") t, t)
             insts.[key] <- inst
             instList.Add inst
-            let saved, savedLine = cur, line
+            let saved, savedLine, savedCol = cur, line, col
             cur <- fr
             let ss =
                 try typeStmts (if memos.Contains id then memoize tys.Length body else body)
@@ -615,6 +626,7 @@ and private userCall id (args: E list) : E =
             | _ -> err "function body has no value"
             cur <- saved
             line <- savedLine
+            col <- savedCol
             if before |> List.exists (unfixed >> not) then
                 if insts.Keys |> Seq.exists (fun k -> k <> key && k.StartsWith(prefix + "(")) then twoTypes ()
                 fixers.Add prefix |> ignore
@@ -626,7 +638,7 @@ and private userCall id (args: E list) : E =
 
 and private typeStmt (s: S) : S =
     match s with
-    | Line n -> (line <- n; s)
+    | Line n -> (if n <> line then (line <- n; col <- 0)); s
     | Do e -> Do(typeE e)
     | While(c, body) ->
         let c = conv (typeE c) TBool

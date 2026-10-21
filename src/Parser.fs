@@ -50,6 +50,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
     let advance () = pos <- pos + 1
     let isSym s = peek () = SYM s
     let accept s = if isSym s then (advance (); true) else false
+    /// Records token j's position as e's, for typer errors.
+    let mark j (e: Expr) = (setPos e (tokens.[j].line, tokens.[j].col); e)
     /// Fails at token j; a missing thing at the end of a line is reported after the line's last token.
     let errAt j msg =
         match tokens.[j].tok with
@@ -315,9 +317,10 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
 
     member p.Expr() : Expr =
         let c = p.Coalesce()
+        let j = pos
         if accept "?" then
             let a = p.Expr()
-            if accept ":" then ETern(c, a, p.Expr()) else onlyIf c a
+            mark j (if accept ":" then ETern(c, a, p.Expr()) else onlyIf c a)
         elif accept "?{" then p.Match(Some c, false)
         elif accept "?[" then p.Match(Some c, true)
         else c
@@ -387,15 +390,17 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         let mutable e = next ()
         let mutable op = List.tryFind isSym ops
         while op.IsSome do
+            let j = pos
             advance ()
-            e <- EBin(op.Value, e, next ())
+            e <- mark j (EBin(op.Value, e, next ()))
             op <- List.tryFind isSym ops
         e
 
     /// `a ?? b`: b when a is null (a missing map key); right-associative.
     member p.Coalesce() : Expr =
         let l = p.Or()
-        if accept "??" then EBin("??", l, p.Coalesce()) else l
+        let j = pos
+        if accept "??" then mark j (EBin("??", l, p.Coalesce())) else l
 
     member p.Or() = p.LeftAssoc([ "|" ], p.Xor)
     member p.Xor() = p.LeftAssoc([ "^" ], p.And)
@@ -403,6 +408,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
 
     /// `!f` of a function is the negated function `{!f:_}`; `!{..}` negates the block's value.
     member p.Not() =
+        let j = pos
         if not (accept "!") then p.Compare()
         else
             let l = line ()
@@ -413,7 +419,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             | EBlock(id, ps, body) when (match List.tryLast body with Some(SExpr _) -> true | _ -> false) ->
                 // "!b": the block must return a bool (no truthiness), checked by the typer
                 let (SExpr r) = List.last body in EBlock(id, ps, List.take (body.Length - 1) body @ [ SExpr(EUn("!b", r)) ])
-            | x -> EUn("!", x)
+            | x -> mark j (EUn("!", x))
 
     member p.Compare() =
         let l = p.Shift()
@@ -421,8 +427,9 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         | SYM ("=" | "!=" | "<" | ">" | "<=" | ">=" as op) ->
             // a section `{=2}` (the lexer inserts `_` at the operator's position) compares; see `compared`
             let section = l = EVar "_" && tokens.[pos - 1].line = tokens.[pos].line && tokens.[pos - 1].col = tokens.[pos].col
+            let j = pos
             advance ()
-            let e = EBin(op, l, p.Shift())
+            let e = mark j (EBin(op, l, p.Shift()))
             let e = if section then compared e else e
             match peek () with
             | SYM ("=" | "!=" | "<" | ">" | "<=" | ">=" as op2) -> err ($"comparisons don't chain: write a {op} b & b {op2} c, or (a {op} b) {op2} c")
@@ -435,17 +442,20 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
 
     member p.Pow() =
         let b = p.Prefix()
-        if accept "^^" then EBin("^^", b, p.Pow()) else b
+        let j = pos
+        if accept "^^" then mark j (EBin("^^", b, p.Pow())) else b
 
     member p.Prefix() : Expr =
-        if accept "-" then EUn("-", p.Prefix())
-        elif accept "#" then EUn("#", p.Prefix())
+        let j = pos
+        if accept "-" then mark j (EUn("-", p.Prefix()))
+        elif accept "#" then mark j (EUn("#", p.Prefix()))
         else p.Postfix()
 
     member p.Postfix() =
         let mutable e = p.Primary()
         let mutable go = true
         while go do
+            let j = if isSym "." then pos + 1 else pos // a method call is at its name
             match peek () with
             | SYM "m{" -> (advance (); e <- EIter(IMap, e, p.SectionBlock "}"))
             | SYM "f[" -> (advance (); e <- EIter(IFilter, e, p.SectionBlock "]"))
@@ -468,6 +478,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                     e <- ECall((match stdAliases.TryGetValue f with | true, b -> b | _ -> f), e :: args)
                 | t -> err ($"expected a function name after '.', found {describeTok t}")
             | _ -> go <- false
+            if go then mark j e |> ignore
         e
 
     /// `x@i@j` is `(x@i)@j`: an index is a base with optional prefix - or #, maybe a slice range
@@ -506,8 +517,9 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             | INT _ | ID _ | SYM "(" -> p.Base()
             | t -> err ($"a range end must be a number, a name or (expr), found {describeTok t}")
 
-    member p.Base() : Expr =
-        let at = pos
+    member p.Base() : Expr = let at = pos in mark at (p.BaseAt at)
+
+    member p.BaseAt(at: int) : Expr =
         let t = peek ()
         advance ()
         match t with

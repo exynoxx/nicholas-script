@@ -1,2 +1,3 @@
-tests/lib/err_type.ns:2: error: cannot index int
+tests/lib/err_type.ns:2:6: error: cannot index int
 2 | y = x@0
+  |      ^

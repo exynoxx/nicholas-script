@@ -1,2 +1,3 @@
-1: error: ** repeats arrays and strings; power is ^^
+1:10: error: ** repeats arrays and strings; power is ^^
 1 | println:2**3
+  |          ^
