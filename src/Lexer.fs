@@ -189,10 +189,10 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         mark ()
         let c = src.[i]
         let digitNext k = Char.IsAsciiDigit(at k) || (at k = '.' && Char.IsAsciiDigit(at (k + 1)))
-        if c = ' ' || c = '\t' || c = '\r' then i <- i + 1
-        elif c = '\n' then
+        if c = ' ' || c = '\t' then i <- i + 1
+        elif c = '\n' || c = '\r' then // \r\n, or a lone \r, ends a line too (as File.ReadAllLines splits)
             line <- line + 1
-            i <- i + 1
+            i <- i + (if c = '\r' && at 1 = '\n' then 2 else 1)
             lineStart <- i
             let inParens = stack.Count > 0 && (let o, _, _ = stack.Peek() in o <> '{' && o <> '?' && o <> 'f')
             let indent = skipWs i - i
@@ -207,7 +207,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
                      && ("+-*/\\%=<>&|^?:{".IndexOf(at indent) >= 0 || (at indent = '!' && at (indent + 1) = '=')) -> ()
             | _ -> if not inParens then (term (); stmtIndent <- indent)
         elif c = '#' && (" \t\r\n\000".IndexOf(at 1) >= 0) then
-            while i < n && src.[i] <> '\n' do i <- i + 1
+            while i < n && src.[i] <> '\n' && src.[i] <> '\r' do i <- i + 1
         elif c = ';' then (term (); i <- i + 1)
         elif Char.IsAsciiDigit c || (c = '.' && Char.IsAsciiDigit(at 1) && not (endsExpr ())) then lexNumber ()
         elif c = '-' && digitNext 1 && not (endsExpr ()) then lexNumber ()
