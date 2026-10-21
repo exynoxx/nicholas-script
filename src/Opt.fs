@@ -257,13 +257,15 @@ let private analyse (prog: Program) =
 
 /// `e`'s inputs, when it computes a value worth hoisting or reusing: it contains a call, has a hoistable type,
 /// has no effect, mutates nothing and writes only its own temporaries (assigned before e reads them, so a
-/// counter `(r = r + 1; 0)` that updates an outer temporary is not one). Also says whether it may fail.
+/// counter `(r = r + 1; 0)` that updates an outer temporary is not one, and read inside e, so tailLoop's
+/// `(tail%r = "even"; 0)` that hands a value out is not one either). Also says whether it may fail.
 let private pureInputs (cx: Ctx) (e: E) : (bool * Set<string>) option =
     if not (containsCall e) || not (hoistableTy e.t) then None
     else
         let s = newSum ()
         sumE cx s e
-        if s.effect || s.refWrite || s.mutates.Count > 0 || not (Seq.forall isTemp s.writes) then None
+        if s.effect || s.refWrite || s.mutates.Count > 0 || not (Seq.forall isTemp s.writes)
+           || not (Seq.forall s.reads.Contains s.writes) then None
         else
             // in evaluation order: a read before any write is an input; writing an input reaches outside e
             let defined, inputs = HashSet<string>(), HashSet<string>()
