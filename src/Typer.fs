@@ -499,6 +499,11 @@ and private builtin name (args: E list) : E =
         err ($"{name}: needs an array of int or float, not {showT x.t}{hint}")
     | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map (value >> own) xs)) (TTup(xs |> List.map (fun x -> x.t)))
     | "tuple", xs -> err ($"a tuple holds at most 9 values, not {xs.Length}; use an array")
+    | "destructure", [ x; { k = Int n } ] -> // `a, b = x`
+        match resolve x.t with
+        | TTup ts when ts.Length <> int n -> err ($"{n} names on the left but the tuple has {ts.Length} values")
+        | TInt | TFloat | TBool | TFn _ as t -> err ($"can't destructure {showT t} into {n} names")
+        | _ -> x
     | "repeat", [ x; n ] -> typed (Call("repeat", [ own (value x); conv n TInt ])) (TArr x.t)
     | _ when Stdlib.names.Contains name -> stdCall name args
     | _ -> err ($"unknown function '{name}' with {args.Length} argument(s)")

@@ -157,8 +157,10 @@ and private stmt env (s: Stmt) : S list =
     | SWhile(c, body) -> [ While(ex c, stmts env body) ]
     | SAssign([ lv ], [ e ]) -> assign lv (ex e)
     | SAssign(lvs, [ e ]) ->
-        let t = fresh "t"
-        Assign(t, ex e) :: (lvs |> List.mapi (fun i lv -> assign lv (mk (Index(mk (Var t), mk (Int(int64 i)))))) |> List.concat)
+        // the typer checks the value has as many parts as there are names
+        let t, value = fresh "t", mk (Call("destructure", [ ex e; mk (Int(int64 lvs.Length)) ]))
+        posOf e |> Option.iter (setPos value)
+        Assign(t, value) ::(lvs |> List.mapi (fun i lv -> assign lv (mk (Index(mk (Var t), mk (Int(int64 i)))))) |> List.concat)
     | SAssign(lvs, es) when lvs.Length = es.Length ->
         let temps = es |> List.map (fun _ -> fresh "t")
         List.map2 (fun t e -> Assign(t, ex e)) temps es

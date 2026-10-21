@@ -372,7 +372,7 @@ Language primitives (in the compiler): `print` (no newline), `println`, casts `i
 collection literals and `set: Q: PQ: arr:`, `pop`, `keys`, `vals`, tuples, `[x]**n`.
 Printing and `str` show a string bare, but strings nested in arrays, maps and tuples are quoted: `println:["a"]` → `["a"]`. `join` does not quote; `xs.join:sep` puts sep between elements, `xs.join` just concatenates.
 
-Tuples: `(a,b)`, `(a,b,c)` … up to 9 elements of any types; immutable; `t@0` (literal index), `t._1` (1-based, = `t@0`), `a,b = t` or `(a,b) = t`; `+ - * / % ^^` work elementwise (`(1,2)+(10,20)` → `(11,22)`, `(1,2)*3` → `(3,6)`); `tuple2:xs` `tuple3:xs` take the first 2 or 3 array elements; compare lexicographically; usable as map keys, set and PQ elements.
+Tuples: `(a,b)`, `(a,b,c)` … up to 9 elements of any types; immutable; `t@0` (literal index), `t._1` (1-based, = `t@0`), `a,b = t` or `(a,b) = t` (one name per element); `+ - * / % ^^` work elementwise (`(1,2)+(10,20)` → `(11,22)`, `(1,2)*3` → `(3,6)`); `tuple2:xs` `tuple3:xs` take the first 2 or 3 array elements; compare lexicographically; usable as map keys, set and PQ elements.
 Repeat: `xs**n` repeats an array, `s**n` a string; `[x]**n` builds n copies of x, nested arrays deep-copied.
 
 Everything else is the **standard library, implemented in `runtime.c`**. Each function is declared there by a signature line
