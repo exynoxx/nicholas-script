@@ -1,2 +1,3 @@
-4: error: a block that fixes the element type of an empty literal ([] %[] [->]) from outside it can't be called at two different types; give the literal its type first
+4:1: error: a block that fixes the element type of an empty literal ([] %[] [->]) from outside it can't be called at two different types; give the literal its type first
 4 | add:2
+  | ^
