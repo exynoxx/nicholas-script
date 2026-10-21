@@ -67,7 +67,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         let mutable j = j
         while j < n && (src.[j] = ' ' || src.[j] = '\t') do j <- j + 1
         j
-    let isTerminator c = c = '\000' || "\n\r;)]},.{[/\\#".IndexOf(c: char) >= 0
+    let isTerminator c = c = '\000' || "\n\r;)]},.{[/\\#:?=".IndexOf(c: char) >= 0
     /// `/op` is a fold only when no operand follows the operator.
     let tryOpAfter () =
         foldOps |> List.tryFind (fun op ->
