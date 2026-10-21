@@ -293,9 +293,9 @@ and private typeAt (e: E) : E =
             match lookup name with
             | Some u when (match resolve varTy.[u] with TFn _ -> true | _ -> false) ->
                 let (TFn id) = resolve varTy.[u]
-                // one argument is always allowed: a block without `_` is called as `f:0`
+                // as many arguments as the block reads, but one is always allowed: a block without `_` is called as `f:0`
                 match Desugar.arity.TryGetValue id with
-                | true, n when args.Length > max 1 n -> err ($"'{name.Split('\'').[0]}' takes {n} argument(s) but was given {args.Length}")
+                | true, n when args.Length > max 1 n || args.Length < n -> err ($"'{name.Split('\'').[0]}' takes {n} argument(s) but was given {args.Length}")
                 | _ -> ()
                 userCall id (List.map (typeE >> own) args)
             | _ -> builtin name (List.map typeE args)
