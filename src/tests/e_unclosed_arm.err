@@ -1,0 +1,3 @@
+2:8: error: '{' is never closed
+2 |   1 => {
+  |        ^

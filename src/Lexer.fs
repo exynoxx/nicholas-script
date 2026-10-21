@@ -21,6 +21,9 @@ let private opener (o: char) = match o with '?' -> "?[" | 'f' -> "[" | o -> stri
 let lex (src: string) (startLine: int) (startCol: int) : Token list =
     let toks = ResizeArray<Token>()
     let stack = Stack<char * int * int>() // open bracket, its line and column
+    let openIndents = Stack<int>() // the indentation of each open bracket's line
+    // the first bracket closed on a line indented less than its own: likely the one missing its closer
+    let mutable dedentClosed = None
     let n = src.Length
     let mutable i = 0
     let mutable line = startLine
@@ -31,6 +34,15 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
     let mutable sectionPending = false
     let mutable stmtIndent = 0 // indentation of the line the current statement starts on
     let at k = if i + k < n then src.[i + k] else '\000'
+    let skipWs j =
+        let mutable j = j
+        while j < n && (src.[j] = ' ' || src.[j] = '\t') do j <- j + 1
+        j
+    let skipWsNl j =
+        let mutable j = j
+        while j < n && " \t\r\n".IndexOf src.[j] >= 0 do j <- j + 1
+        j
+    let lineIndent () = let s = max lineStart 0 in skipWs s - s
     let last () = if toks.Count = 0 then TERM else toks.[toks.Count - 1].tok
     let endsExpr () =
         match last () with
@@ -58,25 +70,18 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         | ")" | "]" | "}" ->
             if stack.Count = 0 then failAt tokLine tokCol $"'{s}' has no matching opening bracket"
             let o, l, c = stack.Pop()
+            if openIndents.Pop() > lineIndent () && dedentClosed.IsNone then dedentClosed <- Some(o, l, c)
             let want = match o with '(' -> ")" | '[' | '?' | 'f' -> "]" | _ -> "}"
             if s <> want then failAt tokLine tokCol $"expected '{want}' to close the '{opener o}' at {l}:{c}, found '{s}'"
             stmtIndent <- indents.Pop()
         | _ -> ()
-        if stack.Count > depth then indents.Push stmtIndent
+        if stack.Count > depth then (indents.Push stmtIndent; openIndents.Push(lineIndent ()))
         if openers.Contains s then sectionPending <- true
     let term () =
         match last () with
         | TERM -> ()
         | _ when toks.Count = 0 -> ()
         | _ -> add TERM
-    let skipWs j =
-        let mutable j = j
-        while j < n && (src.[j] = ' ' || src.[j] = '\t') do j <- j + 1
-        j
-    let skipWsNl j =
-        let mutable j = j
-        while j < n && " \t\r\n".IndexOf src.[j] >= 0 do j <- j + 1
-        j
     /// `/op` is a fold, except `/-` followed by an operand (`10/-x`, `10/-#x`, `10/-.5`):
     /// `-` is the only fold operator that is also a prefix operator.
     let tryOpAfter () =
@@ -289,7 +294,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
                 else failAt tokLine tokCol $"unexpected character '{c}'"
     mark ()
     if stack.Count > 0 then
-        let o, l, c = stack.Peek()
+        let o, l, c = defaultArg dedentClosed (stack.Peek())
         failAt l c $"'{opener o}' is never closed"
     term ()
     add EOF
