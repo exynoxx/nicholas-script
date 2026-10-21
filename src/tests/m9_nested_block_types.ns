@@ -1,0 +1,12 @@
+# a block nested in a function called at two types gets an instance per outer instance
+outer x = {
+  c = [0]
+  push = {c ++= _}
+  push:1
+  #c
+}
+println:outer:10
+println:outer:0.5
+bumped x = {c = x; bump = {c += 1}; bump:0; c}
+println:bumped:1
+println:bumped:0.5

@@ -544,12 +544,14 @@ and private treeOp f (c: E) (x: E) : E =
 
 and private userCall id (args: E list) : E =
     let tys = args |> List.map (fun a -> resolve a.t)
-    let key = string id + "(" + (tys |> List.map showTy |> String.concat ",") + ")"
+    let body, defFr = fnDefs.[id]
+    // a block nested in a function belongs to that function's instance: it captures that instance's variables
+    let outer = match defFr.inst with Some i -> i.name + "/" | None -> ""
+    let key = outer + string id + "(" + (tys |> List.map showTy |> String.concat ",") + ")"
     let inst =
         match insts.TryGetValue key with
         | true, i -> i
         | _ ->
-            let body, defFr = fnDefs.[id]
             let inst =
                 { name = $"f{id}_{instList.Count}"
                   parms = []
