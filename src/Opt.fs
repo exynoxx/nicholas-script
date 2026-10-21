@@ -342,7 +342,9 @@ and private licm (cx: Ctx) (cond: E) (body: S list) : S list =
     let loop = newSum ()
     sumE cx loop cond
     List.iter (sumS cx loop) body
-    let guard = let g = newSum () in sumE cx g cond; not g.effect && not g.partial && g.writes.Count = 0
+    let g = newSum ()
+    sumE cx g cond
+    let guard = not g.effect && not g.partial && g.writes.Count = 0
     let hoisted = ResizeArray<string * E * bool>() // name, value, guarded
     let byKey = Dictionary<string, string>()
 
@@ -352,7 +354,8 @@ and private licm (cx: Ctx) (cond: E) (body: S list) : S list =
         | Some(partial, inputs) ->
             let invariant = inputs |> Set.forall (fun u -> not (loop.writes.Contains u))
             let refsStable = not loop.refWrite || inputs |> Set.forall (refVar cx >> not)
-            // `first`: the loop condition, evaluated once even when the loop never runs, needs no guard
+            // `first`: the loop condition, evaluated once even when the loop never runs, needs no guard,
+            // unless an effect in it (`(println: "x"; i < h:z)`) must happen before a failure
             let placeable = not partial || first || (unconditional && guard && not loop.effect)
             if invariant && refsStable && placeable then Some(partial && not first) else None
         | None -> None
@@ -379,7 +382,7 @@ and private licm (cx: Ctx) (cond: E) (body: S list) : S list =
     // an inner loop's condition runs whenever we get here; its body may run zero times
     and rwS (unconditional: bool) (s: S) : S = mapS (rw unconditional false) (List.map (rwS false)) s
 
-    let cond' = rw true true cond
+    let cond' = rw true (not g.effect) cond
     let body' = List.map (rwS true) body
     let pre =
         hoisted

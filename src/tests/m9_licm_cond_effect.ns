@@ -1,0 +1,5 @@
+h x = 10/x
+z=2
+i=0
+(println:"check"; i < (h:z)) ~{ i += 1 }
+println: i
