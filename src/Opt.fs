@@ -278,6 +278,8 @@ let private pureInputs (cx: Ctx) (e: E) : (bool * Set<string>) option =
                 | While(c, body) -> order c; List.iter orderS body
                 | st -> mapS (fun c -> order c; c) id st |> ignore
             order e
+            // captures and globals its callees read
+            for u in s.reads do if not (defined.Contains u) then inputs.Add u |> ignore
             if outer then None else Some(s.partial, Set.ofSeq inputs)
 
 /// Unknown variables count as references.
