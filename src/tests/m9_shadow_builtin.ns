@@ -1,0 +1,13 @@
+# a builtin name assigned a value is a variable for the rest of its block
+max = 3
+println: T ? max : 0
+m = 3.5
+max = m
+n = max
+println: n
+f = { min = 2; min * 10 }
+println: f:0
+println: min:4,1
+g sum = sum + 1
+println: g:4
+println: sum:[1,2]
