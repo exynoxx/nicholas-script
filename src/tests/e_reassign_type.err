@@ -1,0 +1,3 @@
+2:6: error: 'xs' holds [int] (from its first assignment), so it can't be assigned int
+2 | xs = 5
+  |      ^

@@ -669,8 +669,8 @@ and private typeStmt (s: S) : S =
         | TArr el -> SetIdx(x, conv i TInt, own (conv value el))
         | TMap(k, v) -> SetIdx(x, own (conv i k), own (conv value v))
         | t -> err ($"cannot assign into {showT t}")
-    | Assign(name, e) ->
-        let e = typeE e
+    | Assign(name, e0) ->
+        let e = typeE e0
         let generated = name.Contains '%'
         let store u (e: E) =
             if generated then freshTemps.[u] <- (match freshTemps.TryGetValue u with | true, f -> f | _ -> true) && fresh e
@@ -682,7 +682,15 @@ and private typeStmt (s: S) : S =
             | _ ->
                 match resolve varTy.[u], resolve e.t with
                 | TFn a, TFn b when a <> b -> err "a function variable cannot be reassigned to another block"
-                | _ -> store u (conv e varTy.[u])
+                | TFn _, _ | _, TFn _ -> store u (conv e varTy.[u])
+                | t, et ->
+                    match tryConv e t with
+                    | Some e -> store u e
+                    | None when generated -> store u (conv e t)
+                    | None ->
+                        // a variable keeps the type of its first assignment; point at the new value
+                        posOf e0 |> Option.iter (fun (l, c) -> line <- l; col <- c)
+                        err ($"'{name.Split('\'').[0]}' holds {showT t} (from its first assignment), so it can't be assigned {showT et}")
         | None -> store (declare cur name e.t) e
 
 and private typeStmts (ss: S list) =
