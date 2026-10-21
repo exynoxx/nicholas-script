@@ -1,0 +1,4 @@
+g x = x * 2
+xs=[[1],[2]]
+ys = xs{ i=0; (i<0) ~{ println: g:(_@@); i+=1 }; #_ }
+println: ys

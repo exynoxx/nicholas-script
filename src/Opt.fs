@@ -170,9 +170,10 @@ let rec private sumE (cx: Ctx) (s: Sum) (e: E) =
     | Conv x -> go x
     | Index(x, i) ->
         go x; go i
-        // Lower's own loads `t@c` with `c < #t` are in bounds
+        // Lower.iter's own loads `t@c` with `c < #t`, and `s@k` with k a key of map s, are in bounds; other
+        // temps (a block's renamed `_ @`, broadcast's `y`) are not
         match x.k, i.k with
-        | Var t, Var c when isTemp t && isTemp c -> ()
+        | Var t, Var c when (t.StartsWith "t%" && c.StartsWith "c%") || (t.StartsWith "s%" && c.StartsWith "k%") -> ()
         | _ -> s.partial <- true
     | Call(f, args) ->
         List.iter go args
