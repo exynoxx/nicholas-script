@@ -64,7 +64,10 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
     let err msg = errAt pos msg
     let found () =
         let t = peek ()
-        describeTok t + (if startsExpr t then " (missing an operator or ','?)" else "")
+        match t with
+        | ID kw when foreign.ContainsKey kw -> $"'{kw}'; {foreign.[kw]}"
+        | SYM "->" -> "'->': a map literal is [k->v, ...], with no prefix"
+        | _ -> describeTok t + (if startsExpr t then " (missing an operator or ','?)" else "")
     let expect s = if not (accept s) then err ($"expected '{s}' but found {found ()}")
     // a builtin name assigned a value (`max = 3`) or used as a parameter is a variable in the rest of its block
     let isFunc name = fnames.Contains name || (builtins.Contains name && not (shadowed.Contains name))
@@ -146,6 +149,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                     | ID kw when foreign.ContainsKey kw -> err ($"unexpected {describeTok (peek ())} after '{kw}'; {foreign.[kw]}")
                     | _ when isSym ":" && (match tokens.[pos - 1].tok with ID f -> shadowed.Contains f | _ -> false) ->
                         let (ID f) = tokens.[pos - 1].tok in errAt (pos - 1) $"'{f}' is a variable here, not a function"
+                    | _ when isSym ":" && tokens.[pos + 1].tok = SYM "=" -> err "':=' is not an operator: assign with ="
                     | _ when isSym ":" && (match tokens.[pos - 1].tok with ID _ -> true | _ -> false) ->
                         let (ID f) = tokens.[pos - 1].tok
                         let hint = didYouMean f (Seq.append fnames builtins)
