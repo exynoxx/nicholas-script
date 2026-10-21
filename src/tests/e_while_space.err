@@ -1,0 +1,3 @@
+2:7: error: write '~{' without a space: cond ~{ body }
+2 | i < 3 ~ {i += 1}
+  |       ^

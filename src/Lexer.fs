@@ -267,6 +267,10 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             i <- i + 2
         elif c = '{' then (sym (if endsExpr () then "m{" else "{"); i <- i + 1)
         elif c = '~' && at 1 = '{' && endsExpr () then (sym "~{"; i <- i + 2)
+        elif c = '~' then
+            let j = skipWs (i + 1)
+            failAt tokLine tokCol (if j > i + 1 && j < n && src.[j] = '{' then "write '~{' without a space: cond ~{ body }"
+                                   else "'~' only starts a while loop: cond ~{ body }")
         elif c = '?' && at 1 = '{' then (sym "?{"; i <- i + 2)
         elif c = '?' && at 1 = '[' && endsExpr () && not (ternaryArray ()) then (sym "?["; i <- i + 2)
         elif c = '[' then (sym (if endsExpr () then "f[" else "["); i <- i + 1)
