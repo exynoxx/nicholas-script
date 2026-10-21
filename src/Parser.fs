@@ -102,6 +102,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
 
     member p.Stmts(closer: Tok) : Stmt list =
         let out = ResizeArray<Stmt>()
+        // a statement `a = b` whose left side can't be assigned compares; only a block's last one has a use
+        let mutable unused = None
+        let noop () =
+            unused |> Option.iter (fun j ->
+                errAt j "can't assign to this: only names, x@i and a, b can be assigned; a comparison here has no effect")
         let mutable go = true
         while go do
             while peek () = TERM do advance ()
@@ -121,9 +126,17 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
                         out.AddRange(sub.Program())
                 | t -> err ($"import expects a file name string, found {describeTok t}")
             else
-                let start = peek ()
+                noop ()
+                let start, at = peek (), pos
                 out.Add(SLine(line ()))
-                out.Add(p.Stmt())
+                let s = p.Stmt()
+                out.Add s
+                // `_ = e` in a map body writes the element
+                unused <-
+                    match s, start with
+                    | SExpr(EBin("=", _, _)), ID n when not (assignable n) -> None
+                    | SExpr(EBin("=", _, _)), _ -> Some at
+                    | _ -> None
                 if peek () = TERM then advance ()
                 elif peek () <> closer then
                     match start with
@@ -131,6 +144,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
                     | _ when isSym ":" && (match tokens.[pos - 1].tok with ID _ -> true | _ -> false) ->
                         errAt (pos - 1) ($"{describeTok tokens.[pos - 1].tok} is not a function: define it with a block, e.g. f = {{_+1}}")
                     | _ -> err ($"expected end of statement, found {found ()}")
+        if closer = EOF then noop ()
         List.ofSeq out
 
     member p.Block(closer: string) =

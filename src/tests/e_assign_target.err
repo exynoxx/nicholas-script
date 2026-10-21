@@ -1,0 +1,3 @@
+2:1: error: can't assign to this: only names, x@i and a, b can be assigned; a comparison here has no effect
+2 | (x) = 3
+  | ^

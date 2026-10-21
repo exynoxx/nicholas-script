@@ -91,7 +91,7 @@ int:"42"      float:x     str:3.5     bool:n
 | 10 call   | `f:a,b` (args extend to end of statement / closing bracket, so `(f:1,2, f:3,4)` is an error: write `((f:1,2), f:3,4)`; passing a block more arguments than it has parameters / highest `_k` is an error). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary | right |
 | 11 assign | `x = e`, `a,b = b,a` | right |
 
-`=` in expression position is equality; at statement start with an lvalue on the left it is assignment.
+`=` in expression position is equality; at statement start with an lvalue on the left it is assignment. A statement `a = b` whose left side isn't an lvalue (`3 = x`, `(x) = 3`, `T = 5`) is an error unless it is a block's last statement (its value).
 
 ### Operator matrix
 A binary operator is resolved at compile time in three steps; the first that applies wins:
