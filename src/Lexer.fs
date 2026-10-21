@@ -173,8 +173,9 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             match last () with
             | SYM s when s.EndsWith "(" || s.EndsWith "[" || s.EndsWith "{" -> stmtIndent <- indent
             // a trailing operator continues the statement only onto a more indented line, so a
-            // forgotten operand errors on its own line instead of swallowing the next statement
-            | SYM s when s <> ")" && s <> "]" && s <> "}" && (inParens || indent > stmtIndent) -> ()
+            // forgotten operand errors on its own line instead of swallowing the next statement;
+            // a trailing `..` is an open-ended slice (`s@1..`), not an operator
+            | SYM s when s <> ")" && s <> "]" && s <> "}" && (inParens || (indent > stmtIndent && s <> "..")) -> ()
             // so does a more indented line that starts with a binary operator or a map `{`
             | _ when indent > stmtIndent && endsExpr ()
                      && ("+-*/\\%=<>&|^?:{".IndexOf(at indent) >= 0 || (at indent = '!' && at (indent + 1) = '=')) -> ()

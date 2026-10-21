@@ -1,0 +1,7 @@
+xs = ["abc","de"]
+println:xs{s = _@1..
+  #s}
+ys = "abcd"@2..
+  println:ys
+println:(0..
+  3)
