@@ -1,0 +1,2 @@
+println:sum:[1,2]
+println:sum:["a","b"]

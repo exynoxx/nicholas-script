@@ -457,6 +457,9 @@ and private builtin name (args: E list) : E =
     | "panic", [ msg ] -> call TInt
     | "memo", [ { k = Fn(id, _) } as f ] -> (memos.Add id |> ignore; f)
     | "memo", _ -> err "memo: expects a block, as in f = memo:{...}"
+    | ("sum" | "prod"), [ x ] when (match resolve x.t with TArr e -> (match resolve e with TInt | TFloat | THole _ -> false | _ -> true) | _ -> false) ->
+        let hint = match resolve x.t with TArr e when (match resolve e with TTup _ -> true | _ -> false) -> "; fold tuples with /+ or /*" | _ -> ""
+        err ($"{name}: needs an array of int or float, not {showTy x.t}{hint}")
     | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map own xs)) (TTup(xs |> List.map (fun x -> x.t)))
     | "repeat", [ x; n ] -> typed (Call("repeat", [ own x; conv n TInt ])) (TArr x.t)
     | _ when Stdlib.names.Contains name -> stdCall name args

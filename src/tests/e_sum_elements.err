@@ -1,0 +1,2 @@
+2: error: sum: needs an array of int or float, not [str]
+2 | println:sum:["a","b"]
