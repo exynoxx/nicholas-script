@@ -152,7 +152,7 @@ let private test (dir: string) =
                     let at (a: string[]) = if i < a.Length then a.[i] else "<eof>"
                     Some($"line {i + 1}: expected '{at el}' got '{at al}' (exit {code}) {err}")
         name, result
-    let results = files |> Array.Parallel.map check
+    let results = try files |> Array.Parallel.map check finally Directory.Delete(tmp, true)
     for name, result in results do
         match result with
         | None -> Console.WriteLine($"PASS {name}")
@@ -191,13 +191,16 @@ environment:
 
 /// Compiles to a temp binary and runs it with this process's stdin/stdout.
 let private runFile (path: string) =
-    let exe = Path.Combine(Directory.CreateTempSubdirectory("ns").FullName, "a.out")
-    match build path exe with
-    | Some err -> (Console.Error.WriteLine(err); 1)
-    | None ->
-        use p = Process.Start(ProcessStartInfo(exe, UseShellExecute = false))
-        p.WaitForExit()
-        p.ExitCode
+    let tmp = Directory.CreateTempSubdirectory("ns").FullName
+    try
+        let exe = Path.Combine(tmp, "a.out")
+        match build path exe with
+        | Some err -> (Console.Error.WriteLine(err); 1)
+        | None ->
+            use p = Process.Start(ProcessStartInfo(exe, UseShellExecute = false))
+            p.WaitForExit()
+            p.ExitCode
+    finally Directory.Delete(tmp, true)
 
 [<EntryPoint>]
 let main argv =
