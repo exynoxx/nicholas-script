@@ -175,6 +175,9 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             // a trailing operator continues the statement only onto a more indented line, so a
             // forgotten operand errors on its own line instead of swallowing the next statement
             | SYM s when s <> ")" && s <> "]" && s <> "}" && (inParens || indent > stmtIndent) -> ()
+            // so does a more indented line that starts with a binary operator or a map `{`
+            | _ when indent > stmtIndent && endsExpr ()
+                     && ("+-*/\\%=<>&|^?:{".IndexOf(at indent) >= 0 || (at indent = '!' && at (indent + 1) = '=')) -> ()
             | _ -> if not inParens then (term (); stmtIndent <- indent)
         elif c = '#' && (" \t\r\n\000".IndexOf(at 1) >= 0) then
             while i < n && src.[i] <> '\n' do i <- i + 1

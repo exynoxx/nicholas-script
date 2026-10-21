@@ -22,6 +22,8 @@ Types are never written; every expression has one type known at compile time.
 - `;` ends a statement when several share one line: `a=1; b=2; println:a+b`.
 - A newline does **not** end a statement when inside open `(` or `[`, or when the line ends with a binary operator or `,`
   and the next line is indented more than the statement's first line (so a forgotten operand errors on its own line).
+  Likewise a more indented line that starts with a binary operator (`+ - * / = < ? :` …) or a map `{` continues the
+  statement: `x = 10\n  - 1` is 9, `ys = xs\n  {_*2}` maps.
 - Inside `{ }` the same rules apply; statements in a block are separated by newline or `;`.
 
 ## 2. Types

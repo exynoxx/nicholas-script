@@ -1,0 +1,22 @@
+x = 10
+  - 1
+println:x
+y = 10
+  + 1
+  * 2
+println:y
+xs = [1,2,3]
+ys = xs
+  {_*2}
+  /+
+println:ys
+s = ys > 10
+  ? "big"
+  : "small"
+println:s
+f = {
+  a = _ * 3
+    - 1
+  a
+}
+println:f:2
