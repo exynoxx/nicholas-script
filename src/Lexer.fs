@@ -137,19 +137,28 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             i <- i + 2
             let ds = i
             while Uri.IsHexDigit(at 0) && (radix = 16 || at 0 = '0' || at 0 = '1') do i <- i + 1
-            let v = int64 (Convert.ToUInt64(src.Substring(ds, i - ds), radix))
-            add (INT(if neg then -v else v))
+            if i = ds then failAt tokLine tokCol $"'0{src.[ds - 1]}' needs digits after it"
+            let style = if radix = 16 then Globalization.NumberStyles.AllowHexSpecifier else Globalization.NumberStyles.AllowBinarySpecifier
+            match UInt64.TryParse(src.AsSpan(ds, i - ds), style, null) with
+            | true, v -> add (INT(if neg then -(int64 v) else int64 v))
+            | _ -> failAt tokLine tokCol $"number '{src.Substring(start, i - start)}' doesn't fit in 64 bits"
         else
-        while Char.IsDigit(at 0) do i <- i + 1
-        if at 0 = '.' && Char.IsDigit(at 1) then
+        while Char.IsAsciiDigit(at 0) do i <- i + 1
+        let text = src.Substring(start, i - start)
+        if at 0 = '.' && Char.IsAsciiDigit(at 1) then
             i <- i + 1
-            while Char.IsDigit(at 0) do i <- i + 1
-            add (FLOAT(Double.Parse(src.Substring(start, i - start), Globalization.CultureInfo.InvariantCulture)))
-        else add (INT(Int64.Parse(src.Substring(start, i - start))))
+            while Char.IsAsciiDigit(at 0) do i <- i + 1
+            let v = Double.Parse(src.Substring(start, i - start), Globalization.CultureInfo.InvariantCulture)
+            if Double.IsInfinity v then failAt tokLine tokCol $"number '{src.Substring(start, i - start)}' is too large for a float"
+            add (FLOAT v)
+        else
+            match Int64.TryParse text with
+            | true, v -> add (INT v)
+            | _ -> failAt tokLine tokCol $"number '{text}' is too large for an int (max {Int64.MaxValue})"
     while i < n do
         mark ()
         let c = src.[i]
-        let digitNext k = Char.IsDigit(at k) || (at k = '.' && Char.IsDigit(at (k + 1)))
+        let digitNext k = Char.IsAsciiDigit(at k) || (at k = '.' && Char.IsAsciiDigit(at (k + 1)))
         if c = ' ' || c = '\t' || c = '\r' then i <- i + 1
         elif c = '\n' then
             line <- line + 1
@@ -166,7 +175,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         elif c = '#' && (" \t\r\n\000".IndexOf(at 1) >= 0) then
             while i < n && src.[i] <> '\n' do i <- i + 1
         elif c = ';' then (term (); i <- i + 1)
-        elif Char.IsDigit c || (c = '.' && Char.IsDigit(at 1) && not (endsExpr ())) then lexNumber ()
+        elif Char.IsAsciiDigit c || (c = '.' && Char.IsAsciiDigit(at 1) && not (endsExpr ())) then lexNumber ()
         elif c = '-' && digitNext 1 && not (endsExpr ()) then lexNumber ()
         elif c = '"' then lexString ()
         elif c = '$' && at 1 = '{' && endsExpr () then (sym "${"; i <- i + 2) // `x${key}` sorts by key
@@ -174,7 +183,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         elif c = '_' then
             let start = i
             i <- i + 1
-            while Char.IsDigit(at 0) do i <- i + 1
+            while Char.IsAsciiDigit(at 0) do i <- i + 1
             add (ID(src.Substring(start, i - start)))
         elif Char.IsLetter c then
             let start = i
