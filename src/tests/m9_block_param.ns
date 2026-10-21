@@ -1,0 +1,20 @@
+apply f x = f: x
+inc = {_ + 1}
+println: apply: inc, 4
+println: apply: {_ * 3}, 4
+twice f x = f: f: x
+println: twice: inc, 1
+f c a = c ? a : 0
+println: f: T, 7
+println: f: F, 7
+g a b = a > b ? a : b
+println: g: 3, 9
+println: [1,5,9]{_ > 3 ? _ : 0}
+h = {_1 > 0 ? _2 : _1}
+println: h: 1, 2
+k f x = x > 0 ? (f: x) : x
+println: k: {_ * 10}, 2
+m f x = f: x
+println: m: {_ + 1}, 1.5
+apply2 = {_1: _2}
+println: apply2: {_ - 1}, 10

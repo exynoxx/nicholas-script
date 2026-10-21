@@ -43,7 +43,7 @@ let private opensBracket (s: string) = s.EndsWith "(" || s.EndsWith "[" || s.End
 /// Directory of the file being parsed, and every file already imported (each is included once).
 type private Imports = { dir: string; seen: HashSet<string> }
 
-type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>, stdAliases: Dictionary<string, string>, nextId: int ref, imports: Imports) =
+type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>, params: HashSet<string>, stdAliases: Dictionary<string, string>, nextId: int ref, imports: Imports) =
     let mutable pos = 0
     let peek () = tokens.[pos].tok
     let line () = tokens.[pos].line
@@ -123,7 +123,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                     if imports.seen.Add path then
                         imported.Value.Add(System.IO.Path.GetRelativePath(System.IO.Directory.GetCurrentDirectory(), path))
                         let toks = Lexer.lex (System.IO.File.ReadAllText path) (imported.Value.Count * fileLines + 1) 1
-                        let sub = Parser(Array.ofList toks, fnames, shadowed, stdAliases, nextId, { imports with dir = System.IO.Path.GetDirectoryName path })
+                        let sub = Parser(Array.ofList toks, fnames, shadowed, params, stdAliases, nextId, { imports with dir = System.IO.Path.GetDirectoryName path })
                         out.AddRange(sub.Program())
                 | t -> err ($"import expects a file name string, found {describeTok t}")
             else
@@ -176,10 +176,13 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             fnames.Add f |> ignore
             nextId.Value <- nextId.Value + 1
             let id = nextId.Value
-            let saved = HashSet shadowed
-            for n in List.concat ps do if builtins.Contains n then shadowed.Add n |> ignore
+            let saved, savedParams = HashSet shadowed, HashSet params
+            for n in List.concat ps do
+                if builtins.Contains n then shadowed.Add n |> ignore
+                if n <> "_" then params.Add n |> ignore
             let body = if accept "{" then p.Block "}" else [ SLine(line ()); SExpr(p.Expr()) ]
             shadowed.Clear(); shadowed.UnionWith saved
+            params.Clear(); params.UnionWith savedParams
             SAssign([ EVar f ], [ EBlock(id, ps, body) ])
         | None ->
         match p.AssignAhead() with
@@ -206,6 +209,21 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         | None ->
             let e = p.Expr()
             if accept "~{" then SWhile(e, p.Block "}") else SExpr e
+
+    /// Is the token before pos inside a ternary's then-branch at this bracket depth: an earlier `?` of the
+    /// statement that no `:` answers yet? A `:` right after a function or parameter name is a call, not an answer.
+    member p.InThen() =
+        let mutable k, d, pending, colons = pos - 2, 0, 0, 0
+        while k >= 0 && tokens.[k].tok <> TERM && d >= 0 do
+            match tokens.[k].tok with
+            | SYM(")" | "]" | "}") -> d <- d + 1
+            | SYM s when opensBracket s -> d <- d - 1
+            | SYM "?" when d = 0 -> if colons > 0 then colons <- colons - 1 else pending <- pending + 1
+            | SYM ":" when d = 0 && not (k > 0 && (match tokens.[k - 1].tok with ID g -> isFunc g || params.Contains g | _ -> false)) ->
+                colons <- colons + 1
+            | _ -> ()
+            k <- k - 1
+        pending > 0
 
     /// `name param {param} =` starts a function definition: Some(name, params, index of `=`).
     /// A param is a name or `(a, b, …)`, which unpacks a tuple or array argument (`_` skips an element).
@@ -502,10 +520,16 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             |> List.map (function
                 | Lit s -> EStr s
                 | Code(src, l, c) ->
-                    let sub = Parser(Array.ofList (Lexer.lex src l c), fnames, shadowed, stdAliases, nextId, imports)
+                    let sub = Parser(Array.ofList (Lexer.lex src l c), fnames, shadowed, params, stdAliases, nextId, imports)
                     sub.InterpExpr())
             |> EInterp
         | ID name when isFunc name && isSym ":" -> (advance (); markCall callMark name (p.ExprList()))
+        // a parameter may be a block passed in (`apply f x = f: x`, `{_1: _2}`), except where the `:` ends the
+        // then-branch of a ternary (`c ? a : b`, `_ > 3 ? _ : 0`)
+        | ID name when isSym ":" && (params.Contains name || (name.StartsWith "_" && Seq.forall System.Char.IsAsciiDigit (name.Substring 1)))
+                       && not (p.InThen()) ->
+            advance ()
+            ECall(callMark + name, p.ExprList())
         | ID name when zeroArity.Contains name -> ECall(nameMark + name, [])
         | ID name -> EVar name
         | SYM "(" when p.GroupAhead() -> EGroup(p.Block ")")
@@ -579,4 +603,4 @@ let parse (tokens: Token list) (path: string) : Stmt list =
     let path = System.IO.Path.GetFullPath path
     let imports = { dir = System.IO.Path.GetDirectoryName path; seen = HashSet [ path ] }
     imported.Value.Clear()
-    Parser(Array.ofList tokens, HashSet<string>(), HashSet<string>(), Dictionary(), ref 0, imports).Program()
+    Parser(Array.ofList tokens, HashSet<string>(), HashSet<string>(), HashSet<string>(), Dictionary(), ref 0, imports).Program()

@@ -1,0 +1,2 @@
+1: error: 'x' is a variable here, not a function (when called at line 2 with int)
+1 | h x = x: 1
