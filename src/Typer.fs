@@ -114,11 +114,37 @@ let private castName t =
     | TBool -> "bool"
     | t -> err ($"no conversion to {showTy t}")
 
-/// Arrays are values: copy when a variable's array is stored somewhere else.
-let private own (e: E) =
-    match e.k, resolve e.t with
-    | Var _, TArr _ -> typed (Call("copy", [ e ])) e.t
+/// Generated temporaries (`%` in the name) whose every assignment so far stored a fresh array; a group
+/// (a lowered loop) yielding one hands it over.
+let private freshTemps = Dictionary<string, bool>()
+
+/// Does `e` build a new array that nothing else references? Variables, elements of containers (and
+/// branches or groups yielding one) are shared; a slice or stdlib result of nested arrays shares the inner
+/// arrays of its arguments, unless those are fresh themselves.
+let rec private fresh (e: E) =
+    let nested = match resolve e.t with TArr el -> (match resolve el with TArr _ -> true | _ -> false) | _ -> false
+    let freshArg (a: E) = match a.k, resolve a.t with Desc, _ | BlockRef _, _ -> true | _, TArr _ -> fresh a | _, t -> isScalar t
+    match e.k with
+    | Seq(_, { k = Var u }) -> (match freshTemps.TryGetValue u with | true, f -> f | _ -> false) // a group's own result
+    | Var _ | Index _ | Call(("tget" | "peek"), _) -> false
+    | Call("slice", _) -> not nested
+    | StdCall(sg, args) -> (match sg.ret with Stdlib.SVar _ -> false | _ -> true) && (not nested || List.forall freshArg args)
+    | If(_, a, b) -> fresh a && fresh b
+    | Seq(_, x) -> fresh x
+    | _ -> true
+
+/// Arrays are values: copy when an array that is not fresh is stored somewhere else (only the branches
+/// that need it); `local` variables die here, so they are handed over.
+let rec private ownIn (local: string -> bool) (e: E) =
+    match resolve e.t, e.k with
+    | TArr _, _ when fresh e -> e
+    | TArr _, Var u when local u -> e
+    | TArr _, If(c, a, b) -> typed (If(c, ownIn local a, ownIn local b)) e.t
+    | TArr _, Seq(ss, x) -> typed (Seq(ss, ownIn local x)) e.t
+    | TArr _, _ -> typed (Call("copy", [ e ])) e.t
     | _ -> e
+
+let private own = ownIn (fun _ -> false)
 
 /// Is `x` an edge (u,v) or (u,v,weight) of a graph with node type n, rather than a node? Unifies the members.
 let private isEdge (n: Ty) (x: E) =
@@ -489,7 +515,8 @@ and private stdCall name (args: E list) : E =
             | Stdlib.SBT _, TTree _ -> (bind env p a.t |> ignore; a) // keeps its key block
             | p, _ ->
                 bind env p a.t |> ignore
-                own (conv a (toTy env p))) sg.parms args
+                let a = conv a (toTy env p)
+                match a.k with Var _ -> own a | _ -> a) sg.parms args // an element argument is only read
     // descriptors are rendered by codegen, once every hole is resolved
     let descs = sg.tvars |> List.map (fun v -> typed Desc (toTy env (Stdlib.SVar v)))
     let ret = toTy env sg.ret
@@ -547,7 +574,8 @@ and private userCall id (args: E list) : E =
                     raise (CompileError(l, c, $"{msg} (when called at line {showLine savedLine}{ats})"))
             match List.rev ss with
             | Do r :: rest ->
-                inst.result <- conv r inst.ret
+                // the result is fresh unless it is shared: a dying local is handed over, anything else is copied
+                inst.result <- ownIn inst.owned.Contains (conv r inst.ret)
                 inst.body <- List.rev rest
             | _ -> err "function body has no value"
             cur <- saved
@@ -570,12 +598,14 @@ and private typeStmt (s: S) : S =
         let i, value = typeE i, typeE value
         match resolve x.t with
         | TArr el -> SetIdx(x, conv i TInt, own (conv value el))
-        | TMap(k, v) -> SetIdx(x, conv i k, own (conv value v))
+        | TMap(k, v) -> SetIdx(x, own (conv i k), own (conv value v))
         | t -> err ($"cannot assign into {showTy t}")
     | Assign(name, e) ->
         let e = typeE e
         let generated = name.Contains '%'
-        let store u (e: E) = Assign(u, if generated then e else own e)
+        let store u (e: E) =
+            if generated then freshTemps.[u] <- (match freshTemps.TryGetValue u with | true, f -> f | _ -> true) && fresh e
+            Assign(u, if generated then e else own e)
         match lookup name with
         | Some u ->
             match e.k with
@@ -610,7 +640,7 @@ let private propagateCaptures () =
                         changed <- true
 
 let check (prog: S list) : Program =
-    varTy.Clear(); globals.Clear(); fnDefs.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear()
+    varTy.Clear(); globals.Clear(); fnDefs.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear(); freshTemps.Clear()
     memos.Clear(); memoCaches.Clear()
     cur <- global0
     let main = typeStmts prog

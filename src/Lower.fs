@@ -91,7 +91,12 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
             let push = if term.kind = IScan then [ Do(call "push" [ v r; v term.acc ]) ] else []
             [ Do(mk (If(v first, seq [ Assign(term.acc, v term.el); Assign(first, mk (Bool false)) ] skip,
                         seq [ Assign(term.acc, bodyE term) ] skip))) ] @ push
-        | IEach -> [ Do(bodyE term) ]
+        | IEach ->
+            // the body's value is dropped: a map that yields it builds no result array either
+            match List.rev term.body with
+            | Do({ k = Iter it } as e) :: rest when it.kind = IMap ->
+                [ Do(bodyE { term with body = List.rev (Do { e with k = Iter { it with kind = IEach } } :: rest) }) ]
+            | _ -> [ Do(bodyE term) ]
     // stage i has its el/ix assigned; pass the element on to stage i+1 (with its own position counter)
     let counters = stages |> List.map (fun _ -> Desugar.fresh "k")
     let rec pipe i : S list =

@@ -1,0 +1,54 @@
+# arrays taken out of containers are copies: changing them leaves the container alone
+xs = [[1,2]]
+v = xs@0
+v@0 = 7
+println:xs
+m = ["a"->[1,2]]
+w = m@"a"
+w@0 = 7
+m@"b" = m@"a"
+u = m@"b"
+u@1 = 8
+println:m
+a, b = ([1,2],3)
+t = ([1,2],3)
+c, d = t
+c@0 = 7
+println:t
+g = (0; xs)
+g@0@0 = 9
+k = T ? xs : [[0]]
+k@0@0 = 8
+i = xs{_}
+i@0@0 = 6
+f = xs/{$}
+f@0 = 5
+s = xs@0..1
+s@0@0 = 3
+println:xs
+q = Q[[1,2]]
+h = q@0
+h@0 = 9
+println:q
+cap = [1,2]
+get = {cap}
+r = get:0
+r@0 = 9
+println:cap
+# a map key is copied too
+key = [1,2]
+n = [key->1]
+n@key = 2
+key@0 = 9
+println:n
+println:n@[1,2]
+# a memo cache hands out copies
+mf = memo:{"abc".chars}
+z = mf:0
+z@0 = "Z"
+println:mf:0
+# the key block may change v while sorting a copy of it
+ys = [[3,1,2]]
+v = ys@0
+println:(ys@0).sortby:{v = v ++ 0; _}
+println:ys
