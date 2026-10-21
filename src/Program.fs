@@ -95,12 +95,15 @@ let private noEarlyExitVec =
          let code, _, _ = run "clang" ($"-c -mllvm -enable-early-exit-vectorization=false \"{tmp}\" -o /dev/null") None
          if code = 0 then " -mllvm -enable-early-exit-vectorization=false" else "")
 
+/// The front end (desugar, typer, ...) keeps global state, so only one `pipeline` runs at a time.
+let private frontLock = obj ()
+
 /// Compiles a source file to a native binary at `exe`; returns an error message on failure.
 let private build (path: string) (exe: string) : string option =
     try
       if useC then
         let cf = Path.ChangeExtension(exe, ".c")
-        File.WriteAllText(cf, pureC (pipeline "c" path))
+        File.WriteAllText(cf, pureC (lock frontLock (fun () -> pipeline "c" path)))
         let asan = if Environment.GetEnvironmentVariable "NS_ASAN" = "1" then "-g -fsanitize=address" else ""
         let cc = match Environment.GetEnvironmentVariable "CC" with null | "" -> "cc" | v -> v
         let code, _, err = run cc ($"-O2 -w {asan} \"{cf}\" -lm -o \"{exe}\"") None
@@ -108,7 +111,7 @@ let private build (path: string) (exe: string) : string option =
       else
         let ll = Path.ChangeExtension(exe, ".ll")
         // whole-program module so LLVM can inline the runtime (array access, refcounts, ...)
-        File.WriteAllText(ll, pureLL (pipeline "ll" path))
+        File.WriteAllText(ll, pureLL (lock frontLock (fun () -> pipeline "ll" path)))
         // NS_ASAN=1 builds with Address/LeakSanitizer to verify reference counting
         let asan = if Environment.GetEnvironmentVariable "NS_ASAN" = "1" then "-g -fsanitize=address" else ""
         let asan = asan + noEarlyExitVec.Force()
@@ -121,9 +124,9 @@ let private build (path: string) (exe: string) : string option =
 
 let private test (dir: string) =
     let tmp = Directory.CreateTempSubdirectory("ns").FullName
-    let mutable failed = 0
     let files = Directory.GetFiles(dir, "*.ns") |> Array.sort
-    for f in files do
+    // clang and the test binaries run in parallel; results print in file order
+    let check (f: string) =
         let name = Path.GetFileNameWithoutExtension f
         let exe = Path.Combine(tmp, name)
         let outFile = Path.ChangeExtension(f, ".out")
@@ -146,11 +149,13 @@ let private test (dir: string) =
                     let i = Seq.zip el al |> Seq.tryFindIndex (fun (a, b) -> a <> b) |> Option.defaultValue (min el.Length al.Length)
                     let at (a: string[]) = if i < a.Length then a.[i] else "<eof>"
                     Some($"line {i + 1}: expected '{at el}' got '{at al}' (exit {code}) {err}")
+        name, result
+    let results = files |> Array.Parallel.map check
+    for name, result in results do
         match result with
         | None -> Console.WriteLine($"PASS {name}")
-        | Some msg ->
-            failed <- failed + 1
-            Console.WriteLine($"FAIL {name}: {msg}")
+        | Some msg -> Console.WriteLine($"FAIL {name}: {msg}")
+    let failed = results |> Array.filter (snd >> Option.isSome) |> Array.length
     Console.WriteLine($"{files.Length - failed}/{files.Length} passed")
     if failed = 0 then 0 else 1
 
@@ -227,7 +232,7 @@ let main argv =
             0)
     // check: lex, parse and type stdin as if it were <file> (imports resolve next to it); used by the VS Code extension
     | [ "check"; path ] -> report path (fun () -> (pipelineSrc "check" (Console.In.ReadToEnd()) path |> ignore; 0))
-    | [ "c"; path ] -> report path (fun () -> (Console.Write(pureC (pipeline "c" path)); 0))
+    | [ "c"; path ] -> report path (fun () -> (Console.Write(pureC (lock frontLock (fun () -> pipeline "c" path))); 0))
     | [ ("tokens" | "ast" | "core" | "typed" | "repr") as stage; path ] ->
         report path (fun () -> (Console.WriteLine((pipeline stage path)); 0))
     | [ "help" ] | [] when flag "-h" || flag "--help" || args.IsEmpty || positional = [ "help" ] ->
