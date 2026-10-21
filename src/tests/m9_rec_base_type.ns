@@ -1,0 +1,16 @@
+# a recursive call's result type is the base case's, not the other operand's
+f n = n<=0 ? 0.5 : (f:n-1)+1
+println:f:2
+g n = n<=0 ? "" : (g:n-1) + n
+println:g:2
+h n = n<=0 ? [1.5] : (h:n-1) ++ [n]
+println:h:2
+ev n = n<=0 ? 0.5 : (od:n-1)+1
+od n = n<=0 ? 0.25 : (ev:n-1)+1
+println:ev:3
+b = { _<=0 ? 0.5 : (b:_-1)+1 }
+println:b:2
+t n = n<=0 ? (1,2) : (t:n-1) + (n,n)
+println:t:2
+w n = n<=0 ? [["a"]] : (w:n-1){_} ++ [["b"]]
+println:w:2

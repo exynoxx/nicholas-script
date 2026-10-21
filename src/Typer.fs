@@ -295,6 +295,9 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) : E =
         | _ -> it :: acc
     let stages = chain it []
     let src = typeE stages.Head.src
+    match resolve src.t, expect with
+    | THole _, Some t -> unify src.t t |> ignore // a recursive call: its result type is the base case's
+    | _ -> ()
     // an int in front of a block is the range 0..n: `5{_*_}`, `10[>6]`, `5/+`
     let src = match resolve src.t with TInt -> builtin "range" [ typed (Int 0L) TInt; src ] | _ -> src
     let limit = limit |> Option.map (fun k -> conv (typeE k) TInt)
@@ -314,14 +317,11 @@ and private typeBin op (a: E) (b: E) : E =
     let isArith = List.contains op [ "+"; "-"; "*"; "/"; "%"; "^^" ]
     let isCmp = List.contains op [ "="; "!="; "<"; ">"; "<="; ">=" ]
     let isBit = List.contains op [ "^"; "<<"; ">>"; ">>>" ]
-    match resolve a.t with
-    | THole _ when op = "++" ->
+    match resolve a.t, expect with
+    | THole _, Some t -> unify a.t t |> ignore // a recursive call: its result type is the base case's
+    | THole _, None when op = "++" ->
         unify a.t (match resolve b.t with TArr _ -> b.t | t -> TArr t) |> ignore
-    | THole _ ->
-        unify a.t b.t |> ignore
-        match resolve a.t, expect with
-        | THole _, Some t -> unify a.t t |> ignore
-        | _ -> ()
+    | THole _, None -> unify a.t b.t |> ignore
     | _ -> ()
     let L = resolve a.t
     let same x = typed (Bin(op, a, conv b L)) L
