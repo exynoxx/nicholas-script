@@ -394,6 +394,9 @@ and private typeBin op (a: E) (b: E) : E =
         | t -> err ($"str / {showT t}: only str / str (split) is defined")
     | _, TArr _ when isArith || isBit ->
         let bIsArr = match resolve b.t with TArr _ -> true | _ -> false
+        let rec depth t = match resolve t with TArr e -> 1 + depth e | _ -> 0
+        if bIsArr && depth L < depth b.t then
+            err ($"{showT L} {op} {showT b.t}: arrays combine element by element, and the right one is nested deeper")
         typeE (Lower.broadcast op a b bIsArr)
     | _, TTup ts when isArith ->
         // elementwise: `(a,b) + (c,d)` is `(a+c, b+d)`; a non-tuple right operand applies to every element
@@ -404,7 +407,7 @@ and private typeBin op (a: E) (b: E) : E =
         typeE (mk (Seq([ Assign(ta, a); Assign(tb, b) ], mk (Call("tuple", elems)))))
     | _, (TInt | TFloat) when isArith ->
         match resolve b.t with
-        | TArr _ -> err "scalar op array: put the array on the left"
+        | TArr _ -> err ($"{showT L} {op} {showT b.t}: put the array on the left")
         | _ -> same ()
     | "+", TStr -> same ()
     | "*", TStr -> err "operator * not defined for str: use ** to repeat a string"
