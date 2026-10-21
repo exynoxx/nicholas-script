@@ -350,8 +350,10 @@ newlines or `;`: it runs in the match's own scope (`_` is still the subject, ass
 and its value is its last expression, or 0 if that is a statement. An arm block is not a function value; as in any block,
 a body starting with an operator gets `_` on its left (`=> { *2 }` is `_*2`). Without a default
 the match behaves like `c ? a`: arms run for effect and the value is 0. In `?[ ]` an arm without `=>` keeps its
-elements, `=> F` drops them, and `_ =>` decides the rest (default `F`). `?[` directly after an operand is a match
-filter unless its `]` is followed by `:` (then it is a ternary with an array literal: `c?[1]:[2]`).
+elements, `=> F` drops them, and `_ =>` decides the rest (default `F`). Every `?[ ]` arm must give a value, which is
+tested for truthiness on its own (`?[>4 => "a"; _ => 0]` keeps the elements over 4); a statement arm, or an arm block
+that doesn't end in a value, is an error. `?[` directly after an operand is a match filter unless its `]` is followed
+by `:` (then it is a ternary with an array literal: `c?[1]:[2]`).
 
 ## 6. Statements
 `import "file.ns"` splices in another file's statements (path relative to the importing file; each file is included once, so imports may repeat or be mutual).

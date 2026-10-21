@@ -1,0 +1,5 @@
+# every ?[ ] arm is tested for truthiness on its own, whatever its type
+xs = [1,5,9,12]
+println: xs?[>10 => "big"; >4 => 0; _ => [1]]
+println: xs?[=5 => {n = _ * 2; n > 9}; _ => ""]
+println: xs?[>4 => %[]; _ => "x"]

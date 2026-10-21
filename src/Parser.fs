@@ -309,17 +309,24 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
             | Some _, _ -> EBin("=", EVar "_", p.Expr())
             | None, _ -> p.Expr()
         let skipTerms () = while peek () = TERM do advance ()
+        // in `?[ ]` every arm's value is tested for truthiness on its own, so arms may give different types
+        let truth r = if filter then ETern(r, EBool true, EBool false) else r
         // an arm's result may be a statement (`5 => c += 1`); its value is then 0. `=> { s1; s2 }` runs several
         // statements in the match's scope (`_` stays the subject); the last expression is the value, else 0
         let result () =
+            let start = pos
             if isSym "{" then
                 advance ()
                 let body = p.Block "}"
                 match body |> List.filter (function SLine _ -> false | _ -> true) |> List.tryLast with
-                | Some(SExpr _) -> EGroup body
+                | Some(SExpr _) -> truth (EGroup body)
+                | _ when filter -> errAt start "a ?[ ] arm's block must end in a value: truthy keeps the element, falsy drops it"
                 | _ -> EGroup(body @ [ SExpr(EInt 0L) ])
             else
-                match p.Stmt() with SExpr e -> e | st -> EGroup [ st; SExpr(EInt 0L) ]
+                match p.Stmt() with
+                | SExpr e -> truth e
+                | _ when filter -> errAt start "a ?[ ] arm must give a value, not a statement: truthy keeps the element, falsy drops it"
+                | st -> EGroup [ st; SExpr(EInt 0L) ]
         let arms = ResizeArray<Expr list * Expr>()
         let mutable deflt = None
         skipTerms ()
