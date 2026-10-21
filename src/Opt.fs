@@ -166,6 +166,8 @@ let rec private sumE (cx: Ctx) (s: Sum) (e: E) =
         go a; go b
         let constDivisor = match b.k with Int v -> v <> 0L | Float _ -> true | _ -> false
         if (op = "/" || op = "%") && not constDivisor && resolve a.t <> TFloat then s.partial <- true
+        // int x ^^ -k is 1/x^k: panics when x = 0
+        if op = "^^" && resolve a.t = TInt && (match b.k with Int v -> v < 0L | _ -> true) && (match a.k with Int v -> v = 0L | _ -> true) then s.partial <- true
     | If(c, a, b) -> go c; go a; go b
     | Conv x -> go x
     | Index(x, i) ->

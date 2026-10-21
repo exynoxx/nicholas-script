@@ -796,7 +796,10 @@ void ns_del(const char *d, void *coll, const void *x) {
 
 //@ pow (int,int) int = ns_ipow
 int64_t ns_ipow(int64_t base, int64_t e) {
-  if (e < 0) return base == 1 ? 1 : base == -1 ? (e & 1 ? -1 : 1) : 0; // 1/x^-e truncated toward zero
+  if (e < 0) { // 1/x^-e truncated toward zero
+    if (!base) ns_panic("division by zero");
+    return base == 1 ? 1 : base == -1 ? (e & 1 ? -1 : 1) : 0;
+  }
   uint64_t r = 1, b = (uint64_t)base; // unsigned: wraparound instead of UB
   for (; e; e >>= 1, b *= b) if (e & 1) r *= b;
   return r;
