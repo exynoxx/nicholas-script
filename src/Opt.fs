@@ -199,7 +199,14 @@ let rec private sumE (cx: Ctx) (s: Sum) (e: E) =
         | _ -> s.effect <- true
     | StdCall(sg, args) ->
         List.iter go args
-        if not (pureStd.Contains sg.name) then s.effect <- true
+        if not (pureStd.Contains sg.name) then
+            s.effect <- true
+            // may mutate a collection argument in place (pop, btadd, keep, addedge, ...)
+            match args |> List.tryFind (fun x -> (match x.k with Desc -> false | _ -> true) && isRef x.t) with
+            | Some x ->
+                root x |> Option.iter (fun u -> s.writes.Add u |> ignore; s.mutates.Add u |> ignore)
+                s.refWrite <- true
+            | None -> ()
         elif not (totalStd.Contains sg.name) then s.partial <- true
     | Seq(ss, x) -> List.iter (sumS cx s) ss; go x
     | Iter _ | MatchOn _ | Fn _ -> s.effect <- true // gone after typing; be safe if not

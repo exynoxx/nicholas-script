@@ -1,0 +1,18 @@
+# stdlib calls that mutate a collection in place are writes: LICM and CSE must not reuse a stale value
+q = PQ[5,3,9]
+s = []
+#q > 0 ~{ s = s ++ (sort: arr: q)@0; q.pop }
+println: s
+t = BT[4,2,8]
+a = t.min
+t.pop
+b = t.min
+println: [a, b]
+m = ["a"->1, "b"->2]
+k = keys: m
+m ** 0
+println: [#k, #(keys: m)]
+st = %[1,2]
+c = arr: st
+st ** F
+println: [#c, #(arr: st)]
