@@ -1,0 +1,6 @@
+m = -9223372036854775807 - 1
+println:abs:m
+println:abs:-5
+println:gcd:m,6
+println:gcd:6,m
+println:gcd:-12,18

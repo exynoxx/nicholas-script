@@ -903,11 +903,10 @@ int64_t ns_unbase(char *s, int64_t b) { // int:"ff",16 -> 255; reads up to the f
   return (int64_t)u;
 }
 //@ gcd (int,int) int
-int64_t ns_gcd(int64_t a, int64_t b) {
-  if (a < 0) a = -a;
-  if (b < 0) b = -b;
-  while (b) { int64_t t = a % b; a = b; b = t; }
-  return a;
+int64_t ns_gcd(int64_t a, int64_t b) { // unsigned magnitudes: -INT64_MIN would overflow
+  uint64_t x = a < 0 ? 0 - (uint64_t)a : (uint64_t)a, y = b < 0 ? 0 - (uint64_t)b : (uint64_t)b;
+  while (y) { uint64_t t = x % y; x = y; y = t; }
+  return (int64_t)x;
 }
 //@ zip ([A],[B]) [(A,B)]
 void *ns_zip(const char *dA, const char *dB, const char *dR, void *a, void *b) { // stops at the shorter array
@@ -1089,7 +1088,7 @@ void ns_min_arr(const char *dT, void *arr, void *out) { best(dT, arr, -1, out); 
 //@ max ([T]) T = ns_max_arr
 void ns_max_arr(const char *dT, void *arr, void *out) { best(dT, arr, 1, out); }
 //@ abs (int) int = ns_abs_i
-int64_t ns_abs_i(int64_t x) { return x < 0 ? -x : x; }
+int64_t ns_abs_i(int64_t x) { return x < 0 ? (int64_t)(0 - (uint64_t)x) : x; } // wraps: abs:INT64_MIN is INT64_MIN
 //@ abs (float) float = ns_abs_f
 double ns_abs_f(double x) { return fabs(x); }
 //@ pow (float,float) float = ns_pow_f
