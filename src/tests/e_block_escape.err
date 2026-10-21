@@ -1,0 +1,2 @@
+1: error: a block isn't a value: call it, as in f:x
+1 | mk = {n = _; {_+n}}

@@ -179,6 +179,12 @@ and private stored (x: E) : E =
     | TFn _ -> err "a block can't be stored in an array; to map, write x{_+1}, not x{{_+1}}"
     | _ -> x
 
+/// Blocks can't escape: one can only be called, or passed to a function that takes a block.
+and private value (x: E) : E =
+    match resolve x.t with
+    | TFn _ -> err "a block isn't a value: call it, as in f:x"
+    | _ -> x
+
 // ---------- expressions ----------
 
 and typeE (e: E) : E =
@@ -231,12 +237,12 @@ and typeE (e: E) : E =
         | Bin(op, a, b) -> typeBin op (typeE a) (typeE b)
         | If(c, a, b) ->
             let c = conv (typeE c) TBool
-            let a = typeE a
+            let a = value (typeE a)
             let saved = expect
             match resolve a.t with
             | THole _ -> ()
             | t -> expect <- Some t
-            let b = typeE b
+            let b = value (typeE b)
             expect <- saved
             match tryConv b a.t with
             | Some b -> typed (If(c, a, b)) a.t
@@ -404,7 +410,7 @@ and private builtin name (args: E list) : E =
         | TMap(k, _) | TGraph k -> k
         | t -> err ($"{name}: not a collection: {showTy t}")
     match name, args with
-    | ("print" | "println"), [ x ] -> typed (Call(name, [ x ])) x.t
+    | ("print" | "println"), [ x ] -> typed (Call(name, [ value x ])) x.t
     | ("int" | "float" | "str" | "bool"), [ x ] ->
         conv x (match name with "int" -> TInt | "float" -> TFloat | "str" -> TStr | _ -> TBool)
     | "neg", [ x ] ->
@@ -460,8 +466,8 @@ and private builtin name (args: E list) : E =
     | ("sum" | "prod"), [ x ] when (match resolve x.t with TArr e -> (match resolve e with TInt | TFloat | THole _ -> false | _ -> true) | _ -> false) ->
         let hint = match resolve x.t with TArr e when (match resolve e with TTup _ -> true | _ -> false) -> "; fold tuples with /+ or /*" | _ -> ""
         err ($"{name}: needs an array of int or float, not {showTy x.t}{hint}")
-    | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map own xs)) (TTup(xs |> List.map (fun x -> x.t)))
-    | "repeat", [ x; n ] -> typed (Call("repeat", [ own x; conv n TInt ])) (TArr x.t)
+    | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map (value >> own) xs)) (TTup(xs |> List.map (fun x -> x.t)))
+    | "repeat", [ x; n ] -> typed (Call("repeat", [ own (value x); conv n TInt ])) (TArr x.t)
     | _ when Stdlib.names.Contains name -> stdCall name args
     | _ -> err ($"unknown function '{name}' with {args.Length} argument(s)")
 
@@ -517,6 +523,7 @@ and private stdCall name (args: E list) : E =
             | Stdlib.SFn _, _ -> err ($"{name} expects a block argument")
             | Stdlib.SBT _, TTree _ -> (bind env p a.t |> ignore; a) // keeps its key block
             | p, _ ->
+                let a = value a
                 bind env p a.t |> ignore
                 let a = conv a (toTy env p)
                 match a.k with Var _ -> own a | _ -> a) sg.parms args // an element argument is only read
@@ -580,7 +587,7 @@ and private userCall id (args: E list) : E =
             match List.rev ss with
             | Do r :: rest ->
                 // the result is fresh unless it is shared: a dying local is handed over, anything else is copied
-                inst.result <- ownIn inst.owned.Contains (conv r inst.ret)
+                inst.result <- ownIn inst.owned.Contains (conv (value r) inst.ret)
                 inst.body <- List.rev rest
             | _ -> err "function body has no value"
             cur <- saved

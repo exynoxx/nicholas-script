@@ -1,0 +1,2 @@
+2: error: a block isn't a value: call it, as in f:x
+2 | println:f
