@@ -187,7 +187,8 @@ and private conv (e: E) (ty: Ty) : E =
     | Some e -> e
     | None ->
         match resolve e.t with
-        | TFn _ -> err ($"a block can't be used as {showT ty}; to filter or test, write the condition itself: x[_>2], not x[{{_>2}}]")
+        | TFn _ when resolve ty = TBool -> err "a block can't be used as bool; to filter or test, write the condition itself: x[_>2], not x[{_>2}]"
+        | TFn _ -> err ($"a block can't be used as {showT ty}; to use its result, call it: f:x")
         | _ -> err ($"cannot convert {showT e.t} to {showT ty}")
 
 /// Blocks can't escape, so none can be put into an array (also catches a map whose body is a block: x{{..}}).

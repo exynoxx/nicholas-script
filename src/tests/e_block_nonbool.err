@@ -1,0 +1,3 @@
+3:11: error: a block can't be used as int; to use its result, call it: f:x
+3 | println:y + f
+  |           ^
