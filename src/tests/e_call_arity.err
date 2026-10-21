@@ -1,0 +1,2 @@
+2: error: 'f' takes 2 argument(s) but was given 3
+2 | println:(f:0,0, f:0,1)

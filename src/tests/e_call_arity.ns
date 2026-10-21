@@ -1,0 +1,2 @@
+f a b = a*10+b
+println:(f:0,0, f:0,1)

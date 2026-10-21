@@ -10,6 +10,30 @@ let fresh (prefix: string) =
     counter <- counter + 1
     $"{prefix}%%{counter}"
 
+/// Block id -> how many arguments it takes: the highest `_k` its body reads (nested blocks have their own).
+let arity = System.Collections.Generic.Dictionary<int, int>()
+
+let rec private arityE (e: E) : int =
+    match e.k with
+    | Var n when n.Length > 1 && n.[0] = '_' && Seq.forall System.Char.IsDigit n.[1..] -> int n.[1..]
+    | Arr xs | Call(_, xs) -> xs |> List.map arityE |> List.fold max 0
+    | Bin(_, a, b) | Index(a, b) -> max (arityE a) (arityE b)
+    | If(c, a, b) -> max (arityE c) (max (arityE a) (arityE b))
+    | Iter it -> max (arityE it.src) (arityS it.body)
+    | Seq(ss, x) -> max (arityS ss) (arityE x)
+    | MatchOn(s, _, arms, _) -> max (arityE s) (arityE arms)
+    | Conv x -> arityE x
+    | _ -> 0
+
+and private arityS (ss: S list) =
+    ss
+    |> List.map (function
+        | Assign(_, e) | Do e -> arityE e
+        | SetIdx(x, i, v) -> max (arityE x) (max (arityE i) (arityE v))
+        | While(c, body) -> max (arityE c) (arityS body)
+        | Line _ -> 0)
+    |> List.fold max 0
+
 /// `env` renames the implicit names `_ @ $` to the variables of the innermost block.
 let rec private expr (env: Map<string, string>) (e: Expr) : E =
     let ex = expr env
@@ -78,7 +102,9 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
                     group |> List.indexed |> List.filter (snd >> (<>) "_")
                     |> List.map (fun (k, p) -> Assign($"{p}'{id}", mk (Index(arg, mk (Int(int64 k)))))))
             |> List.concat
-        mk (Fn(id, bind @ block env' body))
+        let body = bind @ block env' body
+        arity.[id] <- arityS body
+        mk (Fn(id, body))
     | EMatch(kind, x, arms) ->
         let t = fresh "_"
         let arms = expr (env.Add("_", t).Add("_#", t)) arms
@@ -176,5 +202,6 @@ and private debugSS (ss: S list) : S list =
 let mutable debug = false
 
 let desugar (prog: Stmt list) : S list =
+    arity.Clear()
     let core = stmts Map.empty prog
     if debug then debugSS core else core

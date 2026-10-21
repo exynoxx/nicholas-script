@@ -87,7 +87,7 @@ int:"42"      float:x     str:3.5     bool:n
 | 8 logic   | `&` then `^` (xor) then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
 | 8.5 coalesce | `a ?? b` (b when a is a missing map key, see maps) | right |
 | 9 ternary | `x ?{…}` `x ?[…]` match (§5); `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (value 0); branches of unrelated types run as a statement (value 0) | right |
-| 10 call   | `f:a,b` (args extend to end of statement / closing bracket). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary | right |
+| 10 call   | `f:a,b` (args extend to end of statement / closing bracket, so `(f:1,2, f:3,4)` is an error: write `((f:1,2), f:3,4)`; passing a block more arguments than it has parameters / highest `_k` is an error). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary | right |
 | 11 assign | `x = e`, `a,b = b,a` | right |
 
 `=` in expression position is equality; at statement start with an lvalue on the left it is assignment.
