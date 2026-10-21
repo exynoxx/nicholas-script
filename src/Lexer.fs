@@ -44,8 +44,11 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             | SYM s when sectionOps.Contains s -> toks.Add { tok = ID "_"; line = tokLine; col = tokCol }
             | _ -> ()
         toks.Add { tok = t; line = tokLine; col = tokCol }
+    // stmtIndent when each open bracket opened: a bracket's lines don't change the statement's indentation
+    let indents = Stack<int>()
     let sym s =
         add (SYM s)
+        let depth = stack.Count
         match s with
         | "(" -> stack.Push('(', tokLine, tokCol)
         | "f[" -> stack.Push('f', tokLine, tokCol) // a filter holds statements, like a block
@@ -57,7 +60,9 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             let o, l, c = stack.Pop()
             let want = match o with '(' -> ")" | '[' | '?' | 'f' -> "]" | _ -> "}"
             if s <> want then failAt tokLine tokCol $"expected '{want}' to close the '{opener o}' at {l}:{c}, found '{s}'"
+            stmtIndent <- indents.Pop()
         | _ -> ()
+        if stack.Count > depth then indents.Push stmtIndent
         if openers.Contains s then sectionPending <- true
     let term () =
         match last () with

@@ -1,0 +1,17 @@
+xs = [
+  1, 2] ++
+  [3]
+println: xs
+ys = [
+  4,
+  5
+]
+println: ys
+f = {
+  _ * 2
+}
+println: f:3
+zs = (1 +
+  2) *
+  3
+println: zs
