@@ -442,7 +442,7 @@ and private builtin name (args: E list) : E =
         | TArr e | TSet e | TQ e | TPQ e | TTree(e, _) -> e
         | TStr -> TStr
         | TMap(k, _) | TGraph k -> k
-        | t -> err ($"{name}: not a collection: {showT t}")
+        | t -> err ($"""{(match name with "len" -> "#" | "has" -> "@?" | n -> n)}: not a collection: {showT t}""")
     match name, args with
     | ("print" | "println"), [ x ] -> typed (Call(name, [ value x ])) x.t
     | ("int" | "float" | "str" | "bool"), [ x ] ->

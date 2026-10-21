@@ -1,0 +1,3 @@
+2:9: error: #: not a collection: int
+2 | println:#n
+  |         ^
