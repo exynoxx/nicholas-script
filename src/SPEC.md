@@ -248,7 +248,7 @@ Maps, sets and queues are **reference types** (mutated in place, shared on assig
 | union / inter / diff | —                 | `a\|b` `a&b` `a-b` | —                           |
 | keys / values      | `m.keys` `m.vals`   | —                 | —                            |
 
-In map blocks `_` is the value and bare `@` is the key (same as element/index for arrays). In `m{…}` a top-level `_ = e` writes the value back into m: `m{_ = _ + 1}` updates m in place (filters and arrays still compare).
+In map blocks `_` is the value and bare `@` is the key (same as element/index for arrays). In `m{…}` a top-level `_ = e` writes the value back into m: `m{_ = _ + 1}` updates m in place (filters and arrays still compare, and so do `m{(_ = e)}` and the section `m{=e}`).
 `m{…}` returns a map with the same keys; `s{…}` returns a set; `m[…]`/`s[…]` return the same kind.
 `@?` (contains) also works on arrays and strings: `"hello"@?"ll"`.
 Conversions: `map:pairs`, `set:arr`, `Q:arr`, `PQ:arr`, `arr:s` (to array; map → array of keys).

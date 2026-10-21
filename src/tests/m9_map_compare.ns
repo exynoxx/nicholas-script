@@ -1,0 +1,10 @@
+# in a map block a bare `_ = e` writes back; `(_ = e)` and the section `{=e}` compare
+k = [1->10, 2->20]
+println:k{(_ = 10)}
+println:k
+m = [1->2, 3->4]
+println:m{=2}
+println:m
+println:[1,2,3]{=2}
+m{_ = _ + 1}
+println:m

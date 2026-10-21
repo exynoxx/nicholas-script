@@ -34,6 +34,10 @@ let private onlyIf c a = ETern(c, EGroup [ SExpr a; SExpr(EInt 0L) ], EInt 0L)
 /// Implicit names (_ _1 @ $) are never assigned, so `{_=p}` / `[=p]` compare.
 let private assignable (name: string) = not (name.StartsWith "_" || name = "@" || name = "$")
 
+/// In a map block a bare top-level `_ = e` writes the value back (Lower.iter); a parenthesised `(_ = e)` or a
+/// section `{=e}` is a comparison, so it is wrapped in a group, which that write-back does not match.
+let private compared e = match e with EBin("=", EVar "_", _) -> EGroup [ SExpr e ] | e -> e
+
 let private opensBracket (s: string) = s.EndsWith "(" || s.EndsWith "[" || s.EndsWith "{"
 
 /// Directory of the file being parsed, and every file already imported (each is included once).
@@ -367,8 +371,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
         let l = p.Shift()
         match peek () with
         | SYM ("=" | "!=" | "<" | ">" | "<=" | ">=" as op) ->
+            // a section `{=2}` (the lexer inserts `_` at the operator's position) compares; see `compared`
+            let section = l = EVar "_" && tokens.[pos - 1].line = tokens.[pos].line && tokens.[pos - 1].col = tokens.[pos].col
             advance ()
             let e = EBin(op, l, p.Shift())
+            let e = if section then compared e else e
             match peek () with
             | SYM ("=" | "!=" | "<" | ">" | "<=" | ">=" as op2) -> err ($"comparisons don't chain: write a {op} b & b {op2} c, or (a {op} b) {op2} c")
             | _ -> e
@@ -482,7 +489,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
                 ETuple(List.ofSeq items)
             else
                 expect ")"
-                e
+                compared e
         | SYM "[" ->
             if accept "->" then (expect "]"; EMapLit [])
             elif accept "]" then EArr []
