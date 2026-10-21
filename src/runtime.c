@@ -1153,13 +1153,13 @@ static int kv_cmp(const void *x, const void *y) { // by key, then original posit
 }
 //@ sortby ([T], fn(T)->K) [T]
 void *ns_sortby(const char *dT, const char *dK, void *arr, ns_fn f, void *env) {
-  Arr *a = arr; int64_t ksz = esz(dK), *ix = alloc(a->len * 8);
-  char *keys = alloc(a->len * ksz);
-  for (int64_t i = 0; i < a->len; i++) { ix[i] = i; f(env, a->data + i * a->esz, keys + i * ksz); }
+  Arr *a = arr; int64_t n = a->len, ksz = esz(dK), *ix = alloc(n * 8); // n: f may grow a through an alias
+  char *keys = alloc(n * ksz);
+  for (int64_t i = 0; i < n; i++) { ix[i] = i; f(env, a->data + i * a->esz, keys + i * ksz); }
   kv.d = dK; kv.keys = keys; kv.ksz = ksz;
-  qsort(ix, a->len, 8, kv_cmp);
-  Arr *r = ns_arr_new(HD(arr)->d, a->len);
-  for (int64_t i = 0; i < a->len; i++) { ns_arr_push(r, a->data + ix[i] * a->esz); relv(dK, keys + i * ksz); }
+  qsort(ix, n, 8, kv_cmp);
+  Arr *r = ns_arr_new(HD(arr)->d, n);
+  for (int64_t i = 0; i < n; i++) { ns_arr_push(r, a->data + ix[i] * a->esz); relv(dK, keys + i * ksz); }
   free(keys); free(ix);
   return r;
 }

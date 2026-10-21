@@ -1,0 +1,1 @@
+xs=[[3,1,2]]; v=xs@0; println:(xs@0).sortby:{v = v ++ 0; _}
