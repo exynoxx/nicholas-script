@@ -180,15 +180,30 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             | true, v -> add (INT(if neg then -(int64 v) else int64 v))
             | _ -> failAt tokLine tokCol $"number '{src.Substring(start, i - start)}' doesn't fit in 64 bits"
         else
+        // `1e5`: there are no exponent literals; suggest the number written out
+        let noExponent () =
+            let e = if at 1 = '+' || at 1 = '-' then 2 else 1
+            if (at 0 = 'e' || at 0 = 'E') && Char.IsAsciiDigit(at e) then
+                let mutable j = i + e
+                while j < n && Char.IsAsciiDigit src.[j] do j <- j + 1
+                let lit = src.Substring(start, j - start)
+                let v = Double.Parse(lit, Globalization.CultureInfo.InvariantCulture)
+                let written =
+                    if Double.IsInfinity v || abs v >= 1e18 || (v <> 0.0 && abs v < 1e-15) then "the digits out"
+                    elif v = floor v then string (int64 v) + (if lit.Contains '.' then ".0" else "")
+                    else v.ToString("0.###############", Globalization.CultureInfo.InvariantCulture)
+                failAt tokLine tokCol $"'{lit}': NS has no exponent literals; write {written}"
         while Char.IsAsciiDigit(at 0) do i <- i + 1
         let text = src.Substring(start, i - start)
         if at 0 = '.' && Char.IsAsciiDigit(at 1) then
             i <- i + 1
             while Char.IsAsciiDigit(at 0) do i <- i + 1
+            noExponent ()
             let v = Double.Parse(src.Substring(start, i - start), Globalization.CultureInfo.InvariantCulture)
             if Double.IsInfinity v then failAt tokLine tokCol $"number '{src.Substring(start, i - start)}' is too large for a float"
             add (FLOAT v)
         else
+            noExponent ()
             match Int64.TryParse text with
             | true, v -> add (INT v)
             | _ -> failAt tokLine tokCol $"number '{text}' is too large for an int (max {Int64.MaxValue})"
