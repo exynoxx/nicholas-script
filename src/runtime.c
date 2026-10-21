@@ -25,6 +25,7 @@ typedef struct { Map m; int64_t dir; } Graph; // m: node -> M<t>I (neighbour -> 
 void ns_panic(const char *msg) { fprintf(stderr, "error: %s\n", msg); exit(1); }
 static void *alloc(size_t n) { void *p = calloc(1, n ? n : 1); if (!p) ns_panic("out of memory"); return p; }
 static void *grow(void *p, size_t n) { p = realloc(p, n ? n : 1); if (!p) ns_panic("out of memory"); return p; }
+static size_t mul(size_t a, size_t b) { size_t r; if (__builtin_mul_overflow(a, b, &r) || r > PTRDIFF_MAX) ns_panic("out of memory"); return r; } // allocation size a*b
 static inline void *ldp(const void *p) { void *r; memcpy(&r, p, sizeof r); return r; } // loads (storage may be unaligned)
 static inline int64_t ldi(const void *p) { int64_t r; memcpy(&r, p, 8); return r; }
 static inline double ldf(const void *p) { double r; memcpy(&r, p, 8); return r; }
@@ -74,7 +75,7 @@ static const char *intern(char c, const char *d) {
 // ---------- arrays ----------
 void *ns_arr_new(const char *d, int64_t n) { // empty array with capacity n (len 0)
   int64_t cap = n > 4 ? n : 4, sz = esz(d + 1);
-  Arr *a = obj(d, sizeof(Arr) + cap * sz); // data inline: one allocation per array
+  Arr *a = obj(d, sizeof(Arr) + mul(cap, sz)); // data inline: one allocation per array
   a->cap = cap; a->esz = sz;
   a->data = (char *)(a + 1);
   return a;
@@ -463,7 +464,7 @@ char *ns_concat(char *a, char *b) {
 char *ns_repeat(char *s, int64_t k) {
   size_t n = strlen(s);
   if (k < 0) k = 0;
-  char *r = obj("S", n * k + 1);
+  char *r = obj("S", mul(n, k) + 1);
   for (int64_t i = 0; i < k; i++) memcpy(r + i * n, s, n);
   return r;
 }
