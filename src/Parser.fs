@@ -115,7 +115,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
                     let path = System.IO.Path.GetFullPath(System.IO.Path.Combine(imports.dir, file))
                     if not (System.IO.File.Exists path) then errAt (pos - 1) ($"import: file not found: {path}")
                     if imports.seen.Add path then
-                        let toks = Lexer.lex (System.IO.File.ReadAllText path) 1 1
+                        imported.Value.Add(System.IO.Path.GetRelativePath(System.IO.Directory.GetCurrentDirectory(), path))
+                        let toks = Lexer.lex (System.IO.File.ReadAllText path) (imported.Value.Count * fileLines + 1) 1
                         let sub = Parser(Array.ofList toks, fnames, stdAliases, nextId, { imports with dir = System.IO.Path.GetDirectoryName path })
                         out.AddRange(sub.Program())
                 | t -> err ($"import expects a file name string, found {describeTok t}")
@@ -548,4 +549,5 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
 let parse (tokens: Token list) (path: string) : Stmt list =
     let path = System.IO.Path.GetFullPath path
     let imports = { dir = System.IO.Path.GetDirectoryName path; seen = HashSet [ path ] }
+    imported.Value.Clear()
     Parser(Array.ofList tokens, HashSet<string>(), Dictionary(), ref 0, imports).Program()

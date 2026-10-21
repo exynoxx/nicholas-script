@@ -16,6 +16,7 @@ let private showTyped (p: Typer.Program) =
 
 /// `path:line:col: error: msg`, then the source line with a caret under the column.
 let private showError (path: string) line col (msg: string) =
+    let path, line = defaultArg (source line) (path, line) // an error in an imported file names that file
     let src = try File.ReadAllLines path with _ -> [||]
     if line < 1 || line > src.Length then (let loc = if col > 0 then $"{line}:{col}" else string line in $"{path}:{loc}: error: {msg}")
     else
@@ -136,7 +137,8 @@ let private test (dir: string) =
         let result =
             match build f exe with
             | Some err when File.Exists errFile ->
-                let got = err.Substring(f.Length + 1).TrimEnd()
+                // an error in an imported file keeps that file's path
+                let got = (if err.StartsWith(f + ":") then err.Substring(f.Length + 1) else err).TrimEnd()
                 let want = (File.ReadAllText errFile).TrimEnd()
                 if got = want then None else Some($"expected error\n{want}\ngot\n{got}")
             | Some err -> Some err

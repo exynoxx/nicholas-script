@@ -1,0 +1,2 @@
+tests/lib/err_type.ns:2: error: cannot index int
+2 | y = x@0

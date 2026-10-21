@@ -189,7 +189,7 @@ let rec private debugE (e: E) : E =
 
 and private debugSS (ss: S list) : S list =
     let mutable line = 0
-    let show n = [ Do(mk (Call("println", [ mk (Bin("+", mk (Str $"{line}: {n} = "), mk (Var n))) ]))) ]
+    let show n = [ Do(mk (Call("println", [ mk (Bin("+", mk (Str $"{showLine line}: {n} = "), mk (Var n))) ]))) ]
     ss |> List.collect (fun s ->
         match s with
         | Line n -> (line <- n; [ s ])

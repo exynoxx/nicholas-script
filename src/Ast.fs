@@ -6,6 +6,14 @@ exception CompileError of int * int * string
 let fail line msg = raise (CompileError(line, 0, msg))
 let failAt line col msg = raise (CompileError(line, col, msg))
 
+/// Lines of the n-th imported file are offset by n * fileLines, so an error's line also names its file.
+/// Per thread: the test runner compiles files in parallel and reports each error on the thread that compiled it.
+let fileLines = 1_000_000
+let imported = new System.Threading.ThreadLocal<ResizeArray<string>>(fun () -> ResizeArray())
+/// The imported file (as a path from the working directory) and its own line, for an offset line.
+let source line = if line >= fileLines then Some(imported.Value.[line / fileLines - 1], line % fileLines) else None
+let showLine line = match source line with Some(path, l) -> $"{path}:{l}" | None -> string line
+
 /// Prefixes on ECall names the user wrote, so the typer can let a variable in scope shadow the function:
 /// `'f` is `f:args` (a non-function variable `f` makes it an error), `?f` a bare name (`x{f}`, `read`: the variable wins),
 /// `!f` the negated function `!f` whose one argument is the block `{!f:_}` (a variable `f` makes it a plain `!f`).

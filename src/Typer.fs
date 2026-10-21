@@ -544,7 +544,7 @@ and private userCall id (args: E list) : E =
                 with CompileError(l, c, msg) when not (msg.Contains "(when called at line ") ->
                     // the body is fine in general; say which call's argument types broke it
                     let ats = if tys.IsEmpty then "" else " with " + (tys |> List.map showTy |> String.concat ", ")
-                    raise (CompileError(l, c, $"{msg} (when called at line {savedLine}{ats})"))
+                    raise (CompileError(l, c, $"{msg} (when called at line {showLine savedLine}{ats})"))
             match List.rev ss with
             | Do r :: rest ->
                 inst.result <- conv r inst.ret

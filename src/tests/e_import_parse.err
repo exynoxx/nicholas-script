@@ -1,0 +1,3 @@
+tests/lib/err_parse.ns:1:5: error: '(' is never closed
+1 | q = (1 +
+  |     ^
