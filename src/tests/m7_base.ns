@@ -1,0 +1,17 @@
+println: base: 11, 2
+println: base: 0, 2
+println: base: -1, 16
+println: base: 35, 36
+println: hex: 255
+println: hex: -1
+println: hex: 0
+println: int: "1101", 2
+println: int: "ff", 16
+println: int: "42"
+x = 11
+println: int: (base: x, 2).rev, 2
+println: base: 0, 64
+println: base: 63, 64
+println: base: 4096, 64
+println: int: "BAA", 64
+println: int: (base: -1, 64), 64

@@ -880,8 +880,27 @@ static void *keep(void *p, int64_t n) {
 void *ns_keep_c(const char *dT, void *p, int64_t n) { return keep(p, n); }
 //@ keep ({K:V},int) {K:V} = ns_keep_m
 void *ns_keep_m(const char *dK, const char *dV, void *p, int64_t n) { return keep(p, n); }
+static const char B36[] = "0123456789abcdefghijklmnopqrstuvwxyz",
+  B64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"; // base 64 uses the RFC 4648 alphabet
+static void checkbase(int64_t b) { if ((b < 2 || b > 36) && b != 64) ns_panic("base must be 2..36 or 64"); }
+static char *digits(uint64_t u, int64_t b, char *end) { // writes u in base b ending at end; returns the start
+  checkbase(b);
+  const char *a = b == 64 ? B64 : B36;
+  do { *--end = a[u % b]; u /= b; } while (u);
+  return end;
+}
+//@ base (int,int) str
+char *ns_base(int64_t v, int64_t b) { char d[64], *p = digits(v, b, d + 64); return str_n(p, d + 64 - p); } // unsigned, no leading zeros
 //@ hex (int) str
-char *ns_hex(int64_t v) { char b[17]; snprintf(b, sizeof b, "%llx", (unsigned long long)v); return str_n(b, strlen(b)); }
+char *ns_hex(int64_t v) { char d[64], *p = digits(v, 16, d + 64); *--p = 'x'; *--p = '0'; return str_n(p, d + 64 - p); }
+//@ int (str,int) int = ns_unbase
+int64_t ns_unbase(char *s, int64_t b) { // int:"ff",16 -> 255; reads up to the first non-digit
+  checkbase(b);
+  if (b != 64) return (int64_t)strtoull(s, NULL, b);
+  uint64_t u = 0;
+  for (const char *c; *s && (c = strchr(B64, *s)); s++) u = u * 64 + (c - B64);
+  return (int64_t)u;
+}
 //@ gcd (int,int) int
 int64_t ns_gcd(int64_t a, int64_t b) {
   if (a < 0) a = -a;
