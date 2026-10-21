@@ -188,8 +188,11 @@ let rec private debugE (e: E) : E =
     { e with k = k }
 
 and private debugSS (ss: S list) : S list =
-    let mutable line = 0
-    let show n = [ Do(mk (Call("println", [ mk (Bin("+", mk (Str $"{showLine line}: {n} = "), mk (Var n))) ]))) ]
+    // a block's parameter copies come before its first line marker
+    let mutable line = ss |> List.tryPick (function Line n -> Some n | _ -> None) |> Option.defaultValue 0
+    // a named parameter `n` is renamed `n'<block id>`
+    let user (n: string) = match n.IndexOf '\'' with -1 -> n | k -> n.Substring(0, k)
+    let show n = [ Do(mk (Call("println", [ mk (Bin("+", mk (Str $"{showLine line}: {user n} = "), mk (Var n))) ]))) ]
     ss |> List.collect (fun s ->
         match s with
         | Line n -> (line <- n; [ s ])
