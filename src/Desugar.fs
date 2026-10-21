@@ -23,6 +23,7 @@ let rec private expr (env: Map<string, string>) (e: Expr) : E =
         let parts = List.map ex parts
         let first = match parts.Head.k with Str _ -> parts.Head | _ -> mk (Bin("+", mk (Str ""), parts.Head))
         parts.Tail |> List.fold (fun acc p -> mk (Bin("+", acc, p))) first
+    | EVar n when n.Length > 1 && n.[0] = '_' && n.[1] = '0' -> fail line $"'{n}' is not a name: block arguments and element parts count from _1"
     | EVar n when n.Length > 1 && n.[0] = '_' && env.ContainsKey "_#" -> // `_1 _2` in an iter block: element parts
         mk (Index(mk (Var env.["_#"]), mk (Int(int64 n.[1..] - 1L))))
     | EVar n -> mk (Var(defaultArg (Map.tryFind n env) n))

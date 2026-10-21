@@ -1,0 +1,2 @@
+1: error: '_0' is not a name: block arguments and element parts count from _1
+1 | println: [[1,2]]{_0}
