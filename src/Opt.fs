@@ -514,6 +514,7 @@ let private tailLoop (cx: Ctx) (i: Inst) =
     if not calls.IsEmpty && not (i.parms |> List.exists (snd >> isFnTy)) then
         let s = newSum ()
         List.iter (sumS cx s) i.body
+        sumE cx s i.result
         let assigns (u: string) =
             let mutable n = 0
             List.iter (iterS ignore (function Assign(x, _) when x = u -> n <- n + 1 | _ -> ())) i.body
@@ -662,6 +663,7 @@ let private inferBorrows (cx: Ctx) (insts: Inst list) =
     for i in insts do
         let s = newSum ()
         List.iter (sumS cx s) i.body
+        sumE cx s i.result
         sumE cx s i.result
         let ext = cx.info.[i.name]
         i.borrowed.Clear()
