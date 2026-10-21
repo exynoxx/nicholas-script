@@ -274,7 +274,15 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         else
             match symbols |> List.tryFind (fun s -> String.CompareOrdinal(src, i, s, 0, s.Length) = 0) with
             | Some s -> (sym s; i <- i + s.Length)
-            | None -> failAt tokLine tokCol ($"unexpected character '{c}'")
+            | None ->
+                // invisible characters (no-break space, form feed, zero-width space, ...) are shown by code point
+                let r = match Rune.DecodeFromUtf16(src.AsSpan i) with | Buffers.OperationStatus.Done, r, _ -> r | _ -> Rune.ReplacementChar
+                let code = $"U+{r.Value:X4}"
+                let cat = Rune.GetUnicodeCategory r
+                if Rune.IsWhiteSpace r then failAt tokLine tokCol $"unexpected whitespace character {code}: use a plain space"
+                elif Rune.IsControl r || cat = Globalization.UnicodeCategory.Format then failAt tokLine tokCol $"unexpected invisible character {code}"
+                elif r.Value > 127 then failAt tokLine tokCol $"unexpected character '{r}' ({code})"
+                else failAt tokLine tokCol $"unexpected character '{c}'"
     mark ()
     if stack.Count > 0 then
         let o, l, c = stack.Peek()
