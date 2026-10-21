@@ -105,23 +105,32 @@ and private stmts env (body: Stmt list) : S list = body |> List.collect (stmt en
 
 and private stmt env (s: Stmt) : S list =
     let ex = expr env
+    // a value that may run user code (which can reassign x) is computed before `x@i` is located
+    let rec plain (e: E) =
+        match e.k with
+        | Int _ | Float _ | Str _ | Bool _ | Var _ | Call("zero", []) -> true
+        | Bin(_, a, b) | Index(a, b) -> plain a && plain b
+        | _ -> false
     let assign lv (value: E) =
         match lv with
-        | EVar n -> Assign(defaultArg (Map.tryFind n env) n, value)
-        | EIndex(x, i) -> SetIdx(ex x, ex i, value)
+        | EVar n -> [ Assign(defaultArg (Map.tryFind n env) n, value) ]
+        | EIndex(x, i) when plain value -> [ SetIdx(ex x, ex i, value) ]
+        | EIndex(x, i) ->
+            let t = fresh "t"
+            [ Assign(t, value); SetIdx(ex x, ex i, mk (Var t)) ]
         | _ -> fail line "cannot assign to this expression"
     match s with
     | SLine n -> (line <- n; [ Line n ])
     | SExpr e -> [ Do(ex e) ]
     | SWhile(c, body) -> [ While(ex c, stmts env body) ]
-    | SAssign([ lv ], [ e ]) -> [ assign lv (ex e) ]
+    | SAssign([ lv ], [ e ]) -> assign lv (ex e)
     | SAssign(lvs, [ e ]) ->
         let t = fresh "t"
-        Assign(t, ex e) :: (lvs |> List.mapi (fun i lv -> assign lv (mk (Index(mk (Var t), mk (Int(int64 i)))))))
+        Assign(t, ex e) :: (lvs |> List.mapi (fun i lv -> assign lv (mk (Index(mk (Var t), mk (Int(int64 i)))))) |> List.concat)
     | SAssign(lvs, es) when lvs.Length = es.Length ->
         let temps = es |> List.map (fun _ -> fresh "t")
         List.map2 (fun t e -> Assign(t, ex e)) temps es
-        @ List.map2 (fun lv t -> assign lv (mk (Var t))) lvs temps
+        @ List.concat (List.map2 (fun lv t -> assign lv (mk (Var t))) lvs temps)
     | SAssign(lvs, es) -> fail line $"{lvs.Length} names on the left but {es.Length} values on the right"
     | SCompound("??", EIndex(x, i), e) ->
         // `m@k ??= e`: evaluates e and inserts it only when k is missing
@@ -131,8 +140,8 @@ and private stmt env (s: Stmt) : S list =
     | SCompound("??", _, _) -> fail line "??= needs a map element: m@k ??= v"
     | SCompound(op, (EIndex _ as lv), e) ->
         // `m@k op= e` reads a missing map key as the zero value (the typer picks it)
-        [ assign lv (mk (Bin(op, mk (Bin("??", ex lv, mk (Call("zero", [])))), ex e))) ]
-    | SCompound(op, lv, e) -> [ assign lv (mk (Bin(op, ex lv, ex e))) ]
+        assign lv (mk (Bin(op, mk (Bin("??", ex lv, mk (Call("zero", [])))), ex e)))
+    | SCompound(op, lv, e) -> assign lv (mk (Bin(op, ex lv, ex e)))
 
 /// Debug mode: after every assignment to a user variable, `println:"line: x = "+x`.
 let rec private debugE (e: E) : E =

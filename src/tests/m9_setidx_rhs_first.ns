@@ -1,0 +1,14 @@
+# the value is computed before the target element is located: grow replaces xs
+xs = [1,2,3]
+grow n = (xs = [7,8,9,10]; n)
+xs@0 = grow:0
+println:xs
+ws = ["a","b"]
+swap s = (ws = ["x","y","z"]; s)
+ws@1 = swap:"q"
+ws@0 += swap:"!"
+println:ws
+m = [1->"a"]
+reset k = (m = [2->"b"]; k)
+m@3 = reset:"c"
+println:m
