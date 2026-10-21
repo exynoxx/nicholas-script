@@ -20,6 +20,26 @@ let imported = new System.Threading.ThreadLocal<ResizeArray<string>>(fun () -> R
 let source line = if line >= fileLines then Some(imported.Value.[line / fileLines - 1], line % fileLines) else None
 let showLine line = match source line with Some(path, l) -> $"{path}:{l}" | None -> string line
 
+/// " (did you mean 'x'?)" for the closest candidate within edit distance 1 (2 for names of 8+ letters, none under 3), else "";
+/// swapping two adjacent letters counts as one edit.
+let didYouMean (name: string) (candidates: seq<string>) =
+    let dist (a: string) (b: string) =
+        let d = Array2D.init (a.Length + 1) (b.Length + 1) (fun i j -> if i = 0 then j elif j = 0 then i else 0)
+        for i in 1 .. a.Length do
+            for j in 1 .. b.Length do
+                d.[i, j] <- min (min (d.[i - 1, j] + 1) (d.[i, j - 1] + 1)) (d.[i - 1, j - 1] + (if a.[i - 1] = b.[j - 1] then 0 else 1))
+                if i > 1 && j > 1 && a.[i - 1] = b.[j - 2] && a.[i - 2] = b.[j - 1] then d.[i, j] <- min d.[i, j] (d.[i - 2, j - 2] + 1)
+        d.[a.Length, b.Length]
+    let limit = if name.Length >= 8 then 2 elif name.Length >= 3 then 1 else 0
+    candidates
+    |> Seq.filter (fun c -> c <> name && not (c.Contains '%') && not (c.StartsWith "_"))
+    |> Seq.map (fun c -> dist name c, c)
+    |> Seq.filter (fun (d, _) -> d <= limit)
+    |> Seq.sortBy (fun (d, c) -> d, c.[0] <> name.[0])
+    |> Seq.tryHead
+    |> Option.map (fun (_, c) -> $" (did you mean '{c}'?)")
+    |> Option.defaultValue ""
+
 /// Prefixes on ECall names the user wrote, so the typer can let a variable in scope shadow the function:
 /// `'f` is `f:args` (a non-function variable `f` makes it an error), `?f` a bare name (`x{f}`, `read`: the variable wins),
 /// `!f` the negated function `!f` whose one argument is the block `{!f:_}` (a variable `f` makes it a plain `!f`).

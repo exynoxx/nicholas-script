@@ -1,0 +1,3 @@
+2:9: error: undefined variable 'cout' (did you mean 'count'?)
+2 | println:cout
+  |         ^

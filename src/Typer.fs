@@ -225,7 +225,10 @@ and private typeAt (e: E) : E =
         | Var name ->
             match lookup name with
             | Some u -> typed (Var u) varTy.[u]
-            | None -> err ($"undefined variable '{name}'")
+            | None when name = "true" || name = "false" -> err ($"undefined variable '{name}': booleans are T and F")
+            | None ->
+                let rec names (f: Frame) = Seq.append f.vars.Keys (match f.parent with Some p -> names p | None -> Seq.empty)
+                err ($"undefined variable '{name}'" + didYouMean name (names cur))
         | Arr [] ->
             let h = newHole ()
             emptyEls.Add h
@@ -510,7 +513,7 @@ and private builtin name (args: E list) : E =
         | _ -> x
     | "repeat", [ x; n ] -> typed (Call("repeat", [ own (value x); conv n TInt ])) (TArr x.t)
     | _ when Stdlib.names.Contains name -> stdCall name args
-    | _ -> err ($"unknown function '{name}' with {args.Length} argument(s)")
+    | _ -> err ($"unknown function '{name}' with {args.Length} argument(s)" + didYouMean name Parser.builtins)
 
 /// A runtime stdlib call, typed from its `//@` signature (see Stdlib.fs). Type variables bind on first
 /// use; other arguments convert to the parameter type. The typed node carries one descriptor string per

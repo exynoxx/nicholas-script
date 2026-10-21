@@ -147,7 +147,9 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                     | _ when isSym ":" && (match tokens.[pos - 1].tok with ID f -> shadowed.Contains f | _ -> false) ->
                         let (ID f) = tokens.[pos - 1].tok in errAt (pos - 1) $"'{f}' is a variable here, not a function"
                     | _ when isSym ":" && (match tokens.[pos - 1].tok with ID _ -> true | _ -> false) ->
-                        errAt (pos - 1) ($"{describeTok tokens.[pos - 1].tok} is not a function: define it with a block, e.g. f = {{_+1}}")
+                        let (ID f) = tokens.[pos - 1].tok
+                        let hint = didYouMean f (Seq.append fnames builtins)
+                        errAt (pos - 1) (if hint <> "" then $"'{f}' is not a function{hint}" else $"'{f}' is not a function: define it with a block, e.g. f = {{_+1}}")
                     | _ -> err ($"expected end of statement, found {found ()}")
         if closer = EOF then noop ()
         List.ofSeq out
