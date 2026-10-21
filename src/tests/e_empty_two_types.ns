@@ -1,0 +1,5 @@
+s = %[]
+add = {s += _}
+add:"x"
+add:2
+println:s

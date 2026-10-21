@@ -40,9 +40,22 @@ let mutable private counter = 0
 /// Blocks wrapped in `memo:`, and the cache variable of every memoized instance.
 let private memos = HashSet<int>()
 let private memoCaches = ResizeArray<string>()
+/// Element types of empty literals ([] %[] [->]), and the blocks (instance key prefix) whose call fixed an outer one.
+let private emptyEls = ResizeArray<Ty>()
+let private fixers = HashSet<string>()
 let private err msg = fail line msg
 
 let newHole () = THole(ref None)
+
+/// Does type t contain the unbound hole h?
+let rec private holeIn (h: Ty) (t: Ty) =
+    match resolve h, resolve t with
+    | THole a, THole b -> obj.ReferenceEquals(a, b)
+    | _, (TArr x | TSet x | TQ x | TPQ x | TGraph x) -> holeIn h x
+    | _, TMap(k, v) -> holeIn h k || holeIn h v
+    | _, TTree(x, k) -> holeIn h x || (match k with Some(_, kt) -> holeIn h kt | None -> false)
+    | _, TTup ts -> List.exists (holeIn h) ts
+    | _ -> false
 let private typed k t = { k = k; t = t }
 let private isScalar t = match resolve t with TInt | TFloat | TStr | TBool -> true | _ -> false
 
@@ -199,7 +212,10 @@ and typeE (e: E) : E =
             match lookup name with
             | Some u -> typed (Var u) varTy.[u]
             | None -> err ($"undefined variable '{name}'")
-        | Arr [] -> typed (Arr []) (TArr(newHole ()))
+        | Arr [] ->
+            let h = newHole ()
+            emptyEls.Add h
+            typed (Arr []) (TArr h)
         | Arr xs ->
             let xs = List.map (typeE >> stored) xs
             let el = xs.Head.t
@@ -557,11 +573,18 @@ and private userCall id (args: E list) : E =
     let body, defFr = fnDefs.[id]
     // a block nested in a function belongs to that function's instance: it captures that instance's variables
     let outer = match defFr.inst with Some i -> i.name + "/" | None -> ""
-    let key = outer + string id + "(" + (tys |> List.map showTy |> String.concat ",") + ")"
+    let prefix = outer + string id
+    let key = prefix + "(" + (tys |> List.map showTy |> String.concat ",") + ")"
+    let unfixed (h: Ty) = match resolve h with THole _ -> true | _ -> false
+    let twoTypes () =
+        err "a block that fixes the element type of an empty literal ([] %[] [->]) from outside it can't be called at two different types; give the literal its type first"
     let inst =
         match insts.TryGetValue key with
         | true, i -> i
         | _ ->
+            if fixers.Contains prefix then twoTypes ()
+            // an empty literal passed as an argument belongs to the call, not to the block
+            let before = emptyEls |> Seq.filter (fun h -> unfixed h && not (List.exists (holeIn h) tys)) |> List.ofSeq
             let inst =
                 { name = $"f{id}_{instList.Count}"
                   parms = []
@@ -592,6 +615,9 @@ and private userCall id (args: E list) : E =
             | _ -> err "function body has no value"
             cur <- saved
             line <- savedLine
+            if before |> List.exists (unfixed >> not) then
+                if insts.Keys |> Seq.exists (fun k -> k <> key && k.StartsWith(prefix + "(")) then twoTypes ()
+                fixers.Add prefix |> ignore
             inst
     cur.inst |> Option.iter (fun c -> c.calls.Add inst.name |> ignore)
     typed (UserCall(inst.name, args)) inst.ret
@@ -653,7 +679,7 @@ let private propagateCaptures () =
 
 let check (prog: S list) : Program =
     varTy.Clear(); globals.Clear(); fnDefs.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear(); freshTemps.Clear()
-    memos.Clear(); memoCaches.Clear()
+    memos.Clear(); memoCaches.Clear(); emptyEls.Clear(); fixers.Clear()
     cur <- global0
     let main = typeStmts prog
     let caches =
