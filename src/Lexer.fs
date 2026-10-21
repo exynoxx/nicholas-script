@@ -235,6 +235,8 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             | _ -> if not inParens then (term (); stmtIndent <- indent)
         elif c = '#' && (" \t\r\n\000".IndexOf(at 1) >= 0) then
             while i < n && src.[i] <> '\n' && src.[i] <> '\r' do i <- i + 1
+        elif c = ';' && stack.Count > 0 && (let o, _, _ = stack.Peek() in o = '[') then
+            failAt line (i - lineStart + 1) "';' inside [ ]: separate elements with ','"
         elif c = ';' then (term (); i <- i + 1)
         elif Char.IsAsciiDigit c || (c = '.' && Char.IsAsciiDigit(at 1) && not (endsExpr ())) then lexNumber ()
         elif c = '-' && digitNext 1 && not (endsExpr ()) then lexNumber ()
