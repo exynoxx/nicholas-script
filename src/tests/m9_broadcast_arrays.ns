@@ -1,0 +1,8 @@
+xs = [1,2,3]
+ys = [10,20,30]
+println:xs+ys
+println:xs{_*2}-ys
+println:[[1,2],[3,4]]*[[5,6],[7,8]]
+println:[1.5,2.5]+[1,2]
+zs = xs[_>1] * [4,5]
+println:zs

@@ -130,7 +130,12 @@ let broadcast op (a: E) (b: E) (bIsArr: bool) =
     let y = Desugar.fresh "y"
     let el, ix, acc = Desugar.fresh "_", Desugar.fresh "@", Desugar.fresh "$"
     let rhs = if bIsArr then mk (Index(v y, v ix)) else v y
-    seq [ Assign(y, b) ] (mk (Iter { kind = IMap; src = a; el = el; ix = ix; acc = acc; body = [ Do(bin op (v el) rhs) ] }))
+    let map = mk (Iter { kind = IMap; src = a; el = el; ix = ix; acc = acc; body = [ Do(bin op (v el) rhs) ] })
+    if not bIsArr then seq [ Assign(y, b) ] map
+    else // a longer `a` fails indexing `y`; a shorter one is caught after the loop (checked after, so `a` still fuses)
+        let r = Desugar.fresh "r"
+        let mismatch = mk (If(bin "!=" (call "len" [ v r ]) (call "len" [ v y ]), seq [ Do(call "panic" [ mk (Str "array length mismatch") ]) ] (i64 0L), i64 0L))
+        seq [ Assign(y, b); Assign(r, map); Do mismatch ] (v r)
 
 /// Array element conversion `[a] -> [b]` for a scalar target type.
 let convArr (a: E) (castName: string) =
