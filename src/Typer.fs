@@ -59,6 +59,8 @@ let rec private holeIn (h: Ty) (t: Ty) =
     | _, TTup ts -> List.exists (holeIn h) ts
     | _ -> false
 let private typed k t = { k = k; t = t }
+/// A type as errors show it: a block is "a block", not its internal fn<id>.
+let private showT t = match resolve t with TFn _ -> "a block" | t -> showTy t
 let private isScalar t = match resolve t with TInt | TFloat | TStr | TBool -> true | _ -> false
 
 /// Unifies two types, binding holes; when they don't unify, no hole stays bound.
@@ -127,7 +129,7 @@ let private castName t =
     | TFloat -> "float"
     | TStr -> "str"
     | TBool -> "bool"
-    | t -> err ($"no conversion to {showTy t}")
+    | t -> err ($"no conversion to {showT t}")
 
 /// Generated temporaries (`%` in the name) whose every assignment so far stored a fresh array; a group
 /// (a lowered loop) yielding one hands it over.
@@ -185,8 +187,8 @@ and private conv (e: E) (ty: Ty) : E =
     | Some e -> e
     | None ->
         match resolve e.t with
-        | TFn _ -> err ($"a block can't be used as {showTy ty}; to filter or test, write the condition itself: x[_>2], not x[{{_>2}}]")
-        | _ -> err ($"cannot convert {showTy e.t} to {showTy ty}")
+        | TFn _ -> err ($"a block can't be used as {showT ty}; to filter or test, write the condition itself: x[_>2], not x[{{_>2}}]")
+        | _ -> err ($"cannot convert {showT e.t} to {showT ty}")
 
 /// Blocks can't escape, so none can be put into an array (also catches a map whose body is a block: x{{..}}).
 and private stored (x: E) : E =
@@ -246,7 +248,7 @@ and private typeAt (e: E) : E =
                     | TStr -> Str ""
                     | TBool -> Bool false
                     | TArr _ -> Arr []
-                    | t -> err ($"m@k {op}= on a missing key: no zero value for {showTy t}; use m@k = (m@k ?? d) {op} x")
+                    | t -> err ($"m@k {op}= on a missing key: no zero value for {showT t}; use m@k = (m@k ?? d) {op} x")
                 typeBin op (typeE (mk (Bin("??", mk (Index(x, i)), typed z v)))) b
             | _ -> typeBin op (typeIndex x (typeE i)) b
         | Bin("??", a, b) ->
@@ -314,7 +316,7 @@ and private typeAt (e: E) : E =
             | TArr _ ->
                 let it = { kind = (if filter then IFilter else IMap); src = src; el = t; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do arms ] }
                 typeE (mk (Iter it))
-            | t when filter -> err ($"?[ ] filters an array, not {showTy t}")
+            | t when filter -> err ($"?[ ] filters an array, not {showT t}")
             | _ -> typeE (mk (Seq([ Assign(t, src) ], arms)))
         | Conv _ -> err "unexpected conversion"
 
@@ -336,7 +338,7 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) : E =
     let limit = limit |> Option.map (fun k -> conv (typeE k) TInt)
     match resolve src.t with
     | TFloat | TBool | TTup _ | TFn _ as t ->
-        err ($"cannot {showKind stages.Head.kind} over {showTy t}: it needs an int, array, string, map, set, queue, tree or graph")
+        err ($"cannot {showKind stages.Head.kind} over {showT t}: it needs an int, array, string, map, set, queue, tree or graph")
     | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true)
     | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
         typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
@@ -388,7 +390,7 @@ and private typeBin op (a: E) (b: E) : E =
     | "/", TStr ->
         match resolve b.t with
         | TStr -> stdCall "split" [ a; b ] // `"a,b"/","` = split:"a,b",","
-        | t -> err ($"str / {showTy t}: only str / str (split) is defined")
+        | t -> err ($"str / {showT t}: only str / str (split) is defined")
     | _, TArr _ when isArith || isBit ->
         let bIsArr = match resolve b.t with TArr _ -> true | _ -> false
         typeE (Lower.broadcast op a b bIsArr)
@@ -406,7 +408,8 @@ and private typeBin op (a: E) (b: E) : E =
     | "+", TStr -> same ()
     | "*", TStr -> err "operator * not defined for str: use ** to repeat a string"
     | ("+" | "-" | "*"), TBool -> same ()
-    | _ -> err ($"operator {op} not defined for {showTy L}")
+    | _, TFn _ -> err ($"operator {op} not defined for a block; to call it, write f:x")
+    | _ -> err ($"operator {op} not defined for {showT L}")
 
 and private typeIndex (x: E) (i: E) =
     match resolve x.t with
@@ -424,7 +427,7 @@ and private typeIndex (x: E) (i: E) =
             let k = if k < 0L then int k + ts.Length else int k
             typed (Call("tget", [ x; typed (Int(int64 k)) TInt ])) ts.[k]
         | _ -> err ($"tuple index must be a literal 0..{ts.Length - 1}")
-    | t -> err ($"cannot index {showTy t}")
+    | t -> err ($"cannot index {showT t}")
 
 and private builtin name (args: E list) : E =
     let call t = typed (Call(name, args)) t
@@ -435,7 +438,7 @@ and private builtin name (args: E list) : E =
         | TArr e | TSet e | TQ e | TPQ e | TTree(e, _) -> e
         | TStr -> TStr
         | TMap(k, _) | TGraph k -> k
-        | t -> err ($"{name}: not a collection: {showTy t}")
+        | t -> err ($"{name}: not a collection: {showT t}")
     match name, args with
     | ("print" | "println"), [ x ] -> typed (Call(name, [ value x ])) x.t
     | ("int" | "float" | "str" | "bool"), [ x ] ->
@@ -450,7 +453,7 @@ and private builtin name (args: E list) : E =
     | "not", [ x ] -> typed (Call("not", [ conv x TBool ])) TBool
     | "notbool", [ x ] -> // `!{..}`: the block's value must be a bool
         if unify (resolve x.t) TBool then typed (Call("not", [ x ])) TBool
-        else err ($"!{{..}} negates a block that must return bool, but this one returns {showTy x.t}")
+        else err ($"!{{..}} negates a block that must return bool, but this one returns {showT x.t}")
     | "len", [ x ] -> (elemOf x |> ignore; call TInt)
     | "has", [ c; x ] when (match resolve c.t with TGraph n -> isEdge n x | _ -> false) -> stdCall "hasedge" [ c; x ]
     | "has", [ c; x ] when (match resolve c.t with TTree _ -> true | _ -> false) -> treeOp "bthas" c x
@@ -459,7 +462,7 @@ and private builtin name (args: E list) : E =
     | "slice", [ x; a; b ] ->
         match resolve x.t with
         | TArr _ | TStr -> typed (Call("slice", [ x; bound a; bound b ])) x.t
-        | t -> err ($"cannot slice {showTy t}")
+        | t -> err ($"cannot slice {showT t}")
     | "mapof", [ ks; vs ] -> call (TMap(elemOf ks, elemOf vs))
     | ("set" | "Q" | "PQ"), [ xs ] ->
         let el = elemOf xs
@@ -486,14 +489,15 @@ and private builtin name (args: E list) : E =
     | "push", [ a; x ] ->
         match resolve a.t with
         | TArr el -> typed (Call("push", [ a; own (conv (stored x) el) ])) a.t
-        | t -> err ($"push: not an array: {showTy t}")
+        | t -> err ($"push: not an array: {showT t}")
     | "panic", [ msg ] -> call TInt
     | "memo", [ { k = Fn(id, _) } as f ] -> (memos.Add id |> ignore; f)
     | "memo", _ -> err "memo: expects a block, as in f = memo:{...}"
     | ("sum" | "prod"), [ x ] when (match resolve x.t with TArr e -> (match resolve e with TInt | TFloat | THole _ -> false | _ -> true) | _ -> false) ->
         let hint = match resolve x.t with TArr e when (match resolve e with TTup _ -> true | _ -> false) -> "; fold tuples with /+ or /*" | _ -> ""
-        err ($"{name}: needs an array of int or float, not {showTy x.t}{hint}")
+        err ($"{name}: needs an array of int or float, not {showT x.t}{hint}")
     | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map (value >> own) xs)) (TTup(xs |> List.map (fun x -> x.t)))
+    | "tuple", xs -> err ($"a tuple holds at most 9 values, not {xs.Length}; use an array")
     | "repeat", [ x; n ] -> typed (Call("repeat", [ own (value x); conv n TInt ])) (TArr x.t)
     | _ when Stdlib.names.Contains name -> stdCall name args
     | _ -> err ($"unknown function '{name}' with {args.Length} argument(s)")
@@ -538,7 +542,7 @@ and private stdCall name (args: E list) : E =
         let shows f xs = match xs with [ x ] -> f x | xs -> "(" + (xs |> List.map f |> String.concat ",") + ")"
         let alts = Stdlib.overloads name |> List.map (fun sg -> shows Stdlib.showSTy sg.parms) |> List.distinct |> List.rev
         let alts = if alts.Length = 1 then alts.Head else String.concat ", " (List.rev alts.Tail) + " or " + alts.Head
-        $"{name} takes {alts}, not {shows (fun (a: E) -> showTy a.t) args}"
+        $"{name} takes {alts}, not {shows (fun (a: E) -> showT a.t) args}"
     let exact (sg: Stdlib.Sig) = let env = Dictionary() in List.forall2 (bind env) sg.parms (args |> List.map (fun a -> a.t))
     let sg = candidates |> List.tryFind exact |> Option.defaultValue candidates.Head
     let env = Dictionary<string, Ty>()
@@ -578,7 +582,7 @@ and private treeOp f (c: E) (x: E) : E =
         | None -> tx
         | Some(id, kt) ->
             let k = userCall id [ tx ]
-            if not (unify kt k.t) then err ($"BT: the key block returns {showTy k.t}, not {showTy kt}")
+            if not (unify kt k.t) then err ($"BT: the key block returns {showT k.t}, not {showT kt}")
             k
     let assign (v: E) (e: E) = let (Var u) = v.k in Assign(u, e)
     let call = stdCall f [ tc; k; tx ]
@@ -622,7 +626,7 @@ and private userCall id (args: E list) : E =
                 try typeStmts (if memos.Contains id then memoize tys.Length body else body)
                 with CompileError(l, c, msg) when not (msg.Contains "(when called at line ") ->
                     // the body is fine in general; say which call's argument types broke it
-                    let ats = if tys.IsEmpty then "" else " with " + (tys |> List.map showTy |> String.concat ", ")
+                    let ats = if tys.IsEmpty then "" else " with " + (tys |> List.map showT |> String.concat ", ")
                     raise (CompileError(l, c, $"{msg} (when called at line {showLine savedLine}{ats})"))
             match List.rev ss with
             | Do r :: rest ->
@@ -655,7 +659,7 @@ and private typeStmt (s: S) : S =
         match resolve x.t with
         | TArr el -> SetIdx(x, conv i TInt, own (conv value el))
         | TMap(k, v) -> SetIdx(x, own (conv i k), own (conv value v))
-        | t -> err ($"cannot assign into {showTy t}")
+        | t -> err ($"cannot assign into {showT t}")
     | Assign(name, e) ->
         let e = typeE e
         let generated = name.Contains '%'
@@ -704,7 +708,7 @@ let check (prog: S list) : Program =
         memoCaches |> Seq.map (fun u ->
             match resolve varTy.[u] with
             | TMap(k, v) as t -> Assign(u, typed (Call("mapof", [ typed (Arr []) (TArr k); typed (Arr []) (TArr v) ])) t)
-            | t -> err $"memo cache of type {showTy t}") |> List.ofSeq
+            | t -> err $"memo cache of type {showT t}") |> List.ofSeq
     let main = caches @ main
     propagateCaptures ()
     { main = main
