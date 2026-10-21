@@ -143,6 +143,9 @@ x@..2  x@1..     # open slices: first 2 / from 1 to the end; x@-2.. is the last 
 | sort     | `x${key}`       | `w${#_}`     | array sorted by key (stable; `x${-_}` descending); later ops see the sorted order: `w${#_}{upper}`. On a map `_` is a `(key, value)` tuple: `m${-_2}{_1}` = keys by value, largest first |
 
 `/op` is a fold only when no operand follows the op (`x/-1` is division).
+Chained maps and filters (and a fold or scan at the end) fuse into one loop with no intermediate arrays, so each
+element passes through every stage before the next element starts: side effects interleave per element.
+`c = 0; [1,2,3]{c += 1; c}{_ * c}` is `[1,4,9]`, not `[3,6,9]`.
 `x.take:n` keeps the first n elements (`x.take:-n` the last n; clamped to the length; strings give strings). On a map/filter
 chain (`xs[>5]{*2}.take:2`) the fused loop stops as soon as it has n results, so an expensive or huge source is not run to the end.
 `${` directly after an expression is a sort; elsewhere `$` stays the fold accumulator.
