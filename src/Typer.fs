@@ -533,6 +533,12 @@ and private stdCall name (args: E list) : E =
         | _ -> false
     let candidates = Stdlib.overloads name |> List.filter (fun (sg: Stdlib.Sig) -> sg.parms.Length = args.Length)
     if candidates.IsEmpty then err ($"{name}: no overload takes {args.Length} argument(s)")
+    // no overload fits: list them all, e.g. "max takes (T,T), [T] or BT T, not str"
+    let mismatch () =
+        let shows f xs = match xs with [ x ] -> f x | xs -> "(" + (xs |> List.map f |> String.concat ",") + ")"
+        let alts = Stdlib.overloads name |> List.map (fun sg -> shows Stdlib.showSTy sg.parms) |> List.distinct |> List.rev
+        let alts = if alts.Length = 1 then alts.Head else String.concat ", " (List.rev alts.Tail) + " or " + alts.Head
+        $"{name} takes {alts}, not {shows (fun (a: E) -> showTy a.t) args}"
     let exact (sg: Stdlib.Sig) = let env = Dictionary() in List.forall2 (bind env) sg.parms (args |> List.map (fun a -> a.t))
     let sg = candidates |> List.tryFind exact |> Option.defaultValue candidates.Head
     let env = Dictionary<string, Ty>()
@@ -552,7 +558,7 @@ and private stdCall name (args: E list) : E =
             | p, _ ->
                 let a = value a
                 bind env p a.t |> ignore
-                let a = conv a (toTy env p)
+                let a = match tryConv a (toTy env p) with Some a -> a | None -> err (mismatch ())
                 match a.k with Var _ -> own a | _ -> a) sg.parms args // an element argument is only read
     // descriptors are rendered by codegen, once every hole is resolved
     let descs = sg.tvars |> List.map (fun v -> typed Desc (toTy env (Stdlib.SVar v)))

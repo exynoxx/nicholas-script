@@ -27,6 +27,7 @@ type STy =
     | SPQ of STy
     | SBT of STy
 
+/// A signature type in the notation of the docs (SPEC.md), for error messages.
 let rec showSTy (t: STy) =
     match t with
     | SInt -> "int"
@@ -36,13 +37,13 @@ let rec showSTy (t: STy) =
     | SVar v -> v
     | SArr t -> "[" + showSTy t + "]"
     | STup ts -> "(" + (ts |> List.map showSTy |> String.concat ",") + ")"
-    | SFn(ps, b) -> "fn(" + (ps |> List.map showSTy |> String.concat ",") + ")->" + showSTy b
-    | SGraph t -> "G[" + showSTy t + "]"
+    | SFn _ -> "block"
+    | SGraph t -> "G " + showSTy t
     | SMap(k, v) -> "{" + showSTy k + ":" + showSTy v + "}"
-    | SSet t -> "%[" + showSTy t + "]"
-    | SQ t -> "Q[" + showSTy t + "]"
-    | SPQ t -> "PQ[" + showSTy t + "]"
-    | SBT t -> "BT[" + showSTy t + "]"
+    | SSet t -> "%" + showSTy t
+    | SQ t -> "Q " + showSTy t
+    | SPQ t -> "PQ " + showSTy t
+    | SBT t -> "BT " + showSTy t
 
 type Sig = { name: string; parms: STy list; ret: STy; csym: string; tvars: string list; rdesc: bool }
 
