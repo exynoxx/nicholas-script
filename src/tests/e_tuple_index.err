@@ -1,0 +1,3 @@
+2:10: error: tuple index 2 is out of range: the tuple has 2 values (0..1)
+2 | println:p@2
+  |          ^

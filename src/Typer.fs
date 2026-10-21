@@ -430,6 +430,7 @@ and private typeIndex (x: E) (i: E) =
         | Int k when abs (int k) < ts.Length + (if k < 0L then 1 else 0) ->
             let k = if k < 0L then int k + ts.Length else int k
             typed (Call("tget", [ x; typed (Int(int64 k)) TInt ])) ts.[k]
+        | Int k -> err ($"tuple index {k} is out of range: the tuple has {ts.Length} values (0..{ts.Length - 1})")
         | _ -> err ($"tuple index must be a literal 0..{ts.Length - 1}")
     | t -> err ($"cannot index {showT t}")
 
