@@ -366,7 +366,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, stdAliases: Dictio
     member p.Compare() =
         let l = p.Shift()
         match peek () with
-        | SYM ("=" | "!=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, l, p.Shift()))
+        | SYM ("=" | "!=" | "<" | ">" | "<=" | ">=" as op) ->
+            advance ()
+            let e = EBin(op, l, p.Shift())
+            match peek () with
+            | SYM ("=" | "!=" | "<" | ">" | "<=" | ">=" as op2) -> err ($"comparisons don't chain: write a {op} b & b {op2} c, or (a {op} b) {op2} c")
+            | _ -> e
         | _ -> l
 
     member p.Shift() = p.LeftAssoc([ "<<"; ">>"; ">>>" ], p.Add)
