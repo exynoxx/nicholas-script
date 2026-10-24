@@ -93,7 +93,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         let mutable stmtStart = true
         for j in 0 .. tokens.Length - 1 do
             if stmtStart && depth = 0 then
-                pos <- j
+                pos <- if tokens.[j].tok = ID "memo" then j + 1 else j // `memo f a = …`
                 match p.FnDefAhead(), tokens.[j].tok with
                 | Some(f, _, _), _ -> fnames.Add f |> ignore
                 | None, ID f when j + 2 < tokens.Length && tokens.[j + 1].tok = SYM "="
@@ -179,6 +179,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
     member p.Stmt() : Stmt =
         // `?? stmt`: skip the statement if it fails at runtime (missing key, index out of range, ...)
         if accept "??" then SExpr(EUn("??", EGroup [ p.Stmt(); SExpr(EInt 0L) ])) else
+        // `memo f a b = body` is `f = memo:{body}` with named parameters
+        let memo = peek () = ID "memo" && (pos <- pos + 1; p.FnDefAhead().IsSome || (pos <- pos - 1; false))
         match p.FnDefAhead() with
         | Some(f, ps, eq) ->
             // `f a b = body` is `f = {body}` with a, b naming _1, _2; a `{…}` body holds statements
@@ -193,7 +195,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             let body = if accept "{" then p.Block "}" else [ SLine(line ()); SExpr(p.Expr()) ]
             shadowed.Clear(); shadowed.UnionWith saved
             params.Clear(); params.UnionWith savedParams
-            SAssign([ EVar f ], [ EBlock(id, ps, body) ])
+            let fn = EBlock(id, ps, body)
+            SAssign([ EVar f ], [ (if memo then ECall("memo", [ fn ]) else fn) ])
         | None ->
         match p.AssignAhead() with
         | Some "=" ->

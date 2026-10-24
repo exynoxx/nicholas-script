@@ -311,7 +311,9 @@ Captured variables are not part of the key.
 fib = memo:{_<2 ? _ : (fib:_-1)+(fib:_-2)}
 fib:90                                       # 2880067194370816120, instantly
 paths = memo:{_1=0 | _2=0 ? 1 : (paths:_1-1,_2)+(paths:_1,_2-1)}
+memo paths r c = r=0 | c=0 ? 1 : (paths:r-1,c)+(paths:r,c-1)   # same, with named parameters
 ```
+`memo f a b = body` is `f a b = body` memoized (`f = memo:{…}` with named parameters).
 
 ## 5. Control flow
 ```

@@ -1,0 +1,12 @@
+memo fib n = n < 2 ? n : (fib:n-1) + (fib:n-2)
+println: fib:90
+memo paths r c = r = 0 | c = 0 ? 1 : (paths:r-1, c) + (paths:r, c-1)
+println: paths:16, 16
+memo ev n = n = 0 ? T : (od:n-1)
+memo od n = n = 0 ? F : (ev:n-1)
+println: ev:10
+memo dist (x, y) = {
+    d = float: x*x + y*y
+    d ^^ 0.5
+}
+println: dist:(3, 4)
