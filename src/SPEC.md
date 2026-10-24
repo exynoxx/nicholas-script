@@ -252,6 +252,7 @@ Maps, sets and queues are **reference types** (mutated in place, shared on assig
 
 In map blocks `_` is the value and bare `@` is the key (same as element/index for arrays). In `m{…}` a top-level `_ = e` writes the value back into m: `m{_ = _ + 1}` updates m in place (filters and arrays still compare, and so do `m{(_ = e)}` and the section `m{=e}`).
 `m{…}` returns a map with the same keys; `s{…}` returns a set; `m[…]`/`s[…]` return the same kind.
+A set chain that ends in a fold or scan is lazy, like a LINQ enumerable: `s{f}/+` folds every mapped value and builds no set, so equal values are not merged (`%[1,2,3]{_%2}/+` → 2).
 `@?` (contains) also works on arrays and strings: `"hello"@?"ll"`.
 Conversions: `map:pairs`, `set:arr`, `Q:arr`, `PQ:arr`, `arr:s` (to array; map → array of keys).
 Truthiness: an empty map/set/queue is falsy.

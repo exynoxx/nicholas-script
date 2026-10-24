@@ -1,0 +1,10 @@
+# a set map/filter chain consumed by a fold or scan doesn't deduplicate
+s = %[1,2,3]
+println: s{_*0+1}/+
+g x = x > 0
+println: s{g:_}[_]{1}/+
+println: s{_ % 2}\+
+println: s{_ % 2}/{$+_}
+# materialized, a set map is still a set
+println: s{_ % 2}
+println: #s{_ % 2}

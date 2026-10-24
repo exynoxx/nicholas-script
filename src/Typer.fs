@@ -338,6 +338,9 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) : E =
     | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true)
     | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
         typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
+    // a set chain consumed by a fold/scan is lazy: `s{f}/+` sums every mapped value, it builds no (deduplicating) set
+    | TSet _ when stages.Length > 1 && (it.kind = IFold || it.kind = IScan) ->
+        typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
     | _ ->
         // not fusable (maps/sets/queues keep their kind per stage): lower stage by stage
         let r = stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t) None false)) src
