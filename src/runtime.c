@@ -305,6 +305,7 @@ static void zero(const char *d, void *out) { // writes d's zero value (owned) to
   }
   memcpy(out, &p, sizeof p);
 }
+void ns_zero(const char *d, void *out) { zero(d, out); } // (no //@: the typer's zero of a type, for `x'`)
 void *ns_map_ref(void *p, const void *k) { // the value's storage, NULL if k is missing (borrowed)
   Map *m = p; int64_t i = find(m, k);
   return i < 0 ? NULL : m->vals + i * m->vsz;

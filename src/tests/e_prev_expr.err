@@ -1,0 +1,3 @@
+2:19: error: ' (previous iteration) must directly follow a variable name: x', _', x''
+2 | println:xs{(_ + 1)'}
+  |                   ^

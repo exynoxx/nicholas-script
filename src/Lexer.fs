@@ -272,6 +272,14 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             let op = (tryOpAfter ()).Value
             add (if c = '/' then FOLDOP op else SCANOP op)
             i <- i + 2
+        elif c = '\'' then
+            // `x'`: x in the previous loop iteration; the quotes become part of the name (`x''` two back)
+            match last () with
+            | ID name when i > 0 && src.[i - 1] <> ' ' && src.[i - 1] <> '\t'
+                           && not (toks.Count > 1 && toks.[toks.Count - 2].tok = SYM ".") ->
+                toks.[toks.Count - 1] <- { toks.[toks.Count - 1] with tok = ID(name + "'") }
+                i <- i + 1
+            | _ -> failAt tokLine tokCol "' (previous iteration) must directly follow a variable name: x', _', x''"
         elif c = '{' then (sym (if endsExpr () then "m{" else "{"); i <- i + 1)
         elif c = '~' && at 1 = '{' && endsExpr () then (sym "~{"; i <- i + 2)
         elif c = '~' then

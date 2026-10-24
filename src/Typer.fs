@@ -224,7 +224,12 @@ and private typeAt (e: E) : E =
         | Bool _ -> typed e.k TBool
         | Var name ->
             match lookup name with
-            | Some u -> typed (Var u) varTy.[u]
+            | Some u ->
+                // `x'` read before its first shift: it has x's type
+                match resolve varTy.[u], Desugar.prevOf.TryGetValue name with
+                | THole _ as h, (true, src) when (lookup src).IsSome -> unify h (typeE (mk (Var src))).t |> ignore
+                | _ -> ()
+                typed (Var u) varTy.[u]
             | None when name = "true" || name = "false" -> err ($"undefined variable '{name}': booleans are T and F")
             | None ->
                 let rec names (f: Frame) = Seq.append f.vars.Keys (match f.parent with Some p -> names p | None -> Seq.empty)
@@ -237,6 +242,11 @@ and private typeAt (e: E) : E =
             let xs = List.map (typeE >> stored) xs
             let el = xs.Head.t
             typed (Arr(xs |> List.map (fun x -> own (conv x el)))) (TArr el)
+        | Call("zero", []) ->
+            // the zero value of a type known later (Desugar: `x'` before enough iterations); the runtime builds it
+            let h = newHole ()
+            let sg: Stdlib.Sig = { name = "zero"; parms = []; ret = Stdlib.SVar "T"; csym = "ns_zero"; tvars = [ "T" ]; rdesc = false }
+            typed (StdCall(sg, [ typed Desc h ])) h
         | Call("foldid", [ { k = Str op }; acc ]) ->
             // identity of a fold op (Lower.iter: an empty `xs/op`)
             let acc = typeE acc
@@ -310,7 +320,7 @@ and private typeAt (e: E) : E =
             let src = typeE src
             match resolve src.t with
             | TArr _ ->
-                let it = { kind = (if filter then IFilter else IMap); src = src; el = t; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do arms ] }
+                let it = { kind = (if filter then IFilter else IMap); src = src; el = t; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do arms ]; post = [] }
                 typeE (mk (Iter it))
             | t when filter -> err ($"?[ ] filters an array, not {showT t}")
             | _ -> typeE (mk (Seq([ Assign(t, src) ], arms)))
@@ -380,7 +390,7 @@ and private typeBin op (a: E) (b: E) : E =
         | TArr e | TSet e | TQ e | TPQ e when not (unify b.t el) && unify e el ->
             let av, x = declare cur (Desugar.fresh "c") L, Desugar.fresh "_"
             let cv = typed (Var av) L
-            let it = { kind = IEach; src = b; el = x; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do(mk (Bin("+", cv, mk (Var x)))) ] }
+            let it = { kind = IEach; src = b; el = x; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do(mk (Bin("+", cv, mk (Var x)))) ]; post = [] }
             typed (Seq([ Assign(av, a); Do(typeE (mk (Iter it))) ], cv)) L
         | _ -> typed (Call("add", [ a; own (conv b el) ])) L
     | "+", TGraph n when isEdge n b -> stdCall "addedge" [ a; b ]
@@ -495,7 +505,7 @@ and private builtin name (args: E list) : E =
             | Arr [] -> []
             | _ ->
                 let el = Desugar.fresh "_"
-                let it = { kind = IEach; src = xs; el = el; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do(mk (Bin("+", tv, mk (Var el)))) ] }
+                let it = { kind = IEach; src = xs; el = el; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do(mk (Bin("+", tv, mk (Var el)))) ]; post = [] }
                 [ Do(typeE (mk (Iter it))) ]
         let (Var u) = tv.k
         typed (Seq(Assign(u, typed (Call("BT", [])) t) :: fill, tv)) t

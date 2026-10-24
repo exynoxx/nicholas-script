@@ -205,6 +205,9 @@ println:["1","22"]{int}+1   # => [2,23]
 println:[1,4,9,16].pairwise{_2-_1}       # => [3,5,7]
 println:(zip:[1,2],[3,4]){_1*_2}         # => [3,8]
 
+# x' is x one iteration back (x'' two back): the type's zero before that.
+println:[3,5,9,10]{_-_'}                 # => [3,2,4,1]
+
 # Sorting is a chain step: later blocks see the sorted order. On a map, _ is a
 # (key, value) tuple.
 println:["bb","a","ccc"]${#_}{upper}     # => ["A","BB","CCC"]

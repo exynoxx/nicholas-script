@@ -51,7 +51,7 @@ and K =
     | Seq of S list * E
     | MatchOn of E * string * E * bool // subject, element var, arms; an array subject maps (filters when true) the arms over its elements
 
-and Iter = { kind: Ast.IterKind; src: E; el: string; ix: string; acc: string; body: S list }
+and Iter = { kind: Ast.IterKind; src: E; el: string; ix: string; acc: string; body: S list; post: S list } // post: after every iteration (`x'` state)
 
 and S =
     | Assign of string * E
@@ -99,7 +99,7 @@ let rec showE (e: E) : string =
     | BlockRef f -> "&" + f
     | Desc -> ann "desc"
     | Index(x, i) -> showE x + "@" + showE i
-    | Iter it -> $"{Ast.showKind it.kind}({showE it.src}){{{it.el} {it.ix} {it.acc}| {showBody it.body}}}"
+    | Iter it -> $"{Ast.showKind it.kind}({showE it.src}){{{it.el} {it.ix} {it.acc}| {showBody (it.body @ it.post)}}}"
     | Fn(id, body) -> $"fn{id}{{{showBody body}}}"
     | Conv x -> ann ("conv(" + showE x + ")")
     | Seq(ss, x) -> "(" + showBody ss + "; " + showE x + ")"

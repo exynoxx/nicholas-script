@@ -1,0 +1,25 @@
+# x' is x in the previous iteration of the innermost loop; the type's zero before that
+xs = [3,5,9,10]
+println:xs{_ - _'}             # map: differences, first against 0
+println:xs[_ > _' + 1]         # filter: compared with the previous source element
+println:xs/{$ + _ * _'}        # fold: the first element seeds $, but still becomes _'
+println:xs\{$ + _'}            # scan
+println:xs[>4]{_ - _'}/+       # fused chain: _' is the previous element that reached the map
+println:xs{_''}                # two back
+println:xs{@ - @'}
+println:[(1,2),(3,4)]{_2'}
+s = 0
+1..5{s += _; println:s - s'}   # s' is s at the end of the previous iteration (zero first, not the outer 0)
+i = 0
+i < 4 ~{ i += 1; println:i * 10 + i' + i'' }
+# zero values
+println:[1.5,2.5]{_'}
+println:["a","b","c"]{_' + _}
+println:["a","b"]{_'.len}
+println:[T,F]{_'}
+a = []
+3{a ++= [_]; println:a'}
+# nested: the inner loop owns _' and restarts at zero
+println:[[1,2],[3,4]]{r = _; r{_ + _'}}
+k = 5
+4{y = k'; k = _ * 2; println:"{y} {k} {[1,2]{_'}}"}

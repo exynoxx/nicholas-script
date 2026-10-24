@@ -1,0 +1,2 @@
+3: error: 'x'' (previous iteration) needs an enclosing loop: a block over a collection or a ~{ loop
+3 | f = {_ + x'}

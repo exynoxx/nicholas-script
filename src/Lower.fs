@@ -67,7 +67,10 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
                 | Do { k = Bin("=", { k = Var x }, e) } when x = st.el ->
                     [ Assign(x, e); SetIdx(v s, v key, v x) ] @ (if i = last then [ Do(v x) ] else [])
                 | stmt -> [ stmt ])
-    let bodyE (st: Iter) = let ss, value = splitBody (writeBack st) in seq ss value
+    let bodyE (st: Iter) =
+        let ss, value = splitBody (writeBack st)
+        if st.post.IsEmpty then seq ss value
+        else let x = Desugar.fresh "v" in seq (ss @ [ Assign(x, value) ] @ st.post) (v x)
     let skip = i64 0L
     let when' cond (then': S list) = Do(mk (If(cond, seq then' skip, skip)))
     let empty () =
@@ -91,7 +94,7 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
             let push = if term.kind = IScan then [ Do(call "push" [ v r; v term.acc ]) ] else []
             // both branches give the accumulator, so a still-unknown `$` (a recursive call's result) keeps the
             // enclosing ternary's type hint instead of taking the then-branch's int
-            [ Do(mk (If(v first, seq [ Assign(term.acc, v term.el); Assign(first, mk (Bool false)) ] (v term.acc),
+            [ Do(mk (If(v first, seq ([ Assign(term.acc, v term.el); Assign(first, mk (Bool false)) ] @ term.post) (v term.acc),
                         seq [ Assign(term.acc, bodyE term) ] (v term.acc)))) ] @ push
         | IEach ->
             // the body's value is dropped: a map that yields it builds no result array either
@@ -143,7 +146,7 @@ let broadcast op (a: E) (b: E) (bIsArr: bool) =
     let y = Desugar.fresh "y"
     let el, ix, acc = Desugar.fresh "_", Desugar.fresh "@", Desugar.fresh "$"
     let rhs = if bIsArr then mk (Index(v y, v ix)) else v y
-    let map = mk (Iter { kind = IMap; src = a; el = el; ix = ix; acc = acc; body = [ Do(bin op (v el) rhs) ] })
+    let map = mk (Iter { kind = IMap; src = a; el = el; ix = ix; acc = acc; body = [ Do(bin op (v el) rhs) ]; post = [] })
     if not bIsArr then seq [ Assign(y, b) ] map
     else // a longer `a` fails indexing `y`; a shorter one is caught after the loop (checked after, so `a` still fuses)
         let r = Desugar.fresh "r"
@@ -153,4 +156,4 @@ let broadcast op (a: E) (b: E) (bIsArr: bool) =
 /// Array element conversion `[a] -> [b]` for a scalar target type.
 let convArr (a: E) (castName: string) =
     let el, ix, acc = Desugar.fresh "_", Desugar.fresh "@", Desugar.fresh "$"
-    mk (Iter { kind = IMap; src = a; el = el; ix = ix; acc = acc; body = [ Do(call castName [ v el ]) ] })
+    mk (Iter { kind = IMap; src = a; el = el; ix = ix; acc = acc; body = [ Do(call castName [ v el ]) ]; post = [] })

@@ -15,6 +15,7 @@ Types are never written; every expression has one type known at compile time.
 | `_` `_1` `_2`| implicit block args                    | |
 | `$`          | fold accumulator                       | |
 | `@`          | index op / current index inside block  | |
+| prev         | `x'`, `_'`, `x''`                      | a name with trailing `'`s (no space): its value 1, 2, … iterations ago (§3 Block shortcuts) |
 | comment      | `# ...` to end of line                 | `#` followed by space or end of line; otherwise `#` is length |
 
 ### Statement termination
@@ -77,7 +78,7 @@ int:"42"      float:x     str:3.5     bool:n
 | Level | Ops | Assoc |
 |-------|-----|-------|
 | 0 primary | `a..b` range (start is an atom; end is `+ - * ** / %` over atoms, so `0..n-1` ends at n-1; postfix `{}` `[]` `/+` still apply to the range) | none |
-| 1 postfix | `x{…}` map, `x[…]` filter, `x${…}` sort, `x/{…}` `x/op` fold, `x\{…}` `x\op` scan, `x@i` index, `.name` method call | left |
+| 1 postfix | `x{…}` map, `x[…]` filter, `x${…}` sort, `x/{…}` `x/op` fold, `x\{…}` `x\op` scan, `x@i` index, `.name` method call; `x'` previous iteration (part of the name) | left |
 | 2 prefix  | `-x` `#x` (length) | right |
 | 3 power   | `^^` | right |
 | 4 mul     | `* ** / %` | left |
@@ -162,6 +163,17 @@ Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter;
   (the block must return bool). A plain block as the whole body is an error: write `x[_>2]`, not `x[{_>2}]`.
   Blocks are not values in collections or conditions: `x{{_+1}}`, `[{_}]` and `f ? a : b` with a block `f` are compile errors.
 - Nested blocks: the innermost block owns `_`, `@`, `$`.
+- **Previous iteration** `x'`: the value of variable `x` one iteration ago in the innermost enclosing loop (a
+  map/filter/fold/scan/each block, or a `~{` while loop); `x''` two ago, and so on. Works for `_`, `@`, `_1`… and
+  user variables. A user variable's `x'` is its value at the end of the previous iteration; before enough
+  iterations it is the type's zero (`0`, `0.0`, `""`, `F`, empty collection), also when `x` was assigned before
+  the loop: the outer value never seeds it.
+  `[3,5,9,10]{_ - _'}` is `[3,2,4,1]`; `s = 0; 1..5{s += _; println:s - s'}` prints `1 2 3 4`.
+  A filter's `_'` is the previous source element (kept or not); in a chain (`xs[>4]{_ - _'}`) each block sees its
+  own input. A fold's first element seeds `$` without running the block, but still becomes `_'`. The innermost
+  loop owns `x'` like `_`: in `xs{r = _; r{_ + _'}}` the inner `_'` restarts at 0 for every row. A plain block
+  (`f = {_'}`) or a `?[ ]` arm is not a loop: `x'` there is a compile error, as is `'` after anything but a
+  name (`(a+b)'`, `5'`) and assigning to `x'`. The state is a carried variable, so chains still fuse into one loop.
 - `_` current element, `@` (bare) current index, `$` fold accumulator.
 - `_1`, `_2`, … for multi-argument blocks. Inside a map/filter/fold/scan block they destructure the element instead (`_1` = `_@0`): `xs.pairwise{_2-_1}`, `(zip:a,b){_1*_2}`.
 - Last expression in a block is its value.
@@ -458,6 +470,7 @@ primary   = atom [ ".." rangeend ] ;
 rangeend  = rterm { ("+" | "-") rterm } ;  rterm = atom { ("*" | "**" | "/" | "%") atom } ;
 atom      = [ "-" | "#" ] ( INT | IDENT | "(" expr ")" | "(" stmts ")" ) | base ;   (* "(" stmts ")" needs a top-level ";" *)
 base      = INT | FLOAT | STRING | BOOL | IDENT | "_" | "_" INT | "$" | "@"
+          | ( IDENT | "_" | "_" INT | "@" ) "'" { "'" }     (* previous iteration, no spaces *)
           | "[" [ exprlist ] "]" | "[" pairs "]" | "[->]"
           | ("%" | "Q" | "PQ") "[" [ exprlist ] "]"
           | "(" expr ")" | "{" block "}" ;

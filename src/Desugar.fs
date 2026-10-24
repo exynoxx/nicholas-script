@@ -34,6 +34,36 @@ and private arityS (ss: S list) =
         | Line _ -> 0)
     |> List.fold max 0
 
+/// `x'` state of the innermost loop being desugared: x -> [x' ; x''; ...] (variables `prev'^n`), and where their
+/// zero initialisations go (before the statement holding the loop, so fused chains stay plain `Iter`s).
+type private Prev = { chains: System.Collections.Generic.Dictionary<string, ResizeArray<string>>; inits: ResizeArray<S> }
+/// The initialisations collected for the statement being desugared.
+let mutable private inits = ResizeArray<S>()
+let mutable private loop: Prev option = None
+/// `prev'^n` -> the variable it trails, so the typer can give it that type before the shift assigns it.
+let prevOf = System.Collections.Generic.Dictionary<string, string>()
+let private newLoop () = { chains = System.Collections.Generic.Dictionary(); inits = inits }
+
+/// The variable holding u as it was k iterations ago in the innermost loop.
+let private prevVar (shown: string) (u: string) (k: int) =
+    match loop with
+    | None -> fail line $"'{shown}' (previous iteration) needs an enclosing loop: a block over a collection or a ~{{ loop"
+    | Some p ->
+        let ch = match p.chains.TryGetValue u with | true, c -> c | _ -> (let c = ResizeArray() in p.chains.[u] <- c; c)
+        while ch.Count < k do
+            counter <- counter + 1
+            let v = $"prev'^{counter}" // not a temp (no `%`): it owns its value like a user variable
+            prevOf.[v] <- (if ch.Count = 0 then u else ch.[ch.Count - 1])
+            ch.Add v
+            p.inits.Add(Assign(v, mk (Call("zero", []))))
+        ch.[k - 1]
+
+/// End of an iteration: shift every chain by one (`x'' = x'; x' = x`).
+let private shifts (p: Prev) =
+    [ for KeyValue(u, ch) in p.chains do
+          for i in ch.Count - 1 .. -1 .. 1 -> Assign(ch.[i], mk (Var ch.[i - 1]))
+          yield Assign(ch.[0], mk (Var u)) ]
+
 /// `env` renames the implicit names `_ @ $` to the variables of the innermost block.
 /// The core node keeps the source position of the AST node, for typer errors.
 let rec private expr (env: Map<string, string>) (e: Expr) : E =
@@ -53,6 +83,12 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
         let parts = List.map ex parts
         let first = match parts.Head.k with Str _ -> parts.Head | _ -> mk (Bin("+", mk (Str ""), parts.Head))
         parts.Tail |> List.fold (fun acc p -> mk (Bin("+", acc, p))) first
+    | EVar n when n.EndsWith "'" ->
+        let b = n.TrimEnd '\''
+        match (ex (EVar b)).k with
+        | Var u -> mk (Var(prevVar n u (n.Length - b.Length)))
+        | Index({ k = Var u }, i) -> mk (Index(mk (Var(prevVar n u (n.Length - b.Length))), i)) // `_1'` in an iter block
+        | _ -> fail line $"'{n}': ' (previous iteration) only follows a variable name"
     | EVar n when n.Length > 1 && n.[0] = '_' && n.[1] = '0' -> fail line $"'{n}' is not a name: block arguments and element parts count from _1"
     | EVar n when n.Length > 1 && n.[0] = '_' && env.ContainsKey "_#" -> // `_1 _2` in an iter block: element parts
         mk (Index(mk (Var env.["_#"]), mk (Int(int64 n.[1..] - 1L))))
@@ -110,12 +146,18 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
                     group |> List.indexed |> List.filter (snd >> (<>) "_")
                     |> List.map (fun (k, p) -> Assign($"{p}'{id}", mk (Index(arg, mk (Int(int64 k)))))))
             |> List.concat
+        let saved = loop
+        loop <- None // a block's body is its own: `x'` there needs a loop inside it
         let body = bind @ block env' body
+        loop <- saved
         arity.[id] <- arityS body
         mk (Fn(id, body))
     | EMatch(kind, x, arms) ->
         let t = fresh "_"
+        let saved = loop
+        if kind <> "whole" then loop <- None // the arms run per element, but outside the loop's `x'` shifts
         let arms = expr (env.Add("_", t).Add("_#", t)) arms
+        loop <- saved
         if kind = "whole" then mk (Seq([ Assign(t, ex x) ], arms)) else mk (MatchOn(ex x, t, arms, (kind = "filter")))
     | EGroup body ->
         match List.rev (block env body) with
@@ -125,7 +167,11 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
 and private iter env kind src (mkBody: Map<string, string> -> S list) =
     let el, ix, acc = fresh "_", fresh "@", fresh "$"
     let env' = env.Add("_", el).Add("_#", el).Add("@", ix).Add("$", acc)
-    mk (Iter { kind = kind; src = src; el = el; ix = ix; acc = acc; body = mkBody env' })
+    let saved, p = loop, newLoop ()
+    loop <- Some p
+    let body = mkBody env'
+    loop <- saved
+    mk (Iter { kind = kind; src = src; el = el; ix = ix; acc = acc; body = body; post = shifts p })
 
 /// `cond ? ret: v` leaves the block with v: the statements after it become the else branch.
 /// `ret: v` alone ends the block with v.
@@ -154,6 +200,14 @@ and private block env body =
 and private stmts env (body: Stmt list) : S list = body |> List.collect (stmt env)
 
 and private stmt env (s: Stmt) : S list =
+    let saved = inits
+    inits <- ResizeArray()
+    let ss = stmt1 env s
+    let pre = List.ofSeq inits
+    inits <- saved
+    pre @ ss
+
+and private stmt1 env (s: Stmt) : S list =
     let ex = expr env
     // a value that may run user code (which can reassign x) is computed before `x@i` is located
     let rec plain (e: E) =
@@ -161,8 +215,10 @@ and private stmt env (s: Stmt) : S list =
         | Int _ | Float _ | Str _ | Bool _ | Var _ | Call("zero", []) -> true
         | Bin(_, a, b) | Index(a, b) -> plain a && plain b
         | _ -> false
+    let rec root lv = match lv with EIndex(x, _) -> root x | EVar n when n.EndsWith "'" -> Some n | _ -> None
     let assign lv (value: E) =
         match lv with
+        | _ when (root lv).IsSome -> fail line $"cannot assign to '{(root lv).Value}': a previous-iteration value is read-only"
         | EVar n -> [ Assign(defaultArg (Map.tryFind n env) n, value) ]
         | EIndex(x, i) when plain value -> [ SetIdx(ex x, ex i, value) ]
         | EIndex(x, i) ->
@@ -172,7 +228,15 @@ and private stmt env (s: Stmt) : S list =
     match s with
     | SLine n -> (line <- n; [ Line n ])
     | SExpr e -> [ Do(ex e) ]
-    | SWhile(c, body) -> [ While(ex c, stmts env body) ]
+    | SWhile(c, body) ->
+        let n0 = inits.Count
+        let c = ex c
+        let condInits = List.ofSeq inits |> List.skip n0 // loops in the condition restart on every test
+        let saved, p = loop, newLoop ()
+        loop <- Some p
+        let body = stmts env body
+        loop <- saved
+        [ While(c, body @ shifts p @ condInits) ]
     | SAssign([ lv ], [ e ]) -> assign lv (ex e)
     | SAssign(lvs, [ e ]) ->
         // the typer checks the value has as many parts as there are names
@@ -222,7 +286,7 @@ and private debugSS (ss: S list) : S list =
         match s with
         | Line n -> (line <- n; [ s ])
         | Assign(n, ({ k = Fn _ } as e)) -> [ Assign(n, debugE e) ]
-        | Assign(n, e) -> Assign(n, debugE e) :: (if n.Contains '%' then [] else show n)
+        | Assign(n, e) -> Assign(n, debugE e) :: (if n.Contains '%' || n.StartsWith "prev'^" then [] else show n)
         | SetIdx(x, i, v) -> SetIdx(debugE x, debugE i, debugE v) :: (match x.k with Var n when not (n.Contains '%') -> show n | _ -> [])
         | While(c, body) -> [ While(debugE c, debugSS body) ]
         | Do e -> [ Do(debugE e) ])
@@ -231,5 +295,7 @@ let mutable debug = false
 
 let desugar (prog: Stmt list) : S list =
     arity.Clear()
+    prevOf.Clear()
+    loop <- None
     let core = stmts Map.empty prog
     if debug then debugSS core else core
