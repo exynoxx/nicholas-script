@@ -1,6 +1,6 @@
 # Group anagrams: map from a word's sorted letters to the list of its anagrams.
 w = ["eat","tea","tan","ate","nat","bat"]
-g = [->]
+g = [->] ?? []
 w{g@(_{_}.sort.join:"") ++= _}
 g.keys.sort{println:"{_}: {(g@_).join:" "}"}
 println:"{#g} groups"

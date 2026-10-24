@@ -16,7 +16,7 @@
 #include <sys/wait.h>
 
 typedef struct { int64_t len, cap; char *data; int64_t esz; } Arr;
-typedef struct Map { int64_t len, cap, used, ksz, vsz; const char *kd, *vd; char *keys, *vals, *st; } Map; // st: 0 empty, 1 full, 2 tomb; vd NULL = set
+typedef struct Map { int64_t len, cap, used, ksz, vsz; const char *kd, *vd; char *keys, *vals, *st, *def; } Map; // st: 0 empty, 1 full, 2 tomb; vd NULL = set; def: value for a missing key (`m ?? d`), NULL = none
 typedef struct Node { struct Node *next; char v[]; } Node;
 typedef struct { int64_t len; Node *head, *tail; const char *d; int64_t esz; } Queue;
 typedef struct { int64_t len, cap; char *data; int64_t esz; const char *d; } PQ; // prefix-compatible with Arr
@@ -302,11 +302,18 @@ void *ns_map_put(void *p, const void *k) { // the value's storage for k, inserti
   if (i < 0) { static const char z[72]; retv(m->kd, k); i = insert(m, k, z); }
   return m->vals + i * m->vsz;
 }
-void ns_map_get(void *p, const void *k, void *out) { // a missing key is null, which no value can hold
+void ns_map_get(void *p, const void *k, void *out) { // a missing key reads the map's default, an error without one
   Map *m = p;
   int64_t i = find(m, k);
-  if (i < 0) ns_panic("null: missing map key (use m@k ?? default)");
-  cpy(m->vd, out, m->vals + i * m->vsz);
+  if (i < 0 && !m->def) ns_panic("missing map key (give the map a default: m ?? d)");
+  cpy(m->vd, out, i < 0 ? m->def : m->vals + i * m->vsz);
+}
+//@ mapdef ({K:V},V) {K:V}
+void *ns_mapdef(const char *dK, const char *dV, void *p, const void *v) { // `m ?? d`: sets m's default in place, returns m
+  Map *m = p;
+  if (m->def) relv(m->vd, m->def); else m->def = alloc(m->vsz);
+  cpy(m->vd, m->def, v);
+  ns_retain(p); return p;
 }
 void *ns_map_vals(void *p) {
   Map *m = p; Arr *r = ns_arr_new(intern('A', m->vd), m->len);
@@ -839,6 +846,7 @@ void ns_release(void *p) {
   case 'M': case 'H': case 'G': {
     Map *m = p;
     for (int64_t i = 0; i < m->cap; i++) if (m->st[i] == 1) { relv(m->kd, m->keys + i * m->ksz); if (m->vd) relv(m->vd, m->vals + i * m->vsz); }
+    if (m->def) { relv(m->vd, m->def); free(m->def); }
     free(m->keys); free(m->vals); free(m->st);
     break;
   }

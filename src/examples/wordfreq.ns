@@ -1,6 +1,6 @@
 # Word frequency: count words with a map, println them alphabetically.
 w = split:"the cat and the dog and the bird"," "
-c = [->]
+c = [->] ?? 0
 w{c@_+=1}
 c.keys.sort{println:"{_} {c@_}"}
 println:"{#c} distinct words, top count {max:c.vals}"

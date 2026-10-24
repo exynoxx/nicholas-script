@@ -334,19 +334,19 @@ println:v                   # => v
 # 9. Maps, sets, queues
 # ==================================================
 
-# Hash map. A missing key reads as null, a runtime error unless `??` gives a default.
+# Hash map. Reading a missing key is a runtime error unless `m ?? d` gave the map a default.
 m = ["a"->1, "b"->2]
 m@"c" = 3
 println:m@"a"               # => 1
-println:m@"zzz"??0          # => 0
+println:(m ?? 0)@"zzz"      # => 0
 println:m@?"b"              # => T    (@? is "contains")
 m -= "b"
 println:#m                  # => 2
 # coll ** 0 (or ** F) empties a map, set or queue in place: m ** F
 
 # Empty literals get their type from the first use.
-cnt = [->]
-"mississippi"{cnt@_ += 1}           # op= reads a missing key as zero
+cnt = [->] ?? 0                      # missing keys read as 0
+"mississippi"{cnt@_ += 1}
 println:cnt.keys.sort{"{_}{cnt@_}"}.join:" "   # => i4 m1 p2 s4
 
 # In a map block, _ is the value and @ is the key.

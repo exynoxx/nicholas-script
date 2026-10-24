@@ -237,36 +237,14 @@ and private typeAt (e: E) : E =
             let xs = List.map (typeE >> stored) xs
             let el = xs.Head.t
             typed (Arr(xs |> List.map (fun x -> own (conv x el)))) (TArr el)
-        | Bin(op, { k = Bin("??", { k = Index(x, i) }, { k = Call("zero", []) }) }, b) ->
-            // `m@k op= b`: a missing key reads as the zero value of the map's values (typed from b if still unknown)
-            let x, b = typeE x, typeE b
-            match resolve x.t with
-            | TMap(_, v) ->
-                match resolve v with
-                | THole _ -> unify v (match op, resolve b.t with "++", TArr _ -> b.t | "++", t -> TArr t | _ -> b.t) |> ignore
-                | _ -> ()
-                let z =
-                    match resolve v with
-                    | TInt -> Int 0L
-                    | TFloat -> Float 0.0
-                    | TStr -> Str ""
-                    | TBool -> Bool false
-                    | TArr _ -> Arr []
-                    | t -> err ($"m@k {op}= on a missing key: no zero value for {showT t}; use m@k = (m@k ?? d) {op} x")
-                typeBin op (typeE (mk (Bin("??", mk (Index(x, i)), typed z v)))) b
-            | _ -> typeBin op (typeIndex x (typeE i)) b
         | Bin("??", a, b) ->
-            // only a map read can be null: `m@k ?? d` is `has(m,k) ? m@k : d`, m and k evaluated once
-            match a.k with
-            | Index(x, i) ->
-                let x = typeE x
-                match resolve x.t with
-                | TMap _ ->
-                    let m, k = Desugar.fresh "m", Desugar.fresh "k"
-                    let v n = mk (Var n)
-                    typeE (mk (Seq([ Assign(m, x); Assign(k, i) ], mk (If(mk (Call("has", [ v m; v k ])), mk (Index(v m, v k)), b)))))
-                | _ -> typeIndex x (typeE i)
-            | _ -> typeE a
+            // `m ?? d`: a missing key of m reads as d from now on (set in place, returns m)
+            let a, b = typeE a, typeE b
+            match resolve a.t with
+            | TMap(_, v) ->
+                (match resolve v with THole _ -> unify v b.t |> ignore | _ -> ())
+                stdCall "mapdef" [ a; conv b v ]
+            | t -> err $"?? gives a map a default value (m ?? d), not {showT t}"
         | Bin(op, a, b) -> typeBin op (typeE a) (typeE b)
         | If(c, a, b) ->
             let c = conv (typeE c) TBool

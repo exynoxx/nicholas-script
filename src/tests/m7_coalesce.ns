@@ -1,22 +1,18 @@
-# m@k is null for a missing key; ?? supplies a default (m and k evaluated once)
-m = ["a"->1]
-println:m@"a" ?? 5
-println:m@"z" ?? 5
-println:(m@"z"??0)+1
-c = [->]; "hello"{c@_ = (c@_??0)+1}
+# m ?? d: missing keys of m read as d (no insert); without it a missing key is an error
+c = [->] ?? 0
+"hello"{c@_ += 1}
 println:c@"l"
-println:m@"x" ?? m@"y" ?? 9
-s = ["k"->"v"]
-println:s@"q" ?? "none"
-nested = [1->[2->3]]
-println:(nested@1)@2 ?? 0
-println:(nested@1)@7 ?? 0
-println:#m
-println:[1,2]@0 ?? 7
-# op= reads a missing key as zero
-w = [->]; ("a b a".split:" "){w@_+=1}
-println:w@"a"
-g = [->]; ["ab","ba","c"]{g@(_.chars.sort.join:"") ++= _}
-println:g@"ab"
-f = ["x"->1.5]; f@"y" *= 2
+println:c@"z"
+println:#c
+g = [->] ?? []
+[(1,2),(1,3),(2,4)]{g@_1 ++= [_2]}
+println:g@1
+println:g@9
+s = ["k"->"v"] ?? "none"
+println:s@"q"
+f = ["x"->1.5]
+f ?? 0.0
+f@"y" *= 2
 println:f@"y"
+nested = [1->[2->3] ?? 0]
+println:nested@1@7

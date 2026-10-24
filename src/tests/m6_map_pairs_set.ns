@@ -3,7 +3,7 @@ pos = set: rows {r = @; _{ (r,@) }} .flatten
 grid = map: pos [(rows@_1@_2 = "@")] {(_,0)}
 println: #grid
 println: grid@(0,2)
-println: grid@(0,0) ?? 9
+println: (grid ?? 9)@(0,0)
 s = set: [(1,"a"), (2,"b")]
 m = map: s
 println: m@1 + m@2

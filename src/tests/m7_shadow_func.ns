@@ -11,6 +11,5 @@ println:[4,8].max
 read = "r"
 println:read
 has = 1
-m = [1->2]
-m@5 ??= 3
+m = [1->2] ?? 3
 println:m@5

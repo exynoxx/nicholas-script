@@ -1,10 +1,10 @@
 # Top-k frequent: count with a map, push (-count, x) tuples into a min-heap, pop k.
 # Ties pop in ascending order of x, since tuples compare element by element.
 x = [1,1,1,2,2,3,4,4,4,4,5,5]
-c = [->]; x{c@_+=1}
+c = [->] ?? 0; x{c@_+=1}
 q = PQ[]; c{q+=(-_,@)}
 println:0..3{q.pop@1}
 t = split:"the quick fox and the lazy dog and the fox"," "
-n = [->]; t{n@_+=1}
+n = [->] ?? 0; t{n@_+=1}
 p = PQ[]; n{p+=(-_,@)}
 println:0..3{p.pop@1}.join:" "

@@ -7,7 +7,7 @@ open Ast
 /// language primitives plus every function declared in runtime.c (see Stdlib.fs)
 let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ"; "BT"; "memo" ] + Stdlib.names
 let private zeroArity = Stdlib.zeroArity
-let private compounds = set [ "+="; "-="; "*="; "**="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>="; "??=" ]
+let private compounds = set [ "+="; "-="; "*="; "**="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>=" ]
 
 /// Keywords of other languages: a statement starting with one gets a hint.
 let private foreign =
@@ -402,11 +402,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             op <- List.tryFind isSym ops
         e
 
-    /// `a ?? b`: b when a is null (a missing map key); right-associative.
+    /// `m ?? d`: gives map m the default value d for missing keys.
     member p.Coalesce() : Expr =
         let l = p.Or()
         let j = pos
-        if accept "??" then mark j (EBin("??", l, p.Coalesce())) else l
+        if accept "??" then mark j (EBin("??", l, p.Or())) else l
 
     member p.Or() = p.LeftAssoc([ "|" ], p.Xor)
     member p.Xor() = p.LeftAssoc([ "^" ], p.And)
