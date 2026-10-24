@@ -142,6 +142,7 @@ println:a            # %[3,2]
 | ✅ `println:0..10..2` | prints 0..9 | `range(println(range(0,10)), 2)`; `x = 0..3..100` is rejected; ✅ 03a8e54 (now an error) |
 | ✅ `println: [[1,2]]{_0}` | `[2]` | error; `_0` becomes `_@-1`; ✅ dc58527 (now an error) |
 | ✅ `1^^-1`, `(-1)^^-1` | 0, 0 | 1, -1 (`ns_ipow` returns 0 for `e<0`); ✅ db1cd22; `0^^-1` errors: 7bf513c |
+| `25 ^^ 0.5` (int base, float exponent) | `1` | `5.0`: the left-operand rule converts 0.5 to int 0; also breaks the SPEC `dist` example (§7). Workaround: `float:` the base. Found 2026-10-24 |
 | ✅ `abs:INT64_MIN`, `gcd:INT64_MIN,6` | 0 / 6 on LLVM, INT64_MIN / -2 on C | undefined behaviour in `-x`; the answer is 2 for gcd; ✅ 2a6501f |
 | ✅ `x = 10\n  - 1` / `ys = xs\n  {_*2}` | 10 / `[1,2]` | the indented line silently becomes its own statement; a leading `+` is rejected; ✅ 9d5ce53 |
 | ✅ `xs[s = _@1..\n #s]` (open slice at line end) | joins the next line | `..` without an end isn't a binary operator; ✅ 6827390, d9abfda |
