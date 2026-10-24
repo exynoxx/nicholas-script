@@ -392,6 +392,11 @@ exist, `?? out@k = m@a + m@b` assigns only if every read succeeds. Effects that 
 
 Debug mode: `--debug` (on run/build/test) prints `line: name = value` after every assignment to a user variable, including `x@i = v` and compound assignments.
 
+Explain: `ns explain f.ns` prints the program as Python-flavoured pseudocode: maps, filters and folds become `for` loops or
+comprehensions, blocks assigned to names become `def`s, implicit names (`_ @ $`) get readable names, and the first assignment
+of a collection variable carries its inferred type as a comment (`xs = [3, 1, 4]   # list[int]`). Coloured on a terminal
+(`NO_COLOR` turns that off). It is a reading aid, not Python: `a ..< b` is a range and `//` is floor division.
+
 ## 7. Built-ins and standard library
 Language primitives (in the compiler): `print` (no newline), `println`, casts `int float str bool`, `#` length, `@?` contains, ranges and slices,
 collection literals and `set: Q: PQ: arr:`, `pop`, `keys`, `vals`, tuples, `[x]**n`.

@@ -33,6 +33,7 @@ dotnet publish src -c Release -o ~/.local/share/ns && ln -sf ~/.local/share/ns/n
 ns prog.ns                 # compile and run
 ns build prog.ns -o prog   # native binary
 ns ll --pure prog.ns       # self-contained LLVM IR
+ns explain prog.ns         # the program as readable Python-style pseudocode
 ns help                    # all commands, incl. dumps of every compiler stage
 ```
 
