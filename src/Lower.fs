@@ -29,10 +29,13 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
     let srcTy = if graph then TMap(TUnk, TUnk) else srcTy
     let isMap = (match srcTy with TMap _ -> true | _ -> false) && not fused
     let folding = term.kind = IFold || term.kind = IScan
+    // a queue source drains: pop until empty, so the body may push more work onto it (a worklist loop)
+    let drain = match srcTy with TQ _ | TPQ _ -> true | _ -> false
     // result kind: a single stage keeps the source's kind; a fused chain yields an array
     // (or a string when only filters run over a string)
     let resTy =
-        if not fused then srcTy
+        if drain then TArr TUnk
+        elif not fused then srcTy
         elif srcTy = TStr && stages |> List.forall (fun st -> st.kind = IFilter) then TStr
         else TArr TUnk
     let snapshot =
@@ -50,9 +53,21 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
             [ Assign(s, a); Assign(hi, b)
               Assign(t, mk (If(bin "<=" (v s) (v hi), i64 1L, i64 -1L)))
               Assign(n, bin "*" (bin "-" (v hi) (v s)) (v t)) ]
+        | None when drain -> [ Assign(s, it0.src) ]
         | None -> [ Assign(s, it0.src); Assign(t, snapshot); Assign(n, call "len" [ v t ]) ]
     let load =
         match range with
+        | _ when drain ->
+            // PQ of tuples: `@` = the priority (first value), `_` = the rest; otherwise `@` counts (Q) or is the element (PQ)
+            match srcTy with
+            | TPQ el ->
+                match resolve el with
+                | TTup(_ :: rest) ->
+                    let get i = mk (Index(v t, i64 (int64 i)))
+                    let value = match rest with [ _ ] -> get 1 | _ -> call "tuple" (rest |> List.mapi (fun i _ -> get (i + 1)))
+                    [ Assign(t, call "pop" [ v s ]); Assign(it0.ix, get 0); Assign(it0.el, value) ]
+                | _ -> [ Assign(it0.el, call "pop" [ v s ]); Assign(it0.ix, v it0.el) ]
+            | _ -> [ Assign(it0.el, call "pop" [ v s ]); Assign(it0.ix, v c) ]
         | _ when isMap && not folding ->
             [ Assign(key, mk (Index(v t, v c))); Assign(it0.ix, v key); Assign(it0.el, mk (Index(v s, v key))) ]
         | Some _ -> [ Assign(it0.el, bin "+" (v s) (bin "*" (v c) (v t))); Assign(it0.ix, v c) ]
@@ -120,9 +135,10 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
     let lim = Desugar.fresh "lim"
     let pre = match limit with Some l -> Assign(lim, l) :: pre | None -> pre
     let more =
+        let more = if drain then bin ">" (call "len" [ v s ]) skip else bin "<" (v c) (v n)
         match limit with
-        | Some _ -> bin "&" (bin "<" (v c) (v n)) (bin "|" (bin "<" (v lim) skip) (bin "<" (call "len" [ v r ]) (v lim)))
-        | None -> bin "<" (v c) (v n)
+        | Some _ -> bin "&" more (bin "|" (bin "<" (v lim) skip) (bin "<" (call "len" [ v r ]) (v lim)))
+        | None -> more
     let loop = [ Assign(c, skip); While(more, load @ pipe 0 @ [ Assign(c, bin "+" (v c) (i64 1L)) ]) ]
     // `xs/+ * & | ^` (or `xs/{$+_}`) of nothing is the op's identity (the typer picks it from $'s type)
     let emptyFold =

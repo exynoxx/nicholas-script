@@ -349,6 +349,8 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) : E =
     | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
         typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
     // a set chain consumed by a fold/scan is lazy: `s{f}/+` sums every mapped value, it builds no (deduplicating) set
+    // a queue drains (pop until empty) into an array, so its chains fuse like an array's
+    | TQ _ | TPQ _ -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
     | TSet _ when stages.Length > 1 && (it.kind = IFold || it.kind = IScan) ->
         typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
     | _ ->
@@ -390,6 +392,7 @@ and private typeBin op (a: E) (b: E) : E =
         | TArr e | TSet e | TQ e | TPQ e when not (unify b.t el) && unify e el ->
             let av, x = declare cur (Desugar.fresh "c") L, Desugar.fresh "_"
             let cv = typed (Var av) L
+            let b = match resolve b.t with TQ _ | TPQ _ -> stdCall "arr" [ b ] | _ -> b // iterating a queue would drain it
             let it = { kind = IEach; src = b; el = x; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do(mk (Bin("+", cv, mk (Var x)))) ]; post = [] }
             typed (Seq([ Assign(av, a); Do(typeE (mk (Iter it))) ], cv)) L
         | _ -> typed (Call("add", [ a; own (conv b el) ])) L
