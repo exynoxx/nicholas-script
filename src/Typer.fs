@@ -369,7 +369,17 @@ and private typeBin op (a: E) (b: E) : E =
     | "++", TArr el ->
         match resolve b.t with
         | TArr _ -> typed (Call("concat", [ a; conv b L ])) L
+        | TSet e | TQ e | TPQ e when not (unify b.t el) && unify e el -> typed (Call("concat", [ a; stdCall "arr" [ b ] ])) L
         | _ -> typed (Call("append", [ a; own (conv b el) ])) L
+    // `s ++ xs`: add every element of a collection (array, set, Q, PQ); `s ++ x` adds one element
+    | "++", (TSet el | TQ el | TPQ el) ->
+        match resolve b.t with
+        | TArr e | TSet e | TQ e | TPQ e when not (unify b.t el) && unify e el ->
+            let av, x = declare cur (Desugar.fresh "c") L, Desugar.fresh "_"
+            let cv = typed (Var av) L
+            let it = { kind = IEach; src = b; el = x; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do(mk (Bin("+", cv, mk (Var x)))) ] }
+            typed (Seq([ Assign(av, a); Do(typeE (mk (Iter it))) ], cv)) L
+        | _ -> typed (Call("add", [ a; own (conv b el) ])) L
     | "+", TGraph n when isEdge n b -> stdCall "addedge" [ a; b ]
     | "-", TGraph n -> if isEdge n b then stdCall "deledge" [ a; b ] else stdCall "delnode" [ a; b ]
     | "+", (TSet el | TQ el | TPQ el) -> typed (Call("add", [ a; own (conv b el) ])) L

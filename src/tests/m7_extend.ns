@@ -1,0 +1,29 @@
+# ++ adds every element of a collection; ++ x adds one element
+q = [1,2].Q
+q ++= [3,4]
+q ++= set: [5]
+q ++= 6
+println: q.arr
+p = [5,1].PQ
+p ++= [3,0]
+p ++= [9].Q
+println: p.arr
+s = set: [1]
+s ++= [2,3,2]
+s ++= [4].Q
+s ++= 5
+println: #s
+xs = [1,2]
+xs ++= set: [3]
+xs ++= [4].Q
+xs ++= [5,6]
+println: xs
+t = [("a",1)].Q
+t ++= (set: [("b",2)])
+println: t.arr
+qa = [[1]].Q
+qa ++= [2,3]
+println: qa.arr
+r = [7,8].Q
+s ++= r
+println: (r.arr, #s)

@@ -116,7 +116,8 @@ A binary operator is resolved at compile time in three steps; the first that app
 | str | `/` | other non-block | compile error |
 | str, collection | `/{…}` `/op` | block or op | fold (unchanged) |
 | int | `{…}` `[…]` `/` `\` `${…}` | block or op | runs over `0..n`: `5{_*_}` → `[0,1,4,9,16]`, `5/+` → `10` |
-| array | `++` | array / element | concat / append |
+| array | `++` | array / set / Q / PQ / element | concat / append |
+| set, Q, PQ | `++` | array / set / Q / PQ / element | add every element / add one |
 | set | `& \| + -` | set | intersect, union, union, difference |
 | set, queue, PQ | `+` `-` | element | add / remove |
 | map | `+` / `-` | map / key | merge / delete key |
@@ -166,7 +167,7 @@ Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter;
 - Last expression in a block is its value.
 
 ### Array concat / append
-`a++b` concatenates two arrays; `a++x` appends an element (converted to the element type). Arrays compare lexicographically with `= != < > <= >=` and return bool (comparisons do not broadcast).
+`a++b` concatenates two arrays (`b` may also be a set, Q or PQ); `a++x` appends an element (converted to the element type). On a set, Q or PQ, `s++xs` adds every element of a collection `xs` and `s++x` adds one, so `q ++= [a,b]` enqueues both. Arrays compare lexicographically with `= != < > <= >=` and return bool (comparisons do not broadcast).
 
 ### Broadcasting
 Arithmetic between an array and a scalar, or two arrays of equal length, applies elementwise:
