@@ -371,7 +371,13 @@ pq = PQ[(5,"e"),(1,"a")]
 pq += (3,"c")
 d,w = pq.pop
 println:w                   # => a
-pq ~{ println:pq.pop@1 }    # => c / e   (an empty collection is falsy)
+pq{ println:_ }             # => c / e   (a block over a queue pops until it is empty;
+                            #    on a PQ of tuples @ = the priority, _ = the rest)
+
+# Worklist loop: the body may push onto the queue it drains (BFS, Dijkstra).
+g = [[1,2],[3],[3],[]]
+seen = %[0]; wl = Q[0]
+println:wl{ u = _; g@u[!(seen@?_)]{ seen += _; wl += _ }; u }   # => [0,1,2,3]
 
 # Maps, sets and queues are references: assignment shares them.
 m2 = m; m2@"z" = 26

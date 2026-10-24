@@ -139,6 +139,12 @@ and private guards (body: Stmt list) =
             else ETern(c, value vs, EGroup(guards rest))
         posOf t |> Option.iter (setPos e)
         [ SExpr e ]
+    // bare `ret` (no value): skip the rest of the block, whose value is then 0 (`@ > d@_ ? ret` in a draining queue loop)
+    | SExpr(ETern(c, EGroup [ SExpr(EVar "ret"); SExpr(EInt 0L) ], EInt 0L) as t) :: rest ->
+        let e = ETern(c, EInt 0L, EGroup(guards rest @ [ SExpr(EInt 0L) ]))
+        posOf t |> Option.iter (setPos e)
+        [ SExpr e ]
+    | SExpr(EVar "ret") :: _ -> [ SExpr(EInt 0L) ]
     | SExpr(ECall(r, vs)) :: _ when r = ret -> [ SExpr(value vs) ]
     | s :: rest -> s :: guards rest
     | [] -> []

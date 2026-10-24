@@ -162,7 +162,7 @@ Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter;
   (the block must return bool). A plain block as the whole body is an error: write `x[_>2]`, not `x[{_>2}]`.
   Blocks are not values in collections or conditions: `x{{_+1}}`, `[{_}]` and `f ? a : b` with a block `f` are compile errors.
 - Nested blocks: the innermost block owns `_`, `@`, `$`.
-- `_` current element, `@` (bare) current index, `$` fold accumulator.
+- `_` current element, `@` (bare) current index, `$` fold accumulator. Over a PQ of tuples, `@` is the priority and `_` the value.
 - `_1`, `_2`, … for multi-argument blocks. Inside a map/filter/fold/scan block they destructure the element instead (`_1` = `_@0`): `xs.pairwise{_2-_1}`, `(zip:a,b){_1*_2}`.
 - Last expression in a block is its value.
 
@@ -246,11 +246,19 @@ Maps, sets and queues are **reference types** (mutated in place, shared on assig
 | remove             | `m-=k`              | `s-=x`            | `q.pop` returns and removes front/top |
 | contains           | `m@?k`              | `s@?x`            | `q@?x` (linear scan)         |
 | size               | `#m`                | `#s`              | `#q`                         |
-| map / filter / fold| `m{…}` `m[…]` `m/…` | `s{…}` `s[…]` `s/…` | `q{…}` etc. (Q: front to back; PQ: priority order; non-destructive) |
+| map / filter / fold| `m{…}` `m[…]` `m/…` | `s{…}` `s[…]` `s/…` | `q{…}` etc. **drain** `q` (see below) |
 | union / inter / diff | —                 | `a\|b` `a&b` `a-b` | —                           |
 | keys / values      | `m.keys` `m.vals`   | —                 | —                            |
 
 In map blocks `_` is the value and bare `@` is the key (same as element/index for arrays). In `m{…}` a top-level `_ = e` writes the value back into m: `m{_ = _ + 1}` updates m in place (filters and arrays still compare, and so do `m{(_ = e)}` and the section `m{=e}`).
+A block over a queue **drains** it: `q{…}` `q[…]` `q/…` `q\…` pop until `q` is empty (Q: front to back; PQ: priority order),
+and the body may push onto `q` (`q += x`, `q ++= xs`): pushed items are visited by the same loop, so `q{…}` is a
+worklist loop. Map, filter and scan return an array of results in pop order. On a Q, `_` is the popped element and `@`
+counts (0, 1, 2, …). On a PQ of tuples, `@` is the priority (first value) and `_` the value, or the rest as a tuple for
+wider tuples: `PQ[(p,a,b)]{…}` has `@` = p, `_` = `(a,b)`. On a PQ of anything else (ints, arrays) `@` and `_` are both
+the element. Queues are references, so aliases see the drained queue. `ret` (bare, no value) skips the rest of the
+body for this element and the loop goes on popping: `q{ @ > d@_ ? ret; … }` skips stale Dijkstra entries. To iterate
+without draining, iterate a snapshot: `(arr:q){…}`. (`s ++= q` and `arr:q` don't drain.)
 `m{…}` returns a map with the same keys; `s{…}` returns a set; `m[…]`/`s[…]` return the same kind.
 A set chain that ends in a fold or scan is lazy, like a LINQ enumerable: `s{f}/+` folds every mapped value and builds no set, so equal values are not merged (`%[1,2,3]{_%2}/+` → 2).
 `@?` (contains) also works on arrays and strings: `"hello"@?"ll"`.
@@ -260,7 +268,7 @@ Truthiness: an empty map/set/queue is falsy.
 ```
 c = [->] ?? 0; "hello"{c@_+=1}          # char counts
 s = %[]; [3,1,3]{s+=_}; println:#s         # 2
-q = PQ[[0,1]]; q ~{ d,n = q.pop; ... }    # Dijkstra skeleton
+q = PQ[(0,src)]; q{ @ > d@_ ? ret; g@_{ ...; q += (nd,v) } }   # Dijkstra skeleton
 ```
 
 Lexing/typing rules for collections:
@@ -326,6 +334,7 @@ cond ~{ body }             # while statement: whole `cond` expression re-evaluat
 ```
 
 `ret: v` ends the enclosing block (function body, map body, group) with value `v` (`ret: a, b` = the tuple `(a, b)`).
+Bare `ret` (no value) ends it with 0, so `cond ? ret` skips the rest of the block: in a map body, of this element only.
 As a guard, `cond ? ret: v` returns `v` when `cond` holds and otherwise runs the rest of the block, so an early exit
 needs no nesting; a recursive call after it is still a tail call. `ret` works only as a statement of a block, not
 inside an expression or a `~{ }` loop. Mind `x = 0 ? ret: v` at the start of a line: that assigns; write `(x = 0) ? ret: v`.

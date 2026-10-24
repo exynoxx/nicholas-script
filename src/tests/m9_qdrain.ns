@@ -1,0 +1,45 @@
+# a block over a Q/PQ drains it: pop until empty; the body may push more work (a worklist loop)
+# BFS: Q, `_` = popped node, `@` = iteration count
+g = [[1,2],[3],[3,4],[5],[5],[]]
+d = [-1]**6; d@0 = 0
+q = Q[0]
+order = q{ u = _; g@u{ d@_<0 ? (d@_ = d@u+1; q += _) }; u }
+println:order
+println:d
+println:#q
+# Dijkstra: PQ of (dist, node), `@` = priority, `_` = node; `ret` skips stale entries
+e = [[(1,4),(2,1)],[(3,1)],[(1,2),(3,5)],[(4,3)],[]]
+dist = [1000]**5; dist@0 = 0
+pq = PQ[(0,0)]
+popped = 0
+pq{
+  @ > dist@_ ? ret
+  popped += 1
+  u = _
+  e@u{ (v, w) = _; dist@u+w < dist@v ? (dist@v = dist@u+w; pq += (dist@v, v)) }
+}
+println:dist
+println:popped
+# PQ of plain ints: `@` and `_` are both the element
+println:PQ[5,1,4]{(@,_)}
+# PQ of 3-tuples: `@` = first value, `_` = the rest as a tuple
+println:PQ[(3,"c",T),(1,"a",F),(2,"b",T)]{"{@}:{_}"}
+# PQ of arrays: `@` and `_` are both the element
+println:PQ[[2,7],[1,9]]{@}
+# Q map counts with `@`
+println:Q["a","b","c"]{"{@}{_}"}
+# filter / fold / scan drain too
+println:Q[1,2,3,4,5][_%2]
+println:Q[1,2,3,4]/+
+println:PQ[3,1,2]\+
+# push during iteration: Collatz from 6
+c = Q[6]
+println:c{ _ > 1 ? (c += (_%2 ? 3*_+1 : _/2); 0); _ }
+# aliases see the drain
+a = Q[1,2,3]; b = a
+println:a/+
+println:#b
+# non-destructive iteration: iterate a snapshot
+z = Q[1,2,3]
+println:(arr:z){_*10}
+println:#z
