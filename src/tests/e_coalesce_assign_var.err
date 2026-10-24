@@ -1,0 +1,2 @@
+2: error: ??= inserts into a map: m@k ??= v or m ??= (k, v)
+2 | x ??= 2

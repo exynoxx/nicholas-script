@@ -7,7 +7,7 @@ open Ast
 /// language primitives plus every function declared in runtime.c (see Stdlib.fs)
 let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ"; "BT"; "memo" ] + Stdlib.names
 let private zeroArity = Stdlib.zeroArity
-let private compounds = set [ "+="; "-="; "*="; "**="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>=" ]
+let private compounds = set [ "+="; "-="; "*="; "**="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>="; "??=" ]
 
 /// Keywords of other languages: a statement starting with one gets a hint.
 let private foreign =

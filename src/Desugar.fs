@@ -166,6 +166,14 @@ and private stmt env (s: Stmt) : S list =
         List.map2 (fun t e -> Assign(t, ex e)) temps es
         @ List.concat (List.map2 (fun lv t -> assign lv (mk (Var t))) lvs temps)
     | SAssign(lvs, es) -> fail line $"{lvs.Length} names on the left but {es.Length} values on the right"
+    | SCompound("??", EIndex(x, k), v)
+    | SCompound("??", x, ETuple [ k; v ]) ->
+        // `m@k ??= v`, `m ??= (k, v)`: inserts v only when k is missing; v is not evaluated when k is present
+        let m, kv = fresh "m", fresh "k"
+        [ Assign(m, ex x)
+          Assign(kv, ex k)
+          Do(mk (If(mk (Call("has", [ mk (Var m); mk (Var kv) ])), mk (Int 0L), mk (Seq([ SetIdx(mk (Var m), mk (Var kv), ex v) ], mk (Int 0L)))))) ]
+    | SCompound("??", _, _) -> fail line "??= inserts into a map: m@k ??= v or m ??= (k, v)"
     | SCompound(op, lv, e) -> assign lv (mk (Bin(op, ex lv, ex e)))
 
 /// Debug mode: after every assignment to a user variable, `println:"line: x = "+x`.

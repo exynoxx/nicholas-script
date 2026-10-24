@@ -342,6 +342,7 @@ println:(m ?? 0)@"zzz"      # => 0
 println:m@?"b"              # => T    (@? is "contains")
 m -= "b"
 println:#m                  # => 2
+m@"z" ??= 9                 # insert only when missing (also m ??= ("z", 9))
 # coll ** 0 (or ** F) empties a map, set or queue in place: m ** F
 
 # Empty literals get their type from the first use.
