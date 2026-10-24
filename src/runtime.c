@@ -1013,6 +1013,37 @@ void *ns_pairwise_s(const char *dR, char *s) { // "abc" -> [("a","b"),("b","c")]
   void *c = ns_chars(s), *r = ns_pairwise("S", dR, c);
   ns_release(c); return r;
 }
+// Grid neighbours of a (row, col) cell, clockwise: nb4 up right down left; nb8 from up-left. With a bound
+// (width w then height h, or a grid whose #g and #(g@0) give it) cells outside 0<=r<h, 0<=c<w are dropped.
+static const int64_t NB4[] = {-1, 0, 0, 1, 1, 0, 0, -1}, NB8[] = {-1, -1, -1, 0, -1, 1, 0, 1, 1, 1, 1, 0, 1, -1, 0, -1};
+static void *nbs(const char *dR, const void *cell, const int64_t *d, int n, int64_t h, int64_t w) { // h < 0: unbounded
+  Arr *r = ns_arr_new(dR, n);
+  int64_t p[2]; memcpy(p, cell, sizeof p);
+  for (int i = 0; i < n; i++) {
+    int64_t t[2] = {p[0] + d[2 * i], p[1] + d[2 * i + 1]};
+    if (h < 0 || (t[0] >= 0 && t[0] < h && t[1] >= 0 && t[1] < w)) apush(r, t);
+  }
+  return r;
+}
+static int64_t rows(void *g) { return ((Arr *)g)->len; }
+static int64_t cols_s(void *g) { Arr *a = g; return a->len ? (int64_t)strlen(*(char **)a->data) : 0; }
+static int64_t cols_a(void *g) { Arr *a = g; return a->len ? (*(Arr **)a->data)->len : 0; }
+//@ nb4 ((int,int)) [(int,int)]
+void *ns_nb4(const char *dR, const void *p) { return nbs(dR, p, NB4, 4, -1, 0); }
+//@ nb8 ((int,int)) [(int,int)]
+void *ns_nb8(const char *dR, const void *p) { return nbs(dR, p, NB8, 8, -1, 0); }
+//@ nb4 ((int,int),int,int) [(int,int)] = ns_nb4b
+void *ns_nb4b(const char *dR, const void *p, int64_t w, int64_t h) { return nbs(dR, p, NB4, 4, h < 0 ? 0 : h, w); }
+//@ nb8 ((int,int),int,int) [(int,int)] = ns_nb8b
+void *ns_nb8b(const char *dR, const void *p, int64_t w, int64_t h) { return nbs(dR, p, NB8, 8, h < 0 ? 0 : h, w); }
+//@ nb4 ((int,int),[str]) [(int,int)] = ns_nb4s
+void *ns_nb4s(const char *dR, const void *p, void *g) { return nbs(dR, p, NB4, 4, rows(g), cols_s(g)); }
+//@ nb8 ((int,int),[str]) [(int,int)] = ns_nb8s
+void *ns_nb8s(const char *dR, const void *p, void *g) { return nbs(dR, p, NB8, 8, rows(g), cols_s(g)); }
+//@ nb4 ((int,int),[[T]]) [(int,int)] = ns_nb4a
+void *ns_nb4a(const char *dT, const char *dR, const void *p, void *g) { (void)dT; return nbs(dR, p, NB4, 4, rows(g), cols_a(g)); }
+//@ nb8 ((int,int),[[T]]) [(int,int)] = ns_nb8a
+void *ns_nb8a(const char *dT, const char *dR, const void *p, void *g) { (void)dT; return nbs(dR, p, NB8, 8, rows(g), cols_a(g)); }
 //@ uniq ([T]) [T]
 void *ns_uniq(const char *dT, void *a) { // keeps first occurrences in order
   const char *d = HD(a)->d, *sd = intern('H', d + 1);

@@ -368,7 +368,7 @@ let generate (prog: Program) : string =
                     let v = ex a
                     owned <- (v, a.t) :: owned
                     match p with
-                    | Stdlib.SVar _ -> [ spill v a.t ]
+                    | Stdlib.SVar _ | Stdlib.STup _ -> [ spill v a.t ]
                     | Stdlib.SBool -> [ instr "int64_t" v ]
                     | _ -> [ v ]) sg.parms (List.skip nd args)
             |> List.concat

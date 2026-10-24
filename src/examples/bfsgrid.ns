@@ -7,9 +7,6 @@ z = g.join:""
 f = {i = find:z,_; (i/w,i%w)}
 s = f:"S"; e = f:"E"
 d = [s->0]; q = Q[s]
-q{
-  p = _; y,x = p
-  [(y+1,x),(y-1,x),(y,x+1),(y,x-1)][r=_@0; c=_@1; r>=0 & r<h & c>=0 & c<w & !(d@?_) & (g@r)@c!="#"]{d@_ = d@p+1; q+=_}
-}
+q{p = _; (nb4:p,w,h)[!(d@?_) & (g@_1)@_2!="#"]{d@_ = d@p+1; q+=_}}
 println:d@?e ? "shortest S->E: {d@e}" : "unreachable"
 println:"reachable cells: {#d}"

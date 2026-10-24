@@ -4,7 +4,7 @@
 /// queues, BT[t] sorted trees, G[t] graphs, (a,b) tuples and fn(t)->r blocks.
 /// The C function receives one descriptor (const char*) per type variable first, then its arguments;
 /// a result type containing a tuple also passes the result's descriptor (after the type variables'), so the
-/// runtime never rebuilds a tuple layout itself. Type-variable values travel as 64-bit slots, a block as
+/// runtime never rebuilds a tuple layout itself. Type-variable values and tuples travel as pointers to their storage, a block as
 /// (callback, env). This module only reads the table.
 module Stdlib
 

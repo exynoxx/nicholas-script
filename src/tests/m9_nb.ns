@@ -1,0 +1,27 @@
+# grid neighbours of (row,col): nb4 up right down left, nb8 clockwise from up-left
+println:nb4:(5,5)
+println:nb8:(5,5)
+# bounded by width w, height h: cells outside 0<=r<h, 0<=c<w drop out
+println:nb4:(0,0),4,3
+println:nb4:(2,3),4,3
+println:nb4:(1,0),4,3
+println:nb8:(0,0),4,3
+println:nb8:(0,2),4,3
+println:nb8:(1,1),4,3
+# the bound can be the grid itself: #g rows, #(g@0) columns
+n = int:read
+g = 0..n{read}
+println:nb4:(0,0),g
+println:nb8:(2,4),[[1,2,3,4,5],[6,7,8,9,10],[11,12,13,14,15]]
+# BFS from S, '#' is a wall
+h = #g; w = #(g@0)
+z = g.join:""
+f = {i = find:z,_; (i/w,i%w)}
+s = f:"S"; e = f:"E"
+d = [s->0]; q = Q[s]
+q{p = _; (nb4:p,w,h)[!(d@?_) & (g@_1)@_2!="#"]{d@_ = d@p+1; q+=_}}
+println:"S->E: {d@e}, reachable {#d}"
+# game of life step: live neighbours by nb8
+lv = set:flatten:(0..h){r = _; (0..w)[(g@r)@_="#"]{(r,_)}}
+k = (0..h){r = _; (0..w){c = _; (nb8:(r,c))[lv@?_].len}}
+k{println:_.join:""}

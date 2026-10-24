@@ -401,7 +401,7 @@ let generate (prog: Program) : string =
                     let v = ex a
                     owned <- (v, a.t) :: owned
                     match p with
-                    | Stdlib.SVar _ -> [ "ptr", spill v a.t ]
+                    | Stdlib.SVar _ | Stdlib.STup _ -> [ "ptr", spill v a.t ]
                     | Stdlib.SBool -> [ "i64", instr $"zext i1 {v} to i64" ]
                     | _ -> [ llty a.t, v ]) sg.parms (List.skip nd args)
             |> List.concat
