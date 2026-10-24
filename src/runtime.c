@@ -1007,6 +1007,11 @@ void *ns_pairwise(const char *dT, const char *dR, void *a) { // [1,2,3] -> [(1,2
   Arr *x = a; void *t = ns_arr_slice(a, 1, x->len), *r = ns_zip(dT, dT, dR, a, t);
   ns_release(t); return r;
 }
+//@ pairwise (str) [(str,str)] = ns_pairwise_s
+void *ns_pairwise_s(const char *dR, char *s) { // "abc" -> [("a","b"),("b","c")]
+  void *c = ns_chars(s), *r = ns_pairwise("S", dR, c);
+  ns_release(c); return r;
+}
 //@ uniq ([T]) [T]
 void *ns_uniq(const char *dT, void *a) { // keeps first occurrences in order
   const char *d = HD(a)->d, *sd = intern('H', d + 1);
