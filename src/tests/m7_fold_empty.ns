@@ -1,0 +1,19 @@
+# folding nothing with + * & | ^ gives the op's identity; other folds stay a runtime error
+xs = [1,2][>5]
+println:xs/+
+println:xs/*
+println:xs/&
+println:xs/|
+println:xs/^
+println:xs/{$+_}
+println:[1.5][>2]/+
+println:[1.5][>2]/*
+println:["a"][#_>3]/+
+println:[[1]][#_>3]/+
+bs = [T][!_]
+println:bs/&
+println:bs/|
+println:bs/^
+println:[1,2,3]/+
+?? println:xs/>
+println:"done"

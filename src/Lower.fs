@@ -119,7 +119,13 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
         | Some _ -> bin "&" (bin "<" (v c) (v n)) (bin "|" (bin "<" (v lim) skip) (bin "<" (call "len" [ v r ]) (v lim)))
         | None -> bin "<" (v c) (v n)
     let loop = [ Assign(c, skip); While(more, load @ pipe 0 @ [ Assign(c, bin "+" (v c) (i64 1L)) ]) ]
-    let emptyFold = [ when' (v first) [ Do(call "panic" [ mk (Str "fold of empty collection") ]) ] ]
+    // `xs/+ * & | ^` (or `xs/{$+_}`) of nothing is the op's identity (the typer picks it from $'s type)
+    let emptyFold =
+        match term.kind, term.body |> List.filter (function Line _ -> false | _ -> true) with
+        | IFold, [ Do { k = Bin(op, { k = Var a }, { k = Var el }) } ]
+            when a = term.acc && el = term.el && List.contains op [ "+"; "*"; "&"; "|"; "^" ] ->
+            [ when' (v first) [ Assign(term.acc, call "foldid" [ mk (Str op); v term.acc ]) ] ]
+        | _ -> [ when' (v first) [ Do(call "panic" [ mk (Str "fold of empty collection") ]) ] ]
     let limited e = match limit with Some _ -> call "take" [ e; v lim ] | None -> e
     match term.kind with
     | IMap -> seq (pre @ init @ loop) (limited (v r))

@@ -237,6 +237,20 @@ and private typeAt (e: E) : E =
             let xs = List.map (typeE >> stored) xs
             let el = xs.Head.t
             typed (Arr(xs |> List.map (fun x -> own (conv x el)))) (TArr el)
+        | Call("foldid", [ { k = Str op }; acc ]) ->
+            // identity of a fold op (Lower.iter: an empty `xs/op`)
+            let acc = typeE acc
+            match op, resolve acc.t with
+            | ("+" | "|" | "^"), TInt -> typed (Int 0L) TInt
+            | "*", TInt -> typed (Int 1L) TInt
+            | "&", TInt -> typed (Int -1L) TInt
+            | "+", TFloat -> typed (Float 0.0) TFloat
+            | "*", TFloat -> typed (Float 1.0) TFloat
+            | "+", TStr -> typed (Str "") TStr
+            | "+", TArr _ -> typed (Arr []) acc.t
+            | "&", TBool -> typed (Bool true) TBool
+            | ("|" | "^"), TBool -> typed (Bool false) TBool
+            | _ -> typeE (mk (Seq([ Do(mk (Call("panic", [ mk (Str "fold of empty collection") ]))) ], acc)))
         | Bin("??", a, b) ->
             // `m ?? d`: a missing key of m reads as d from now on (set in place, returns m)
             let a, b = typeE a, typeE b

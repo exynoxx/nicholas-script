@@ -141,7 +141,7 @@ x@..2  x@1..     # open slices: first 2 / from 1 to the end; x@-2.. is the last 
 |----------|-----------------|--------------|---------|
 | map      | `x{body}`       | `x{_^^2}`    | new array of body results |
 | filter   | `x[body]`       | `x[_>2]`     | keep items where body is truthy |
-| fold     | `x/{body}`      | `x/{$+_}`    | `$` = accumulator, seeded with first element; no seed syntax, folding an empty collection is a runtime error |
+| fold     | `x/{body}`      | `x/{$+_}`    | `$` = accumulator, seeded with first element; no seed syntax; folding an empty collection is a runtime error, except `$+_ $*_ $&_ $\|_ $^_` (and `/+ /* /& /\| /^`), which give the identity: `0`/`0.0`/`""`/`[]`, `1`, `T` (int `-1`), `F`/`0` |
 | op-fold  | `x/op`          | `x/+`        | sum, `x/*` product, `x/>` max, `x/<` min, `x/&` all, `x/\|` any |
 | scan     | `x\{body}` `x\op` | `x\+`      | running fold, returns array |
 | sort     | `x${key}`       | `w${#_}`     | array sorted by key (stable; `x${-_}` descending); later ops see the sorted order: `w${#_}{upper}`. On a map `_` is a `(key, value)` tuple: `m${-_2}{_1}` = keys by value, largest first |
