@@ -122,8 +122,7 @@ A binary operator is resolved at compile time in three steps; the first that app
 | set | `& \| + -` | set | intersect, union, union, difference |
 | set, queue, PQ | `+` `-` | element | add / remove |
 | map | `+` / `-` | map / key | merge / delete key |
-| graph | `+` `-` | edge / node | add edge / delete edge or node; `& \| -` with a graph: set ops on graphs |
-| — | unary `-` | str | reversed: `-"abc"` → `"cba"` (like `-dg` reversing a graph) |
+| — | unary `-` | str | reversed: `-"abc"` → `"cba"` |
 | any | `= != < > <= >=` | any | right converted to left type; bool (no broadcasting) |
 
 ### Arrays and ranges
@@ -222,32 +221,6 @@ A reference type, like sets.
 | `t.pop` | removes and returns the smallest |
 | `#t`, `arr:t` | size; elements in order |
 | `t{…}` `t[…]` `t/…` | in order; map and filter return arrays |
-
-### Graphs
-
-| Type | Literal | Empty | Notation in docs |
-|------|---------|-------|------------------|
-| undirected graph | `G[(1,2),(2,3)]` | `G[]` | `G T` |
-| directed graph | `DG[(1,2),(2,3)]` | `DG[]` | `G T` |
-
-An edge is `(u,v)` or `(u,v,w)` with an int weight (default 1); one literal uses one edge shape. `G:edges` / `DG:edges`
-convert an array of edges. Nodes may be any hashable type, e.g. `(r,c)` grid cells. Graphs are reference types.
-
-| Op | Meaning |
-|----|---------|
-| `g@u` | neighbours of `u` (array; `[]` if absent) |
-| `g@(u,v)` | weight of edge u→v, 0 if absent |
-| `g@?u`, `g@?(u,v)` | has node / has edge |
-| `g+=(u,v)`, `g+=(u,v,w)` | add edge (and its nodes), in place |
-| `g-=(u,v)`, `g-=u` | remove edge (nodes stay) / node with its edges, in place |
-| `#g`, `#g@u` | node count, degree |
-| `g{…}` | map over nodes, `_` = neighbours, `@` = node; returns a map node → result |
-| `g[…]` | subgraph induced by the nodes passing the filter |
-| `g\|h` `g&h` `g-h` | new graph: union / intersection / difference of edges (`g`'s weights and directedness) |
-| `-g`, `g.rev` | edges reversed |
-| `g.nodes`, `g.edges` | arrays; edges as `(u,v,w)`, undirected ones once with `u <= v` |
-
-An argument that matches the node type is a node, otherwise a 2- or 3-tuple is an edge. A graph prints as its literal.
 
 Maps, sets and queues are **reference types** (mutated in place, shared on assignment). Arrays and strings remain values.
 
@@ -435,7 +408,6 @@ Current library (see `grep '^//@' runtime.c`):
 - math: `min max` (two values or one array), `abs pow sqrt floor ceil round gcd lcm sum prod` (`sum/prod` of `[]` are 0/1)
 - bits: `rotl rotr popcount hex base`; `base:x,b` → x in base b (2..36 with digits `0-9a-z`, or 64 with the RFC 4648 alphabet `A-Za-z0-9+/`), no leading zeros, x read as unsigned (`base:11,2` → `"1011"`, `base:-1,16` → 16 f's); `hex:x` = `"0x"+base:x,16`; `int:s,b` parses s in base b (`int:"1011",2` → 11, `int:"ff",16` → 255); operators `& | ^ << >> >>>`; literals `0xff 0b101`
 - strings: `lower upper trim replace chars split join ord chr find starts ends nums ws isupper islower isdigit`; the last four are T when every char of a non-empty string is whitespace, A–Z, a–z, 0–9: `"aB 3"[isupper]` → `"B"`, `s[ws]`; `"hello".starts:"he"` → `T`
-- graphs: `G DG nodes edges rev subgraph`, plus the operator forms above (`nbrs weight hasedge addedge deledge delnode gunion ginter gdiff`)
 - maps: `items` → `[(key, value)]` in hash order; `map:pairs` is its inverse, `[(key, value)]` (or a set of pairs) → map (a later pair wins): `map:flatten:grid{r = @; _{((r,@),_)}}` → `(row,col)` → cell
 - arrays: `take sort rev uniq zip cross find bsearch sortby minkey maxkey flatten pairwise transpose tuple2 tuple3`; `transpose:[[1,2,3],[4,5,6]]` → `[[1,4],[2,5],[3,6]]`, on strings `transpose:["abc","def"]` → `["ad","be","cf"]` (a short row is skipped in the columns it lacks); `pairwise:[1,2,3]` → `[(1,2),(2,3)]`, on a string its characters: `"abc".pairwise` → `[("a","b"),("b","c")]`; `cross:a,b` → every `(x, y)` with x from a, y from b, a-major: `cross:0..2,[T,F]` → `[(0,T),(0,F),(1,T),(1,F)]`; `flatten` flattens one level of an array of arrays or of same-typed pairs or triples: `[[1,2],[3]]` and `[(1,2),(3,4)]` → `[1,2,3,4]`; `xs.sort:{_1>_2}` sorts with a comparer block on two elements (bool: first goes before second; int: negative/zero/positive like `{_1-_2}`; stable); `maxkey:ws,{#_}` → the longest word (first one on ties), `minkey` the shortest; on a map, `c.maxkey` is the key with the largest value
 - grids: cells are `(row,col)` int tuples. `nb4:(r,c)` → `[(r-1,c),(r,c+1),(r+1,c),(r,c-1)]` (up, right, down, left); `nb8:(r,c)` → the 8 surrounding cells clockwise from up-left: `(r-1,c-1),(r-1,c),(r-1,c+1),(r,c+1),(r+1,c+1),(r+1,c),(r+1,c-1),(r,c-1)`. Bounded: `nb4:p,w,h` (width, then height) keeps only cells with `0<=r<h & 0<=c<w`; `nb4:p,g` takes the bound from a grid `g` (`[str]` or `[[T]]`: `#g` rows, `#(g@0)` columns). BFS step: `q{p = _; (nb4:p,g)[!(d@?_) & (g@_1)@_2!="#"]{d@_ = d@p+1; q+=_}}`

@@ -24,7 +24,6 @@ let rec desc t =
     | TPQ e -> "P" + desc e
     | TTree(e, None) -> "T" + desc e
     | TTree(e, Some(_, k)) -> "K" + desc k + desc e
-    | TGraph e -> "G" + desc e
     | TTup ts -> (if isValueTuple t then "V" else "U") + string ts.Length + (ts |> List.map desc |> String.concat "")
     | _ -> "I"
 
@@ -56,7 +55,7 @@ let isPtr t = llty t = "ptr"
 let describe (prog: Typer.Program) =
     let rec parts t =
         t :: (match resolve t with
-              | TArr e | TSet e | TQ e | TPQ e | TGraph e | TTree(e, None) -> parts e
+              | TArr e | TSet e | TQ e | TPQ e | TTree(e, None) -> parts e
               | TTree(e, Some(_, k)) -> parts k @ parts e
               | TMap(k, v) -> parts k @ parts v
               | TTup ts -> List.collect parts ts

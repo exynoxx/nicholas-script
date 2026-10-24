@@ -55,7 +55,7 @@ type Tok =
     | STR of Part list
     | BOOL of bool
     | ID of string    // names, plus "_", "_1", "$" and bare "@"
-    | SYM of string   // operators and brackets; context forms: "f[" filter, "m{" map, "${" sort, "~{" while, "/{" "\{" fold/scan, "%[" "Q[" "PQ[" "BT[" "G[" "DG["
+    | SYM of string   // operators and brackets; context forms: "f[" filter, "m{" map, "${" sort, "~{" while, "/{" "\{" fold/scan, "%[" "Q[" "PQ[" "BT["
     | FOLDOP of string
     | SCANOP of string
     | TERM
@@ -82,7 +82,7 @@ type Expr =
     | EArr of Expr list
     | ETuple of Expr list
     | EMapLit of (Expr * Expr) list
-    | ECollLit of string * Expr list    // "set" | "Q" | "PQ" | "BT" | "G" | "DG"
+    | ECollLit of string * Expr list    // "set" | "Q" | "PQ" | "BT"
     | ERange of Expr * Expr
     | EBin of string * Expr * Expr
     | EUn of string * Expr              // "-" | "!" | "#"

@@ -19,7 +19,7 @@ type private Sum =
     { reads: HashSet<string>
       writes: HashSet<string>   // assigned or mutated in place
       mutates: HashSet<string>  // mutated in place (push, x@i = v, add, del, merge)
-      mutable refWrite: bool    // mutates a map/set/queue/tree/graph in place: any alias may change
+      mutable refWrite: bool    // mutates a map/set/queue/tree in place: any alias may change
       mutable effect: bool      // I/O or an unknown builtin: never moved
       mutable partial: bool }   // may panic or may not terminate
 
@@ -54,7 +54,7 @@ let private totalStd = set [ "rev"; "chars"; "split"; "lower"; "upper"; "ws"; "i
 
 let rec private isRef t =
     match resolve t with
-    | TMap _ | TSet _ | TQ _ | TPQ _ | TTree _ | TGraph _ -> true
+    | TMap _ | TSet _ | TQ _ | TPQ _ | TTree _ -> true
     | TArr e -> isRef e
     | TTup ts -> List.exists isRef ts
     | _ -> false
@@ -201,7 +201,7 @@ let rec private sumE (cx: Ctx) (s: Sum) (e: E) =
         List.iter go args
         if not (pureStd.Contains sg.name) then
             s.effect <- true
-            // may mutate a collection argument in place (pop, btadd, keep, addedge, ...)
+            // may mutate a collection argument in place (pop, btadd, keep, ...)
             match args |> List.tryFind (fun x -> (match x.k with Desc -> false | _ -> true) && isRef x.t) with
             | Some x ->
                 root x |> Option.iter (fun u -> s.writes.Add u |> ignore; s.mutates.Add u |> ignore)

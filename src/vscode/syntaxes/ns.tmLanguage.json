@@ -70,7 +70,7 @@
       "captures": { "1": { "name": "entity.name.function.ns" } }
     },
     "builtin": {
-      "match": "\\b(?:print|println|memo|int|float|str|bool|pop|keys|vals|arr|set|Q|PQ|G|DG|read|lines|min|max|abs|pow|sqrt|floor|ceil|round|gcd|lcm|sum|prod|rotl|rotr|popcount|hex|lower|upper|trim|replace|chars|split|join|ord|chr|find|starts|ends|nums|sort|rev|uniq|zip|bsearch|sortby|minkey|maxkey|flatten|map|pairwise|tuple2|tuple3|items|take|nodes|edges|subgraph|nbrs|weight|hasedge|addedge|deledge|delnode|gunion|ginter|gdiff)\\b",
+      "match": "\\b(?:print|println|memo|int|float|str|bool|pop|keys|vals|arr|set|Q|PQ|read|lines|min|max|abs|pow|sqrt|floor|ceil|round|gcd|lcm|sum|prod|rotl|rotr|popcount|hex|lower|upper|trim|replace|chars|split|join|ord|chr|find|starts|ends|nums|sort|rev|uniq|zip|bsearch|sortby|minkey|maxkey|flatten|map|pairwise|tuple2|tuple3|items|take)\\b",
       "name": "support.function.builtin.ns"
     },
     "call": {
