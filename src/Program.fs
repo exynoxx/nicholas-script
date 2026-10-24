@@ -37,6 +37,9 @@ let private pipelineSrc (stage: string) (src: string) (path: string) : string =
         else
             let core = Desugar.desugar ast
             if stage = "core" then Core.showStmts core
+            elif stage = "explain" then
+                let color = not Console.IsOutputRedirected && String.IsNullOrEmpty(Environment.GetEnvironmentVariable "NO_COLOR")
+                Explain.explain core (Typer.check core) color
             else
                 let typed = Typer.check core |> Opt.run
                 if stage = "typed" then showTyped typed
@@ -172,6 +175,8 @@ commands:
   c <file>                   print self-contained C (runtime included):  ns c f.ns > f.c && cc f.c -lm
   ll <file> [--pure]         print LLVM IR; with --pure the runtime is included, giving a
                              self-contained module:  ns ll --pure f.ns > f.ll && clang f.ll -lm
+  explain <file>             print the program as readable Python-style pseudocode
+                             (coloured on a terminal; NO_COLOR turns that off)
   tokens <file>              dump stage 1: tokens
   ast <file>                 dump stage 2: surface AST
   core <file>                dump stage 3: desugared core
@@ -238,7 +243,7 @@ let main argv =
     // check: lex, parse and type stdin as if it were <file> (imports resolve next to it); used by the VS Code extension
     | [ "check"; path ] -> report path (fun () -> (pipelineSrc "check" (Console.In.ReadToEnd()) path |> ignore; 0))
     | [ "c"; path ] -> report path (fun () -> (Console.Write(pureC (lock frontLock (fun () -> pipeline "c" path))); 0))
-    | [ ("tokens" | "ast" | "core" | "typed" | "repr") as stage; path ] ->
+    | [ ("tokens" | "ast" | "core" | "typed" | "repr" | "explain") as stage; path ] ->
         report path (fun () -> (Console.WriteLine((pipeline stage path)); 0))
     | [ "help" ] | [] when flag "-h" || flag "--help" || args.IsEmpty || positional = [ "help" ] ->
         Console.Write(help)
