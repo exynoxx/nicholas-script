@@ -11,7 +11,7 @@ Language ideas for NS, with status. The `fix` design further down is the main pr
 | `nb4` / `nb8` tuple neighbours | in progress |
 | `ns explain` ungolfer | in progress |
 | `fix` | designed, see below |
-| Assignment in a statement ternary | proposal, see below |
+| Assignment in a statement ternary; comparison as a filter's predicate | proposal, see below |
 | everything else | proposal |
 
 ## Catalogue
@@ -67,7 +67,23 @@ d@_<0 ? (d@_ = d@u+1; q += _)                             # groups keep working
 - An else-less statement ternary already exists (`c ? a`), so only the branch's parse changes.
 - The existing `x = 0 ? ret: v` caveat is unchanged: an assignment at the start of the line binds first.
 
-**Where:** `Parser.fs`, in the ternary branch parse (`Expr` / `InThen`), when the ternary sits in statement position: try `lvalue (=|op=) expr` before falling back to `Or`. Add a `SAssign` in the branch, or an `EGroup` of one statement. **Cost:** small. **Test:** `m9_tern_assign.ns`, covering map, index, tuple and compound assignment in each branch, plus a check that expression position still compares.
+**The opposite case: filters.** A filter holds statements, so `[a@_ = b@_]` parses as an *assignment*, not a test. It silently gives the wrong answer:
+
+```ns
+a = [1,2,3]; b = [1,5,3]
+(0..3)[a@_ = b@_]       # [] , assigns b@_ into a@_ and keeps nothing
+(0..3)[(a@_ = b@_)]     # [0,2], the comparison you meant
+a[x = 2]                # [1,2,3], assigns to a fresh x; the value 2 is truthy
+```
+
+Both cases follow the same principle: **the position decides what `=` means.**
+- Where the value is discarded (a statement ternary's branch), `lvalue = e` assigns.
+- Where the value is used as a condition (a filter's **last** statement, which is its predicate), `lvalue = e` compares.
+- Earlier statements in a filter still assign: `xs[t = _*2; t > 4]` works as today.
+
+An assignment as a filter's predicate is almost never intended. Making `=` compare there removes a silent wrong-answer bug and the parentheses, and it matches how a ternary condition and `?[ ]` arms already read `=`.
+
+**Where:** `Parser.fs`, in the ternary branch parse (`Expr` / `InThen`), when the ternary sits in statement position: try `lvalue (=|op=) expr` before falling back to `Or`. Add a `SAssign` in the branch, or an `EGroup` of one statement. **Cost:** small. **Test:** `m9_tern_assign.ns`, covering map, index, tuple and compound assignment in each branch, plus a check that expression position still compares. The filter side goes in the filter body parse (`f[` holds statements, see Lexer `opener`): if the last statement is `SAssign` with a single lvalue, re-read it as `Bin("=", …)`. Add `m9_filter_eq.ns` (`[a@_ = b@_]`, `[x = 2]` with `x` defined, earlier statements still assigning).
 
 ---
 
