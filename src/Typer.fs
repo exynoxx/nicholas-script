@@ -53,7 +53,7 @@ let newHole () = THole(ref None)
 let rec private holeIn (h: Ty) (t: Ty) =
     match resolve h, resolve t with
     | THole a, THole b -> obj.ReferenceEquals(a, b)
-    | _, (TArr x | TSet x | TQ x | TPQ x | TGraph x) -> holeIn h x
+    | _, (TArr x | TSet x | TQ x | TPQ x) -> holeIn h x
     | _, TMap(k, v) -> holeIn h k || holeIn h v
     | _, TTree(x, k) -> holeIn h x || (match k with Some(_, kt) -> holeIn h kt | None -> false)
     | _, TTup ts -> List.exists (holeIn h) ts
@@ -70,7 +70,7 @@ let private unify a b =
         match resolve a, resolve b with
         | THole r1, THole r2 when obj.ReferenceEquals(r1, r2) -> true
         | THole r, t | t, THole r -> (r.Value <- Some t; bound.Add r; true)
-        | TArr x, TArr y | TSet x, TSet y | TQ x, TQ y | TPQ x, TPQ y | TGraph x, TGraph y -> go x y
+        | TArr x, TArr y | TSet x, TSet y | TQ x, TQ y | TPQ x, TPQ y -> go x y
         | TMap(k1, v1), TMap(k2, v2) -> go k1 k2 && go v1 v2
         | TTup xs, TTup ys -> xs.Length = ys.Length && List.forall2 go xs ys
         | TTree(x, None), TTree(y, None) -> go x y
@@ -162,14 +162,6 @@ let rec private ownIn (local: string -> bool) (e: E) =
     | _ -> e
 
 let private own = ownIn (fun _ -> false)
-
-/// Is `x` an edge (u,v) or (u,v,weight) of a graph with node type n, rather than a node? Unifies the members.
-let private isEdge (n: Ty) (x: E) =
-    let isNode = match resolve n with THole _ -> false | _ -> unify x.t n
-    not isNode
-    && match resolve x.t with
-       | TTup(_ :: _ :: w) when w.Length <= 1 -> unify x.t (TTup([ n; n ] @ List.map (fun _ -> TInt) w))
-       | _ -> false
 
 let rec private tryConv (e: E) (ty: Ty) : E option =
     let a, b = resolve e.t, resolve ty
@@ -334,7 +326,7 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) : E =
     let limit = limit |> Option.map (fun k -> conv (typeE k) TInt)
     match resolve src.t with
     | TFloat | TBool | TTup _ | TFn _ as t ->
-        err ($"cannot {showKind stages.Head.kind} over {showT t}: it needs an int, array, string, map, set, queue, tree or graph")
+        err ($"cannot {showKind stages.Head.kind} over {showT t}: it needs an int, array, string, map, set, queue or tree")
     | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true)
     | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
         typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
@@ -359,10 +351,9 @@ and private typeBin op (a: E) (b: E) : E =
     | _ -> ()
     let L = resolve a.t
     let same x = typed (Bin(op, a, conv b L)) L
-    let sameKind = match L, resolve b.t with TSet _, TSet _ | TGraph _, TGraph _ -> true | _ -> false
     match op, L with
     | _ when isCmp -> typed (Bin(op, a, conv b L)) TBool
-    | ("&" | "|" | "+" | "-"), TSet _ | ("&" | "|" | "-"), TGraph _ when sameKind ->
+    | ("&" | "|" | "+" | "-"), TSet _ when (match resolve b.t with TSet _ -> true | _ -> false) ->
         stdCall (match op with "&" -> "ginter" | "-" -> "gdiff" | _ -> "gunion") [ a; conv b L ]
     | ("&" | "|"), TInt -> same ()
     | _, TInt when isBit -> same ()
@@ -383,8 +374,6 @@ and private typeBin op (a: E) (b: E) : E =
             let it = { kind = IEach; src = b; el = x; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do(mk (Bin("+", cv, mk (Var x)))) ] }
             typed (Seq([ Assign(av, a); Do(typeE (mk (Iter it))) ], cv)) L
         | _ -> typed (Call("add", [ a; own (conv b el) ])) L
-    | "+", TGraph n when isEdge n b -> stdCall "addedge" [ a; b ]
-    | "-", TGraph n -> if isEdge n b then stdCall "deledge" [ a; b ] else stdCall "delnode" [ a; b ]
     | "+", (TSet el | TQ el | TPQ el) -> typed (Call("add", [ a; own (conv b el) ])) L
     | "-", TSet el -> typed (Call("del", [ a; conv b el ])) L
     | "+", TTree _ -> treeOp "btadd" a b
@@ -428,7 +417,6 @@ and private typeIndex (x: E) (i: E) =
     | TArr el -> typed (Index(x, conv i TInt)) el
     | TStr -> typed (Index(x, conv i TInt)) TStr
     | TMap(k, v) -> typed (Index(x, conv i k)) v
-    | TGraph n -> if isEdge n i then stdCall "weight" [ x; i ] else stdCall "nbrs" [ x; i ]
     | TQ el | TPQ el ->
         match i.k with
         | Int 0L -> typed (Call("peek", [ x ])) el
@@ -450,7 +438,7 @@ and private builtin name (args: E list) : E =
         match resolve x.t with
         | TArr e | TSet e | TQ e | TPQ e | TTree(e, _) -> e
         | TStr -> TStr
-        | TMap(k, _) | TGraph k -> k
+        | TMap(k, _) -> k
         | t -> err ($"""{(match name with "len" -> "#" | "has" -> "@?" | n -> n)}: not a collection: {showT t}""")
     match name, args with
     | ("print" | "println"), [ x ] -> typed (Call(name, [ value x ])) x.t
@@ -460,7 +448,7 @@ and private builtin name (args: E list) : E =
         match resolve x.t with
         | TInt | TFloat -> call x.t
         | TArr _ -> typeE (Lower.broadcast "*" x (typed (Int -1L) TInt) false)
-        | TGraph _ | TStr -> stdCall "rev" [ x ] // `-dg` reverses the edges, `-"abc"` is "cba"
+        | TStr -> stdCall "rev" [ x ] // `-"abc"` is "cba"
         | _ -> typed (Call("neg", [ conv x TInt ])) TInt
     | "entries", [ x ] -> (match resolve x.t with TMap _ -> stdCall "items" [ x ] | _ -> x)
     | "not", [ x ] -> typed (Call("not", [ conv x TBool ])) TBool
@@ -468,7 +456,6 @@ and private builtin name (args: E list) : E =
         if unify (resolve x.t) TBool then typed (Call("not", [ x ])) TBool
         else err ($"!{{..}} negates a block that must return bool, but this one returns {showT x.t}")
     | "len", [ x ] -> (elemOf x |> ignore; call TInt)
-    | "has", [ c; x ] when (match resolve c.t with TGraph n -> isEdge n x | _ -> false) -> stdCall "hasedge" [ c; x ]
     | "has", [ c; x ] when (match resolve c.t with TTree _ -> true | _ -> false) -> treeOp "bthas" c x
     | "has", [ c; x ] -> typed (Call("has", [ c; conv x (elemOf c) ])) TBool
     | "range", [ a; b ] -> typed (Call("range", [ bound a; bound b ])) (TArr TInt)
@@ -534,7 +521,6 @@ and private stdCall name (args: E list) : E =
         | Stdlib.SBool -> TBool
         | Stdlib.SVar v -> (match env.TryGetValue v with | true, t -> t | _ -> (let h = newHole () in env.[v] <- h; h))
         | Stdlib.SArr t -> TArr(toTy env t)
-        | Stdlib.SGraph t -> TGraph(toTy env t)
         | Stdlib.SMap(k, v) -> TMap(toTy env k, toTy env v)
         | Stdlib.SSet t -> TSet(toTy env t)
         | Stdlib.SQ t -> TQ(toTy env t)
@@ -549,7 +535,7 @@ and private stdCall name (args: E list) : E =
             match env.TryGetValue v with
             | true, b -> resolve b = t
             | _ -> (env.[v] <- t; true)
-        | Stdlib.SArr p, TArr t | Stdlib.SGraph p, TGraph t | Stdlib.SSet p, TSet t | Stdlib.SQ p, TQ t | Stdlib.SPQ p, TPQ t | Stdlib.SBT p, TTree(t, _) -> bind env p t
+        | Stdlib.SArr p, TArr t | Stdlib.SSet p, TSet t | Stdlib.SQ p, TQ t | Stdlib.SPQ p, TPQ t | Stdlib.SBT p, TTree(t, _) -> bind env p t
         | Stdlib.SMap(pk, pv), TMap(k, v) -> bind env pk k && bind env pv v
         | Stdlib.STup ps, TTup ts -> ps.Length = ts.Length && List.forall2 (bind env) ps ts
         | Stdlib.SFn _, TFn _ -> true

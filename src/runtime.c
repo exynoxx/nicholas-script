@@ -1,7 +1,7 @@
 // NS runtime. Type-dependent operations are driven by descriptor strings:
-// I F S B, A<t>, M<k><v>, H<t>, Q<t>, P<t>, G<t> (graph), T<t> (sorted tree), K<k><t> (sorted tree keyed by k), U<n><t1>..<tn> (boxed tuple), V<n><t1>..<tn> (value tuple,
+// I F S B, A<t>, M<k><v>, H<t>, Q<t>, P<t>, T<t> (sorted tree), K<k><t> (sorted tree keyed by k), U<n><t1>..<tn> (boxed tuple), V<n><t1>..<tn> (value tuple,
 // members I F B only); n is one digit. Element storage size esz(d): B=1, I F=8, S A M H Q P U=8 (pointer), V=8n
-// (a bool member of V is stored as int64 0/1). S A M H Q P G U are pointers. Containers store elements inline at stride esz; boxed tuples
+// (a bool member of V is stored as int64 0/1). S A M H Q P U are pointers. Containers store elements inline at stride esz; boxed tuples
 // store members consecutively, each at its own esz. A value given by a descriptor ("generic value") is passed
 // as a const void * to its storage bytes; element results go to a caller-provided void *out.
 // Heap objects (strings, arrays, maps, sets, Q, PQ, boxed tuples) carry a 16-byte header before the pointer:
@@ -21,7 +21,6 @@ typedef struct Map { int64_t len, cap, used, ksz, vsz; const char *kd, *vd; char
 typedef struct Node { struct Node *next; char v[]; } Node;
 typedef struct { int64_t len; Node *head, *tail; const char *d; int64_t esz; } Queue;
 typedef struct { int64_t len, cap; char *data; int64_t esz; const char *d; } PQ; // prefix-compatible with Arr
-typedef struct { Map m; int64_t dir; } Graph; // m: node -> M<t>I (neighbour -> weight); undirected stores both ways
 
 // `?? stmt` (Codegen): ns_try pushes a handler in the caller's 512-byte frame buffer, the caller _setjmps into it,
 // ns_untry pops it. A panic under a handler pops it and jumps back, so the statement is skipped.
@@ -48,7 +47,7 @@ typedef struct { int64_t rc; const char *d; } Hdr;
 static void *obj(const char *d, size_t n) { Hdr *h = alloc(sizeof(Hdr) + n); h->rc = 1; h->d = d; return h + 1; }
 static struct { Hdr h; char s[1]; } empty = {{-1, "S"}, ""}; // immortal ""
 static inline int ptrk(const char *d) { // pointer kinds: S A M H Q P U (I F B V are plain bytes)
-  switch (*d) { case 'S': case 'A': case 'M': case 'H': case 'Q': case 'P': case 'G': case 'U': case 'T': case 'K': return 1; default: return 0; }
+  switch (*d) { case 'S': case 'A': case 'M': case 'H': case 'Q': case 'P': case 'U': case 'T': case 'K': return 1; default: return 0; }
 }
 static inline int64_t esz(const char *d) { return *d == 'B' ? 1 : *d == 'V' ? 8 * (d[1] - '0') : 8; }
 void ns_retain(void *p) { if (p && HD(p)->rc >= 0) HD(p)->rc++; }
@@ -60,7 +59,7 @@ static inline void cpy(const char *d, void *dst, const void *src) { memmove(dst,
 // Returns a pointer just past the descriptor starting at d.
 static const char *skip(const char *d) {
   switch (*d) {
-  case 'A': case 'H': case 'Q': case 'P': case 'G': case 'T': return skip(d + 1);
+  case 'A': case 'H': case 'Q': case 'P': case 'T': return skip(d + 1);
   case 'M': case 'K': return skip(skip(d + 1));
   case 'U': case 'V': { int n = d[1] - '0'; for (d += 2; n--;) d = skip(d); return d; }
   default: return d + 1;
@@ -216,7 +215,7 @@ int64_t ns_eq(const char *d, const void *a, const void *b) {
     EACH_MEMBER(d, e, o) if (!ns_eq(e, x + o, y + o)) return 0;
     return 1;
   }
-  case 'M': case 'H': case 'G': {
+  case 'M': case 'H': {
     Map *x = ldp(a), *y = ldp(b);
     if (x->len != y->len) return 0;
     for (int64_t i = 0; i < x->cap; i++) if (x->st[i] == 1) {
@@ -290,7 +289,6 @@ void ns_map_set(void *p, const void *k, const void *v) {
 }
 void *ns_q_new(const char *d);
 void *ns_pq_new(const char *d);
-void *ns_graph(const char *dT, void *edges);
 static void zero(const char *d, void *out) { // writes d's zero value (owned) to out
   void *p;
   switch (*d) {
@@ -299,7 +297,6 @@ static void zero(const char *d, void *out) { // writes d's zero value (owned) to
   case 'M': case 'H': p = ns_map_new(d); break;
   case 'Q': p = ns_q_new(d); break;
   case 'P': p = ns_pq_new(d); break;
-  case 'G': p = ns_graph(d + 1, NULL); break;
   case 'U': { p = ns_tup_new(d); int64_t o = 0; EACH_MEMBER(d, e, o) zero(e, (char *)p + o); break; }
   default: memset(out, 0, esz(d)); return;
   }
@@ -640,7 +637,6 @@ static void items(Buf *b, const char *open, const char *d, Arr *a) {
 static void citems(Buf *b, const char *open, const char *d, const void *v) { // via a temp array
   Arr *a = ns_toarr(d, ldp(v)); items(b, open, d + 1, a); ns_release(a);
 }
-static void gstr(Buf *b, const char *dT, Graph *g);
 // q: quote strings (set for elements nested in containers)
 static void tostr(Buf *b, const char *d, const void *v, int q) {
   char tmp[40];
@@ -667,7 +663,6 @@ static void tostr(Buf *b, const char *d, const void *v, int q) {
   case 'Q': citems(b, "Q[", d, v); break;
   case 'P': citems(b, "PQ[", d, v); break;
   case 'T': case 'K': { Arr *a = ns_toarr(d, ldp(v)); items(b, "BT[", HD(a)->d + 1, a); ns_release(a); break; }
-  case 'G': gstr(b, d + 1, ldp(v)); break;
   case 'M': {
     Map *m = ldp(v); int first = 1;
     put(b, "[");
@@ -732,7 +727,7 @@ void *ns_toarr(const char *d, void *c) {
   switch (*d) {
   case 'A': return ns_arr_copy(c);
   case 'S': return ns_chars(c);
-  case 'M': case 'H': case 'G': {
+  case 'M': case 'H': {
     Map *m = c; Arr *r = ns_arr_new(intern('A', m->kd), m->len);
     for (int64_t i = 0; i < m->cap; i++) if (m->st[i] == 1) ns_arr_push(r, m->keys + i * m->ksz);
     return r;
@@ -761,7 +756,6 @@ void *ns_vals(const char *dK, const char *dV, void *m) { return ns_map_vals(m); 
 //@ arr (%[T]) [T]
 //@ arr (Q[T]) [T]
 //@ arr (PQ[T]) [T]
-//@ arr (G[T]) [T]
 void *ns_arr(const char *dT, void *c) { return ns_toarr(HD(c)->d, c); }
 //@ arr (str) [str] = ns_chars
 //@ pop (Q[T]) T = ns_qpop
@@ -777,7 +771,7 @@ static int64_t ns_find(const char *d, void *coll, const void *x) { // A: index o
 
 int64_t ns_has(const char *d, void *coll, const void *x) {
   switch (*d) {
-  case 'M': case 'H': case 'G': return find(coll, x) >= 0;
+  case 'M': case 'H': return find(coll, x) >= 0;
   case 'S': case 'A': return ns_find(d, coll, x) >= 0; // no (deep) copy
   default: { // Q, P: linear scan
     Arr *a = ns_toarr(d, coll); int64_t r = ns_find(HD(a)->d, a, x) >= 0;
@@ -855,7 +849,7 @@ void ns_release(void *p) {
     if (a->data != (char *)(a + 1)) free(a->data);
     break;
   }
-  case 'M': case 'H': case 'G': {
+  case 'M': case 'H': {
     Map *m = p;
     for (int64_t i = 0; i < m->cap; i++) if (m->st[i] == 1) { relv(m->kd, m->keys + i * m->ksz); if (m->vd) relv(m->vd, m->vals + i * m->vsz); }
     if (m->def) { relv(m->vd, m->def); free(m->def); }
@@ -1242,119 +1236,7 @@ void ns_maxkey_m(const char *dK, const char *dV, void *m, void *out) { mbest(m, 
 //@ minkey ({K:V}) K = ns_minkey_m
 void ns_minkey_m(const char *dK, const char *dV, void *m, void *out) { mbest(m, -1, out); }
 
-// ---------- graphs: G[edges] undirected, DG[edges] directed; an edge is (u,v) or (u,v,weight), weight 1 by default ----------
 static const char *dintern(const char *d) { return intern('A', d) + 1; } // interns a whole descriptor
-static Graph *gnew(const char *dT, int64_t dir) {
-  char vd[64]; int k = (int)(skip(dT) - dT);
-  snprintf(vd, sizeof vd, "M%.*sI", k, dT);
-  Graph *g = obj(intern('G', dT), sizeof(Graph));
-  map_init(&g->m, HD(g)->d + 1, dintern(vd));
-  g->dir = dir;
-  return g;
-}
-static Map *gnode(Graph *g, const void *u) { // u's neighbour map, adding u if missing
-  void **s = ns_map_put(g, u);
-  if (!*s) *s = ns_map_new(g->m.vd);
-  return *s;
-}
-static Map *gout(Graph *g, const void *u) { void **s = ns_map_ref(g, u); return s ? *s : NULL; }
-static void gset(Graph *g, const void *u, const void *v, int64_t w) {
-  gnode(g, v); ns_map_set(gnode(g, u), v, &w);
-  if (!g->dir) ns_map_set(gnode(g, v), u, &w);
-}
-static void edge(const char *dE, const void *e, const void **u, const void **v, int64_t *w) { // members of an edge tuple
-  const char *m = tup(dE, e); int64_t o;
-  tel(dE, 1, &o); *u = m; *v = m + o; *w = 1;
-  if (dE[1] == '3') { tel(dE, 2, &o); *w = ldi(m + o); }
-}
-#define EACH_EDGE(g, u, v, w) \
-  for (int64_t i_ = 0; i_ < (g)->m.cap; i_++) if ((g)->m.st[i_] == 1) \
-    for (Map *o_ = ldp((g)->m.vals + i_ * 8); o_; o_ = NULL) \
-      for (int64_t j_ = 0; j_ < o_->cap; j_++) if (o_->st[j_] == 1) \
-        for (const char *u = (g)->m.keys + i_ * (g)->m.ksz, *v = o_->keys + j_ * o_->ksz; v; v = NULL) \
-          for (int64_t w = ldi(o_->vals + j_ * 8), once_ = 1; once_; once_ = 0)
-static void *gbuild(const char *dT, void *edges, int64_t dir) {
-  Graph *g = gnew(dT, dir); Arr *a = edges; const char *ed = HD(a)->d + 1;
-  for (int64_t i = 0; i < a->len; i++) { const void *u, *v; int64_t w; edge(ed, a->data + i * a->esz, &u, &v, &w); gset(g, u, v, w); }
-  return g;
-}
-//@ G ([(T,T)]) G[T] = ns_graph
-//@ G ([(T,T,int)]) G[T] = ns_graph
-void *ns_graph(const char *dT, void *edges) { return edges ? gbuild(dT, edges, 0) : gnew(dT, 0); }
-//@ DG ([(T,T)]) G[T] = ns_dgraph
-//@ DG ([(T,T,int)]) G[T] = ns_dgraph
-void *ns_dgraph(const char *dT, void *edges) { return gbuild(dT, edges, 1); }
-//@ nbrs (G[T],T) [T]
-void *ns_nbrs(const char *dT, void *g, const void *u) { Map *o = gout(g, u); return o ? ns_toarr("H", o) : ns_arr_new(intern('A', dT), 0); }
-//@ weight (G[T],E) int
-int64_t ns_weight(const char *dT, const char *dE, void *g, const void *e) { // 0 if there is no such edge
-  const void *u, *v; int64_t w; edge(dE, e, &u, &v, &w);
-  Map *o = gout(g, u); int64_t *p = o ? ns_map_ref(o, v) : NULL;
-  return p ? *p : 0;
-}
-//@ hasedge (G[T],E) bool
-int64_t ns_hasedge(const char *dT, const char *dE, void *g, const void *e) {
-  const void *u, *v; int64_t w; edge(dE, e, &u, &v, &w);
-  Map *o = gout(g, u); return o && find(o, v) >= 0;
-}
-//@ addedge (G[T],E) G[T]
-void *ns_addedge(const char *dT, const char *dE, void *g, const void *e) { // in place; returns g
-  const void *u, *v; int64_t w; edge(dE, e, &u, &v, &w);
-  gset(g, u, v, w); ns_retain(g); return g;
-}
-//@ deledge (G[T],E) G[T]
-void *ns_deledge(const char *dT, const char *dE, void *g, const void *e) { // keeps both nodes
-  const void *u, *v; int64_t w; edge(dE, e, &u, &v, &w);
-  Map *o = gout(g, u); if (o) ns_del("H", o, v);
-  if (!((Graph *)g)->dir && (o = gout(g, v))) ns_del("H", o, u);
-  ns_retain(g); return g;
-}
-//@ delnode (G[T],T) G[T]
-void *ns_delnode(const char *dT, void *g, const void *u) { // and every edge touching it
-  Graph *G = g;
-  for (int64_t i = 0; i < G->m.cap; i++) if (G->m.st[i] == 1) ns_del("H", ldp(G->m.vals + i * 8), u);
-  ns_del("H", g, u); ns_retain(g); return g;
-}
-//@ nodes (G[T]) [T]
-void *ns_nodes(const char *dT, void *g) { return ns_toarr("G", g); }
-//@ edges (G[T]) [(T,T,int)]
-void *ns_edges(const char *dT, const char *dR, void *g) { // undirected edges once, as (u,v,w) with u <= v
-  Graph *G = g; int val = dR[1] == 'V'; Arr *r = ns_arr_new(dR, 0);
-  EACH_EDGE(G, u, v, w) if (G->dir || ns_cmp(dT, u, v) <= 0) {
-    if (val) { char t[24] = {0}; memcpy(t, u, esz(dT)); memcpy(t + 8, v, esz(dT)); memcpy(t + 16, &w, 8); apush(r, t); continue; }
-    void *t = ns_tup_new(dR + 1);
-    ns_tup_set(t, 0, u); ns_tup_set(t, 1, v); ns_tup_set(t, 2, &w);
-    apush(r, &t);
-  }
-  return r;
-}
-static Graph *gcopy(const char *dT, Graph *g, int rev) { // nodes and edges; rev: reversed edges
-  Graph *r = gnew(dT, g->dir);
-  for (int64_t i = 0; i < g->m.cap; i++) if (g->m.st[i] == 1) gnode(r, g->m.keys + i * g->m.ksz);
-  EACH_EDGE(g, u, v, w) ns_map_set(gnode(r, rev ? v : u), rev ? u : v, &w);
-  return r;
-}
-//@ rev (G[T]) G[T] = ns_grev
-void *ns_grev(const char *dT, void *g) { return gcopy(dT, g, 1); }
-//@ subgraph (G[T],[T]) G[T]
-void *ns_subgraph(const char *dT, void *g, void *keep) { // induced by the nodes in keep
-  Graph *G = g, *r = gnew(dT, G->dir); Arr *a = keep;
-  for (int64_t i = 0; i < a->len; i++) gnode(r, a->data + i * a->esz);
-  EACH_EDGE(G, u, v, w) if (find(&r->m, u) >= 0 && find(&r->m, v) >= 0) ns_map_set(gnode(r, u), v, &w);
-  return r;
-}
-static void *gcombine(const char *dT, Graph *g, Graph *h, int mode) { // 0 union, 1 intersection, 2 difference; g's nodes and weights win
-  Graph *r = gcopy(dT, g, 0);
-  if (mode) { EACH_EDGE(g, u, v, w) { Map *o = gout(h, u); if ((o && find(o, v) >= 0) != (mode == 1)) ns_del("H", gout(r, u), v); } }
-  else { EACH_EDGE(h, u, v, w) { Map *o = gnode(r, u); gnode(r, v); if (find(o, v) < 0) ns_map_set(o, v, &w); } }
-  return r;
-}
-//@ gunion (G[T],G[T]) G[T]
-void *ns_gunion(const char *dT, void *g, void *h) { return gcombine(dT, g, h, 0); }
-//@ ginter (G[T],G[T]) G[T]
-void *ns_ginter(const char *dT, void *g, void *h) { return gcombine(dT, g, h, 1); }
-//@ gdiff (G[T],G[T]) G[T]
-void *ns_gdiff(const char *dT, void *g, void *h) { return gcombine(dT, g, h, 2); }
 static void *scombine(Map *s, Map *t, int mode) { // in place on s: 0 union, 1 intersection, 2 difference
   if (!mode) { for (int64_t i = 0; i < t->cap; i++) if (t->st[i] == 1) ns_map_set(s, t->keys + i * t->ksz, NULL); }
   else for (int64_t i = 0; i < s->cap; i++)
@@ -1367,14 +1249,3 @@ void *ns_sunion(const char *dT, void *s, void *t) { return scombine(s, t, 0); }
 void *ns_sinter(const char *dT, void *s, void *t) { return scombine(s, t, 1); }
 //@ gdiff (%[T],%[T]) %[T] = ns_sdiff
 void *ns_sdiff(const char *dT, void *s, void *t) { return scombine(s, t, 2); }
-static void gstr(Buf *b, const char *dT, Graph *g) { // as a literal: G[(1,2),(2,3,5)]
-  char tmp[24]; int first = 1;
-  put(b, g->dir ? "DG[" : "G[");
-  EACH_EDGE(g, u, v, w) if (g->dir || ns_cmp(dT, u, v) <= 0) {
-    put(b, first ? "(" : ",("); first = 0;
-    tostr(b, dT, u, 1); put(b, ","); tostr(b, dT, v, 1);
-    if (w != 1) { snprintf(tmp, sizeof tmp, ",%lld", (long long)w); put(b, tmp); }
-    put(b, ")");
-  }
-  put(b, "]");
-}

@@ -378,24 +378,7 @@ m2 = m; m2@"z" = 26
 println:m@"z"               # => 26
 
 # ==================================================
-# 10. Graphs
-# ==================================================
-
-# Undirected G[...] and directed DG[...]; an edge is (u,v) or (u,v,weight).
-g = G[(1,2,1),(2,3,5)]     # one edge shape per literal
-println:(g@2).sort          # => [1,3]   neighbours
-println:g@(3,2)             # => 5       edge weight (0 if absent)
-println:g@?(1,3)            # => F       has edge
-g += (3,4)
-g -= 1                      # remove node 1 with its edges
-println:#g                  # => 3       node count
-println:g.edges.sort        # => [(2,3,5),(3,4,1)]
-dg = DG[(1,2),(2,3)]
-println:(-dg).edges.sort    # => [(2,1,1),(3,2,1)]   reversed
-# Nodes may be any hashable value, e.g. (row,col) grid cells.
-
-# ==================================================
-# 11. Standard library
+# 10. Standard library
 # ==================================================
 
 println:split:"a b c"," "           # => ["a","b","c"]
