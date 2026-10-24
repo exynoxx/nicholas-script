@@ -1,0 +1,7 @@
+# a fold over a recursive call's results takes the base case's type, not int
+f n = n >= 3 ? %[n] : [1,2]{f: n+_}/+
+println: f:0
+g n = n >= 3 ? [n] : [1,2]{g: n+_}/{$++_}
+println: g:0
+h n = n >= 3 ? %[(n, "x")] : %[1,2]{h: n+_}/+ [_1 > 3]
+println: #h:0

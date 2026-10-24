@@ -89,8 +89,10 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
         | IFilter -> [ when' (bodyE term) [ add (v term.el) ] ]
         | IFold | IScan ->
             let push = if term.kind = IScan then [ Do(call "push" [ v r; v term.acc ]) ] else []
-            [ Do(mk (If(v first, seq [ Assign(term.acc, v term.el); Assign(first, mk (Bool false)) ] skip,
-                        seq [ Assign(term.acc, bodyE term) ] skip))) ] @ push
+            // both branches give the accumulator, so a still-unknown `$` (a recursive call's result) keeps the
+            // enclosing ternary's type hint instead of taking the then-branch's int
+            [ Do(mk (If(v first, seq [ Assign(term.acc, v term.el); Assign(first, mk (Bool false)) ] (v term.acc),
+                        seq [ Assign(term.acc, bodyE term) ] (v term.acc)))) ] @ push
         | IEach ->
             // the body's value is dropped: a map that yields it builds no result array either
             match List.rev term.body with
