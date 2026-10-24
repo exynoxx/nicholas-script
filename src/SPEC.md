@@ -363,7 +363,13 @@ by `:` (then it is a ternary with an array literal: `c?[1]:[2]`), except when th
 x = expr
 a,b = b,a                  # parallel assignment
 expr                       # expression statement
+?? stmt                    # run stmt; if it fails at runtime, skip the rest of it silently
 ```
+
+`?? stmt` catches every runtime error raised while stmt runs (missing map key, index out of range, popping an empty
+queue, division by zero, ...), including inside functions it calls: `?? println:m@a + m@b` prints only if both keys
+exist, `?? out@k = m@a + m@b` assigns only if every read succeeds. Effects that happened before the failure stay
+(`?? xs{println:m@_}` prints up to the first missing key), and so does anything the failing part allocated (it leaks).
 
 Debug mode: `--debug` (on run/build/test) prints `line: name = value` after every assignment to a user variable, including `x@i = v` and compound assignments.
 
@@ -404,7 +410,7 @@ n = int:read; println: 1..(n+1)/*                       # factorial
 ```
 program   = { stmt TERM } ;
 TERM      = NEWLINE | ";" ;
-stmt      = fndef | assign | while | expr ;
+stmt      = "??" stmt | fndef | assign | while | expr ;
 fndef     = IDENT param { param } "=" ( "{" block "}" | expr ) ;
 param     = IDENT | "(" pname { "," pname } ")" ;   (* pname = IDENT | "_" *)
 while     = expr "~{" block "}" ;

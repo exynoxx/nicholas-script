@@ -177,6 +177,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         | body -> body
 
     member p.Stmt() : Stmt =
+        // `?? stmt`: skip the statement if it fails at runtime (missing key, index out of range, ...)
+        if accept "??" then SExpr(EUn("??", EGroup [ p.Stmt(); SExpr(EInt 0L) ])) else
         match p.FnDefAhead() with
         | Some(f, ps, eq) ->
             // `f a b = body` is `f = {body}` with a, b naming _1, _2; a `{…}` body holds statements

@@ -1,0 +1,20 @@
+# ?? stmt: skip a statement that fails at runtime
+m = ["a"->1, "b"->2]
+?? println:m@"a" + m@"b"
+?? println:m@"a" + m@"zz"
+out = [->]
+?? out@"x" = m@"a" + m@"b"
+?? out@"y" = m@"a" + m@"q"
+println:out
+xs = [1,2,3]
+?? println:xs@7
+?? xs@1 = xs@9
+println:xs
+q = Q[]
+?? println:q.pop
+n = 0
+f x = {n += 1; xs@x}
+[0,5,2]{?? println:f:_}
+println:n
+?? ?? println:m@"c"
+println:"done"

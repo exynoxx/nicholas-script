@@ -14,6 +14,7 @@
 #include <string.h>
 #include <math.h>
 #include <sys/wait.h>
+#include <setjmp.h>
 
 typedef struct { int64_t len, cap; char *data; int64_t esz; } Arr;
 typedef struct Map { int64_t len, cap, used, ksz, vsz; const char *kd, *vd; char *keys, *vals, *st, *def; } Map; // st: 0 empty, 1 full, 2 tomb; vd NULL = set; def: value for a missing key (`m ?? d`), NULL = none
@@ -22,7 +23,18 @@ typedef struct { int64_t len; Node *head, *tail; const char *d; int64_t esz; } Q
 typedef struct { int64_t len, cap; char *data; int64_t esz; const char *d; } PQ; // prefix-compatible with Arr
 typedef struct { Map m; int64_t dir; } Graph; // m: node -> M<t>I (neighbour -> weight); undirected stores both ways
 
-void ns_panic(const char *msg) { fprintf(stderr, "error: %s\n", msg); exit(1); }
+// `?? stmt` (Codegen): ns_try pushes a handler in the caller's 512-byte frame buffer, the caller _setjmps into it,
+// ns_untry pops it. A panic under a handler pops it and jumps back, so the statement is skipped.
+// ponytail: objects the statement had allocated or retained before the panic leak.
+typedef struct Catch { jmp_buf jb; struct Catch *prev; } Catch;
+_Static_assert(sizeof(Catch) <= 512, "Catch must fit the buffer Codegen allocates");
+static Catch *catcher;
+void ns_try(void *buf) { Catch *c = buf; c->prev = catcher; catcher = c; }
+void ns_untry(void) { catcher = catcher->prev; }
+void ns_panic(const char *msg) {
+  if (catcher) { Catch *c = catcher; catcher = c->prev; longjmp(c->jb, 1); }
+  fprintf(stderr, "error: %s\n", msg); exit(1);
+}
 static void *alloc(size_t n) { void *p = calloc(1, n ? n : 1); if (!p) ns_panic("out of memory"); return p; }
 static void *grow(void *p, size_t n) { p = realloc(p, n ? n : 1); if (!p) ns_panic("out of memory"); return p; }
 static size_t mul(size_t a, size_t b) { size_t r; if (__builtin_mul_overflow(a, b, &r) || r > PTRDIFF_MAX) ns_panic("out of memory"); return r; } // allocation size a*b

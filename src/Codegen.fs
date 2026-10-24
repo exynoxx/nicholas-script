@@ -360,6 +360,14 @@ let generate (prog: Program) : string =
             v
         | "repeat", [ x; _ ] -> rt "ptr" "ns_arr_repeat" [ d e.t; cell 0; "i64", arg 1 ]
         | "panic", _ -> (rt "void" "ns_panic" [ "ptr", arg 0 ] |> ignore; "0")
+        | "try", _ ->
+            // `?? stmt`: a handler frame in this function; _setjmp returns again (nonzero) when the statement panics
+            let buf = alloca "[512 x i8], align 16"
+            rt "void" "ns_try" [ "ptr", buf ] |> ignore
+            decls.["_setjmp"] <- "declare i32 @_setjmp(ptr) returns_twice"
+            let r = instr $"call i32 @_setjmp(ptr {buf}) returns_twice"
+            instr $"icmp eq i32 {r}, 0"
+        | "untry", _ -> (rt "void" "ns_untry" [] |> ignore; "0")
         | "copy", _ -> rt "ptr" "ns_arr_copy" [ "ptr", arg 0 ]
         | "push", _ ->
             storeTo (arg 1) (ty 1) (rt "ptr" "ns_arr_append" [ "ptr", arg 0 ])

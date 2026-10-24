@@ -477,6 +477,8 @@ and private builtin name (args: E list) : E =
         | TArr el -> typed (Call("push", [ a; own (conv (stored x) el) ])) a.t
         | t -> err ($"push: not an array: {showT t}")
     | "panic", [ msg ] -> call TInt
+    | "try", [] -> call TBool
+    | "untry", [] -> call TInt
     | "memo", [ { k = Fn(id, _) } as f ] -> (memos.Add id |> ignore; f)
     | "memo", _ -> err "memo: expects a block, as in f = memo:{...}"
     | ("sum" | "prod"), [ x ] when (match resolve x.t with TArr e -> (match resolve e with TInt | TFloat | THole _ -> false | _ -> true) | _ -> false) ->

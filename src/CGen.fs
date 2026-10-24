@@ -331,6 +331,13 @@ let generate (prog: Program) : string =
             v
         | "repeat", [ _; _ ] -> rt "void *" "ns_arr_repeat" [ d e.t; cell 0; arg 1 ]
         | "panic", _ -> (rt "void" "ns_panic" [ arg 0 ] |> ignore; "0")
+        | "try", _ ->
+            // `?? stmt`: a handler frame in this function; _setjmp returns again (nonzero) when the statement panics
+            let buf = tmp ()
+            c.locals.Append($"  _Alignas(16) char {buf}[512];\n") |> ignore
+            rt "void" "ns_try" [ buf ] |> ignore
+            instr "bool" $"_setjmp((void *){buf}) == 0"
+        | "untry", _ -> (rt "void" "ns_untry" [] |> ignore; "0")
         | "copy", _ -> rt "void *" "ns_arr_copy" [ arg 0 ]
         | "push", _ ->
             storeTo (arg 1) (ty 1) (rt "void *" "ns_arr_append" [ arg 0 ])
