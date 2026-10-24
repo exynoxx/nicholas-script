@@ -99,9 +99,21 @@ let private release (n: string) =
         if not (names.ContainsValue d) then taken.Remove d |> ignore
     | _ -> ()
 
-let private disp (n: string) =
+/// `prev'^n` (from `x'`): the variable it trails back to, and how many iterations back.
+let rec private prevRoot (n: string) =
+    match Desugar.prevOf.TryGetValue n with
+    | true, u when u.StartsWith "prev'^" -> let r, k = prevRoot u in r, k + 1
+    | true, u -> u, 1
+    | _ -> n, 0
+
+let private isPrev (n: string) = n.StartsWith "prev'^"
+
+let rec private disp (n: string) =
     match names.TryGetValue n with
     | true, d -> d
+    | _ when isPrev n ->
+        let root, k = prevRoot n
+        (if k = 1 then "prev_" else $"prev{k}_") + disp root
     | _ when isFresh n ->
         let hint =
             match n.Split('%').[0] with
@@ -162,6 +174,8 @@ let rec private tyOf (e: E) : Ty option =
     | Call("tuple", xs) -> Some(TTup(xs |> List.map (tyOf >> Option.defaultValue TUnk)))
     | Call("mapof", _) -> Some(TMap(TUnk, TUnk))
     | Call("set", _) -> Some(TSet TUnk)
+    | Call("Q", [ x ]) -> Some(TQ(defaultArg (elemTy (tyOf x)) TUnk))
+    | Call("PQ", [ x ]) -> Some(TPQ(defaultArg (elemTy (tyOf x)) TUnk))
     | Call("pop", [ q ]) -> elemTy (tyOf q)
     | Call(f, args) ->
         let f = stripMark f
@@ -203,7 +217,6 @@ let rec private pyTy (t: Ty) =
     | TSet e -> $"set[{pyTy e}]"
     | TQ e -> $"Queue[{pyTy e}]"
     | TPQ e -> $"MinHeap[{pyTy e}]"
-    | TGraph e -> $"Graph[{pyTy e}]"
     | TTree(e, _) -> $"SortedSet[{pyTy e}]"
     | TTup ts -> "(" + (ts |> List.map pyTy |> String.concat ", ") + ")"
     | TFn _ -> "function"
@@ -211,10 +224,10 @@ let rec private pyTy (t: Ty) =
 
 /// The type comment for the first assignment of a variable: containers only (scalars are obvious from the code).
 let private typeComment (n: string) =
-    if isFresh n || not (typed.Add n) then None
+    if isFresh n || isPrev n || not (typed.Add n) then None
     else
         match tyOfVar n with
-        | Some(TArr _ | TMap _ | TSet _ | TQ _ | TPQ _ | TGraph _ | TTree _ | TTup _ as t) ->
+        | Some(TArr _ | TMap _ | TSet _ | TQ _ | TPQ _ | TTree _ | TTup _ as t) ->
             let s = pyTy t
             if s.Contains "?" then None else Some s
         | _ -> None
@@ -312,6 +325,7 @@ let rec private prep (ss: S list) (tail: E option) : S list * E option =
         | SetIdx(x, i, v) when value v -> Some(mk (Index(x, i)))
         | _ -> None
     match ss with
+    | Assign(p, { k = Call("zero", []) }) :: rest when isPrev p && isFresh (fst (prevRoot p)) -> prep rest tail
     | Assign(t, { k = Call("destructure", [ e; { k = Int n } ]) }) :: rest when isT t && (real rest).Length >= int n ->
         let parts = List.truncate (int n) rest
         let lhs = parts |> List.mapi (fun i s -> lhsOf s (fun v -> match v.k with Index({ k = Var u }, { k = Int j }) -> u = t && j = int64 i | _ -> false))
@@ -574,12 +588,13 @@ and private call (e: E) (f: string) (args: E list) : string * int =
     | "mapof", [ { k = Arr ks }; { k = Arr vs } ] -> "{" + (List.map2 (fun k v -> str k + ": " + str v) ks vs |> String.concat ", ") + "}", 14
     | "set", [ { k = Arr [] } ] -> fnc "set" + "()", 14
     | "set", [ { k = Arr xs } ] -> "{" + list xs + "}", 14
-    | ("Q" | "PQ" | "BT" | "G" | "DG"), [ { k = Arr xs } ] ->
-        let name = match f with "Q" -> "Queue" | "PQ" -> "MinHeap" | "BT" -> "SortedSet" | "G" -> "Graph" | _ -> "DiGraph"
+    | ("Q" | "PQ" | "BT"), [ { k = Arr xs } ] ->
+        let name = match f with "Q" -> "Queue" | "PQ" -> "MinHeap" | _ -> "SortedSet"
         fnc name + "(" + (if xs.IsEmpty then "" else "[" + list xs + "]") + ")", 14
     | "destructure", [ x; _ ] -> ex x
     | "pop", [ q ] -> method q "pop" []
     | "zero", [] -> num "0", 14
+    | "%continue", [] -> kw "continue", 14
     | "memo", [ fn ] -> fnc "cache" + "(" + str fn + ")", 14
     | "entries", [ x ] -> ex x
     | "try", [] -> fnc "try" + "()", 14
@@ -622,8 +637,6 @@ and private lib (f: string) (args: E list) : string * int =
     | "uniq", [ x ] -> fcall "unique" [ x ]
     | "Q", _ -> fcall "Queue" args
     | "PQ", _ -> fcall "MinHeap" args
-    | "G", _ -> fcall "Graph" args
-    | "DG", _ -> fcall "DiGraph" args
     | "BT", [ x ] -> fcall "SortedSet" [ x ]
     | "BT", [ x; k ] -> fnc "SortedSet" + "(" + str x + ", key=" + str k + ")", 14
     | "map", _ -> fcall "dict" args
@@ -642,7 +655,7 @@ and private range (a: E) (b: E) = exP 10 a + " ..< " + exP 10 b
 and private matchAsCore (s: E) (t: string) (arms: E) (filter: bool) : E =
     let isArr = match tyOf s with Some(TArr _) -> true | _ -> false
     if isArr then
-        mk (Iter { kind = (if filter then IFilter else IMap); src = s; el = t; ix = t + "ix"; acc = t + "acc"; body = [ Do arms ] })
+        mk (Iter { kind = (if filter then IFilter else IMap); src = s; el = t; ix = t + "ix"; acc = t + "acc"; body = [ Do arms ]; post = [] })
     else
         match s.k with
         | Var _ -> subst t s arms
@@ -693,7 +706,7 @@ and private shapeOf (src: E) (st: Iter) =
         match tyOf src with
         | Some TInt -> "range", Some(mk (Int 0L), src)
         | Some(TMap _) -> "map", None
-        | Some(TGraph _) -> "graph", None
+        | Some(TQ _ | TPQ _) -> "queue", None
         | Some TStr -> "str", None
         | Some(TSet _) -> "set", None
         | Some _ -> "plain", None
@@ -704,7 +717,7 @@ and private shapeOf (src: E) (st: Iter) =
 
 /// Binds the loop variables of the first stage; returns the `for` header (without the colon).
 and private header (src: E) (st: Iter) (stages: Iter list) =
-    let bodies = stages |> List.collect (fun s -> s.body)
+    let bodies = stages |> List.collect (fun s -> s.body @ s.post)
     let usedEl = countIn st.el bodies None > 0
     let usedIx = forceIx || countIn st.ix bodies None > 0
     forceIx <- false
@@ -726,8 +739,8 @@ and private header (src: E) (st: Iter) (stages: Iter list) =
             let x = el [ "i"; "j"; "k" ]
             kw "for" + $" {i}, {x} " + kw "in" + " " + fnc "enumerate" + "(" + r + ")"
         else kw "for" + " " + el [ "i"; "j"; "k"; "n" ] + " " + kw "in" + " " + r
-    | ("map" | "graph"), _ ->
-        let kc, vc = if shape = "graph" then [ "node"; "u" ], [ "nbrs" ] else [ "k"; "key" ], [ "v"; "val" ]
+    | "map", _ ->
+        let kc, vc = [ "k"; "key" ], [ "v"; "val" ]
         let s = srcText ()
         match usedIx, usedEl with
         | true, true ->
@@ -751,12 +764,15 @@ and private header (src: E) (st: Iter) (stages: Iter list) =
 and private loop ind (src: E) (stages: Iter list) (terminal: int -> Iter -> unit) =
     curInd <- ind
     let stages = Array.ofList (writeBack src stages)
-    let bodies () = stages |> Seq.collect (fun s -> s.body) |> List.ofSeq
+    let bodies () = stages |> Seq.collect (fun s -> s.body @ s.post) |> List.ofSeq
     let it0 = stages.[0]
     // `i = @` as the first statement: the loop variable takes the user's name
-    match real it0.body with
-    | Assign(u, { k = Var v }) :: _ when (v = it0.el || v = it0.ix) && not (isFresh u) && countIn ("=" + u) (bodies ()) None = 1
-                                         && countIn ("=" + v) (bodies ()) None = 0 && not (names.ContainsKey v) ->
+    // (also after other statements, as long as they don't read the user's variable)
+    let body0 = real it0.body
+    let aliasAt = body0 |> List.tryFindIndex (function Assign(u, { k = Var v }) -> (v = it0.el || v = it0.ix) && not (isFresh u) | _ -> false)
+    match aliasAt |> Option.map (fun i -> body0.[i], List.truncate i body0) with
+    | Some(Assign(u, { k = Var v }), before) when countIn u before None = 0 && countIn ("=" + u) (bodies ()) None = 1
+                                                  && countIn ("=" + v) (bodies ()) None = 0 && not (names.ContainsKey v) ->
         let first = it0.body |> List.findIndex (function Assign(u', _) -> u' = u | _ -> false)
         let body = it0.body |> List.indexed |> List.filter (fst >> (<>) first) |> List.map snd
         stages.[0] <- { it0 with body = body }
@@ -766,6 +782,21 @@ and private loop ind (src: E) (stages: Iter list) (terminal: int -> Iter -> unit
     | _ -> ()
     let it0 = stages.[0]
     let bound = ResizeArray<string>([ it0.el; it0.ix ])
+    // `x'` of an element: its trailing variables start at the type's zero before the loop
+    let prevInits () =
+        // a later stage's element is named now: the filter's element passes on, a map's value gets a name
+        for i in 1 .. stages.Length - 1 do
+            let st = stages.[i]
+            if st.post |> List.exists (function Assign(p, _) -> isPrev p | _ -> false) && not (names.ContainsKey st.el) then
+                match stages.[i - 1].kind, names.TryGetValue stages.[i - 1].el with
+                | IFilter, (true, d) -> names.[st.el] <- d
+                | _ -> bind st.el [ "y"; "z"; "v"; "val" ] |> ignore
+        for st in stages do
+            for s in st.post do
+                match s with
+                | Assign(p, _) when isPrev p && isFresh (fst (prevRoot p)) -> emit ind (disp p + " = " + zeroOf (tyOfVar p))
+                | _ -> ()
+    let mutable counter = None
     // a one-element literal source (`[x][ok]{...}`) is not a loop: the element is just named
     let single, inner =
         match src.k with
@@ -775,11 +806,47 @@ and private loop ind (src: E) (stages: Iter list) (terminal: int -> Iter -> unit
             | _ when countIn it0.el (bodies ()) None > 0 -> emit ind (bind it0.el [ "x"; "y"; "z" ] + " = " + str one)
             | _ -> if not (isPure one) then emit ind (str one)
             true, ind
+        | _ when fst (shapeOf src it0) = "queue" ->
+            // a block over a queue drains it: pop until empty (the body may push more)
+            let q = match src.k with Var _ -> str src | _ -> (let q = alloc [ "queue"; "heap" ] in emit ind (q + " = " + str src); q)
+            let used n = countIn n (bodies ()) None > 0
+            let el () = if used it0.el then (match names.TryGetValue it0.el with | true, d -> d | _ -> bind it0.el [ "x"; "y"; "item" ]) else "_"
+            let pop = q + "." + fnc "pop" + "()"
+            let line =
+                match tyOf src with
+                | Some(TPQ t) ->
+                    match resolve t with
+                    | TTup(_ :: rest) ->
+                        let prio = if used it0.ix then bind it0.ix [ "prio"; "dist" ] else "_"
+                        let x = el ()
+                        if rest.Length = 1 then $"{prio}, {x} = {pop}" else $"{prio}, *{x} = {pop}"
+                    | _ ->
+                        let x = el ()
+                        if x <> "_" then names.[it0.ix] <- x
+                        elif used it0.ix then (let x = bind it0.el [ "x" ] in names.[it0.ix] <- x)
+                        $"{disp it0.el} = {pop}"
+                | _ ->
+                    if used it0.ix then
+                        let i = bind it0.ix [ "i"; "count" ]
+                        emit ind (i + " = " + num "0")
+                        counter <- Some i
+                    let x = el ()
+                    if x = "_" then pop else $"{x} = {pop}"
+            prevInits ()
+            emit ind (kw "while" + " " + q + ":")
+            emit (ind + 1) line
+            false, ind + 1
         | _ ->
             let h = header src it0 (List.ofArray stages)
+            prevInits ()
             emit ind (h + ":")
             false, ind + 1
     let rec go ind i =
+        let st = stages.[i]
+        go1 ind i
+        // end of an iteration of this stage: shift its `x'` variables
+        emitAll ind st.post
+    and go1 ind i =
         let st = stages.[i]
         if i = stages.Length - 1 then terminal ind st
         else
@@ -794,7 +861,7 @@ and private loop ind (src: E) (stages: Iter list) (terminal: int -> Iter -> unit
                 emit ind (kw "if" + " " + str (cond v) + ":")
                 block (ind + 1) (fun () -> go (ind + 1) (i + 1))
             | _ ->
-                let rest = stages |> Seq.skip (i + 1) |> Seq.collect (fun s -> s.body) |> List.ofSeq
+                let rest = stages |> Seq.skip (i + 1) |> Seq.collect (fun s -> s.body @ s.post) |> List.ofSeq
                 let uses = countIn nxt.el rest None
                 // a filter or a seeded fold also uses its element implicitly (kept, or the fold's seed)
                 let implicitUse =
@@ -809,11 +876,14 @@ and private loop ind (src: E) (stages: Iter list) (terminal: int -> Iter -> unit
                 elif uses > 0 then
                     curInd <- ind
                     let value = str v
-                    let y = bind nxt.el [ "y"; "z"; "v"; "val" ]
+                    let y = match names.TryGetValue nxt.el with | true, d -> d | _ -> bind nxt.el [ "y"; "z"; "v"; "val" ]
                     emit ind (y + " = " + value)
                 elif not (isPure v) then stmtValue ind Discard v
                 go ind (i + 1)
-    if single then go inner 0 else block inner (fun () -> go inner 0)
+    let body () =
+        go inner 0
+        counter |> Option.iter (fun i -> emit inner (i + " += " + num "1"))
+    if single then body () else block inner body
     for st in stages do pending.Remove st.el |> ignore
     // a filter's alias shares its display name; release each display name once
     for n in bound do release n
@@ -845,6 +915,16 @@ and private writeBack (src: E) (stages: Iter list) =
                     [ Assign(x, e); SetIdx(src, mk (Var st.ix), mk (Var x)) ] @ (if i = last then [ Do(mk (Var x)) ] else [])
                 | stmt -> [ stmt ])
         [ { st with body = body } ]
+
+and private zeroOf (t: Ty option) =
+    match t with
+    | Some TInt -> num "0"
+    | Some TFloat -> num "0.0"
+    | Some TStr -> strc "\"\""
+    | Some TBool -> num "False"
+    | Some(TArr _) -> "[]"
+    | Some(TTup ts) -> "(" + (ts |> List.map (resolve >> Some >> zeroOf) |> String.concat ", ") + ")"
+    | _ -> fnc "zero" + "()"
 
 /// `acc op x` or `max/min(acc, x)` as the whole fold body.
 and private foldOp (st: Iter) =
@@ -884,7 +964,7 @@ and private inlineIter (it: Iter) : string option =
         taken.Clear()
         taken.UnionWith savedTaken
         if hoisted.Count = 0 then Some text else None
-    if not simple || hasWriteBack src stages then None
+    if not simple || hasWriteBack src stages || fst (shapeOf src stages.Head) = "queue" || stages |> List.exists (fun st -> not st.post.IsEmpty) then None
     else
         match it.kind, foldOp it with
         | IFold, Some "+" when tyOfVar it.el = Some TStr ->
@@ -924,7 +1004,7 @@ and private inlineIter (it: Iter) : string option =
                 let cond = if conds.Count = 0 then "" else " " + kw "if" + " " + String.concat (" " + kw "and" + " ") conds
                 let shape, _ = shapeOf src stages.Head
                 match shape with
-                | ("map" | "graph") when stages.Length = 1 ->
+                | "map" when stages.Length = 1 ->
                     let k = match names.TryGetValue stages.Head.ix with | true, k -> k | _ -> bind stages.Head.ix [ "k"; "key" ]
                     let v = match names.TryGetValue stages.Head.el with | true, v -> v | _ -> bind stages.Head.el [ "v"; "val" ]
                     "{" + k + ": " + value + " " + kw "for" + $" {k}, {v} " + kw "in" + " " + exP 14 src + "." + fnc "items" + "()" + cond + "}"
@@ -989,7 +1069,7 @@ and private iterInto ind (target: string) (comment: string option) (it: Iter) =
     | IMap | IFilter ->
         let init =
             match shape with
-            | ("map" | "graph") when stages.Length = 1 -> "{}"
+            | "map" when stages.Length = 1 -> "{}"
             | "set" when stages.Length = 1 -> fnc "set" + "()"
             | _ -> "[]"
         emit ind (withComment (target + " = " + init) comment)
@@ -1048,6 +1128,13 @@ and private eachLoop ind (it: Iter) =
     | Some s ->
         emit ind s
     | None ->
+        // bare `ret` (`c ? ret` then the rest): `if c: continue`
+        let rec unguard (body: S list) =
+            match List.rev (real body) with
+            | Do { k = If(c, { k = Int 0L }, { k = Seq(rest, x) }) } :: before when not (real rest).IsEmpty ->
+                List.rev before @ [ Do(mk (If(c, mk (Seq([ Do(mk (Call("%continue", []))) ], mk (Int 0L))), mk (Int 0L)))) ] @ unguard (rest @ [ Do x ])
+            | _ -> body
+        let stages = stages |> List.mapi (fun i st -> if i = stages.Length - 1 then { st with body = unguard st.body } else st)
         loop ind src stages (fun ind' st ->
             let ss, v = splitPrep st.body
             emitAll ind' ss
@@ -1141,7 +1228,6 @@ and private compound (lhs: string) (lhsTy: Ty option) (op: string) (b: E) : stri
     | "-", Some(TSet _ | TTree _) -> m "remove"
     | "-", Some(TMap _) -> Some(kw "del" + " " + lhs + "[" + str b + "]")
     | "+", Some(TMap _) -> m "update"
-    | "+", Some(TGraph _) -> m "add_edge"
     | "++", (Some(TArr _) | None) -> if appendsTy lhsTy b then m "append" else Some(lhs + " += " + str b)
     | ("+" | "-" | "*" | "/" | "%" | "^^"), Some(TArr _) -> None
     | "++", Some(TSet _) -> m "update"
@@ -1163,7 +1249,14 @@ and private appendsTy (lhsTy: Ty option) (b: E) =
 
 /// Structural equality up to the fresh names of iterations (`m@key` desugared twice from `m@key op= v`).
 and private same (a: E) (b: E) =
-    let norm (e: E) = Text.RegularExpressions.Regex.Replace(showE e, "[_@$]%[0-9]+", "%")
+    // variables bound by an iteration inside the expression are renamed in order; free ones must match
+    let norm (e: E) =
+        let bound = ResizeArray<string>()
+        visit (fun x -> match x.k with Iter it -> bound.AddRange [ it.el; it.ix; it.acc ] | _ -> ()) e
+        let mutable text = showE e
+        for i, n in Seq.indexed bound do
+            text <- Text.RegularExpressions.Regex.Replace(text, Text.RegularExpressions.Regex.Escape n + "(?![0-9])", $"#b{i}")
+        text
     norm a = norm b
 
 and private stmt ind (s: S) =
@@ -1175,6 +1268,7 @@ and private stmt ind (s: S) =
     | Assign(x, { k = Bin(op, { k = Var x' }, b) }) when x = x' && op <> "??" && not (cmpOps.Contains op) && (compound (disp x) (tyOfVar x) op b).IsSome ->
         typed.Add x |> ignore
         emit ind (compound (disp x) (tyOfVar x) op b).Value
+    | Assign(p, { k = Call("zero", []) }) when isPrev p -> emit ind (disp p + " = " + zeroOf (tyOfVar p))
     | Assign(x, e) -> stmtValue ind (To(disp x, ref (typeComment x), Some x)) e
     | SetIdx(x, i, { k = Bin(op, { k = Index(x', i') }, b) }) when same x x' && same i i' && not (cmpOps.Contains op) ->
         let lhs = exP 14 x + "[" + str i + "]"
