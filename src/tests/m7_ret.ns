@@ -1,0 +1,28 @@
+f x = {
+    x > 3 ? ret: x, 0
+    x < 0 ? ret: 0, 0
+    y = x * 2
+    (x, y)
+}
+println: [5, -1, 2] {f: _}
+g n acc = {
+    (n = 0) ? ret: acc
+    g: n-1, acc+n
+}
+println: g: 1000000, 0
+println: [1,2,3,4] {_ % 2 = 0 ? ret: _ * 10; _}
+h x = {
+    ret: x + 1
+}
+println: h: 4
+# a BFS with guards
+next = [1->[2,3], 2->[3,4], 3->[1], 4->[]] ?? []
+bfs q seen = {
+    #q < 1 ? ret: #seen
+    (u, i) = q.pop
+    i > 10 ? ret: #seen
+    seen @? u ? ret: bfs: q, seen
+    seen += u
+    bfs: q ++ next@u {(_, i+1)}, seen
+}
+println: bfs: [(1,0)].Q, %[]

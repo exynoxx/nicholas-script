@@ -322,6 +322,21 @@ c ? (x = 1; y = 2) : 0     # statement group: `;` inside parens, value = last st
 cond ~{ body }             # while statement: whole `cond` expression re-evaluated each pass
 ```
 
+`ret: v` ends the enclosing block (function body, map body, group) with value `v` (`ret: a, b` = the tuple `(a, b)`).
+As a guard, `cond ? ret: v` returns `v` when `cond` holds and otherwise runs the rest of the block, so an early exit
+needs no nesting; a recursive call after it is still a tail call. `ret` works only as a statement of a block, not
+inside an expression or a `~{ }` loop. Mind `x = 0 ? ret: v` at the start of a line: that assigns; write `(x = 0) ? ret: v`.
+```
+f q seen = {
+    #q < 1 ? ret: #seen
+    (u, i) = q.pop
+    i > 10 ? ret: #seen
+    seen @? u ? ret: f: q, seen
+    seen += u
+    f: q ++ next@u {(_, i+1)}, seen
+}
+```
+
 ### Match `?{ }` / `?[ ]`
 
 ```

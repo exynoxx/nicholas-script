@@ -51,6 +51,7 @@
       "patterns": [
         { "match": "\\bimport\\b", "name": "keyword.control.import.ns" },
         { "match": "~\\{", "name": "keyword.control.while.ns" },
+        { "match": "\\bret(?=\\s*:)", "name": "keyword.control.return.ns" },
         { "match": "\\?(?=[\\{\\[])", "name": "keyword.control.match.ns" },
         { "match": "\\b[TF]\\b", "name": "constant.language.boolean.ns" }
       ]

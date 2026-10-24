@@ -67,6 +67,7 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
     | EUn("??", x) -> mk (If(call "try" [], mk (Seq([ Do(ex x) ], call "untry" [])), mk (Int 0L)))
     | EUn(op, x) -> call (match op with "-" -> "neg" | "!" -> "not" | "!b" -> "notbool" | _ -> "len") [ x ]
     | ETern(c, a, b) -> mk (If(ex c, ex a, ex b))
+    | ECall(f, _) when f = callMark + "ret" -> fail line "ret: only as a statement of a block, `ret: v` or `cond ? ret: v`"
     | ECall(f, args) when f.StartsWith callMark || f.StartsWith nameMark || f.StartsWith negMark -> // a block param may shadow the function
         let n = f.Substring 1
         call (f.Substring(0, 1) + defaultArg (Map.tryFind n env) n) args
@@ -126,9 +127,25 @@ and private iter env kind src (mkBody: Map<string, string> -> S list) =
     let env' = env.Add("_", el).Add("_#", el).Add("@", ix).Add("$", acc)
     mk (Iter { kind = kind; src = src; el = el; ix = ix; acc = acc; body = mkBody env' })
 
+/// `cond ? ret: v` leaves the block with v: the statements after it become the else branch.
+/// `ret: v` alone ends the block with v.
+and private guards (body: Stmt list) =
+    let ret = callMark + "ret"
+    let value vs = match vs with [ v ] -> v | vs -> ETuple vs
+    match body with
+    | SExpr(ETern(c, EGroup [ SExpr(ECall(r, vs)); SExpr(EInt 0L) ], EInt 0L) as t) :: rest when r = ret ->
+        let e =
+            if rest |> List.forall (function SLine _ -> true | _ -> false) then ETern(c, EGroup [ SExpr(value vs); SExpr(EInt 0L) ], EInt 0L)
+            else ETern(c, value vs, EGroup(guards rest))
+        posOf t |> Option.iter (setPos e)
+        [ SExpr e ]
+    | SExpr(ECall(r, vs)) :: _ when r = ret -> [ SExpr(value vs) ]
+    | s :: rest -> s :: guards rest
+    | [] -> []
+
 /// A block's value is its last statement; make sure that statement is a `Do`.
 and private block env body =
-    let ss = stmts env body
+    let ss = stmts env (guards body)
     match ss |> List.filter (function Line _ -> false | _ -> true) |> List.tryLast with
     | Some(Do _) -> ss
     | Some(Assign(x, _)) -> ss @ [ Do(mk (Var x)) ]

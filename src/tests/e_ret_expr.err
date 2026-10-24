@@ -1,0 +1,2 @@
+2: error: ret: only as a statement of a block, `ret: v` or `cond ? ret: v`
+2 | y = 1 + ret: x

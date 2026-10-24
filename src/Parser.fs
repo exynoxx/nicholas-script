@@ -5,7 +5,7 @@ open System.Collections.Generic
 open Ast
 
 /// language primitives plus every function declared in runtime.c (see Stdlib.fs)
-let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ"; "BT"; "memo" ] + Stdlib.names
+let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ"; "BT"; "memo"; "ret" ] + Stdlib.names
 let private zeroArity = Stdlib.zeroArity
 let private compounds = set [ "+="; "-="; "*="; "**="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>="; "??=" ]
 
