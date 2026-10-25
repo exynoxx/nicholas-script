@@ -1,0 +1,2 @@
+2: error: lazy: only a top-level function can be lazy (when called at line 5 with int)
+2 |   lazy g y = [y, y]

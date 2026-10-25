@@ -318,6 +318,21 @@ memo paths r c = r=0 | c=0 ? 1 : (paths:r-1,c)+(paths:r,c-1)   # same, with name
 ```
 `memo f a b = body` is `f a b = body` memoized (`f = memo:{…}` with named parameters).
 
+`lazy f a = body` (or `lazy f = {…}`, top-level only) marks a function whose array result streams into its consumer
+instead of being built first (a C# iterator without `yield`). When a call is the source of a chain (maps and filters
+pass through) ending in `@k` (k ≥ 0), `.one`, `.take:n`, `.any`, `.all`, `/|` or `/&` of bools, or `@?x`, the body
+hands its elements over one at a time and stops once the ending has its answer. Any other use gets the plain array.
+Removing `lazy` changes no result, only the cost (and how side effects interleave). Statements before the body's last
+expression run once per call; the last expression streams: a fused chain, `a ++ b` (b only if more are wanted),
+`c ? a : b`, `[x, y]`, `.flatten` of a map (a flat-map), a call to a lazy function (recursion works), or any other
+array, element by element.
+```
+lazy pairs xs = 0..xs{i = _; ((i+1)..xs){(xs@i, xs@_)}}.flatten
+(pairs:nums)[_1 + _2 = 10].one      # stops at the first match: never builds the n² pairs
+lazy walk i = i < #t ? (walk:2*i+1) ++ [t@i] ++ walk:2*i+2 : []
+(walk:0).take:3                     # 3 smallest of a heap-ordered search tree; the rest is not visited
+```
+
 ## 5. Control flow
 ```
 c ? a : b                  # ternary

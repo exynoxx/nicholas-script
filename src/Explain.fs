@@ -1264,7 +1264,7 @@ and private stmt ind (s: S) =
     match s with
     | Line _ -> ()
     | Assign(f, { k = Fn(id, body) }) -> defn ind (userName f) id body false
-    | Assign(f, { k = Call(m, [ { k = Fn(id, body) } ]) }) when stripMark m = "memo" -> defn ind (userName f) id body true
+    | Assign(f, { k = Call(m, [ { k = Fn(id, body) } ]) }) when stripMark m = "memo" || m = "lazy" -> defn ind (userName f) id body (m <> "lazy")
     | Assign(x, { k = Bin(op, { k = Var x' }, b) }) when x = x' && op <> "??" && not (cmpOps.Contains op) && (compound (disp x) (tyOfVar x) op b).IsSome ->
         typed.Add x |> ignore
         emit ind (compound (disp x) (tyOfVar x) op b).Value

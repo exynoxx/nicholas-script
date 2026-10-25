@@ -46,6 +46,9 @@ let private memoCaches = ResizeArray<string>()
 let private emptyEls = ResizeArray<Ty>()
 let private fixers = HashSet<string>()
 let private err msg = failAt line col msg
+/// `lazy` functions (block ids), and the sink-passing version of each (see `sinkBody`) per argument count.
+let private lazyFns = HashSet<int>()
+let private lazySinks = Dictionary<int * int, int>()
 
 let newHole () = THole(ref None)
 
@@ -107,6 +110,60 @@ let private lookup (name: string) =
                 if not (List.contains u i.caps) then i.caps <- i.caps @ [ u ]
         Some u
     | None -> None
+
+/// `f:args` with f a `lazy` function: Some(block id, f, args).
+let private lazyCall (e: E) =
+    match e.k with
+    | Call(name, args) when not (name.StartsWith nameMark || name.StartsWith negMark) ->
+        let f = if name.StartsWith callMark then name.Substring 1 else name
+        match lookup f |> Option.map (fun u -> resolve varTy.[u]) with
+        | Some(TFn id) when lazyFns.Contains id -> Some(id, f, args)
+        | _ -> None
+    | _ -> None
+
+/// The source of an untyped map/filter chain (e itself when it is none).
+let rec private chainSrc (e: E) =
+    match e.k with
+    | Iter it when e.t = TUnk && (it.kind = IMap || it.kind = IFilter) -> chainSrc it.src
+    | _ -> e
+
+/// Is e a `lazy` call, or a map/filter chain fed by one?
+let private streams (e: E) = e.t = TUnk && (lazyCall (chainSrc e)).IsSome
+
+/// e's chain source replaced by h.
+let rec private withChainSrc (e: E) (h: E) =
+    match e.k with
+    | Iter it when e.t = TUnk && (it.kind = IMap || it.kind = IFilter) -> { e with k = Iter { it with src = withChainSrc it.src h } }
+    | _ -> h
+
+let private newIter kind src body =
+    let el = Desugar.fresh "_"
+    { kind = kind; src = src; el = el; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = body (mk (Var el)); post = [] }
+
+/// The body of a `lazy` function rewritten to hand each element of its result to the block `sink` (a parameter),
+/// stopping once the sink returns F; the statements before the result run first. It returns whether the sink
+/// still wants more. Result forms: `a ++ b`, `c ? a : b`, `(…; x)`, `[x, y]`, `.flatten` of a map (its body's value
+/// streams per element); anything else becomes `%yield` (typeAt), decided by its type.
+let private sinkBody (body: S list) (sink: string) : S list =
+    let m = Desugar.fresh "more"
+    let v n = mk (Var n)
+    let zero = mk (Int 0L)
+    let guard ss = Do(mk (If(v m, mk (Seq(ss, zero)), zero)))
+    let send x = Assign(m, mk (Call(sink, [ x ])))
+    let rec emit (e: E) : S list =
+        match e.k with
+        | Bin("++", a, b) -> emit a @ [ guard (emit b) ]
+        | If(c, a, b) -> [ Do(mk (If(c, mk (Seq(emit a, zero)), mk (Seq(emit b, zero))))) ]
+        | Seq(ss, x) -> ss @ emit x
+        | Arr xs -> xs |> List.mapi (fun i x -> if i = 0 then send x else guard [ send x ])
+        | Call("flatten", [ { k = Iter it } as x ]) when x.t = TUnk && it.kind = IMap ->
+            match List.rev it.body with
+            | Do last :: rest -> [ Do(mk (Iter { it with kind = IEach; body = Do(mk (Call("%while", [ v m ]))) :: List.rev rest @ emit last })) ]
+            | _ -> [ Do(mk (Call("%yield", [ e; v m; v sink ]))) ]
+        | _ -> [ Do(mk (Call("%yield", [ e; v m; v sink ]))) ]
+    match List.rev body with
+    | Do last :: rest -> List.rev rest @ [ Assign(m, mk (Bool true)) ] @ emit last @ [ Do(v m) ]
+    | _ -> body
 
 /// `memo:{..}`: an instance first looks its arguments up in its own global cache (a map, created at program start).
 let private memoize (arity: int) (body: S list) =
@@ -286,6 +343,53 @@ and private typeAt (e: E) : E =
                 else err ($"'{f.Split('\'').[0]}' is a variable here, not a function")
             | _ when name.StartsWith negMark -> typeE args.Head
             | _ -> typeE { e with k = Call(f, args) }
+        // a `lazy` call feeding an ending that stops early streams into it (typeIter); as a plain map stage if needed
+        | Call("take", [ x; k ]) when (match x.k with Iter _ -> false | _ -> true) && (lookup "take").IsNone && streams x ->
+            match lazyArgs x with
+            | x, true -> typeIter (newIter IMap x (fun el -> [ Do el ])) (Some k) false None
+            | x, false -> builtin "take" [ typeE x; typeE k ]
+        | Index(x, ({ k = (Int _ | Var _) } as i)) when (match x.k with Iter _ -> false | _ -> true) && streams x
+                                                        && (match i.k with Int n -> n >= 0L | _ -> true) ->
+            match lazyArgs x with
+            | x, true -> typeIter (newIter IMap x (fun el -> [ Do el ])) None false (Some i)
+            | x, false -> typeIndex (typeE x) (typeE i)
+        // `.any` is `{bool:_}/|`, `.all` is `{bool:_}/&`, `@?y` is `{_ = y}/|`: a fold of bools stops at the first T / F
+        | Call(("any" | "all") as f, [ x ]) when (lookup f).IsNone && streams x ->
+            match lazyArgs x with
+            | x, true ->
+                let fold = newIter IFold (mk (Iter(newIter IMap x (fun el -> [ Do(mk (Call("bool", [ el ]))) ])))) (fun _ -> [])
+                typeE (mk (Iter { fold with body = [ Do(mk (Bin((if f = "any" then "|" else "&"), mk (Var fold.acc), mk (Var fold.el)))) ] }))
+            | x, false -> builtin f [ typeE x ]
+        | Call("has", [ x; y ]) when streams x ->
+            match lazyArgs x with
+            | x, true ->
+                let t = Desugar.fresh "t"
+                let fold = newIter IFold (mk (Iter(newIter IMap x (fun el -> [ Do(mk (Bin("=", el, mk (Var t)))) ])))) (fun _ -> [])
+                typeE (mk (Seq([ Assign(t, y) ], mk (Iter { fold with body = [ Do(mk (Bin("|", mk (Var fold.acc), mk (Var fold.el)))) ] }))))
+            | x, false -> builtin "has" [ typeE x; typeE y ]
+        | Call("%yield", [ e; { k = Var m }; { k = Var sink } ]) ->
+            // one part of a `lazy` result (sinkBody): a lazy call passes the sink on; an array's elements go to the sink
+            // one at a time (a map/filter chain over an array or int fuses into that loop); anything else is one element
+            let send (x: E) = Assign(m, mk (Call(sink, [ x ])))
+            match lazyCall e with
+            | Some(id, _, args) -> typeE (mk (Seq([ Assign(m, mk (Call("%lazy", mk (Int(int64 id)) :: args @ [ mk (Var sink) ]))) ], mk (Int 0L))))
+            | None ->
+                let h = chainSrc e
+                let th = typeE h
+                let fuse = not (obj.ReferenceEquals(e, h)) && (match resolve th.t with TArr _ | TInt -> true | _ -> false)
+                let e = if fuse then withChainSrc e th else typeE (withChainSrc e th)
+                match fuse, resolve e.t with
+                | true, _ | _, TArr _ ->
+                    typeE (mk (Iter(newIter IEach e (fun el -> [ Do(mk (Call("%while", [ mk (Var m) ]))); send el ]))))
+                | _ -> typeE (mk (Seq([ send e ], mk (Int 0L))))
+        | Call("%lazy", { k = Int id } :: args) -> userCall (lazySink (int id) (args.Length - 1)) (List.map (typeE >> own) args)
+        | Call("%foldmore", [ { k = Str op }; acc ]) ->
+            // Lower.iter fed by a `lazy` call: a fold of bools wants more until the first T (`|`) / F (`&`)
+            let acc = typeE acc
+            match resolve acc.t with
+            | TBool when op = "|" -> typed (Call("not", [ acc ])) TBool
+            | TBool -> acc
+            | _ -> typed (Bool true) TBool
         | Call("take", [ { k = Iter it }; k ]) when (it.kind = IMap || it.kind = IFilter) && (lookup "take").IsNone ->
             typeIter it (Some k) false None
         // `chain@k` stops after k+1 results, like `(chain.take:k+1)@k`; `.one` is `@0`
@@ -333,7 +437,17 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) (at: E option) :
         | Iter inner when it.src.t = TUnk && (inner.kind = IMap || inner.kind = IFilter) -> chain inner (it :: acc)
         | _ -> it :: acc
     let stages = chain it []
-    let src = typeE stages.Head.src
+    // a `lazy` call feeding a chain whose ending stops early streams into it: the stages run per element, no array
+    let lazySrc =
+        match lazyCall stages.Head.src with
+        | Some(id, f, args) when limit.IsSome || at.IsSome || (Lower.boolFold it).IsSome ->
+            let args = args |> List.map (typeE >> own)
+            let plain = typeE { stages.Head.src with k = Call(f, args) } // types the call, gives the result type
+            let feed fn = mk (Call("%lazy", mk (Int(int64 id)) :: args @ [ fn ]))
+            Some(plain, (match resolve plain.t with TArr _ -> Some feed | _ -> None))
+        | _ -> None
+    let feed = lazySrc |> Option.bind snd
+    let src = match lazySrc with Some(plain, _) -> plain | None -> typeE stages.Head.src
     match resolve src.t, expect with
     | THole _, Some t -> unify src.t t |> ignore // a recursive call: its result type is the base case's
     | _ -> ()
@@ -350,17 +464,18 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) (at: E option) :
       match resolve src.t with
       | TFloat | TBool | TTup _ | TFn _ as t ->
           err ($"cannot {showKind stages.Head.kind} over {showT t}: it needs an int, array, string, map, set, queue or tree")
-      | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true)
+      | TArr _ when feed.IsSome -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false feed)
+      | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true None)
       | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
-          typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
+          typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false None)
       // a set chain consumed by a fold/scan is lazy: `s{f}/+` sums every mapped value, it builds no (deduplicating) set
       // a queue drains (pop until empty) into an array, so its chains fuse like an array's
-      | TQ _ | TPQ _ -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
+      | TQ _ | TPQ _ -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false None)
       | TSet _ when stages.Length > 1 && (it.kind = IFold || it.kind = IScan) ->
-          typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
+          typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false None)
       | _ ->
           // not fusable (maps/sets/queues keep their kind per stage): lower stage by stage
-          let r = stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t) None false)) src
+          let r = stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t) None false None)) src
           let r = match limit with Some k -> builtin "take" [ r; k ] | None -> r
           if count then builtin "len" [ r ] else r
     match at with Some i -> typeIndex r (typeE i) | None -> r
@@ -522,6 +637,10 @@ and private builtin name (args: E list) : E =
     | "untry", [] -> call TInt
     | "memo", [ { k = Fn(id, _) } as f ] -> (memos.Add id |> ignore; f)
     | "memo", _ -> err "memo: expects a block, as in f = memo:{...}"
+    | "lazy", [ { k = Fn(id, _) } as f ] ->
+        if cur.inst.IsSome then err "lazy: only a top-level function can be lazy"
+        lazyFns.Add id |> ignore
+        f
     | ("sum" | "prod"), [ x ] when (match resolve x.t with TArr e -> (match resolve e with TInt | TFloat | THole _ -> false | _ -> true) | _ -> false) ->
         let hint = match resolve x.t with TArr e when (match resolve e with TTup _ -> true | _ -> false) -> "; fold tuples with /+ or /*" | _ -> ""
         err ($"{name}: needs an array of int or float, not {showT x.t}{hint}")
@@ -624,6 +743,26 @@ and private treeOp f (c: E) (x: E) : E =
     let result = if f = "bthas" then call else typed (Seq([ Do call ], tc)) c.t
     typed (Seq([ assign tc c; assign tx x ], result)) result.t
 
+/// x `streams`: x with its `lazy` call's arguments typed (typing it again reuses them), and whether the call gives an array.
+and private lazyArgs (x: E) =
+    let h = chainSrc x
+    match lazyCall h with
+    | Some(_, f, args) ->
+        let call = { h with k = Call(f, args |> List.map (typeE >> own)) }
+        withChainSrc x call, (match resolve (typeE call).t with TArr _ -> true | _ -> false)
+    | None -> x, false
+
+/// The sink-passing version of `lazy` function `id` called with n arguments: one more parameter, the sink block.
+and private lazySink id n =
+    match lazySinks.TryGetValue((id, n)) with
+    | true, s -> s
+    | _ ->
+        let body, fr = fnDefs.[id]
+        let s = Desugar.freshId ()
+        lazySinks.[(id, n)] <- s
+        fnDefs.[s] <- (sinkBody body $"_{n + 1}", fr)
+        s
+
 and private userCall id (args: E list) : E =
     let tys = args |> List.map (fun a -> resolve a.t)
     let body, defFr = fnDefs.[id]
@@ -672,7 +811,8 @@ and private userCall id (args: E list) : E =
             cur <- saved
             line <- savedLine
             col <- savedCol
-            if before |> List.exists (unfixed >> not) then
+            // a lazy function's sink version is keyed by its sink, the block that fixes the consumer's result
+            if before |> List.exists (unfixed >> not) && not (lazySinks.ContainsValue id) then
                 if insts.Keys |> Seq.exists (fun k -> k <> key && k.StartsWith(prefix + "(")) then twoTypes ()
                 fixers.Add prefix |> ignore
             inst
@@ -744,7 +884,7 @@ let private propagateCaptures () =
 
 let check (prog: S list) : Program =
     varTy.Clear(); globals.Clear(); fnDefs.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear(); freshTemps.Clear()
-    memos.Clear(); memoCaches.Clear(); emptyEls.Clear(); fixers.Clear()
+    memos.Clear(); memoCaches.Clear(); emptyEls.Clear(); fixers.Clear(); lazyFns.Clear(); lazySinks.Clear()
     cur <- global0
     let main = typeStmts prog
     let caches =

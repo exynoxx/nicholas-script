@@ -9,6 +9,10 @@ let mutable private line = 0 // of the statement being desugared, for errors
 let fresh (prefix: string) =
     counter <- counter + 1
     $"{prefix}%%{counter}"
+/// An id for a block the compiler makes (the parser's ids count up from 1).
+let freshId () =
+    counter <- counter + 1
+    1_000_000_000 + counter
 
 /// Block id -> how many arguments it takes: the highest `_k` its body reads (nested blocks have their own).
 let arity = System.Collections.Generic.Dictionary<int, int>()

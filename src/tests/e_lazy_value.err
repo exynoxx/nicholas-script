@@ -1,0 +1,3 @@
+2:1: error: lazy marks a function: lazy f x = … or lazy f = {…}
+2 | lazy x = n + 1
+  | ^

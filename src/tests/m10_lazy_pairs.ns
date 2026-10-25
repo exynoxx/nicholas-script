@@ -1,0 +1,22 @@
+# a lazy function streams into a chain whose ending stops early; c counts the pairs it builds
+c = 0
+lazy pairs xs = 0..xs{i = _; ((i+1)..xs){c += 1; (xs@i, xs@_)}}.flatten
+nums = 1..2001
+r = (pairs:nums)[_1 + _2 = 5].one
+println:"{r} {c}"                       # 3 pairs built, not ~2,000,000
+println:#(pairs:[1,2,3])                # any other use materializes
+c = 0
+println:(pairs:nums).take:3
+println:c
+c = 0
+println:(pairs:nums){_1 * _2}@4
+println:c
+c = 0
+println:(pairs:nums){_1 + _2 > 10}.any
+println:c
+c = 0
+println:(pairs:nums)@?(1, 9)
+println:c
+c = 0
+println:(pairs:[1,2,3]).take:-2         # a negative take keeps the last ones: runs to the end
+println:c

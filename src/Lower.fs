@@ -16,13 +16,28 @@ let private splitBody (body: S list) =
     | Do e :: rest -> List.rev rest, e
     | _ -> body, i64 0L
 
+/// `xs/|` or `xs/&`: the op (a fold of bools that can stop at the first T / F).
+let boolFold (it: Iter) =
+    match it.kind, it.body |> List.filter (function Line _ -> false | _ -> true) with
+    | IFold, [ Do { k = Bin(("|" | "&") as op, { k = Var a }, { k = Var el }) } ] when a = it.acc && el = it.el -> Some op
+    | _ -> None
+
 /// A chain of map/filter stages ending in map/filter/fold/scan/each (innermost first, the head's `src` is
 /// the source) becomes ONE index loop: no intermediate arrays. A single stage is the plain case.
 /// `count` (`#xs[p]`): a final filter only counts what it keeps.
-let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
+/// `sink` (a `lazy` call feeds the chain): no loop; the stages run in a block that `sink` passes to the call, one
+/// element (`_1`) per call, and the block's value says whether more are wanted.
+/// A terminal body starting with `%while(c)` stops the loop once c is false.
+let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) (sink: (E -> E) option) : E =
     let s, t, n, c, r, key = Desugar.fresh "s", Desugar.fresh "t", Desugar.fresh "n", Desugar.fresh "c", Desugar.fresh "r", Desugar.fresh "k"
     let first = Desugar.fresh "first"
     let it0, term = List.head stages, List.last stages
+    let guard, term =
+        match term.body with
+        | Do { k = Call("%while", [ g ]) } :: rest -> Some g, { term with body = rest }
+        | _ -> None, term
+    let stages = List.take (stages.Length - 1) stages @ [ term ]
+    let it0 = if stages.Length = 1 then term else it0
     let fused = stages.Length > 1
     let isMap = (match srcTy with TMap _ -> true | _ -> false) && not fused
     let folding = term.kind = IFold || term.kind = IScan
@@ -45,6 +60,7 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
     let range = match it0.src.k with Call("range", [ a; b ]) -> Some(a, b) | _ -> None
     let pre =
         match range with
+        | _ when sink.IsSome -> []
         | Some(a, b) ->
             let hi = Desugar.fresh "hi"
             [ Assign(s, a); Assign(hi, b)
@@ -54,6 +70,7 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
         | None -> [ Assign(s, it0.src); Assign(t, snapshot); Assign(n, call "len" [ v t ]) ]
     let load =
         match range with
+        | _ when sink.IsSome -> [ Assign(it0.el, v "_1"); Assign(it0.ix, v c) ]
         | _ when drain ->
             // PQ of tuples: `@` = the priority (first value), `_` = the rest; otherwise `@` counts (Q) or is the element (PQ)
             match srcTy with
@@ -127,16 +144,28 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) : E =
     let init =
         (counters |> List.tail |> List.map (fun k -> Assign(k, skip)))
         @ (if folding then [ Assign(first, mk (Bool true)) ] else [])
+        // fed by a sink block, `$` must outlive it: declare it here (its type comes from the block)
+        @ (if folding && sink.IsSome then [ Assign(term.acc, call "zero" []) ] else [])
         @ (if count then [ Assign(r, skip) ] elif term.kind <> IFold && term.kind <> IEach then [ Assign(r, empty ()) ] else [])
     // `.take:k` on a map/filter chain: stop once k results are in (a negative k keeps the last -k, so it runs to the end)
     let lim = Desugar.fresh "lim"
     let pre = match limit with Some l -> Assign(lim, l) :: pre | None -> pre
+    let wants =
+        match limit with
+        | Some _ -> Some(bin "|" (bin "<" (v lim) skip) (bin "<" (call "len" [ v r ]) (v lim)))
+        // `/|` `/&` of bools stop at the first T / F (the typer decides, it knows $'s type)
+        | None -> boolFold term |> Option.map (fun op -> call "%foldmore" [ mk (Str op); v term.acc ])
     let more =
         let more = if drain then bin ">" (call "len" [ v s ]) skip else bin "<" (v c) (v n)
+        let more = match guard with Some g -> bin "&" g more | None -> more
         match limit with
-        | Some _ -> bin "&" more (bin "|" (bin "<" (v lim) skip) (bin "<" (call "len" [ v r ]) (v lim)))
+        | Some _ -> bin "&" more wants.Value
         | None -> more
-    let loop = [ Assign(c, skip); While(more, load @ pipe 0 @ [ Assign(c, bin "+" (v c) (i64 1L)) ]) ]
+    let step = load @ pipe 0 @ [ Assign(c, bin "+" (v c) (i64 1L)) ]
+    let loop =
+        match sink with
+        | Some feed -> [ Assign(c, skip); Do(feed (mk (Fn(Desugar.freshId (), step @ [ Do(defaultArg wants (mk (Bool true))) ])))) ]
+        | None -> [ Assign(c, skip); While(more, step) ]
     // `xs/+ * & | ^` (or `xs/{$+_}`) of nothing is the op's identity (the typer picks it from $'s type)
     let emptyFold =
         match term.kind, term.body |> List.filter (function Line _ -> false | _ -> true) with

@@ -1,0 +1,33 @@
+# return forms: an eager value, setup statements, a ternary, a call to another lazy function
+lazy fixed = {[5, 6, 7]}
+println:(fixed:0)@1
+calls = 0
+lazy setup n = (calls += 1; m = n * 10; 0..n{_ + m})
+println:(setup:5)@2
+println:calls                           # setup runs once per call
+println:(setup:3){_ * 2}
+lazy evens n = 0..n[_ % 2 = 0]
+lazy pick n = n > 5 ? evens:n : [n, n + 1]
+println:(pick:100).take:3
+println:(pick:2).take:3
+println:pick:2
+lazy both n = (evens:n) ++ [-1] ++ (setup:n)
+println:(both:4)@3
+println:(both:4){_ * 10}.take:4
+println:(both:4)[_ > 40].one
+println:both:4
+
+# a flat-map of lazy calls, consumed inside a function and a loop
+n = 0
+lazy row i = (n += 1; 0..3{i * 10 + _})
+lazy grid k = 0..k{row:_}.flatten
+println:(grid:5)[_ % 10 = 2]@1
+println:n
+first p = (grid:p)[_ > 20].one
+println:first:4
+j = -1
+println:(grid:3)@j
+i = 0
+total = 0
+i < 4 ~{ total += (grid:4)@i; i += 1 }
+println:total

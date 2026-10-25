@@ -11,6 +11,8 @@ Language ideas for NS, with status. The `fix` design further down is the main pr
 | `nb4` / `nb8` tuple neighbours | in progress |
 | `ns explain` ungolfer | in progress |
 | `fix` | designed, see below |
+| Early-stopping endings `chain@k`, `.one` | done (uncommitted) |
+| `lazy` functions | done (no infinite sources) |
 | Assignment in a statement ternary; comparison as a filter's predicate | **done** as `:=` (`c ? x := 1`) + filter predicate compares |
 | everything else | proposal |
 
@@ -30,7 +32,7 @@ Stars rate how new the idea is; cost is the rough implementation effort.
 | 7 | Integer width from range analysis | i64 where proven safe, bigint otherwise, no runtime overflow checks | ★★ | high |
 | 8 | `x'` | done | ★ | — |
 | 9 | Interpolation as a pattern | `?{"move {n} from {a} to {b}" => …}`; each hole's type is inferred from how it is used | ★★★ | medium |
-| 10 | Infinite ranges + `@?` | `1..[isprime:_]@0`, `(1..{_*2})@?(>1e9)`; fused, exits early | ★ | low |
+| 10 | Infinite ranges + `@?` | superseded by `lazy` (below); `@k`/`.one` early exit done | ★ | — |
 | 11 | Distributions `D[…]` | exact probability arithmetic, lifted like broadcasting | ★★ | medium |
 | 12 | The binary is the answer | input-free pure program → runs at compile time, binary just prints | ★★ | low |
 | 13 | `ns explain` | in progress | ★★ | — |
@@ -88,6 +90,97 @@ An assignment as a filter's predicate is almost never intended. Making `=` compa
 **Where:** `Parser.fs`, in the ternary branch parse (`Expr` / `InThen`), when the ternary sits in statement position: try `lvalue (=|op=) expr` before falling back to `Or`. Add a `SAssign` in the branch, or an `EGroup` of one statement. **Cost:** small. **Test:** `m9_tern_assign.ns`, covering map, index, tuple and compound assignment in each branch, plus a check that expression position still compares. The filter side goes in the filter body parse (`f[` holds statements, see Lexer `opener`): if the last statement is `SAssign` with a single lvalue, re-read it as `Bin("=", …)`. Add `m9_filter_eq.ns` (`[a@_ = b@_]`, `[x = 2]` with `x` defined, earlier statements still assigning).
 
 ---
+
+# `lazy`: consumer-driven functions
+
+C# iterator methods without `yield`. A function marked `lazy` returns an array as usual, but the array is never built
+up front: the consumer pulls elements from the return expression and stops when its ending is satisfied.
+
+```
+lazy pairs xs = 0..xs{i = _; (i+1..xs){(xs@i, xs@_)}}.flatten
+lazy primes = 2..[isprime]                          # infinite: open range
+lazy fib = (0,1) \~{(_2, _1+_2)}{_1}                # unfold: every state
+lazy collatz n = n \~{_=1 ? ret; even:_ ? _/2 : 3*_+1}
+lazy walk t = t ? walk:t.l ++ [t.v] ++ walk:t.r : []
+
+(pairs:nums)[_1 + _2 = target].one      # two-sum: stops at the first match, never builds n² pairs
+primes[>1000]@0                         # 1009
+fib[even].while:{<4e6}/+                # Euler 2
+walk:root .take:3                       # 3 smallest keys; the rest of the tree is not visited
+```
+
+Motivation: write the brute force (all pairs, all triples, every path), pay only for what the consumer looks at.
+Without `lazy`, `pairs` allocates n(n-1)/2 tuples before the filter starts.
+
+## What streams
+
+The last expression of the body streams; statements before it run once, eagerly, at the call (setup).
+
+| return form | streams as |
+|---|---|
+| chain `src{…}[…]` | fused into the consumer's loop |
+| `a ++ b` | `a`, then `b` if the consumer still wants more |
+| `c ? a : b` | the taken branch |
+| `.flatten` of a nested chain | flat-map (`SelectMany`): each inner chain feeds the consumer directly |
+| call to a `lazy` function | the consumer is passed through, so recursion works |
+| `[x, y]` / any eager value | its elements in turn |
+
+Infinite sources: open range `a..` and unfold `seed \~{step}` (every state; `ret` ends it). Only allowed inside `lazy`
+or in a chain whose ending stops early; elsewhere a compile error: `infinite sequence: mark f lazy or end it with @k/.one/.take/.while`.
+
+## Endings
+
+| ending | effect |
+|---|---|
+| `@k` (k ≥ 0), `.one`, `.take:n`, `.while:{c}` | stop after enough elements |
+| `.any` `/\|`, `.all` `/&`, `@?x` | stop at first `T` / `F` / match |
+| map, filter, `.while`, `.take:n` mid-chain | lazy, pass through |
+| assign, print, `${}`, folds, `#`, `@-1`, `.take:-n` | materialize (run to the end) |
+
+`@k` and `.one` already stop early on fused chains (Typer `typeIter` `at` → `limit`); `lazy` reuses that signal.
+
+## Semantics
+
+- Removing `lazy` never changes a finite program's result, only its cost.
+- A `lazy` function is a function, not a value: each use re-runs it (re-enumerating an `IEnumerable`). `ps = primes`
+  is an alias and stays lazy; `ps = primes.take:5` is an array.
+- Side effects interleave per element, as in fused chains today.
+
+## Compilation: sink passing, no runtime iterator
+
+`lazy f` compiles to `f(args, sink)`. Each leaf element of the return expression becomes `!(sink:e) ? ret`; `++` is
+sequencing; a ternary is a branch; a nested chain is a nested loop whose body calls the sink. The consumer's fused loop
+body (stages + ending) is the sink; a satisfied ending returns `F` and `ret` unwinds through nesting and recursion.
+Materializing = a sink that appends.
+
+- Blocks are already passed to functions and never escape, so captures stay on the stack: no codegen change, both backends.
+- `TSeq t` exists only in the typer, never in `Repr`: every sequence is fused or materialized.
+- `Lower.iter` gets one new source kind, `SeqSrc`.
+- LLVM inlines non-recursive `lazy` calls: `(pairs:xs)[…].one` becomes two nested loops with a `goto done`.
+
+## Limits
+
+- Zipping two lazy sequences needs pull-style coroutines: compile error in v1. Zip with an array is fine.
+- `lazy` only on named (top-level) functions.
+- Worst case is unchanged: if nothing matches, `pairs` still visits O(n²) pairs, but allocates none.
+
+## Known issues (implemented version needs attention)
+
+- Mixed element types in a lazy body fail to compile: `lazy f x = [x] ++ [2.5]` gives an unrelated "empty literal …
+  two different types" error; without `lazy` it is `[1.0,2.5]`.
+- A map/string chain on the right of `++` inside a lazy body streams its elements instead of being appended as one value.
+- `.any`/`.all` on a lazy result of non-bool/int/float elements compiles instead of erroring.
+- The plain version of `f` is still compiled at streaming call sites (dead code).
+- Side effects interleave and the producer stops early: removing `lazy` keeps results, not effect order.
+- Precedence: `(i+1..xs)` is `i + (1..xs)`; `walk:a ++ b` puts `++` in the argument.
+- `e_lazy_nested` error has no caret column (raised by the typer).
+
+## Work
+
+`Parser.fs`: `lazy` modifier, `a..` open range, `\~{` unfold. `Typer.fs`: `TSeq`, streaming rules, infinite-source check.
+`Lower.fs`: `SeqSrc`, `.flatten`/`++` streaming, `.while` stage. Tests: `m10_lazy_pairs` (two-sum counter shows early
+exit), `m10_lazy_rec` (tree walk `.take`), `m10_lazy_inf` (primes, fib), `e_lazy_inf` (infinite source without `lazy`).
+Cost: medium.
 
 # `fix`: fixpoints as a construct
 

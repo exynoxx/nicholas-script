@@ -1,0 +1,5 @@
+f x = {
+  lazy g y = [y, y]
+  g:x
+}
+println:f:1

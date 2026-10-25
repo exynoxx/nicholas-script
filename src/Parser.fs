@@ -99,11 +99,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         let mutable stmtStart = true
         for j in 0 .. tokens.Length - 1 do
             if stmtStart && depth = 0 then
-                pos <- if tokens.[j].tok = ID "memo" then j + 1 else j // `memo f a = …`
-                match p.FnDefAhead(), tokens.[j].tok with
+                pos <- if tokens.[j].tok = ID "memo" || tokens.[j].tok = ID "lazy" then j + 1 else j // `memo f a = …`, `lazy f = {…}`
+                match p.FnDefAhead(), tokens.[pos].tok with
                 | Some(f, _, _), _ -> fnames.Add f |> ignore
-                | None, ID f when j + 2 < tokens.Length && tokens.[j + 1].tok = SYM "="
-                                  && (tokens.[j + 2].tok = SYM "{" || tokens.[j + 2].tok = ID "memo") -> fnames.Add f |> ignore
+                | None, ID f when pos + 2 < tokens.Length && tokens.[pos + 1].tok = SYM "="
+                                  && (tokens.[pos + 2].tok = SYM "{" || tokens.[pos + 2].tok = ID "memo") -> fnames.Add f |> ignore
                 | _ -> ()
             match tokens.[j].tok with
             | SYM s when opensBracket s -> depth <- depth + 1
@@ -186,6 +186,13 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         if accept "??" then SExpr(EUn("??", EGroup [ p.Stmt(); SExpr(EInt 0L) ])) else
         // `memo f a b = body` is `f = memo:{body}` with named parameters
         let memo = peek () = ID "memo" && (pos <- pos + 1; p.FnDefAhead().IsSome || (pos <- pos - 1; false))
+        // `lazy f a = body` / `lazy f = {…}`: `f = lazy:{…}` (lazy is not callable by name)
+        let lazyAt = pos
+        let lazy' =
+            peek () = ID "lazy" && pos + 2 < tokens.Length && (match tokens.[pos + 1].tok, tokens.[pos + 2].tok with ID _, _ -> true | _ -> false)
+            && (pos <- pos + 1
+                p.FnDefAhead().IsSome || tokens.[pos + 1].tok = SYM "=" || (pos <- pos - 1; false))
+        let wrap fn = if memo then ECall("memo", [ fn ]) elif lazy' then ECall("lazy", [ fn ]) else fn
         match p.FnDefAhead() with
         | Some(f, ps, eq) ->
             // `f a b = body` is `f = {body}` with a, b naming _1, _2; a `{…}` body holds statements
@@ -201,7 +208,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             shadowed.Clear(); shadowed.UnionWith saved
             params.Clear(); params.UnionWith savedParams
             let fn = EBlock(id, ps, body)
-            SAssign([ EVar f ], [ (if memo then ECall("memo", [ fn ]) else fn) ])
+            SAssign([ EVar f ], [ wrap fn ])
         | None ->
         match p.AssignAhead() with
         | Some "=" ->
@@ -218,6 +225,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             | [ EVar a ], [ EVar f ] when fnames.Contains f -> fnames.Add a |> ignore
             | _ -> for lv in lvs do (match lv with EVar a when builtins.Contains a && not (fnames.Contains a) -> shadowed.Add a |> ignore | _ -> ())
             match lvs, rhs with
+            | [ EVar f ], [ EBlock _ as fn ] when lazy' -> SAssign([ EVar f ], [ wrap fn ])
+            | _ when lazy' -> errAt lazyAt "lazy marks a function: lazy f x = … or lazy f = {…}"
             | [ EVar a ], [ EVar _ ] when stdAliases.ContainsKey a -> SExpr(EInt 0L)
             | _ -> SAssign(lvs, rhs)
         | Some op when op <> ":=" ->
