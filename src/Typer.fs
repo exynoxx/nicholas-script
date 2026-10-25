@@ -287,8 +287,13 @@ and private typeAt (e: E) : E =
             | _ when name.StartsWith negMark -> typeE args.Head
             | _ -> typeE { e with k = Call(f, args) }
         | Call("take", [ { k = Iter it }; k ]) when (it.kind = IMap || it.kind = IFilter) && (lookup "take").IsNone ->
-            typeIter it (Some k) false
-        | Call("len", [ { k = Iter it } ]) when it.kind = IFilter && (lookup "len").IsNone -> typeIter it None true
+            typeIter it (Some k) false None
+        // `chain@k` stops after k+1 results, like `(chain.take:k+1)@k`; `.one` is `@0`
+        | Index({ k = Iter it }, ({ k = (Int _ | Var _) } as i)) when (it.kind = IMap || it.kind = IFilter) && (lookup "take").IsNone
+                                                                     && (match i.k with Int n -> n >= 0L | _ -> true) ->
+            typeIter it None false (Some i)
+        | Call("one", [ x ]) when (lookup "one").IsNone -> typeE { e with k = Index(x, mk (Int 0L)) }
+        | Call("len", [ { k = Iter it } ]) when it.kind = IFilter && (lookup "len").IsNone -> typeIter it None true None
         | Call(name, args) ->
             match lookup name with
             | Some u when (match resolve varTy.[u] with TFn _ -> true | _ -> false) ->
@@ -300,7 +305,7 @@ and private typeAt (e: E) : E =
                 userCall id (List.map (typeE >> own) args)
             | _ -> builtin name (List.map typeE args)
         | Index(x, i) -> typeIndex (typeE x) (typeE i)
-        | Iter it -> typeIter it None false
+        | Iter it -> typeIter it None false None
         | Fn(id, body) ->
             fnDefs.[id] <- (body, cur)
             typed e.k (TFn id)
@@ -320,7 +325,8 @@ and private typeAt (e: E) : E =
 
 /// A chain of map/filter stages feeding `it` becomes one loop; `limit` (from `.take:k`) stops it after k results.
 /// `count` (`#` of a filter): over an array, the loop counts the kept elements instead of collecting them.
-and private typeIter (it: Iter) (limit: E option) (count: bool) : E =
+/// `at` (`chain@k`, k a literal >= 0 or a variable): index the result; a fused chain gets the limit k+1 (k when negative).
+and private typeIter (it: Iter) (limit: E option) (count: bool) (at: E option) : E =
     // collect a chain of map/filter stages feeding this one (innermost first)
     let rec chain (it: Iter) acc =
         match it.src.k with
@@ -333,23 +339,31 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) : E =
     | _ -> ()
     // an int in front of a block is the range 0..n: `5{_*_}`, `10[>6]`, `5/+`
     let src = match resolve src.t with TInt -> builtin "range" [ typed (Int 0L) TInt; src ] | _ -> src
+    let limit =
+        match at, resolve src.t with
+        | Some i, (TArr _ | TStr | TQ _ | TPQ _) ->
+            let plus1 = mk (Bin("+", i, mk (Int 1L)))
+            Some(match i.k with Int _ -> plus1 | _ -> mk (If(mk (Bin("<", i, mk (Int 0L))), i, plus1)))
+        | _ -> limit
     let limit = limit |> Option.map (fun k -> conv (typeE k) TInt)
-    match resolve src.t with
-    | TFloat | TBool | TTup _ | TFn _ as t ->
-        err ($"cannot {showKind stages.Head.kind} over {showT t}: it needs an int, array, string, map, set, queue or tree")
-    | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true)
-    | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
-        typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
-    // a set chain consumed by a fold/scan is lazy: `s{f}/+` sums every mapped value, it builds no (deduplicating) set
-    // a queue drains (pop until empty) into an array, so its chains fuse like an array's
-    | TQ _ | TPQ _ -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
-    | TSet _ when stages.Length > 1 && (it.kind = IFold || it.kind = IScan) ->
-        typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
-    | _ ->
-        // not fusable (maps/sets/queues keep their kind per stage): lower stage by stage
-        let r = stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t) None false)) src
-        let r = match limit with Some k -> builtin "take" [ r; k ] | None -> r
-        if count then builtin "len" [ r ] else r
+    let r =
+      match resolve src.t with
+      | TFloat | TBool | TTup _ | TFn _ as t ->
+          err ($"cannot {showKind stages.Head.kind} over {showT t}: it needs an int, array, string, map, set, queue or tree")
+      | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true)
+      | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
+          typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
+      // a set chain consumed by a fold/scan is lazy: `s{f}/+` sums every mapped value, it builds no (deduplicating) set
+      // a queue drains (pop until empty) into an array, so its chains fuse like an array's
+      | TQ _ | TPQ _ -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
+      | TSet _ when stages.Length > 1 && (it.kind = IFold || it.kind = IScan) ->
+          typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false)
+      | _ ->
+          // not fusable (maps/sets/queues keep their kind per stage): lower stage by stage
+          let r = stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t) None false)) src
+          let r = match limit with Some k -> builtin "take" [ r; k ] | None -> r
+          if count then builtin "len" [ r ] else r
+    match at with Some i -> typeIndex r (typeE i) | None -> r
 
 and private typeBin op (a: E) (b: E) : E =
     let isArith = List.contains op [ "+"; "-"; "*"; "/"; "%"; "^^" ]

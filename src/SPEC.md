@@ -134,7 +134,8 @@ A binary operator is resolved at compile time in three steps; the first that app
 ```
 x = [1,2,3]
 r = 1..10        # range, end exclusive: 1..9
-x@0              # index; negative counts from end: x@-1
+x@0              # index; negative counts from end: x@-1; out of range is a runtime error
+x.one            # first element, same as x@0 (also one:x)
 x@1..3           # slice (elements 1,2); `@` takes a range operand
 x@..2  x@1..     # open slices: first 2 / from 1 to the end; x@-2.. is the last 2
 0..xs            # an array as a range end means its length: 0..#xs (also in slices)
@@ -158,6 +159,9 @@ element passes through every stage before the next element starts: side effects 
 `c = 0; [1,2,3]{c += 1; c}{_ * c}` is `[1,4,9]`, not `[3,6,9]`.
 `x.take:n` keeps the first n elements (`x.take:-n` the last n; clamped to the length; strings give strings). On a map/filter
 chain (`xs[>5]{*2}.take:2`) the fused loop stops as soon as it has n results, so an expensive or huge source is not run to the end.
+Indexing a chain does the same: `chain@k` (k a literal >= 0 or a variable) stops after k+1 results, and `chain.one`
+(= `chain@0`) after the first: `1..1000000[_*_ > 50].one` is 8 after 8 elements. Too few results is the usual
+index-out-of-range error.
 `${` directly after an expression is a sort; elsewhere `$` stays the fold accumulator.
 Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter; otherwise it starts a literal. `/` followed by `{` (spaces allowed: `x / {$+_}`) or an operator token is a fold; otherwise division.
 

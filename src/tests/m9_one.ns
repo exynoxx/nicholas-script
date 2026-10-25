@@ -1,0 +1,14 @@
+# .one: the first element, stopping a chain early
+c = 0
+r = 1..1000000[c += 1; _ > 5].one
+println:"{r} {c}"
+xs = [4,5,6]
+println:xs.one
+println:one:xs
+println:xs{_*10}.one
+println:"hello".one
+println:"hello"[_ != "h"].one
+?? println:xs[_ > 9].one
+e = xs[_ > 9]
+?? println:e.one
+println:"end"
