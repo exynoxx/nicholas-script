@@ -120,10 +120,10 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) (sink: 
         | IFilter when count -> [ when' (bodyE term) [ Assign(r, bin "+" (v r) (i64 1L)) ] ]
         | IFilter -> [ when' (bodyE term) [ add (v term.el) ] ]
         | IFold | IScan ->
-            let push = if term.kind = IScan then [ Do(call "push" [ v r; v term.acc ]) ] else []
+            let push = if term.kind = IScan then [ Do(call "push" [ v r; call "%own" [ v term.acc ] ]) ] else []
             // both branches give the accumulator, so a still-unknown `$` (a recursive call's result) keeps the
             // enclosing ternary's type hint instead of taking the then-branch's int
-            [ Do(mk (If(v first, seq ([ Assign(term.acc, v term.el); Assign(first, mk (Bool false)) ] @ term.post) (v term.acc),
+            [ Do(mk (If(v first, seq ([ Assign(term.acc, call "%own" [ v term.el ]); Assign(first, mk (Bool false)) ] @ term.post) (v term.acc),
                         seq [ Assign(term.acc, bodyE term) ] (v term.acc)))) ] @ push
         | IEach ->
             // the body's value is dropped: a map that yields it builds no result array either

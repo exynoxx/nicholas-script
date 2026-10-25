@@ -124,7 +124,7 @@ A binary operator is resolved at compile time in three steps; the first that app
 | int | `{…}` `[…]` `/` `\` `${…}` | block or op | runs over `0..n`: `5{_*_}` → `[0,1,4,9,16]`, `5/+` → `10` |
 | array | `++` | array / set / Q / PQ / element | concat / append |
 | set, Q, PQ | `++` | array / set / Q / PQ / element | add every element / add one |
-| set | `& \| + -` | set | intersect, union, union, difference |
+| set | `& \| + -` | set | intersect, union, union, difference: a new set (`a &= b` updates a in place) |
 | set, queue, PQ | `+` `-` | element | add / remove |
 | map | `+` / `-` | map / key | merge / delete key |
 | — | unary `-` | str | reversed: `-"abc"` → `"cba"` |

@@ -38,6 +38,8 @@ let mutable private line = 0
 let mutable private col = 0
 /// Type of the then-branch while typing an else-branch; resolves `rec + rec` in recursive functions.
 let mutable private expect: Ty option = None
+/// The `x op e` of the statement `x = x op e` (also `x op= e` and a fold step): a set operator there updates x in place.
+let mutable private inPlace: E option = None
 let mutable private counter = 0
 /// Blocks wrapped in `memo:`, and the cache variable of every memoized instance.
 let private memos = HashSet<int>()
@@ -318,7 +320,8 @@ and private typeAt (e: E) : E =
                 (match resolve v with THole _ -> unify v b.t |> ignore | _ -> ())
                 stdCall "mapdef" [ a; conv b v ]
             | t -> err $"?? gives a map a default value (m ?? d), not {showT t}"
-        | Bin(op, a, b) -> typeBin op (typeE a) (typeE b)
+        | Bin(op, a, b) -> typeBin op (inPlace |> Option.exists (fun x -> obj.ReferenceEquals(x, e))) (typeE a) (typeE b)
+        | Call("%own", [ x ]) -> setCopy (typeE x) // a fold's first element becomes the accumulator, which is updated in place
         | If(c, a, b) ->
             let c = conv (typeE c) TBool
             let a = value (typeE a)
@@ -481,7 +484,13 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) (at: E option) :
           if count then builtin "len" [ r ] else r
     match at with Some i -> typeIndex r (typeE i) | None -> r
 
-and private typeBin op (a: E) (b: E) : E =
+/// A set that the caller may update in place: copied unless nothing else references it.
+and private setCopy (x: E) =
+    match resolve x.t with
+    | TSet el when not (fresh x) -> stdCall "gunion" [ builtin "set" [ typed (Arr []) (TArr el) ]; x ]
+    | _ -> x
+
+and private typeBin op inPlace (a: E) (b: E) : E =
     let isArith = List.contains op [ "+"; "-"; "*"; "/"; "%"; "^^" ]
     let isCmp = List.contains op [ "="; "!="; "<"; ">"; "<="; ">=" ]
     let isBit = List.contains op [ "^"; "<<"; ">>"; ">>>" ]
@@ -496,7 +505,7 @@ and private typeBin op (a: E) (b: E) : E =
     match op, L with
     | _ when isCmp -> typed (Bin(op, a, conv b L)) TBool
     | ("&" | "|" | "+" | "-"), TSet _ when (match resolve b.t with TSet _ -> true | _ -> false) ->
-        stdCall (match op with "&" -> "ginter" | "-" -> "gdiff" | _ -> "gunion") [ a; conv b L ]
+        stdCall (match op with "&" -> "ginter" | "-" -> "gdiff" | _ -> "gunion") [ (if inPlace then a else setCopy a); conv b L ]
     | ("&" | "|"), TInt -> same ()
     | _, TInt when isBit -> same ()
     | "^", TBool -> same ()
@@ -850,7 +859,15 @@ and private typeStmt (s: S) : S =
         | TMap(k, v) -> SetIdx(x, own (conv i k), own (conv value v))
         | t -> err ($"cannot assign into {showT t}")
     | Assign(name, e0) ->
+        let rec self (x: E) =
+            match x.k with
+            | Bin(_, { k = Var n }, _) when n = name -> Some x
+            | Seq(ss, y) when ss |> List.forall (function Line _ -> true | _ -> false) -> self y
+            | _ -> None
+        let saved = inPlace
+        inPlace <- self e0
         let e = typeE e0
+        inPlace <- saved
         let generated = name.Contains '%'
         let store u (e: E) =
             if generated then freshTemps.[u] <- (match freshTemps.TryGetValue u with | true, f -> f | _ -> true) && fresh e

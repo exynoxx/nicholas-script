@@ -1,0 +1,18 @@
+a = %[1,2,3]
+b = %[2,3,4]
+c = a & b
+c += 9
+println: a
+println: a | b
+println: a - b
+println: a + b
+println: a
+e = a
+e &= b
+println: a
+xs = [%[1,2,3], %[2,3], %[3,4]]
+println: xs /&
+println: xs /|
+println: xs
+println: xs \|
+println: xs
