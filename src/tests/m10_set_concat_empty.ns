@@ -1,0 +1,9 @@
+taken = %[]
+taken ++= [1, 2]
+println: taken
+q = Q[]
+q ++= [3, 4]
+println: arr:q
+t = %[]
+t += [1, 2]
+println: t

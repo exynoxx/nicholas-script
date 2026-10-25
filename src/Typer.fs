@@ -509,8 +509,10 @@ and private typeBin op (a: E) (b: E) : E =
         | _ -> typed (Call("append", [ a; own (conv b el) ])) L
     // `s ++ xs`: add every element of a collection (array, set, Q, PQ); `s ++ x` adds one element
     | "++", (TSet el | TQ el | TPQ el) ->
+        // element type still unknown (`s = %[]`): a collection operand adds its elements, it is not one element
+        let unknown = match resolve el with THole _ -> true | _ -> false
         match resolve b.t with
-        | TArr e | TSet e | TQ e | TPQ e when not (unify b.t el) && unify e el ->
+        | TArr e | TSet e | TQ e | TPQ e when (unknown || not (unify b.t el)) && unify e el ->
             let av, x = declare cur (Desugar.fresh "c") L, Desugar.fresh "_"
             let cv = typed (Var av) L
             let b = match resolve b.t with TQ _ | TPQ _ -> stdCall "arr" [ b ] | _ -> b // iterating a queue would drain it
