@@ -1,0 +1,9 @@
+xs = [3, 0, 5]
+println: xs.any
+println: xs.all
+println: xs{_ > 2}.any
+println: xs{_ >= 0}.all
+println: [0.0, 0.0].any
+println: [T, F].all
+e = [1][_ > 5]
+println: (e.any, e.all)

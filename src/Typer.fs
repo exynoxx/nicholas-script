@@ -511,6 +511,8 @@ and private builtin name (args: E list) : E =
     | ("sum" | "prod"), [ x ] when (match resolve x.t with TArr e -> (match resolve e with TInt | TFloat | THole _ -> false | _ -> true) | _ -> false) ->
         let hint = match resolve x.t with TArr e when (match resolve e with TTup _ -> true | _ -> false) -> "; fold tuples with /+ or /*" | _ -> ""
         err ($"{name}: needs an array of int or float, not {showT x.t}{hint}")
+    | ("any" | "all"), [ x ] when (match resolve x.t with TArr e -> (match resolve e with TBool | TInt | TFloat | THole _ -> false | _ -> true) | _ -> true) ->
+        err ($"{name}: needs an array of bool, int or float, not {showT x.t}; map it first, e.g. xs{{_ > 0}}.{name}")
     | "tuple", xs when xs.Length <= 9 -> typed (Call("tuple", List.map (value >> own) xs)) (TTup(xs |> List.map (fun x -> x.t)))
     | "tuple", xs -> err ($"a tuple holds at most 9 values, not {xs.Length}; use an array")
     | "destructure", [ x; { k = Int n } ] -> // `a, b = x`

@@ -1178,6 +1178,15 @@ static void fold(const char *dT, void *arr, int prod, void *out) { // sum/prod o
 void ns_sum(const char *dT, void *arr, void *out) { fold(dT, arr, 0, out); }
 //@ prod ([T]) T
 void ns_prod(const char *dT, void *arr, void *out) { fold(dT, arr, 1, out); }
+static int truthy_at(const char *dT, Arr *a, int64_t i) { // a bool/int/float element is truthy when nonzero
+  if (*dT == 'F') return ((double *)a->data)[i] != 0;
+  for (int64_t b = 0; b < a->esz; b++) if (a->data[i * a->esz + b]) return 1;
+  return 0;
+}
+//@ any ([T]) bool
+int64_t ns_any(const char *dT, void *arr) { Arr *a = arr; for (int64_t i = 0; i < a->len; i++) if (truthy_at(dT, a, i)) return 1; return 0; }
+//@ all ([T]) bool
+int64_t ns_all(const char *dT, void *arr) { Arr *a = arr; for (int64_t i = 0; i < a->len; i++) if (!truthy_at(dT, a, i)) return 0; return 1; }
 //@ find ([T],T) int = ns_find_arr
 int64_t ns_find_arr(const char *dT, void *arr, const void *x) { return ns_find(HD(arr)->d, arr, x); }
 //@ find (str,str) int = ns_find_str
