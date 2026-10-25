@@ -90,9 +90,14 @@ int:"42"      float:x     str:3.5     bool:n
 | 8.5 map default | `m ?? d` (m with default value d for missing keys, see maps) | left |
 | 9 ternary | `x ?{…}` `x ?[…]` match (§5); `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (value 0); branches of unrelated types run as a statement (value 0) | right |
 | 10 call   | `f:a,b` (args extend to end of statement / closing bracket, so `(f:1,2, f:3,4)` is an error: write `((f:1,2), f:3,4)`; passing a block more arguments than it has parameters / highest `_k` is an error). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary. A block can be passed to a function and called through its parameter (`apply f x = f: x`, `{_1: _2}`), except in a ternary's then-branch, where `p :` is the ternary's `:` (write `c ? (f: x) : y`) | right |
-| 11 assign | `x = e`, `a,b = b,a` | right |
+| 11 assign | `x = e`, `a,b = b,a`; `x := e` inside an expression | right |
 
 `=` in expression position is equality; at statement start with an lvalue on the left it is assignment. A statement `a = b` whose left side isn't an lvalue (`3 = x`, `(x) = 3`, `T = 5`) is an error unless it is a block's last statement (its value).
+A filter's last statement is its predicate, so there `=` compares too: `(0..3)[a@_ = b@_]` keeps the indices where
+`a` and `b` agree (earlier statements still assign: `xs[t = _*2; t > 4]`).
+
+`lvalue := e` assigns anywhere an expression goes, and its value is the new value: `c ? d@k := v`,
+`x > m ? m := x : n := x`, `y = (z := 4) + 1`. In a ternary branch, `=` compares; use `:=` to assign.
 
 ### Operator matrix
 A binary operator is resolved at compile time in three steps; the first that applies wins:
@@ -436,7 +441,7 @@ assign    = lvalues "=" exprlist ;
 lvalues   = lvalue { "," lvalue } ;
 lvalue    = IDENT { "@" prefix } ;
 exprlist  = expr { "," expr } ;
-expr      = call ;
+expr      = lvalue ":=" expr | call ;
 call      = FUNC ":" exprlist | ternary ;   (* FUNC = IDENT bound to block/built-in *)
 ternary   = logic [ "?" expr [ ":" expr ] | ( "?{" arms "}" | "?[" arms "]" ) ] ;
 arms      = arm { TERM arm } ;  arm = "_" "=>" stmt | test { "," test } [ "=>" stmt ] ;

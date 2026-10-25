@@ -38,6 +38,12 @@ let private assignable (name: string) = not (name.StartsWith "_" || name = "@" |
 /// section `{=e}` is a comparison, so it is wrapped in a group, which that write-back does not match.
 let private compared e = match e with EBin("=", EVar "_", _) -> EGroup [ SExpr e ] | e -> e
 
+/// A filter's last statement is its predicate, so `xs[a@_ = b@_]` compares; earlier statements still assign.
+let private predicate (body: Stmt list) =
+    match List.rev body with
+    | SAssign([ lv ], [ e ]) :: rest -> List.rev (SExpr(EBin("=", lv, e)) :: rest)
+    | _ -> body
+
 let private opensBracket (s: string) = s.EndsWith "(" || s.EndsWith "[" || s.EndsWith "{"
 
 /// Directory of the file being parsed, and every file already imported (each is included once).
@@ -149,7 +155,6 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                     | ID kw when foreign.ContainsKey kw -> err ($"unexpected {describeTok (peek ())} after '{kw}'; {foreign.[kw]}")
                     | _ when isSym ":" && (match tokens.[pos - 1].tok with ID f -> shadowed.Contains f | _ -> false) ->
                         let (ID f) = tokens.[pos - 1].tok in errAt (pos - 1) $"'{f}' is a variable here, not a function"
-                    | _ when isSym ":" && tokens.[pos + 1].tok = SYM "=" -> err "':=' is not an operator: assign with ="
                     | _ when isSym ":" && (match tokens.[pos - 1].tok with ID _ -> true | _ -> false) ->
                         let (ID f) = tokens.[pos - 1].tok
                         let hint = didYouMean f (Seq.append fnames builtins)
@@ -215,11 +220,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             match lvs, rhs with
             | [ EVar a ], [ EVar _ ] when stdAliases.ContainsKey a -> SExpr(EInt 0L)
             | _ -> SAssign(lvs, rhs)
-        | Some op ->
+        | Some op when op <> ":=" ->
             let lv = p.LValues().Head
             advance ()
             SCompound(op.Substring(0, op.Length - 1), lv, p.Expr())
-        | None ->
+        | _ ->
             let e = p.Expr()
             if accept "~{" then SWhile(e, p.Block "}") else SExpr e
 
@@ -302,7 +307,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             | Some(j, n) when n > 1 && tok j = SYM ")" && tok (j + 1) = SYM "=" -> Some "="
             | _ -> None
         | Some(j, _) when tok j = SYM "=" -> Some "="
-        | Some(j, 1) -> (match tok j with SYM op when compounds.Contains op -> Some op | _ -> None)
+        | Some(j, 1) -> (match tok j with SYM op when op = ":=" || compounds.Contains op -> Some op | _ -> None)
         | _ -> None
 
     member p.LValues() =
@@ -327,6 +332,13 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         List.ofSeq items
 
     member p.Expr() : Expr =
+        // `lv := e` assigns inside an expression (a ternary branch, a filter); its value is lv's new value
+        if p.AssignAhead() = Some ":=" then
+            let lv = p.LValues().Head
+            advance ()
+            let e = p.Expr()
+            EGroup [ SAssign([ lv ], [ e ]); SExpr lv ]
+        else
         let c = p.Coalesce()
         let j = pos
         if accept "?" then
@@ -469,7 +481,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             let j = if isSym "." then pos + 1 else pos // a method call is at its name
             match peek () with
             | SYM "m{" -> (advance (); e <- EIter(IMap, e, p.SectionBlock "}"))
-            | SYM "f[" -> (advance (); e <- EIter(IFilter, e, p.SectionBlock "]"))
+            | SYM "f[" -> (advance (); e <- EIter(IFilter, e, predicate (p.SectionBlock "]")))
             | SYM "/{" -> (advance (); e <- EIter(IFold, e, p.Block "}"))
             | SYM "${" -> (advance (); e <- ESort(e, p.SectionBlock "}"))
             | SYM "\\{" -> (advance (); e <- EIter(IScan, e, p.Block "}"))

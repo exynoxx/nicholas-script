@@ -1,0 +1,22 @@
+# := assigns inside an expression; = there compares
+x = 0; m = 0; n = 0
+x < 1 ? x := 5
+println: x
+xs = [3, 9, 2]
+xs{_ > m ? m := _ : n := _}
+println: (m, n)
+d = [0, 0, 0]
+1 > 0 ? d@1 := 7
+println: d
+x > 0 & x = 5 ? println: "eq" : println: "ne"
+x > 0 ? x = 6
+println: x
+y = (z := 4) + 1
+println: (y, z)
+# a filter's predicate compares; earlier statements assign
+a = [1,2,3]; b = [1,5,3]
+println: (0..3)[a@_ = b@_]
+println: a
+k = 2
+println: a[k = _]
+println: a[t = _ * 2; t > 3]

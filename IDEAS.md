@@ -11,7 +11,7 @@ Language ideas for NS, with status. The `fix` design further down is the main pr
 | `nb4` / `nb8` tuple neighbours | in progress |
 | `ns explain` ungolfer | in progress |
 | `fix` | designed, see below |
-| Assignment in a statement ternary; comparison as a filter's predicate | proposal, see below |
+| Assignment in a statement ternary; comparison as a filter's predicate | **done** as `:=` (`c ? x := 1`) + filter predicate compares |
 | everything else | proposal |
 
 ## Catalogue
@@ -51,6 +51,8 @@ The while loop is a statement in an expression language, it only works through m
 `x'` is `x` in the caller's frame, which matches loops: a tail call is the next iteration. Use: tree recursion without a parent parameter, `size u = 1 + g@u[!=u']{size:_}/+`. Implemented as hidden parameters on self-calls. Calls from outside pass zero. Mutual recursion and `memo` are compile errors. Open question: zero as the root's seed collides with node id 0.
 
 ### Assignment in a ternary branch
+
+**Done, differently:** instead of a position-dependent `=`, `lvalue := e` assigns inside any expression (`c ? d@k := v`); `=` in a ternary branch stays a comparison. The filter half shipped as written. The original proposal follows.
 
 Today `c ? d@k = v` parses as `c ? (d@k = v)`, which compares and throws the result away. To actually assign, you have to write `c ? (d@k = v; 0)`. This comes up constantly in worklist bodies, inside `fix` rules, and in guarded updates such as `d@_<0 ? (d@_ = d@u+1; q += _)`.
 
