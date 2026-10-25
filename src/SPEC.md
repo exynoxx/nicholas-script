@@ -257,7 +257,7 @@ without draining, iterate a snapshot: `(arr:q){…}`. (`s ++= q` and `arr:q` don
 `m{…}` returns a map with the same keys; `s{…}` returns a set; `m[…]`/`s[…]` return the same kind.
 A set chain that ends in a fold or scan is lazy, like a LINQ enumerable: `s{f}/+` folds every mapped value and builds no set, so equal values are not merged (`%[1,2,3]{_%2}/+` → 2).
 `@?` (contains) also works on arrays and strings: `"hello"@?"ll"`.
-Conversions: `map:pairs`, `set:arr`, `Q:arr`, `PQ:arr`, `arr:s` (to array; map → array of keys).
+Conversions: `map:pairs`, `set:arr`, `Q:arr`, `PQ:arr` (also from a tuple: `#set:(1,2,1)` → 2, values converted to the first one's type), `arr:s` (to array; map → array of keys).
 Truthiness: an empty map/set/queue is falsy.
 
 ```

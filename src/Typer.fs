@@ -609,6 +609,13 @@ and private builtin name (args: E list) : E =
         | TArr _ | TStr -> typed (Call("slice", [ x; bound a; bound b ])) x.t
         | t -> err ($"cannot slice {showT t}")
     | "mapof", [ ks; vs ] -> call (TMap(elemOf ks, elemOf vs))
+    | ("set" | "Q" | "PQ"), [ { t = t } as x ] when (match resolve t with TTup _ -> true | _ -> false) ->
+        // `set:(a,b,c)`: the tuple's values (converted to the first one's type) as an array
+        let (TTup ts) = resolve t
+        let tv = typed (Var(declare cur (Desugar.fresh "t") t)) t
+        let (Var u) = tv.k
+        let vs = ts |> List.mapi (fun k ty -> conv (typed (Call("tget", [ tv; typed (Int(int64 k)) TInt ])) ty) ts.Head)
+        builtin name [ typed (Seq([ Assign(u, x) ], typed (Arr vs) (TArr ts.Head))) (TArr ts.Head) ]
     | ("set" | "Q" | "PQ"), [ xs ] ->
         let el = elemOf xs
         let t = match name with "set" -> TSet el | "Q" -> TQ el | _ -> TPQ el

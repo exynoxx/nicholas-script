@@ -1,0 +1,5 @@
+t = (1,2,1)
+println: set: t
+println: set: ("a", "b", "a")
+println: #(set: (3, 4))
+println: Q: (5, 6, 7)
