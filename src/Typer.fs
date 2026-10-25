@@ -397,6 +397,7 @@ and private typeAt (e: E) : E =
                                                                      && (match i.k with Int n -> n >= 0L | _ -> true) ->
             typeIter it None false (Some i)
         | Call("one", [ x ]) when (lookup "one").IsNone -> typeE { e with k = Index(x, mk (Int 0L)) }
+        | Call("take1", [ x ]) when (lookup "take1").IsNone -> typeE { e with k = Call("take", [ x; mk (Int 1L) ]) }
         | Call("len", [ { k = Iter it } ]) when it.kind = IFilter && (lookup "len").IsNone -> typeIter it None true None
         | Call(name, args) ->
             match lookup name with

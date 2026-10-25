@@ -1,0 +1,10 @@
+c = 0
+println:1..1000000[c += 1; _ > 5].take1
+println:c
+println:[1,2,3][>9].take1
+println:"hello".take1
+println:take1:[7,8]
+lazy pairs xs = 0..xs{i = _; ((i+1)..xs){c += 1; (xs@i, xs@_)}}.flatten
+c = 0
+println:(pairs:[1,2,3,4]).take1
+println:c
