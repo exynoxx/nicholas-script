@@ -1,0 +1,2 @@
+1: error: lazy: a lazy function must return an array, not int
+1 | lazy f x = x + 1
