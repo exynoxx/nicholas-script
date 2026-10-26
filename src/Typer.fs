@@ -286,7 +286,9 @@ and private typeAt (e: E) : E =
                 match resolve varTy.[u], Desugar.prevOf.TryGetValue name with
                 | THole _ as h, (true, src) when (lookup src).IsSome -> unify h (typeE (mk (Var src))).t |> ignore
                 | _ -> ()
-                typed (Var u) varTy.[u]
+                match resolve varTy.[u] with
+                | TFn id when (match Desugar.arity.TryGetValue id with | true, 0 -> true | _ -> false) -> userCall id [] // bare `f` calls a block without parameters
+                | t -> typed (Var u) t
             | None when name = "true" || name = "false" -> err ($"undefined variable '{name}': booleans are T and F")
             | None ->
                 let rec names (f: Frame) = Seq.append f.vars.Keys (match f.parent with Some p -> names p | None -> Seq.empty)

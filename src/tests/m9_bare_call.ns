@@ -1,0 +1,21 @@
+f = {42}
+println: f
+println: f + 1
+x = f
+println: x
+println: f:0
+n = 0
+tick = {n += 1; n}
+tick; tick
+println: tick
+g = {
+    a = 10
+    a * 2
+}
+println: [1,2,3]{_ + g}
+h x = x + g
+println: h: 1
+k = 0
+m = memo:{k += 1; 7}
+println: m + m
+println: k
