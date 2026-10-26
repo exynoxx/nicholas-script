@@ -291,11 +291,11 @@ and private debugSS (ss: S list) : S list =
     let mutable line = ss |> List.tryPick (function Line n -> Some n | _ -> None) |> Option.defaultValue 0
     // a named parameter `n` is renamed `n'<block id>`
     let user (n: string) = match n.IndexOf '\'' with -1 -> n | k -> n.Substring(0, k)
-    let show n = [ Do(mk (Call("println", [ mk (Bin("+", mk (Str $"{showLine line}: {user n} = "), mk (Var n))) ]))) ]
+    // the typer drops it for a block (`f = memo:{..}` too)
+    let show n = [ Do(mk (Call("debug", [ mk (Str $"{showLine line}: {user n} = "); mk (Var n) ]))) ]
     ss |> List.collect (fun s ->
         match s with
         | Line n -> (line <- n; [ s ])
-        | Assign(n, ({ k = Fn _ } as e)) -> [ Assign(n, debugE e) ]
         | Assign(n, e) -> Assign(n, debugE e) :: (if n.Contains '%' || n.StartsWith "prev'^" then [] else show n)
         | SetIdx(x, i, v) -> SetIdx(debugE x, debugE i, debugE v) :: (match x.k with Var n when not (n.Contains '%') -> show n | _ -> [])
         | While(c, body) -> [ While(debugE c, debugSS body) ]

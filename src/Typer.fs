@@ -601,6 +601,10 @@ and private builtin name (args: E list) : E =
         | TMap(k, _) -> k
         | t -> err ($"""{(match name with "len" -> "#" | "has" -> "@?" | n -> n)}: not a collection: {showVal x}""")
     match name, args with
+    | "debug", [ label; x ] -> // --debug: `line: name = value`
+        match resolve x.t with
+        | TFn _ -> typed (Int 0L) TInt
+        | _ -> builtin "println" [ typeE (mk (Bin("+", label, x))) ]
     | ("print" | "println"), [ x ] -> typed (Call(name, [ value x ])) x.t
     | ("int" | "float" | "str" | "bool"), [ x ] ->
         conv x (match name with "int" -> TInt | "float" -> TFloat | "str" -> TStr | _ -> TBool)
