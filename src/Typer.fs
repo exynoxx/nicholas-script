@@ -66,6 +66,12 @@ let rec private holeIn (h: Ty) (t: Ty) =
 let private typed k t = { k = k; t = t }
 /// A type as errors show it: a block is "a block", not its internal fn<id>.
 let private showT t = match resolve t with TFn _ -> "a block" | t -> showTy t
+/// The type of e, prefixed by the user variable it reads (`'xs' ([int])`), for errors.
+let rec private showVal (e: E) =
+    match e.k with
+    | Var n when not (n.Contains '%' || n.StartsWith '_') -> $"'{n.Split([| '\''; '.' |]).[0]}' ({showT e.t})"
+    | Conv x -> showVal x
+    | _ -> showT e.t
 let private isScalar t = match resolve t with TInt | TFloat | TStr | TBool -> true | _ -> false
 
 /// Unifies two types, binding holes; when they don't unify, no hole stays bound.
@@ -240,7 +246,7 @@ and private conv (e: E) (ty: Ty) : E =
         match resolve e.t with
         | TFn _ when resolve ty = TBool -> err "a block can't be used as bool; to filter or test, write the condition itself: x[_>2], not x[{_>2}]"
         | TFn _ -> err ($"a block can't be used as {showT ty}; to use its result, call it: f:x")
-        | _ -> err ($"cannot convert {showT e.t} to {showT ty}")
+        | _ -> err ($"cannot convert {showVal e} to {showT ty}")
 
 /// Blocks can't escape, so none can be put into an array (also catches a map whose body is a block: x{{..}}).
 and private stored (x: E) : E =
@@ -467,7 +473,7 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) (at: E option) :
     let r =
       match resolve src.t with
       | TFloat | TBool | TTup _ | TFn _ as t ->
-          err ($"cannot {showKind stages.Head.kind} over {showT t}: it needs an int, array, string, map, set, queue or tree")
+          err ($"cannot {showKind stages.Head.kind} over {showVal src}: it needs an int, array, string, map, set, queue or tree")
       | TArr _ when feed.IsSome -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false feed)
       | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true None)
       | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
@@ -564,7 +570,7 @@ and private typeBin op inPlace (a: E) (b: E) : E =
     | "*", TStr -> err "operator * not defined for str: use ** to repeat a string"
     | ("+" | "-" | "*"), TBool -> same ()
     | _, TFn _ -> err ($"operator {op} not defined for a block; to call it, write f:x")
-    | _ -> err ($"operator {op} not defined for {showT L}")
+    | _ -> err ($"operator {op} not defined for {showVal a}")
 
 and private typeIndex (x: E) (i: E) =
     match resolve x.t with
@@ -582,7 +588,7 @@ and private typeIndex (x: E) (i: E) =
             typed (Call("tget", [ x; typed (Int(int64 k)) TInt ])) ts.[k]
         | Int k -> err ($"tuple index {k} is out of range: the tuple has {ts.Length} values (0..{ts.Length - 1})")
         | _ -> err ($"tuple index must be a literal 0..{ts.Length - 1}")
-    | t -> err ($"cannot index {showT t}")
+    | t -> err ($"cannot index {showVal x}")
 
 and private builtin name (args: E list) : E =
     let call t = typed (Call(name, args)) t
@@ -593,7 +599,7 @@ and private builtin name (args: E list) : E =
         | TArr e | TSet e | TQ e | TPQ e | TTree(e, _) -> e
         | TStr -> TStr
         | TMap(k, _) -> k
-        | t -> err ($"""{(match name with "len" -> "#" | "has" -> "@?" | n -> n)}: not a collection: {showT t}""")
+        | t -> err ($"""{(match name with "len" -> "#" | "has" -> "@?" | n -> n)}: not a collection: {showVal x}""")
     match name, args with
     | ("print" | "println"), [ x ] -> typed (Call(name, [ value x ])) x.t
     | ("int" | "float" | "str" | "bool"), [ x ] ->
@@ -616,7 +622,7 @@ and private builtin name (args: E list) : E =
     | "slice", [ x; a; b ] ->
         match resolve x.t with
         | TArr _ | TStr -> typed (Call("slice", [ x; bound a; bound b ])) x.t
-        | t -> err ($"cannot slice {showT t}")
+        | t -> err ($"cannot slice {showVal x}")
     | "mapof", [ ks; vs ] -> call (TMap(elemOf ks, elemOf vs))
     | ("set" | "Q" | "PQ"), [ { t = t } as x ] when (match resolve t with TTup _ -> true | _ -> false) ->
         // `set:(a,b,c)`: the tuple's values (converted to the first one's type) as an array
@@ -650,7 +656,7 @@ and private builtin name (args: E list) : E =
     | "push", [ a; x ] ->
         match resolve a.t with
         | TArr el -> typed (Call("push", [ a; own (conv (stored x) el) ])) a.t
-        | t -> err ($"push: not an array: {showT t}")
+        | t -> err ($"push: not an array: {showVal a}")
     | "panic", [ msg ] -> call TInt
     | "try", [] -> call TBool
     | "untry", [] -> call TInt
@@ -859,7 +865,7 @@ and private typeStmt (s: S) : S =
         match resolve x.t with
         | TArr el -> SetIdx(x, conv i TInt, own (conv value el))
         | TMap(k, v) -> SetIdx(x, own (conv i k), own (conv value v))
-        | t -> err ($"cannot assign into {showT t}")
+        | t -> err ($"cannot assign into {showVal x}")
     | Assign(name, e0) ->
         let rec self (x: E) =
             match x.k with
