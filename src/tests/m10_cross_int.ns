@@ -1,0 +1,4 @@
+println: cross:2,3
+println: cross:0..2,[T,F]
+n = 2
+println: (cross:n,n){_1*10+_2}

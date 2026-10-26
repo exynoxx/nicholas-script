@@ -952,6 +952,12 @@ void *ns_cross(const char *dA, const char *dB, const char *dR, void *a, void *b)
     }
   return r;
 }
+//@ cross (int,int) [(int,int)] = ns_cross_n
+void *ns_cross_n(const char *dR, int64_t a, int64_t b) { // cross:0..a,0..b
+  void *x = ns_range(0, a), *y = ns_range(0, b), *r = ns_cross("I", "I", dR, x, y);
+  ns_release(x); ns_release(y);
+  return r;
+}
 //@ items ({K:V}) [(K,V)]
 void *ns_items(const char *dK, const char *dV, const char *dR, void *m) { // (key, value) pairs in hash order
   void *k = ns_toarr("M", m), *v = ns_map_vals(m), *r = ns_zip(dK, dV, dR, k, v);
