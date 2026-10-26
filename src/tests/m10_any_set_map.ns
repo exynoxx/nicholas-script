@@ -1,0 +1,10 @@
+s = %[0,1]
+println: s.any
+println: s.all
+m = [1->0, 2->3]
+println: m.any
+println: m.all
+println: s{_>=0}.all
+println: m{_>5}.any
+println: %[].any
+println: [1->T].all
