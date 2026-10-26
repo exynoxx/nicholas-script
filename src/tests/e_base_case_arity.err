@@ -1,0 +1,3 @@
+2:1: error: 'f' has 2 parameters but its base cases have 1
+2 | f a b = 2
+  | ^

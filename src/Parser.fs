@@ -49,8 +49,15 @@ let private opensBracket (s: string) = s.EndsWith "(" || s.EndsWith "[" || s.End
 /// Directory of the file being parsed, and every file already imported (each is included once).
 type private Imports = { dir: string; seen: HashSet<string> }
 
+type private Pat =
+    | PName of string
+    | PLit of Expr
+    | PGroup of bool * Pat list // is an array, items
+
 type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>, params: HashSet<string>, stdAliases: Dictionary<string, string>, nextId: int ref, imports: Imports) =
     let mutable pos = 0
+    /// base-case clauses (`f 0 [a, b] = a`) waiting for f's general definition: arity, guard statements, memo on one of them
+    let clauses = Dictionary<string, int * Stmt list * bool>()
     let peek () = tokens.[pos].tok
     let line () = tokens.[pos].line
     let advance () = pos <- pos + 1
@@ -89,6 +96,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
     member p.Program() =
         p.DeclareFunctions()
         let body = p.Stmts EOF
+        for KeyValue(f, _) in clauses do fail 0 $"base case of '{f}' without a general definition `{f} a b = …` after it"
         if peek () <> EOF then err ($"unexpected {describeTok (peek ())}")
         body
 
@@ -185,7 +193,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         // `?? stmt`: skip the statement if it fails at runtime (missing key, index out of range, ...)
         if accept "??" then SExpr(EUn("??", EGroup [ p.Stmt(); SExpr(EInt 0L) ])) else
         // `memo f a b = body` is `f = memo:{body}` with named parameters
-        let memo = peek () = ID "memo" && (pos <- pos + 1; p.FnDefAhead().IsSome || (pos <- pos - 1; false))
+        let memo = peek () = ID "memo" && (pos <- pos + 1; p.FnDefAhead().IsSome || p.ClauseAhead().IsSome || (pos <- pos - 1; false))
         // `lazy f a = body` / `lazy f = {…}`: `f = lazy:{…}` (lazy is not callable by name)
         let lazyAt = pos
         let lazy' =
@@ -193,9 +201,13 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             && (pos <- pos + 1
                 p.FnDefAhead().IsSome || tokens.[pos + 1].tok = SYM "=" || (pos <- pos - 1; false))
         let wrap fn = if memo then ECall("memo", [ fn ]) elif lazy' then ECall("lazy", [ fn ]) else fn
+        match p.ClauseAhead() with
+        | Some(f, pats, eq) -> p.Clause(f, pats, eq, memo)
+        | None ->
         match p.FnDefAhead() with
         | Some(f, ps, eq) ->
             // `f a b = body` is `f = {body}` with a, b naming _1, _2; a `{…}` body holds statements
+            let defAt = pos
             pos <- eq + 1
             fnames.Add f |> ignore
             nextId.Value <- nextId.Value + 1
@@ -207,6 +219,15 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             let body = if accept "{" then p.Block "}" else [ SLine(line ()); SExpr(p.Expr()) ]
             shadowed.Clear(); shadowed.UnionWith saved
             params.Clear(); params.UnionWith savedParams
+            // `memo` on a base case memoizes the whole function
+            let wrap = match clauses.TryGetValue f with | true, (_, _, true) when not lazy' -> (fun fn -> ECall("memo", [ fn ])) | _ -> wrap
+            let body =
+                match clauses.TryGetValue f with
+                | true, (n, gs, _) ->
+                    clauses.Remove f |> ignore
+                    if n <> List.length ps then errAt defAt $"'{f}' has {List.length ps} parameters but its base cases have {n}"
+                    gs @ body
+                | _ -> body
             let fn = EBlock(id, ps, body)
             SAssign([ EVar f ], [ wrap fn ])
         | None ->
@@ -277,6 +298,80 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             | ps, j when not ps.IsEmpty && tokens.[j].tok = SYM "=" -> Some(f, ps, j)
             | _ -> None
         | _ -> None
+
+    /// `name pattern {pattern} =` with a literal somewhere: a base case of f (`f 0 (1, x) [a, b] = a + x`).
+    /// A pattern is a name, `_`, a literal, `(p, …)` (a tuple) or `[p, …]` (an array of exactly that length).
+    member p.ClauseAhead() : (string * Pat list * int) option =
+        let rec pat j =
+            match tokens.[j].tok with
+            | ID n when n = "_" || assignable n -> Some(PName n, j + 1)
+            | INT n -> Some(PLit(EInt n), j + 1)
+            | FLOAT x -> Some(PLit(EFloat x), j + 1)
+            | BOOL b -> Some(PLit(EBool b), j + 1)
+            | STR [] -> Some(PLit(EStr ""), j + 1)
+            | STR [ Lit s ] -> Some(PLit(EStr s), j + 1)
+            | SYM "-" -> (match tokens.[j + 1].tok with INT n -> Some(PLit(EInt -n), j + 2) | FLOAT x -> Some(PLit(EFloat -x), j + 2) | _ -> None)
+            | SYM("(" | "[" | "f[" as o) ->
+                let close = if o = "(" then ")" else "]"
+                let rec items j acc =
+                    if tokens.[j].tok = SYM close && (o <> "(" || not (List.isEmpty acc)) then Some(PGroup(o <> "(", List.rev acc), j + 1) else
+                    match pat j with
+                    | Some(x, k) when tokens.[k].tok = SYM "," -> items (k + 1) (x :: acc)
+                    | Some(x, k) when tokens.[k].tok = SYM close -> items k (x :: acc)
+                    | _ -> None
+                items (j + 1) []
+            | _ -> None
+        let rec lit x = match x with PLit _ -> true | PName _ -> false | PGroup(arr, xs) -> arr || List.exists lit xs
+        let rec pats j acc =
+            match pat j with
+            | Some(x, k) -> pats k (x :: acc)
+            | None -> List.rev acc, j
+        match tokens.[pos].tok with
+        | ID f when assignable f && not (foreign.ContainsKey f) && not (builtins.Contains f) ->
+            match pats (pos + 1) [] with
+            | ps, j when List.exists lit ps && tokens.[j].tok = SYM "=" -> Some(f, ps, j)
+            | _ -> None
+        | _ -> None
+
+    /// A base case becomes a hidden function `f'k` of its pattern's names, and a guard `cond ? ret: f'k: names`
+    /// that f's general definition puts first in its body.
+    member p.Clause(f, pats: Pat list, eq, memo) =
+        let l = line ()
+        pos <- eq + 1
+        let conds, binds = ResizeArray(), ResizeArray()
+        let rec walk v x =
+            match x with
+            | PName "_" -> ()
+            | PName n -> binds.Add(n, v)
+            | PLit e -> conds.Add(EBin("=", v, e))
+            | PGroup(arr, xs) ->
+                if arr then conds.Add(EBin("=", EUn("#", v), EInt(int64 xs.Length)))
+                xs |> List.iteri (fun i x -> walk (EIndex(v, EInt(int64 i))) x)
+        pats |> List.iteri (fun i x -> walk (EVar $"_{i + 1}") x)
+        let names = binds |> Seq.map fst |> List.ofSeq
+        if List.distinct names <> names then errAt eq $"a name appears twice in a base case of '{f}'"
+        let saved, savedParams = HashSet shadowed, HashSet params
+        for n in names do
+            if builtins.Contains n then shadowed.Add n |> ignore
+            params.Add n |> ignore
+        let body = if accept "{" then p.Block "}" else [ SLine(line ()); SExpr(p.Expr()) ]
+        shadowed.Clear(); shadowed.UnionWith saved
+        params.Clear(); params.UnionWith savedParams
+        // a later condition indexes into what an earlier one checked the length of: `c1 ? c2 : F`, not `c1 & c2`
+        let cond = Seq.reduceBack (fun c rest -> ETern(c, rest, EBool false)) conds
+        nextId.Value <- nextId.Value + 1
+        let id = nextId.Value
+        let value, def =
+            if names.IsEmpty then EGroup body, SExpr(EInt 0L)
+            else
+                let h = $"{f}'{id}"
+                fnames.Add h |> ignore
+                ECall(callMark + h, List.ofSeq (Seq.map snd binds)), SAssign([ EVar h ], [ EBlock(id, names |> List.map (fun n -> [ n ]), body) ])
+        let guard = SExpr(ETern(cond, EGroup [ SExpr(ECall(callMark + "ret", [ value ])); SExpr(EInt 0L) ], EInt 0L))
+        let n, gs, m = match clauses.TryGetValue f with | true, c -> c | _ -> pats.Length, [], false
+        if n <> pats.Length then errAt eq $"base cases of '{f}' have different numbers of parameters"
+        clauses.[f] <- (n, gs @ [ SLine l; guard ], m || memo)
+        def
 
     /// Does `lvalue {, lvalue} =` (or `lvalue op=`) start here? Walks the tokens LValues would take; Some the operator.
     member p.AssignAhead() : string option =

@@ -297,6 +297,17 @@ dist x y = {       # a { } body holds statements
 ```
 Named parameters are local to the function: assigning one never changes an outer variable of the same name.
 A parameter `(a, b, …)` unpacks a tuple or array argument (`_` skips an element: `mid (_, b, _) = b`): `dot (a, b) (c, d) = a*c + b*d`, `dot:(1,2),(3,4)`.
+**Base cases**: lines `f pattern … = value` before f's definition are tried first, in order; the first whose
+patterns all match gives the result, else the definition runs. A pattern is a name (binds the argument), `_`, a literal
+(`0`, `-1`, `"hi"`, `T`), `(p, …)` (a tuple, matched element by element) or `[p, …]` (an array of exactly that length):
+```
+fib 0 = 0
+fib 1 = 1
+fib n = (fib: n-1) + (fib: n-2)
+f (0, 0) [a, b, c] = a + b     # f:(0,0),[1,2,3] → 3
+f tup arr = arr.sum
+```
+A base case must have as many parameters as the definition. `memo` on the definition or on any base case memoizes the whole function (`memo fib 0 = 0`).
 Blocks capture variables from the enclosing scope **by reference** (`s=0; x{s+=_}` updates `s`). In v1 blocks may not escape (be returned or stored in collections), so captures live on the stack. A block isn't a value: it can be called, named, or passed to a function that takes a block (`sortby`, `memo`, `BT`), but printing one, putting it in a tuple or a ternary branch, or returning one is a compile error.
 A name is bound before its block body is checked, so blocks can recurse: `f={_<2?_:f:_-1}`.
 Top-level functions (`f a = …`, `f = {…}`, `f = memo:…`) may call functions defined later in the file, so they can be
@@ -456,6 +467,7 @@ program   = { stmt TERM } ;
 TERM      = NEWLINE | ";" ;
 stmt      = "??" stmt | fndef | assign | while | expr ;
 fndef     = IDENT param { param } "=" ( "{" block "}" | expr ) ;
+basecase  = IDENT pattern { pattern } "=" ( "{" block "}" | expr ) ;   (* some pattern holds a literal or [..] *)
 param     = IDENT | "(" pname { "," pname } ")" ;   (* pname = IDENT | "_" *)
 while     = expr "~{" block "}" ;
 assign    = lvalues "=" exprlist ;

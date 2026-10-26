@@ -1,0 +1,35 @@
+f (0,0) [a,b,c] = a+b
+f (x, 0) _ = x * 100
+f (x,y) arr = arr.sum + x + y
+println: f: (0,0), [1,2,3]
+println: f: (0,0), [1,2]
+println: f: (7,0), [1,2]
+println: f: (1,1), [1,2]
+fib 0 = 0
+fib 1 = 1
+fib n = (fib: n-1) + (fib: n-2)
+println: fib: 20
+g "hi" = "greeting"
+g s = s + "!"
+println: g: "hi"
+println: g: "yo"
+paths 0 _ = 1
+paths _ 0 = 1
+memo paths r c = (paths: r-1, c) + (paths: r, c-1)
+println: paths: 16, 16
+cnt [] = 0
+cnt [x] = 1
+cnt xs = {
+    t = xs.sum
+    t + 100
+}
+println: cnt: []
+println: cnt: [4]
+println: cnt: [4, 5]
+neg -1 = "minus one"
+neg n = "other"
+println: neg: -1
+memo mfib 0 = 0
+mfib 1 = 1
+mfib n = (mfib: n-1) + (mfib: n-2)
+println: mfib: 80
