@@ -49,6 +49,9 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         | INT _ | FLOAT _ | STR _ | BOOL _ | ID _ | FOLDOP _ | SCANOP _ -> true
         | SYM (")" | "]" | "}") -> true
         | _ -> false
+    // `f = ?[ arms ]` defines a filter function (`f = { _ ?[ arms ] }`)
+    let assignedFn () =
+        toks.Count >= 2 && last () = SYM "=" && (match toks.[toks.Count - 2].tok with ID _ -> true | _ -> false)
     let add t =
         if sectionPending then
             sectionPending <- false
@@ -287,7 +290,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             failAt tokLine tokCol (if j > i + 1 && j < n && src.[j] = '{' then "write '~{' without a space: cond ~{ body }"
                                    else "'~' only starts a while loop: cond ~{ body }")
         elif c = '?' && at 1 = '{' then (sym "?{"; i <- i + 2)
-        elif c = '?' && at 1 = '[' && endsExpr () && not (ternaryArray ()) then (sym "?["; i <- i + 2)
+        elif c = '?' && at 1 = '[' && ((endsExpr () && not (ternaryArray ())) || assignedFn ()) then (sym "?["; i <- i + 2)
         elif c = '[' then (sym (if endsExpr () then "f[" else "["); i <- i + 1)
         elif c = '%' && at 1 = '[' && not (endsExpr ()) then (sym "%["; i <- i + 2)
         else

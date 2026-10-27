@@ -111,7 +111,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                 match p.FnDefAhead(), tokens.[pos].tok with
                 | Some(f, _, _), _ -> fnames.Add f |> ignore
                 | None, ID f when pos + 2 < tokens.Length && tokens.[pos + 1].tok = SYM "="
-                                  && (tokens.[pos + 2].tok = SYM "{" || tokens.[pos + 2].tok = ID "memo") -> fnames.Add f |> ignore
+                                  && (tokens.[pos + 2].tok = SYM "{" || tokens.[pos + 2].tok = SYM "?{" || tokens.[pos + 2].tok = SYM "?[" || tokens.[pos + 2].tok = ID "memo") -> fnames.Add f |> ignore
                 | _ -> ()
             match tokens.[j].tok with
             | SYM s when opensBracket s -> depth <- depth + 1
@@ -236,9 +236,17 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             let lvs = p.LValues()
             advance ()
             match lvs with
-            | [ EVar f ] when isSym "{" || (peek () = ID "memo" && tokens.[pos + 1].tok = SYM ":") -> fnames.Add f |> ignore
+            | [ EVar f ] when isSym "{" || isSym "?{" || isSym "?[" || (peek () = ID "memo" && tokens.[pos + 1].tok = SYM ":") -> fnames.Add f |> ignore
             | _ -> ()
-            let rhs = p.ExprList()
+            let rhs =
+                match lvs with
+                | [ EVar _ ] when isSym "?{" || isSym "?[" -> // `f = ?{ arms }` is `f = { _ ?{ arms } }`
+                    let filter = isSym "?["
+                    advance ()
+                    nextId.Value <- nextId.Value + 1
+                    let id = nextId.Value
+                    [ EBlock(id, [], [ SExpr(p.Match(Some(EVar "_"), filter)) ]) ]
+                | _ -> p.ExprList()
             match lvs, rhs with
             | [ EVar f ], [ ECall(g, _) ] when g.StartsWith negMark -> fnames.Add f |> ignore // g = !ws
             | [ EVar f ], [ EBlock _ ] -> fnames.Add f |> ignore // g = !{..}
@@ -462,7 +470,18 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         let test () =
             match subject, peek () with
             | Some _, SYM("=" | "!=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, EVar "_", p.Shift()))
-            | Some _, _ -> EBin("=", EVar "_", p.Expr())
+            | Some _, _ ->
+                // an arm that mentions `_` (outside a nested block) is a condition on the subject: `_%2=0 => …`
+                let start = pos
+                let e = p.Expr()
+                let mutable depth, uses = 0, false
+                for t in tokens.[start .. pos - 1] do
+                    match t.tok with
+                    | SYM s when s.EndsWith "{" -> depth <- depth + 1
+                    | SYM "}" -> depth <- depth - 1
+                    | ID "_" when depth = 0 -> uses <- true
+                    | _ -> ()
+                if uses then e else EBin("=", EVar "_", e)
             | None, _ -> p.Expr()
         let skipTerms () = while peek () = TERM do advance ()
         // in `?[ ]` every arm's value is tested for truthiness on its own, so arms may give different types

@@ -392,8 +392,12 @@ n ?{
   _ => { c = 0; "some" }
 }
 ```
+`f = ?{ arms }` defines a function that matches its argument: it is `f = { _ ?{ arms } }` (and `f = ?[ arms ]` a filter
+function, `big = ?[>9]; big:xs`). For a subject-less match as a value, parenthesize: `x = (?{ c => a; b })`.
+
 Arms are separated by newline or `;` and tried in order; the first match wins. Inside a subject match `_` is the
-subject (the element, for an array). If any pattern is an array literal (`[1,2] =>`, `[] =>`, `<[2] =>`), an array
+subject (the element, for an array); an arm that mentions `_` is a condition used as is (`_%2=0 => …`, `_ = _.int => …`),
+any other arm value is compared with the subject. If any pattern is an array literal (`[1,2] =>`, `[] =>`, `<[2] =>`), an array
 subject is compared as a whole value instead of mapped over. An arm's result may be a statement (`5 => c += 1`, value 0), or a block `=> { … }` of statements separated by
 newlines or `;`: it runs in the match's own scope (`_` is still the subject, assignments are visible after the match),
 and its value is its last expression, or 0 if that is a statement. An arm block is not a function value; as in any block,

@@ -1,0 +1,17 @@
+f = ?{ 0 => "zero"; <0 => "neg"; "pos" }
+println: f:5
+println: f:0
+println: [-1,0,2]{f}
+big = ?[ >9 ]
+println: big:[1,20,3,40]
+g = ?{ 1, 2 => "small"; _ => "other" }
+println: g:3
+x = (?{ 1 > 2 => "a"; "b" })
+println: x
+up = ?{
+    _ = _.int & _%2=0    => 1 + int: _;
+    _ = _.int            => 2 + int: _;
+    _                    => ceil: _;
+}
+println: [1,2,9,10,17] {(up: sqrt: _) ^^ 2 - 1 - _}
+println: 7 ?{ _%2=0 => "even"; 7 => "seven"; "?" }
