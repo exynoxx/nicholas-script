@@ -544,6 +544,10 @@ int64_t ns_isupper(char *s) { return all_of(s, isupper); }
 int64_t ns_islower(char *s) { return all_of(s, islower); }
 //@ isdigit (str) bool
 int64_t ns_isdigit(char *s) { return all_of(s, isdigit); }
+//@ isalpha (str) bool
+int64_t ns_isalpha(char *s) { return all_of(s, isalpha); }
+//@ isalnum (str) bool
+int64_t ns_isalnum(char *s) { return all_of(s, isalnum); }
 //@ ord (str) int
 int64_t ns_ord(char *s) { return (unsigned char)s[0]; }
 //@ chr (int) str
@@ -1161,6 +1165,38 @@ int64_t ns_floor(double x) { return (int64_t)floor(x); }
 int64_t ns_ceil(double x) { return (int64_t)ceil(x); }
 //@ round (float) int
 int64_t ns_round(double x) { return (int64_t)round(x); }
+//@ sin (float) float
+double ns_sin(double x) { return sin(x); }
+//@ cos (float) float
+double ns_cos(double x) { return cos(x); }
+//@ tan (float) float
+double ns_tan(double x) { return tan(x); }
+//@ asin (float) float
+double ns_asin(double x) { return asin(x); }
+//@ acos (float) float
+double ns_acos(double x) { return acos(x); }
+//@ atan (float) float
+double ns_atan(double x) { return atan(x); }
+//@ exp (float) float
+double ns_exp(double x) { return exp(x); }
+//@ log (float) float
+double ns_log(double x) { return log(x); }
+//@ log2 (float) float
+double ns_log2(double x) { return log2(x); }
+//@ log10 (float) float
+double ns_log10(double x) { return log10(x); }
+//@ cbrt (float) float
+double ns_cbrt(double x) { return cbrt(x); }
+//@ atan2 (float,float) float
+double ns_atan2(double y, double x) { return atan2(y, x); }
+//@ hypot (float,float) float
+double ns_hypot(double x, double y) { return hypot(x, y); }
+//@ trunc (float) int
+int64_t ns_trunc(double x) { return (int64_t)x; }
+//@ sign (int) int = ns_sign_i
+int64_t ns_sign_i(int64_t x) { return (x > 0) - (x < 0); }
+//@ sign (float) int = ns_sign_f
+int64_t ns_sign_f(double x) { return (x > 0) - (x < 0); }
 //@ lcm (int,int) int
 int64_t ns_lcm(int64_t a, int64_t b) { int64_t g = ns_gcd(a, b); return g ? ns_abs_i(a / g * b) : 0; }
 //@ rotl (int,int) int
@@ -1197,6 +1233,14 @@ int64_t ns_all(const char *dT, void *arr) { Arr *a = arr; for (int64_t i = 0; i 
 int64_t ns_find_arr(const char *dT, void *arr, const void *x) { return ns_find(HD(arr)->d, arr, x); }
 //@ find (str,str) int = ns_find_str
 int64_t ns_find_str(char *s, char *x) { return ns_find("S", s, &x); }
+//@ count ([T],T) int = ns_count_arr
+int64_t ns_count_arr(const char *dT, void *arr, const void *x) { Arr *a = arr; int64_t n = 0; for (int64_t i = 0; i < a->len; i++) n += ns_eq(dT, a->data + i * a->esz, x) != 0; return n; }
+//@ count (str,str) int = ns_count_str
+int64_t ns_count_str(char *s, char *x) { // non-overlapping; "" counts 0
+  int64_t n = 0, k = strlen(x); if (!k) return 0;
+  for (char *e; (e = strstr(s, x)); s = e + k) n++;
+  return n;
+}
 //@ rev (str) str = ns_rev_s
 char *ns_rev_s(char *s) { size_t n = strlen(s); char *r = str_n(s, n); for (size_t i = 0; i < n; i++) r[i] = s[n - 1 - i]; return r; }
 //@ sort (str) str = ns_sort_s

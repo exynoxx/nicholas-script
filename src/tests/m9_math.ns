@@ -1,0 +1,15 @@
+println: sqrt:16
+println: sin:0.0
+println: cos:0.0
+println: round:(atan2:1.0,1.0)*4000
+println: log:(exp:2.0)
+println: log2:1024.0
+println: log10:1000.0
+println: cbrt:-8.0
+println: hypot:3.0,4.0
+println: trunc:-2.7
+println: [(sign:-5), (sign:0), (sign:3), (sign:-0.5)]
+println: [(isalpha:"abC"), (isalpha:"a1"), (isalnum:"a1"), (isalnum:"a 1")]
+println: count:[1,2,1,3,1],1
+println: "banana".count:"an"
+println: count:"aaaa","aa"
