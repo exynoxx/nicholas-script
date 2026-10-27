@@ -28,7 +28,8 @@ let boolFold (it: Iter) =
 /// `sink` (a `lazy` call feeds the chain): no loop; the stages run in a block that `sink` passes to the call, one
 /// element (`_1`) per call, and the block's value says whether more are wanted.
 /// A terminal body starting with `%while(c)` stops the loop once c is false.
-let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) (sink: (E -> E) option) : E =
+/// `toSet` (`xs{f}.set`): a map/filter terminal adds to a set instead of building an array first.
+let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) (sink: (E -> E) option) : E =
     let s, t, n, c, r, key = Desugar.fresh "s", Desugar.fresh "t", Desugar.fresh "n", Desugar.fresh "c", Desugar.fresh "r", Desugar.fresh "k"
     let first = Desugar.fresh "first"
     let it0, term = List.head stages, List.last stages
@@ -46,7 +47,8 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) (sink: 
     // result kind: a single stage keeps the source's kind; a fused chain yields an array
     // (or a string when only filters run over a string)
     let resTy =
-        if drain then TArr TUnk
+        if toSet then TSet TUnk
+        elif drain then TArr TUnk
         elif not fused then srcTy
         elif srcTy = TStr && stages |> List.forall (fun st -> st.kind = IFilter) then TStr
         else TArr TUnk
@@ -116,6 +118,7 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) (sink: 
         | _ -> Do(call "push" [ v r; x ])
     let terminal =
         match term.kind with
+        | IMap when count -> [ Do(bodyE term); Assign(r, bin "+" (v r) (i64 1L)) ]
         | IMap -> [ add (bodyE term) ]
         | IFilter when count -> [ when' (bodyE term) [ Assign(r, bin "+" (v r) (i64 1L)) ] ]
         | IFilter -> [ when' (bodyE term) [ add (v term.el) ] ]
@@ -175,12 +178,14 @@ let iter (stages: Iter list) (srcTy: Ty) (limit: E option) (count: bool) (sink: 
         | _ -> [ when' (v first) [ Do(call "panic" [ mk (Str "fold of empty collection") ]) ] ]
     let limited e = match limit with Some _ -> call "take" [ e; v lim ] | None -> e
     match term.kind with
+    | IMap | IFilter when count -> seq (pre @ init @ loop) (v r)
     | IMap -> seq (pre @ init @ loop) (limited (v r))
-    | IFilter when count -> seq (pre @ init @ loop) (v r)
     | IFilter -> seq (pre @ init @ loop) (limited (if resTy = TStr then call "join" [ v r; mk (Str "") ] else v r))
     | IFold -> seq (pre @ init @ loop @ emptyFold) (v term.acc)
     | IScan -> seq (pre @ init @ loop @ emptyFold) (v r)
     | IEach -> seq (pre @ init @ loop) skip
+
+and iter stages srcTy limit count sink = iterInto false stages srcTy limit count sink
 
 /// `a op b` with an array on the left: elementwise, right side either scalar or array.
 let broadcast op (a: E) (b: E) (bIsArr: bool) =

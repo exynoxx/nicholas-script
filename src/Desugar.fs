@@ -3,6 +3,7 @@ module Desugar
 
 open Ast
 open Core
+open System.Collections.Generic
 
 let mutable private counter = 0
 let mutable private line = 0 // of the statement being desugared, for errors
@@ -303,9 +304,179 @@ and private debugSS (ss: S list) : S list =
 
 let mutable debug = false
 
+/// e with kind k, keeping e's source position (for error columns).
+let private rebuild (e: E) (k: K) =
+    let r = { e with k = k }
+    posOf e |> Option.iter (setPos r)
+    r
+
+/// e with f on each direct subexpression and fs on each nested statement list.
+let private mapE (f: E -> E) (fs: S list -> S list) (e: E) : E =
+    let k =
+        match e.k with
+        | Arr xs -> Arr(List.map f xs)
+        | Bin(op, a, b) -> Bin(op, f a, f b)
+        | If(c, a, b) -> If(f c, f a, f b)
+        | Call(g, xs) -> Call(g, List.map f xs)
+        | Index(x, i) -> Index(f x, f i)
+        | Iter it -> Iter { it with src = f it.src; body = fs it.body; post = fs it.post }
+        | Fn(id, body) -> Fn(id, fs body)
+        | Conv x -> Conv(f x)
+        | Seq(ss, x) -> Seq(fs ss, f x)
+        | MatchOn(s, t, arms, b) -> MatchOn(f s, t, f arms, b)
+        | k -> k
+    rebuild e k
+
+let private mapS (f: E -> E) (fs: S list -> S list) (s: S) : S =
+    match s with
+    | Assign(n, e) -> Assign(n, f e)
+    | SetIdx(x, i, v) -> SetIdx(f x, f i, f v)
+    | While(c, body) -> While(f c, fs body)
+    | Do e -> Do(f e)
+    | Line _ -> s
+
+/// `a = lo..hi` never builds the array when `a` is assigned once and only iterated (`a{…}`, `#a[…]`, `a/+`) or counted (`#a`):
+/// the bounds go to temps and each `a` source becomes the range again, which Lower loops over as a counter.
+let private inlineRanges (prog: S list) : S list =
+    let assigns = Dictionary<string, int>()
+    let used = HashSet<string>() // `a` seen anywhere but as an iteration source
+    let ranges = HashSet<string>()
+    let rec scanE (e: E) =
+        match e.k with
+        | Var n -> used.Add n |> ignore; e
+        | Iter({ src = { k = Var _ } } as it) -> mapE scanE scanSS { e with k = Iter { it with src = mk (Int 0L) } } |> ignore; e
+        | Call("len", [ { k = Var _ } ]) -> e
+        | _ -> mapE scanE scanSS e
+    and scanSS ss =
+        for s in ss do
+            match s with
+            | Assign(n, e) ->
+                assigns.[n] <- (match assigns.TryGetValue n with | true, c -> c + 1 | _ -> 1)
+                match e.k with Call("range", [ _; _ ]) -> ranges.Add n |> ignore | _ -> ()
+            | _ -> ()
+            mapS scanE scanSS s |> ignore
+        ss
+    scanSS prog |> ignore
+    let bounds = Dictionary<string, string * string>()
+    for n in ranges do
+        if assigns.[n] = 1 && not (used.Contains n) then bounds.[n] <- (fresh (n + "lo"), fresh (n + "hi"))
+    if bounds.Count = 0 then prog
+    else
+    let rec rwE (e: E) =
+        match e.k with
+        | Iter({ src = { k = Var n } } as it) when bounds.ContainsKey n ->
+            let lo, hi = bounds.[n]
+            let src = mk (Call("range", [ mk (Var lo); mk (Var hi) ]))
+            mapE rwE rwSS (rebuild e (Iter { it with src = src }))
+        | Call("len", [ { k = Var n } ]) when bounds.ContainsKey n ->
+            let lo, hi = bounds.[n]
+            rebuild e (Call("len", [ mk (Call("range", [ mk (Var lo); mk (Var hi) ])) ]))
+        | _ -> mapE rwE rwSS e
+    and rwSS ss =
+        ss |> List.collect (fun s ->
+            match s with
+            | Assign(n, { k = Call("range", [ a; b ]) }) when bounds.ContainsKey n ->
+                let lo, hi = bounds.[n]
+                [ Assign(lo, rwE a); Assign(hi, rwE b) ]
+            | _ -> [ mapS rwE rwSS s ])
+    rwSS prog
+
+/// Calls fe on every expression and fs on every statement nested in ss / e.
+let rec private visitSS (fe: E -> unit) (fs: S -> unit) (ss: S list) =
+    for s in ss do
+        fs s
+        mapS (visitE fe fs) (fun b -> visitSS fe fs b; b) s |> ignore
+and private visitE fe fs (e: E) : E =
+    fe e
+    mapE (visitE fe fs) (fun b -> visitSS fe fs b; b) e
+
+let private impure = set [ "print"; "println"; "read"; "lines"; "write"; "spawn"; "pop"; "btadd"; "btdel"; "keep"; "memo"; "ret" ]
+
+/// `a = chain; …; s` where `a` (an iteration: `0..n[…]`, `xs{…}`) is assigned once and used once, in a later
+/// statement s of the same list, outside any loop or block of s: the chain moves into s, so its consumer decides whether an array
+/// is ever built (`#a`, `a{…}.set`, `a/+` fuse into one loop). Applied left to right, `a = …; b = a{…}; c = #b` all fuse.
+/// Only for a side-effect-free chain whose inputs neither s nor the statements before it change.
+let private fuseChains (prog: S list) : S list =
+    let assigns, uses = Dictionary<string, int>(), Dictionary<string, int>()
+    let bump (d: Dictionary<string, int>) n = d.[n] <- (match d.TryGetValue n with | true, c -> c + 1 | _ -> 1)
+    let inFns = HashSet<string>() // assigned inside some block: a user call may change them
+    let target s = match s with Assign(n, _) | SetIdx({ k = Var n }, _, _) -> Some n | _ -> None
+    visitSS
+        (fun e ->
+            match e.k with
+            | Var n -> bump uses n
+            | Fn(_, body) -> visitSS ignore (fun s -> target s |> Option.iter (inFns.Add >> ignore)) body
+            | _ -> ())
+        (function Assign(n, _) -> bump assigns n | _ -> ()) prog
+    let user (f: string) = "'?!".Contains f.[0] && assigns.ContainsKey(f.Substring 1)
+    let pureCall (f: string) =
+        if "'?!".Contains f.[0] then
+            let g = f.Substring 1
+            Parser.builtins.Contains g && not (impure.Contains g) && not (assigns.ContainsKey g)
+        else f <> "debug"
+    let local (n: string) = n.Contains '%' || n.Contains '\''
+    let pureE (e: E) =
+        let mutable ok = true
+        visitE (fun x -> match x.k with Call(f, _) when not (pureCall f) -> ok <- false | _ -> ())
+               (fun s -> match target s with Some n when not (local n) -> ok <- false | _ -> ()) e |> ignore
+        ok
+    let freeVars (e: E) =
+        let vs = HashSet<string>()
+        visitE (fun x -> match x.k with Var n -> vs.Add n |> ignore | _ -> ()) ignore e |> ignore
+        vs
+    // s may run before its use of the chain: it must not change what the chain reads
+    let safe (s: S) (fv: HashSet<string>) =
+        let mutable ok = true
+        let calls = fv.Overlaps inFns
+        visitSS (fun x ->
+                    match x.k with
+                    | Call(f, _) when user f && calls -> ok <- false
+                    | Call(f, args) when not (pureCall f) && args |> List.exists (fun a -> fv.Overlaps(freeVars a)) -> ok <- false
+                    | _ -> ())
+                (fun s -> match target s with Some n when fv.Contains n -> ok <- false | _ -> ()) [ s ]
+        ok
+    // replaces the one `a` in s if it is evaluated once (not in a loop body, a block or match arms) and not
+    // written through (`a@0 = 5` must not write into the chain's source)
+    let subst (a: string) (chain: E) (s: S) =
+        let mutable did = false
+        let rec e (x: E) =
+            match x.k with
+            | Var n when n = a -> did <- true; chain
+            | Iter it -> rebuild x (Iter { it with src = e it.src })
+            | MatchOn(sub, t, arms, f) -> rebuild x (MatchOn(e sub, t, arms, f))
+            | Fn _ -> x
+            | _ -> mapE e ss x
+        and st s =
+            match s with
+            | While _ -> s
+            | SetIdx(x, i, v) -> SetIdx(x, e i, e v)
+            | _ -> mapS e ss s
+        and ss b = List.map st b
+        let s = st s
+        if did then Some s else None
+    let rec fuseSS (ss: S list) : S list =
+        let arr = ResizeArray(ss |> List.map (mapS fuseE fuseSS))
+        let mutable i = 0
+        while i < arr.Count do
+            match arr.[i] with
+            | Assign(a, ({ k = Iter _ } as chain)) when assigns.[a] = 1 && uses.GetValueOrDefault a = 1 && pureE chain ->
+                // the consumer: the later statement using `a`; it and every statement before it must be safe
+                let mentions s = (freeVars (mk (Seq([ s ], mk (Int 0L))))).Contains a
+                let fv = freeVars chain
+                match seq { i + 1 .. arr.Count - 1 } |> Seq.tryFind (fun j -> mentions arr.[j]) with
+                | Some j when seq { i + 1 .. j } |> Seq.forall (fun k -> safe arr.[k] fv) ->
+                    match subst a chain arr.[j] with
+                    | Some s -> arr.[j] <- s; arr.RemoveAt i
+                    | None -> i <- i + 1
+                | _ -> i <- i + 1
+            | _ -> i <- i + 1
+        List.ofSeq arr
+    and fuseE (e: E) = mapE fuseE fuseSS e
+    fuseSS prog
+
 let desugar (prog: Stmt list) : S list =
     arity.Clear()
     prevOf.Clear()
     loop <- None
     let core = stmts Map.empty prog
-    if debug then debugSS core else core
+    if debug then debugSS core else core |> inlineRanges |> fuseChains

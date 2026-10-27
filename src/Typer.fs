@@ -409,7 +409,8 @@ and private typeAt (e: E) : E =
             typeIter it None false (Some i)
         | Call("one", [ x ]) when (lookup "one").IsNone -> typeE { e with k = Index(x, mk (Int 0L)) }
         | Call("take1", [ x ]) when (lookup "take1").IsNone -> typeE { e with k = Call("take", [ x; mk (Int 1L) ]) }
-        | Call("len", [ { k = Iter it } ]) when it.kind = IFilter && (lookup "len").IsNone -> typeIter it None true None
+        | Call("len", [ { k = Iter it } ]) when (it.kind = IFilter || it.kind = IMap) && (lookup "len").IsNone -> typeIter it None true None
+        | Call("set", [ { k = Iter it } ]) when (it.kind = IFilter || it.kind = IMap) && (lookup "set").IsNone -> typeIterInto true it None false None
         | Call(name, args) ->
             match lookup name with
             | Some u when (match resolve varTy.[u] with TFn _ -> true | _ -> false) ->
@@ -442,7 +443,10 @@ and private typeAt (e: E) : E =
 /// A chain of map/filter stages feeding `it` becomes one loop; `limit` (from `.take:k`) stops it after k results.
 /// `count` (`#` of a filter): over an array, the loop counts the kept elements instead of collecting them.
 /// `at` (`chain@k`, k a literal >= 0 or a variable): index the result; a fused chain gets the limit k+1 (k when negative).
-and private typeIter (it: Iter) (limit: E option) (count: bool) (at: E option) : E =
+and private typeIter (it: Iter) (limit: E option) (count: bool) (at: E option) : E = typeIterInto false it limit count at
+
+/// toSet: the chain's consumer is `.set`; an array source adds straight into the set (no array in between).
+and private typeIterInto (toSet: bool) (it: Iter) (limit: E option) (count: bool) (at: E option) : E =
     // collect a chain of map/filter stages feeding this one (innermost first)
     let rec chain (it: Iter) acc =
         match it.src.k with
@@ -478,6 +482,7 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) (at: E option) :
           err ($"cannot {showKind stages.Head.kind} over {showVal src}: it needs an int, array, string, map, set, queue or tree")
       | TArr _ when feed.IsSome -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false feed)
       | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true None)
+      | TArr _ when toSet -> typeE (Lower.iterInto true ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false None)
       | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
           typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false None)
       // a set chain consumed by a fold/scan is lazy: `s{f}/+` sums every mapped value, it builds no (deduplicating) set
@@ -490,6 +495,7 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) (at: E option) :
           let r = stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t) None false None)) src
           let r = match limit with Some k -> builtin "take" [ r; k ] | None -> r
           if count then builtin "len" [ r ] else r
+    let r = if toSet && (feed.IsSome || match resolve src.t with TArr _ -> false | _ -> true) then builtin "set" [ r ] else r
     match at with Some i -> typeIndex r (typeE i) | None -> r
 
 /// A set that the caller may update in place: copied unless nothing else references it.
@@ -624,6 +630,7 @@ and private builtin name (args: E list) : E =
     | "notbool", [ x ] -> // `!{..}`: the block's value must be a bool
         if unify (resolve x.t) TBool then typed (Call("not", [ x ])) TBool
         else err ($"!{{..}} negates a block that must return bool, but this one returns {showT x.t}")
+    | "len", [ { k = Call("range", [ a; b ]) } ] -> stdCall "abs" [ typed (Bin("-", b, a)) TInt ] // no array: #(lo..hi)
     | "len", [ x ] -> (elemOf x |> ignore; call TInt)
     | "has", [ c; x ] when (match resolve c.t with TTree _ -> true | _ -> false) -> treeOp "bthas" c x
     | "has", [ c; x ] -> typed (Call("has", [ c; conv x (elemOf c) ])) TBool

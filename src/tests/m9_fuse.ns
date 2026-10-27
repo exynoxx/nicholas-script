@@ -1,0 +1,36 @@
+n = 10
+a = 0..n
+println: #a [_%2=0]
+println: a {_*_}/+
+a{print: _}
+println: ""
+d = n..0
+println: d{_}
+f x = (r = 0..x; r/+)
+println: f:5
+k = 1..4
+println: k@1
+println: #k
+m = 0..3
+m = 5..7
+println: m{_}
+lo = 2
+w = lo..5
+lo = 100
+println: w{_}
+z = 0..n
+println: #z
+p = 0..30 [_%3=0]
+println: "x"
+q = p {_*2}
+lim = 7
+r = q [_>lim]
+println: r.set
+println: #(p2 = 0..9 [_>4]; p2 {_*_})
+ys = [5,6,7]
+y2 = ys {_+1}
+ys = [0]
+println: y2
+u = [1,2,3] {_*2}
+v = u {print: _; _}
+println: #v
