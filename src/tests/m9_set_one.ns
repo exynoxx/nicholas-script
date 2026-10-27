@@ -1,0 +1,5 @@
+s = %[5]
+println: s.one
+println: (%[(1,2)]).one._2
+println: one: %["a"]
+println: [7,8].one

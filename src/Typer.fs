@@ -407,8 +407,18 @@ and private typeAt (e: E) : E =
         | Index({ k = Iter it }, ({ k = (Int _ | Var _) } as i)) when (it.kind = IMap || it.kind = IFilter) && (lookup "take").IsNone
                                                                      && (match i.k with Int n -> n >= 0L | _ -> true) ->
             typeIter it None false (Some i)
-        | Call("one", [ x ]) when (lookup "one").IsNone -> typeE { e with k = Index(x, mk (Int 0L)) }
+        | Call("one", [ x ]) when (lookup "one").IsNone ->
+            match x.k with
+            | Iter _ -> typeE { e with k = Index(x, mk (Int 0L)) }
+            | _ ->
+                let x = typeE x
+                // ponytail: a set's `.one` copies it to an array; fine for the usual singleton set
+                let x = match resolve x.t with TSet _ -> stdCall "arr" [ x ] | _ -> x
+                typeIndex x (typeE (mk (Int 0L)))
         | Call("take1", [ x ]) when (lookup "take1").IsNone -> typeE { e with k = Call("take", [ x; mk (Int 1L) ]) }
+        // --debug of a block variable: typing the bare `f` would call it
+        | Call("debug", [ _; { k = Var n } ]) when (match lookup n with Some u -> (match resolve varTy.[u] with TFn _ -> true | _ -> false) | None -> false) ->
+            typed (Int 0L) TInt
         | Call("len", [ { k = Iter it } ]) when (it.kind = IFilter || it.kind = IMap) && (lookup "len").IsNone -> typeIter it None true None
         | Call("set", [ { k = Iter it } ]) when (it.kind = IFilter || it.kind = IMap) && (lookup "set").IsNone -> typeIterInto true it None false None
         | Call(name, args) ->

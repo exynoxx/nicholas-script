@@ -135,7 +135,7 @@ A binary operator is resolved at compile time in three steps; the first that app
 x = [1,2,3]
 r = 1..10        # range, end exclusive: 1..9
 x@0              # index; negative counts from end: x@-1; out of range is a runtime error
-x.one            # first element, same as x@0 (also one:x)
+x.one            # first element, same as x@0 (also one:x; on a set: some element)
 x.take1          # first element as an array (0 or 1 long), same as x.take:1; stops a chain early
 x@1..3           # slice (elements 1,2); `@` takes a range operand
 x@..2  x@1..     # open slices: first 2 / from 1 to the end; x@-2.. is the last 2
