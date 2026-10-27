@@ -1,0 +1,6 @@
+show = {(isint:_) ? "int:"+_ : (isfloat:_) ? "float:"+_ : (isstr:_) ? "str:"+_ : "other"}
+println: show:3
+println: show:2.5
+println: show:"hi"
+println: show:[1]
+println: [(isint:1), (isint:"1"), (isstr:"1"), (isfloat:1)]

@@ -610,6 +610,9 @@ and private builtin name (args: E list) : E =
     | ("print" | "println"), [ x ] -> typed (Call(name, [ value x ])) x.t
     | ("int" | "float" | "str" | "bool"), [ x ] ->
         conv x (match name with "int" -> TInt | "float" -> TFloat | "str" -> TStr | _ -> TBool)
+    // compile-time type tests (blocks are monomorphised per call site, so the type is known)
+    | ("isint" | "isfloat" | "isstr"), [ x ] ->
+        typed (Bool(match name, resolve x.t with "isint", TInt | "isfloat", TFloat | "isstr", TStr -> true | _ -> false)) TBool
     | "neg", [ x ] ->
         match resolve x.t with
         | TInt | TFloat -> call x.t
