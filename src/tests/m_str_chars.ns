@@ -1,0 +1,5 @@
+println:str:["a","b","c"]
+println:"hello".chars.rev.str
+println:[["a","b"],["c"]]{str}
+println:str:[1,2]
+println:"{["x"]}"

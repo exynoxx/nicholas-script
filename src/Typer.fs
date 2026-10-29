@@ -624,6 +624,7 @@ and private builtin name (args: E list) : E =
         | TFn _ -> typed (Int 0L) TInt
         | _ -> builtin "println" [ typeE (mk (Bin("+", label, x))) ]
     | ("print" | "println"), [ x ] -> typed (Call(name, [ value x ])) x.t
+    | "str", [ x ] when resolve x.t = TArr TStr -> stdCall "join" [ x ] // `str:["a","b"]` = "ab"
     | ("int" | "float" | "str" | "bool"), [ x ] ->
         conv x (match name with "int" -> TInt | "float" -> TFloat | "str" -> TStr | _ -> TBool)
     // compile-time type tests (blocks are monomorphised per call site, so the type is known)
