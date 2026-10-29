@@ -1,3 +1,3 @@
-1:15: error: a block can't be stored in an array; to map, write x{_+1}, not x{{_+1}}
-1 | println:(0..5){{_+1}}
-  |               ^
+1:9: error: a block can't be stored in an array
+1 | println:[{_}]
+  |         ^

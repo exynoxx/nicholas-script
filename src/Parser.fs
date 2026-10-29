@@ -180,8 +180,17 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
 
     /// Function section: a body that is just a function name calls it on `_`, so `x{int}` is `x{int:_}`; `x[!ws]` is `x[!ws:_]`;
     /// `x[!{..}]` binds the negated block to a hidden name and calls it on `_`.
-    member p.SectionBlock(closer: string) =
-        match p.Block closer with
+    member p.SectionBlock(closer: string) = p.Section(p.Block closer)
+
+    /// `x{{..}}` = `x{_{..}}`: maps each inner array
+    member p.MapSection(block: Stmt list) =
+        match block with
+        | [ SLine l; SExpr(EBlock(_, [], body)) ] when (match List.tryLast body with Some(SExpr(EUn("!b", _))) -> false | _ -> true) ->
+            [ SLine l; SExpr(EIter(IMap, EVar "_", p.MapSection body)) ]
+        | block -> p.Section block
+
+    member p.Section(block: Stmt list) =
+        match block with
         | [ SLine l; SExpr(EVar f) ] when isFunc f -> [ SLine l; SExpr(markCall nameMark f [ EVar "_" ]) ]
         | [ SLine l; SExpr(EBlock(id, [], body) as b) ] when (match List.tryLast body with Some(SExpr(EUn("!b", _))) -> true | _ -> false) ->
             let f = $"not'{id}"
@@ -603,7 +612,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         while go do
             let j = if isSym "." then pos + 1 else pos // a method call is at its name
             match peek () with
-            | SYM "m{" -> (advance (); e <- EIter(IMap, e, p.SectionBlock "}"))
+            | SYM "m{" -> (advance (); e <- EIter(IMap, e, p.MapSection(p.Block "}")))
             | SYM "f[" -> (advance (); e <- EIter(IFilter, e, predicate (p.SectionBlock "]")))
             | SYM "/{" -> (advance (); e <- EIter(IFold, e, p.Block "}"))
             | SYM "${" -> (advance (); e <- ESort(e, p.SectionBlock "}"))

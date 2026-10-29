@@ -251,7 +251,7 @@ and private conv (e: E) (ty: Ty) : E =
 /// Blocks can't escape, so none can be put into an array (also catches a map whose body is a block: x{{..}}).
 and private stored (x: E) : E =
     match resolve x.t with
-    | TFn _ -> err "a block can't be stored in an array; to map, write x{_+1}, not x{{_+1}}"
+    | TFn _ -> err "a block can't be stored in an array"
     | _ -> x
 
 /// Blocks can't escape: one can only be called, or passed to a function that takes a block.

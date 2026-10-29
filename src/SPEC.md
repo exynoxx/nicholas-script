@@ -170,7 +170,7 @@ Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter;
 - **Operator section**: a block body starting with a binary operator gets `_` on its left: `x{*2}`, `x[>2]`, `x{^^2}`. `-` never starts a section (`x{-1}` is the constant -1).
 - **Function section**: a map, filter or plain block whose whole body is a function name calls it on `_`: `x{int}` is `x{int:_}`, `x[even]`, `sortby:xs,{str}`; so does a negated one: `s[!ws]` is `s[!ws:_]`, and a negated block: `x[!{_>2}]` calls `!{_>2}` on each element
   (the block must return bool). A plain block as the whole body is an error: write `x[_>2]`, not `x[{_>2}]`.
-  Blocks are not values in collections or conditions: `x{{_+1}}`, `[{_}]` and `f ? a : b` with a block `f` are compile errors.
+  Blocks are not values in collections or conditions: `[{_}]` and `f ? a : b` with a block `f` are compile errors.
 - Nested blocks: the innermost block owns `_`, `@`, `$`.
 - **Previous iteration** `x'`: the value of variable `x` one iteration ago in the innermost enclosing loop (a
   map/filter/fold/scan/each block, or a `~{` while loop); `x''` two ago, and so on. Works for `_`, `@`, `_1`… and
@@ -184,6 +184,7 @@ Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter;
   (`f = {_'}`) or a `?[ ]` arm is not a loop: `x'` there is a compile error, as is `'` after anything but a
   name (`(a+b)'`, `5'`) and assigning to `x'`. The state is a carried variable, so chains still fuse into one loop.
 - `_` current element, `@` (bare) current index, `$` fold accumulator. Over a PQ of tuples, `@` is the priority and `_` the value.
+- `x{{..}}` is `x{_{..}}`: map each inner array (or string, or `0..n` of an int): `[[1,2],[3]]{{_*2}}` → `[[2,4],[6]]`.
 - `_1`, `_2`, … for multi-argument blocks. Inside a map/filter/fold/scan block they destructure the element instead (`_1` = `_@0`): `xs.pairwise{_2-_1}`, `(zip:a,b){_1*_2}`.
 - Last expression in a block is its value.
 

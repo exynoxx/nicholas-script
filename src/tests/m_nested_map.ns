@@ -1,0 +1,6 @@
+xs = [[1,2],[3]]
+print:xs{{_*2}}
+print:xs{{-_}}
+print:["ab","cd"]{{_+"!"}}
+print:[[[1],[2,3]]]{{{_+1}}}
+print:xs{{str}}
