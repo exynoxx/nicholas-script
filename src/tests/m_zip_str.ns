@@ -1,0 +1,4 @@
+print:zip:"abc","xy"
+print:zip:"ab",[1,2,3]
+print:zip:[T,F],"pq"
+print:(zip:"abc","abd"){_1=_2}
