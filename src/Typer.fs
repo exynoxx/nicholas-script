@@ -861,10 +861,6 @@ and private userCall id (args: E list) : E =
                     raise (CompileError(l, c, $"{msg} (when called at line {showLine savedLine}{ats})"))
             match List.rev ss with
             | Do r :: rest ->
-                if lazyFns.Contains id then
-                    match resolve r.t with
-                    | TArr _ -> ()
-                    | t -> err ($"lazy: a lazy function must return an array, not {showT t}")
                 // the result is fresh unless it is shared: a dying local is handed over, anything else is copied
                 inst.result <- ownIn inst.owned.Contains (conv (value r) inst.ret)
                 inst.body <- List.rev rest

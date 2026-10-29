@@ -1,0 +1,13 @@
+lazy even x = x%2 = 0
+lazy f x = x + 1
+lazy s x = "ab" + x
+println:even:4
+println:f:3
+println:s:"c"
+println:[1,2,3][even]
+println:(s:"c"){_+"!"}
+println:((s:"c"){_="b"}).any
+println:((s:"c"){_="b"}).one
+println:((s:"c"){_+"!"})@1
+lazy t x = (x, x>2)
+println:t:3

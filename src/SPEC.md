@@ -338,7 +338,7 @@ hands its elements over one at a time and stops once the ending has its answer. 
 Removing `lazy` changes no result, only the cost (and how side effects interleave). Statements before the body's last
 expression run once per call; the last expression streams: a fused chain, `a ++ b` (b only if more are wanted),
 `c ? a : b`, `[x, y]`, `.flatten` of a map (a flat-map), a call to a lazy function (recursion works), or any other
-array, element by element. A lazy function must return an array (a string, number, etc. is a compile error).
+array, element by element. A lazy function may return anything; a non-array result (bool, number, tuple, …) is computed as usual (a string result also works as a chain source: `(s:x){_+"!"}`).
 ```
 lazy pairs xs = 0..xs{i = _; ((i+1)..xs){(xs@i, xs@_)}}.flatten
 (pairs:nums)[_1 + _2 = 10].one      # stops at the first match: never builds the n² pairs
