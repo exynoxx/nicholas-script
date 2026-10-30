@@ -279,6 +279,7 @@ and private typeAt (e: E) : E =
         | Float _ -> typed e.k TFloat
         | Str _ -> typed e.k TStr
         | Bool _ -> typed e.k TBool
+        | Call("i|", [ ix; i ]) -> typeE (if (lookup "i").IsSome then i else ix)
         | Var name ->
             match lookup name with
             | Some u ->

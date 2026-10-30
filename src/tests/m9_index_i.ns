@@ -1,0 +1,12 @@
+println: [5,6,7]{_*i}
+println: [5,6,7][i > 0]
+println: [[1,2],[3,4]]{_{_*i}}
+println: [1,2,3]/{$ + _*i}
+f i = [1,2]{_+i}
+println: f:10
+g = {[1,2]{_*i}}
+println: g:0
+println: [4,5]{i = 3; _*i}
+println: [[1,2],[3,4]]{_1*10+_2+i}
+i = 10
+println: [5,6,7]{_*i}
