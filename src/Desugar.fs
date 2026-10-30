@@ -97,6 +97,8 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
     | EVar n when n.Length > 1 && n.[0] = '_' && n.[1] = '0' -> fail line $"'{n}' is not a name: block arguments and element parts count from _1"
     | EVar n when n.Length > 1 && n.[0] = '_' && env.ContainsKey "_#" -> // `_1 _2` in an iter block: element parts
         mk (Index(mk (Var env.["_#"]), mk (Int(int64 n.[1..] - 1L))))
+    // `i` in an iter block is its index unless a variable `i` exists: the typer picks (`i|` ix i)
+    | EVar "i" when not (env.ContainsKey "i") && env.ContainsKey "@" -> mk (Call("i|", [ mk (Var env.["@"]); mk (Var "i") ]))
     | EVar n -> mk (Var(defaultArg (Map.tryFind n env) n))
     | EArr xs -> mk (Arr(List.map ex xs))
     | ETuple xs -> call "tuple" xs
@@ -116,11 +118,11 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
     | EIndex(x, ERange(a, b)) -> call "slice" [ x; a; b ]
     | EIndex(x, i) -> mk (Index(ex x, ex i))
     | EHas(x, k) -> call "has" [ x; k ]
-    | EIter(kind, src, body) -> iter env kind (ex src) (fun env' -> block env' body)
+    | EIter(kind, src, body) -> iter (ownsI body env) kind (ex src) (fun env' -> block env' body)
     | ESort(src, body) ->
         // x{(key, @, _)}.sort{_3}: the index breaks ties, so equal keys keep their order; a map sorts its (k,v) pairs
         let keyed =
-            iter env IMap (mk (Call("entries", [ ex src ]))) (fun env' ->
+            iter (ownsI body env) IMap (mk (Call("entries", [ ex src ]))) (fun env' ->
                 let ss = block env' body
                 let last = ss |> List.findIndexBack (function Do _ -> true | _ -> false)
                 ss |> List.mapi (fun j s ->
@@ -168,6 +170,12 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
         match List.rev (block env body) with
         | Do last :: rest -> mk (Seq(List.rev rest, last))
         | _ -> fail line "empty group: ( ) needs a value"
+
+/// A block assigning `i` keeps it a variable, not the index.
+and private ownsI body (env: Map<string, string>) =
+    let isI lv = lv = EVar "i"
+    if body |> List.exists (function SAssign(lvs, _) -> List.exists isI lvs | SCompound(_, lv, _) -> isI lv | _ -> false)
+    then env.Add("i", "i") else env
 
 and private iter env kind src (mkBody: Map<string, string> -> S list) =
     let el, ix, acc = fresh "_", fresh "@", fresh "$"

@@ -185,6 +185,9 @@ Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter;
   (`f = {_'}`) or a `?[ ]` arm is not a loop: `x'` there is a compile error, as is `'` after anything but a
   name (`(a+b)'`, `5'`) and assigning to `x'`. The state is a carried variable, so chains still fuse into one loop.
 - `_` current element, `@` (bare) current index, `$` fold accumulator. Over a PQ of tuples, `@` is the priority and `_` the value.
+- `i` is the index too (same as bare `@`) unless a variable or parameter `i` is in scope or the block itself assigns
+  `i`: `[5,6,7]{_*i}` → `[0,6,14]`, but `i = 10; [5,6,7]{_*i}` → `[50,60,70]`. The innermost loop owns it, like `@`;
+  a plain block (`f = {..}`) has no index, so `i` there is an ordinary name.
 - `x{{..}}` is `x{_{..}}`: map each inner array (or string, or `0..n` of an int): `[[1,2],[3]]{{_*2}}` → `[[2,4],[6]]`.
 - `_1`, `_2`, … for multi-argument blocks. Inside a map/filter/fold/scan block they destructure the element instead (`_1` = `_@0`): `xs.pairwise{_2-_1}`, `(zip:a,b){_1*_2}`.
 - Last expression in a block is its value.
