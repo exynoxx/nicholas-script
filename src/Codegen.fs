@@ -364,8 +364,9 @@ let generate (prog: Program) : string =
             // `?? stmt`: a handler frame in this function; _setjmp returns again (nonzero) when the statement panics
             let buf = alloca "[512 x i8], align 16"
             rt "void" "ns_try" [ "ptr", buf ] |> ignore
-            decls.["_setjmp"] <- "declare i32 @_setjmp(ptr) returns_twice"
-            let r = instr $"call i32 @_setjmp(ptr {buf}) returns_twice"
+            // Win64's _setjmp takes a frame to unwind to (null: plain longjmp); other ABIs ignore the extra argument
+            decls.["_setjmp"] <- "declare i32 @_setjmp(ptr, ptr) returns_twice"
+            let r = instr $"call i32 @_setjmp(ptr {buf}, ptr null) returns_twice"
             instr $"icmp eq i32 {r}, 0"
         | "untry", _ -> (rt "void" "ns_untry" [] |> ignore; "0")
         | "copy", _ -> rt "ptr" "ns_arr_copy" [ "ptr", arg 0 ]

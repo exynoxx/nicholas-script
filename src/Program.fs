@@ -59,11 +59,36 @@ let private run (exe: string) (args: string) (stdin: string option) =
     p.WaitForExit()
     p.ExitCode, out.Result, err.Result
 
-/// runtime.c, precompiled to LLVM IR when the compiler was built (see NS.fsproj).
+let private resource name =
+    use s = Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name: string)
+    (new StreamReader(s)).ReadToEnd()
+
+let private runtimeC = lazy (resource "runtime.c")
+
+let private isWin = OperatingSystem.IsWindows()
+/// Windows needs no libm and wants .exe names (its linker appends .exe to other names).
+let private libm = if isWin then "" else "-lm"
+let private exeName (path: string) = if isWin then Path.ChangeExtension(path, ".exe") else path
+
+/// runtime.c, precompiled to LLVM IR when the compiler was built (see NS.fsproj). That IR is for the build
+/// machine's C ABI, so on Windows runtime.c is compiled with the local clang instead, once per runtime version.
 let private runtimeIR =
     lazy
-        (use s = Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream "runtime.ll"
-         (new StreamReader(s)).ReadToEnd())
+        (if not isWin then resource "runtime.ll"
+         else
+            let c = runtimeC.Force()
+            let hash = Convert.ToHexString(Security.Cryptography.SHA256.HashData(Text.Encoding.UTF8.GetBytes c)).Substring(0, 16)
+            let dir = Path.Combine(Path.GetTempPath(), "ns-runtime-" + hash)
+            let ll = Path.Combine(dir, "runtime.ll")
+            if not (File.Exists ll) then
+                Directory.CreateDirectory dir |> ignore
+                let src = Path.Combine(dir, "runtime.c")
+                File.WriteAllText(src, c)
+                let tmp = ll + "." + string Environment.ProcessId
+                let code, _, err = run "clang" ($"-S -emit-llvm -O2 -w \"{src}\" -o \"{tmp}\"") None
+                if code <> 0 then failwith ("clang failed on the runtime:\n" + err)
+                File.Move(tmp, ll, true)
+            File.ReadAllText ll)
 
 /// Self-contained module: our IR plus runtime.c compiled to IR, minus our declares of what the runtime provides.
 let private pureLL (ll: string) : string =
@@ -80,11 +105,6 @@ let private pureLL (ll: string) : string =
     String.concat "\n" (Array.filter isHeader rtLines) + "\n\n; ---- NS program ----\n" + String.concat "\n" ours
     + "\n; ---- NS runtime ----\n" + String.concat "\n" (Array.filter (isHeader >> not) rtLines)
 
-let private runtimeC =
-    lazy
-        (use s = Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream "runtime.c"
-         (new StreamReader(s)).ReadToEnd())
-
 /// Self-contained C file: runtime.c followed by the program.
 let private pureC (src: string) = runtimeC.Force() + "\n" + src
 
@@ -96,7 +116,7 @@ let private noEarlyExitVec =
     lazy
         (let tmp = Path.Combine(Path.GetTempPath(), "ns-flagcheck.c")
          File.WriteAllText(tmp, "int x;")
-         let code, _, _ = run "clang" ($"-c -mllvm -enable-early-exit-vectorization=false \"{tmp}\" -o /dev/null") None
+         let code, _, _ = run "clang" ($"-c -mllvm -enable-early-exit-vectorization=false \"{tmp}\" -o \"{tmp}.o\"") None
          if code = 0 then " -mllvm -enable-early-exit-vectorization=false" else "")
 
 /// The front end (desugar, typer, ...) keeps global state, so only one `pipeline` runs at a time.
@@ -109,8 +129,8 @@ let private build (path: string) (exe: string) : string option =
         let cf = Path.ChangeExtension(exe, ".c")
         File.WriteAllText(cf, pureC (lock frontLock (fun () -> pipeline "c" path)))
         let asan = if Environment.GetEnvironmentVariable "NS_ASAN" = "1" then "-g -fsanitize=address" else ""
-        let cc = match Environment.GetEnvironmentVariable "CC" with null | "" -> "cc" | v -> v
-        let code, _, err = run cc ($"-O2 -w {asan} \"{cf}\" -lm -o \"{exe}\"") None
+        let cc = match Environment.GetEnvironmentVariable "CC" with null | "" -> (if isWin then "clang" else "cc") | v -> v
+        let code, _, err = run cc ($"-O2 -w {asan} \"{cf}\" {libm} -o \"{exe}\"") None
         if code = 0 then None else Some(cc + " failed:\n" + err)
       else
         let ll = Path.ChangeExtension(exe, ".ll")
@@ -119,7 +139,7 @@ let private build (path: string) (exe: string) : string option =
         // NS_ASAN=1 builds with Address/LeakSanitizer to verify reference counting
         let asan = if Environment.GetEnvironmentVariable "NS_ASAN" = "1" then "-g -fsanitize=address" else ""
         let asan = asan + noEarlyExitVec.Force()
-        let code, _, err = run "clang" ($"-O2 -w {asan} \"{ll}\" -lm -o \"{exe}\"") None
+        let code, _, err = run "clang" ($"-O2 -w {asan} \"{ll}\" {libm} -o \"{exe}\"") None
         if code = 0 then None else Some("clang failed:\n" + err)
     with
     | CompileError(line, col, msg) -> Some(showError path line col msg)
@@ -132,7 +152,7 @@ let private test (dir: string) =
     // clang and the test binaries run in parallel; results print in file order
     let check (f: string) =
         let name = Path.GetFileNameWithoutExtension f
-        let exe = Path.Combine(tmp, name)
+        let exe = exeName (Path.Combine(tmp, name))
         let outFile = Path.ChangeExtension(f, ".out")
         let expected = if File.Exists outFile then File.ReadAllText outFile else "<missing .out file>"
         let input = let p = Path.ChangeExtension(f, ".in") in if File.Exists p then Some(File.ReadAllText p) else None
@@ -198,7 +218,7 @@ environment:
 let private runFile (path: string) =
     let tmp = Directory.CreateTempSubdirectory("ns").FullName
     try
-        let exe = Path.Combine(tmp, "a.out")
+        let exe = exeName (Path.Combine(tmp, "a.out"))
         match build path exe with
         | Some err -> (Console.Error.WriteLine(err); 1)
         | None ->
@@ -230,7 +250,7 @@ let main argv =
     | [ "test" ] -> test "tests"
     | [ "test"; dir ] -> test dir
     | [ "build"; path ] ->
-        let out = option "-o" |> Option.defaultValue (Path.ChangeExtension(Path.GetFullPath path, null))
+        let out = option "-o" |> Option.defaultValue (exeName (Path.ChangeExtension(Path.GetFullPath path, null)))
         match build path (Path.GetFullPath out) with
         | None -> 0
         | Some err -> (Console.Error.WriteLine(err); 1)

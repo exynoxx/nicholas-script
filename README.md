@@ -29,6 +29,13 @@ Needs the .NET 10 SDK and clang.
 dotnet publish src -c Release -o ~/.local/share/ns && ln -sf ~/.local/share/ns/ns ~/.local/bin/ns
 ```
 
+Windows (built from any OS; the target machine needs [LLVM's clang](https://github.com/llvm/llvm-project/releases)
+with the MSVC build tools or Windows SDK on `PATH`):
+
+```shell
+dotnet publish src -c Release -r win-x64 --self-contained -p:PublishAot=false -p:PublishSingleFile=true -o dist/win-x64
+```
+
 ```shell
 ns prog.ns                 # compile and run
 ns build prog.ns -o prog   # native binary

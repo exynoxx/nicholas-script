@@ -13,8 +13,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <sys/wait.h>
 #include <setjmp.h>
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+typedef ptrdiff_t ssize_t;
+// no getline in the Windows CRT
+static ssize_t getline(char **line, size_t *cap, FILE *f) {
+  size_t n = 0; int c;
+  while ((c = fgetc(f)) != EOF) {
+    if (n + 2 > *cap) { *cap = *cap ? *cap * 2 : 128; *line = realloc(*line, *cap); if (!*line) abort(); }
+    (*line)[n++] = (char)c;
+    if (c == '\n') break;
+  }
+  if (n == 0) return -1;
+  (*line)[n] = 0;
+  return (ssize_t)n;
+}
+// stdout in binary mode, so '\n' is not written as "\r\n"
+__attribute__((constructor)) static void ns_binary_stdout(void) { _setmode(_fileno(stdout), _O_BINARY); }
+#else
+#include <sys/wait.h>
+#endif
 
 typedef struct { int64_t len, cap; char *data; int64_t esz; } Arr;
 typedef struct Map { int64_t len, cap, used, ksz, vsz; const char *kd, *vd; char *keys, *vals, *st, *def; } Map; // st: 0 empty, 1 full, 2 tomb; vd NULL = set; def: value for a missing key (`m ?? d`), NULL = none
@@ -614,7 +634,11 @@ int64_t ns_spawn(char *cmd) {
   fflush(stdout); // keep earlier prints before the child's output
   int st = system(cmd);
   if (st == -1) { fprintf(stderr, "error: cannot spawn %s\n", cmd); exit(1); }
+#ifdef _WIN32
+  return st; // system() gives the exit code itself
+#else
   return WIFEXITED(st) ? WEXITSTATUS(st) : 128 + WTERMSIG(st);
+#endif
 }
 // Replaces the file with s; returns the number of bytes written.
 //@ write (str,str) int
