@@ -78,7 +78,7 @@ int:"42"      float:x     str:3.5     bool:n
 | Level | Ops | Assoc |
 |-------|-----|-------|
 | 0 primary | `a..b` range (start is an atom; end is `+ - * ** / %` over atoms, so `0..n-1` ends at n-1; postfix `{}` `[]` `/+` still apply to the range) | none |
-| 1 postfix | `x{…}` map, `x[…]` filter, `x${…}` sort, `x/{…}` `x/op` fold, `x\{…}` `x\op` scan, `x@i` index, `.name` method call; `x'` previous iteration (part of the name) | left |
+| 1 postfix | `x{…}` map, `x[…]` filter, `x${…}` sort, `x/{…}` `x/op` fold, `x\{…}` `x\op` scan, `x@i` index, `x@%i` wrap-around index, `.name` method call; `x'` previous iteration (part of the name) | left |
 | 2 prefix  | `-x` `#x` (length) | right |
 | 3 power   | `^^` | right |
 | 4 mul     | `* ** / %` | left |
@@ -135,6 +135,7 @@ A binary operator is resolved at compile time in three steps; the first that app
 x = [1,2,3]
 r = 1..10        # range, end exclusive: 1..9
 x@0              # index; negative counts from end: x@-1; out of range is a runtime error
+x@%i             # wrap-around index: x@(i % #x), never out of range (x@%-1 last, x@%5 on 3 items = x@2); assignable
 x.one            # first element, same as x@0 (also one:x; on a set: some element)
 x.take1          # first element as an array (0 or 1 long), same as x.take:1; stops a chain early
 x@1..3           # slice (elements 1,2); `@` takes a range operand

@@ -36,6 +36,8 @@ let private assignable (name: string) = not (name.StartsWith "_" || name = "@" |
 
 /// In a map block a bare top-level `_ = e` writes the value back (Lower.iter); a parenthesised `(_ = e)` or a
 /// section `{=e}` is a comparison, so it is wrapped in a group, which that write-back does not match.
+/// `x@%i` wraps around: `x@(i % #x)` (floor modulo, so -1 is the last element)
+let private wrapIndex x i = EIndex(x, EBin("%", i, EUn("#", x)))
 let private compared e = match e with EBin("=", EVar "_", _) -> EGroup [ SExpr e ] | e -> e
 
 /// A filter's last statement is its predicate, so `xs[a@_ = b@_]` compares; earlier statements still assign.
@@ -415,7 +417,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         let rec rangeEnd j =
             atom j |> Option.bind (fun j -> match tok j with SYM("+" | "-" | "*" | "**" | "/" | "%") -> rangeEnd (j + 1) | _ -> Some j)
         let operand j = atom j |> Option.bind (fun j -> if tok j = SYM ".." then rangeEnd (j + 1) else Some j)
-        let rec indices j = if tok j = SYM "@" then operand (j + 1) |> Option.bind indices else Some j
+        let rec indices j = if tok j = SYM "@" || tok j = SYM "@%" then operand (j + 1) |> Option.bind indices else Some j
         let rec lvs j n =
             match tok j with
             | ID name when assignable name ->
@@ -438,7 +440,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             | ID name when assignable name ->
                 advance ()
                 let mutable e = EVar name
-                while accept "@" do e <- EIndex(e, p.IndexOperand())
+                let mutable go = true
+                while go do
+                    if accept "@" then e <- EIndex(e, p.IndexOperand())
+                    elif accept "@%" then e <- wrapIndex e (p.IndexOperand())
+                    else go <- false
                 e
             | t -> err ($"cannot assign to {describeTok t}")
         let paren = accept "("
@@ -621,6 +627,16 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             | SCANOP op -> (advance (); e <- EIterOp(IScan, e, op))
             | SYM "@" -> (advance (); e <- EIndex(e, p.IndexOperand()))
             | SYM "@?" -> (advance (); e <- EHas(e, p.IndexOperand()))
+            | SYM "@%" ->
+                advance ()
+                let i = p.IndexOperand()
+                match e with
+                | EVar _ -> e <- wrapIndex e i
+                | _ ->
+                    // evaluate x once: (t = x; t@(i % #t))
+                    nextId.Value <- nextId.Value + 1
+                    let t = EVar $"wrap%%{nextId.Value}"
+                    e <- EGroup [ SAssign([ t ], [ e ]); SExpr(wrapIndex t i) ]
             | SYM "." ->
                 advance ()
                 match peek () with

@@ -1,0 +1,11 @@
+xs = [10,20,30]
+println: [xs@%4, xs@%-1, xs@%3, xs@%-4]
+println: "abc"@%5
+println: (0..5{_*2})@%7
+i = 0
+println: 0..6{xs@%_}
+xs@%5 = 99
+xs@%-3 += 1
+println: xs
+g = [[1,2],[3,4]]
+println: g@%3@%-1

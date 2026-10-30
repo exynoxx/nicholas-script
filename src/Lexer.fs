@@ -262,7 +262,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             | _ -> add (ID w)
         elif c = '@' then
             if endsExpr () then
-                if at 1 = '?' then (sym "@?"; i <- i + 2) else (sym "@"; i <- i + 1)
+                if at 1 = '?' || at 1 = '%' then (sym ("@" + string (at 1)); i <- i + 2) else (sym "@"; i <- i + 1)
             else (add (ID "@"); i <- i + 1)
         elif (c = '/' || c = '\\') && endsExpr () && (let j = skipWsNl (i + 1) in j < n && src.[j] = '{') then
             // `x / {..}` is a fold too: dividing by a block can never type-check. The `{` may be on the next line.
