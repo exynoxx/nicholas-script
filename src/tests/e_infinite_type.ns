@@ -1,0 +1,2 @@
+f n = n<0 ? [] : [f: n-1]
+println: f: 2

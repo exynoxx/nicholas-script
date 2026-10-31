@@ -84,7 +84,7 @@ let private unify a b =
     let rec go a b =
         match resolve a, resolve b with
         | THole r1, THole r2 when obj.ReferenceEquals(r1, r2) -> true
-        | THole r, t | t, THole r -> (r.Value <- Some t; bound.Add r; true)
+        | THole r, t | t, THole r when not (holeIn (THole r) t) -> (r.Value <- Some t; bound.Add r; true) // occurs check: no infinite types
         | TArr x, TArr y | TSet x, TSet y | TQ x, TQ y | TPQ x, TPQ y -> go x y
         | TMap(k1, v1), TMap(k2, v2) -> go k1 k2 && go v1 v2
         | TTup xs, TTup ys -> xs.Length = ys.Length && List.forall2 go xs ys
@@ -885,13 +885,25 @@ and private userCall id (args: E list) : E =
             instList.Add inst
             let saved, savedLine, savedCol = cur, line, col
             cur <- fr
-            let ss =
+            let typeBody body =
                 try typeStmts (if memos.Contains id then memoize tys.Length body else body)
                 with CompileError(l, c, msg) when not (msg.Contains "(when called at line ") ->
                     // the body is fine in general; say which call's argument types broke it
                     let ats = if tys.IsEmpty then "" else " with " + (tys |> List.map showT |> String.concat ", ")
                     raise (CompileError(l, c, $"{msg} (when called at line {showLine savedLine}{ats})"))
+            let ss = typeBody body
+            // a body ending in a map over its own recursive calls has no finite type ([[[..]]]): the function is
+            // run for its effects, so that map becomes an `each` and the function returns nothing (0)
+            let ss =
+                match List.rev ss, List.rev body with
+                | Do r :: _, Do({ k = Iter it } as e) :: rest when it.kind = IMap && unfixed inst.ret && holeIn inst.ret r.t ->
+                    inst.owned.Clear(); inst.calls.Clear(); inst.caps <- []
+                    inst.parms <- tys |> List.mapi (fun i t -> declare fr ($"_{i + 1}") t, t)
+                    typeBody (List.rev (Do { e with k = Iter { it with kind = IEach } } :: rest))
+                | _ -> ss
             match List.rev ss with
+            | Do r :: _ when unfixed inst.ret && holeIn inst.ret r.t ->
+                err "this function's result contains its own result ([[..]] without end); give it a base case of a fixed type first, or end it in a map of the recursive calls to run it for effect"
             | Do r :: rest ->
                 // the result is fresh unless it is shared: a dying local is handed over, anything else is copied
                 inst.result <- ownIn inst.owned.Contains (conv (value r) inst.ret)

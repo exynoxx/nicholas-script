@@ -1,0 +1,12 @@
+# a body ending in a map over its own recursive calls is run for effect (void)
+f n = {println: n; (0..n){f: _}}
+f: 3
+vis = %[]
+g p vis = {vis += p; [p-1, p+1][_>=0 & _<10 & !(vis@?_)]{g: _, vis}}
+g: 4, vis
+println: #vis
+# a match arm `=> {}` does nothing (void)
+w = %[]
+h = ?{ _>=0 & _<4 & !(w@?_) => {w += _; [_-1,_+1]{h}}; _ => {} }
+h: 1
+println: #w

@@ -1,0 +1,2 @@
+1: error: this function's result contains its own result ([[..]] without end); give it a base case of a fixed type first, or end it in a map of the recursive calls to run it for effect
+1 | f n = n<0 ? [] : [f: n-1]
