@@ -450,7 +450,7 @@ Everything else is the **standard library, implemented in `runtime.c`**. Each fu
 ```
 using `int float str bool`, type variables (`T`, `K`, …), `[t]`, `(a,b)` and blocks `fn(t)->r`. Overloads are tried in order
 (an exact type match wins, otherwise the first one with conversions). Adding a function = writing it in C with its `//@` line;
-the compiler needs no change. A block argument is passed to C as a callback, e.g. `bsearch:xs,{>=5}`, `sortby:ws,{#_}`; a block with several parameters is `fn(A,B)->r` (C passes `x` as an array of pointers to the arguments).
+the compiler needs no change. An optional `//? text` line right after the signature documents it (`ns doc` lists signatures and docs; the VS Code extension shows them on hover). A block argument is passed to C as a callback, e.g. `bsearch:xs,{>=5}`, `sortby:ws,{#_}`; a block with several parameters is `fn(A,B)->r` (C passes `x` as an array of pointers to the arguments).
 
 Current library (see `grep '^//@' runtime.c`):
 - I/O: `read` (a line, `""` at EOF), `lines` (all remaining stdin lines); zero-argument functions are called by bare name. With a path: `read:"f.txt"` (whole file), `lines:"f.txt"` (its lines, without `\n`); a missing file is a runtime error. `write:"f.txt",s` replaces the file with s and

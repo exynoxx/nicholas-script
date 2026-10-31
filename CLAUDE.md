@@ -43,7 +43,7 @@ by the `CompileRuntime` target in `NS.fsproj`.
 - `runtime.c` — the whole runtime: refcounted heap objects with a 16-byte `{rc, descriptor}` header, descriptor
   strings (`I F S B A<t> M<k><v> H<t> Q<t> P<t> T<t> K<k><t> U.. V..`, documented at the top), arrays, hash map/set,
   Q/PQ, strings, print/tostr, sort, stdlib functions.
-- **Adding a stdlib function** = write it in `runtime.c` with a `//@ name (params) result [= c_symbol]` comment.
+- **Adding a stdlib function** = write it in `runtime.c` with a `//@ name (params) result [= c_symbol]` comment. Follow it with a `//? one-line description` (shown in VS Code hovers via `ns doc`).
   `Stdlib.fs` parses those comments; the parser and typer pick it up automatically. No F# change needed.
 - Typer-only primitives (`neg`, `len`, …, in `Typer.builtin`) are *not* in `Parser.builtins`, so users can't
   call them by name.

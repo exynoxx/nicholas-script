@@ -124,11 +124,22 @@ let private parseSig (line: string) : Sig =
       tvars = (parms @ [ ret ]) |> List.collect vars |> List.distinct
       rdesc = hasTup ret }
 
-let sigs : Sig list =
+let private lines =
     use s = Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream "runtime.c"
     (new StreamReader(s)).ReadToEnd().Split('\n')
-    |> Array.filter (fun l -> l.StartsWith "//@ ")
-    |> Array.map parseSig
+
+let sigs : Sig list = lines |> Array.filter (fun l -> l.StartsWith "//@ ") |> Array.map parseSig |> List.ofArray
+
+/// (signature, doc) per `//@` line, for editor hovers (`ns doc`): the doc is a `//? text` line right after it, "" without one.
+let docs : (string * string) list =
+    lines
+    |> Array.mapi (fun i l ->
+        if not (l.StartsWith "//@ ") then None
+        else
+            let sg = match l.LastIndexOf " = " with -1 -> l.Substring 4 | j -> l.Substring(4, j - 4)
+            let doc = if i + 1 < lines.Length && lines.[i + 1].StartsWith "//? " then lines.[i + 1].Substring(4).Trim() else ""
+            Some(sg.Trim(), doc))
+    |> Array.choose id
     |> List.ofArray
 
 let names = sigs |> List.map (fun s -> s.name) |> set
