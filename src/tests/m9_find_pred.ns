@@ -1,0 +1,8 @@
+a = [0,0,1,0,0,3]
+println: a.find:{_>0}
+println: find: a, {_>2}
+println: a.find:{_>9}
+println: a.find: 3
+println: a@(a.find:{_>0})..
+println: ["ab","cde"].find:{#_>2}
+println: "hello".find: "l"

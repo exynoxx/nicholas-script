@@ -1255,6 +1255,12 @@ int64_t ns_any(const char *dT, void *arr) { Arr *a = arr; for (int64_t i = 0; i 
 int64_t ns_all(const char *dT, void *arr) { Arr *a = arr; for (int64_t i = 0; i < a->len; i++) if (!truthy_at(dT, a, i)) return 0; return 1; }
 //@ find ([T],T) int = ns_find_arr
 int64_t ns_find_arr(const char *dT, void *arr, const void *x) { return ns_find(HD(arr)->d, arr, x); }
+//@ find ([T], fn(T)->bool) int = ns_find_pred
+int64_t ns_find_pred(const char *dT, void *arr, ns_fn f, void *env) { // first index where f holds; -1 if none
+  Arr *a = arr;
+  for (int64_t i = 0; i < a->len; i++) { char r[8] = {0}; f(env, a->data + i * a->esz, r); if (r[0]) return i; }
+  return -1;
+}
 //@ find (str,str) int = ns_find_str
 int64_t ns_find_str(char *s, char *x) { return ns_find("S", s, &x); }
 //@ count ([T],T) int = ns_count_arr
