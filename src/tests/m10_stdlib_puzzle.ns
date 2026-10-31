@@ -1,0 +1,32 @@
+# stdlib puzzle helpers: digits, gcd/lcm of arrays, windows/chunks, counts, groupby, rle, arg*, number theory, cells
+println: digits: 1230
+println: digits: -7
+println: digits: "a1b23"
+println: undigits: [1,2,3]
+println: gcd: [12,18,-30]
+println: lcm: [4,6,10]
+println: windows: [1,2,3,4],3
+println: chunks: [1,2,3,4,5],2
+println: windows: [1,2],3
+c = counts: [3,1,3,2,3]
+println: [c@3, c@1, c@2]
+println: (counts: "hello")@"l"
+g = groupby: ["apple","bob","avocado","cat"],{_@0}
+println: g@"a"
+println: rle: "aaabcc"
+println: rle: [1,1,2,1]
+println: [(argmax: [3,9,2,9]), (argmin: [3,9,2,2])]
+println: argsort: [30,10,20,10]
+println: (1..30)[isprime]
+println: [1000000007, 999999999999999989, 3215031751][isprime]
+println: primes: 20
+println: factor: 360
+println: factor: 97
+println: divisors: 36
+println: divisors: 1
+println: egcd: 240,46
+println: [(inv: 3,11), (inv: -3,11)]
+grid = ["#..", ".S#", "##."]
+println: cell: grid,"S"
+println: cell: grid,"X"
+println: cells: grid,"#"

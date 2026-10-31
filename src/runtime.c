@@ -1164,13 +1164,21 @@ typedef void (*ns_fn)(void *env, const void *x, void *out); // a compiled NS blo
 void ns_min2(const char *dT, const void *a, const void *b, void *out) { cpy(dT, out, ns_cmp(dT, a, b) <= 0 ? a : b); }
 //@ max (T,T) T = ns_max2
 void ns_max2(const char *dT, const void *a, const void *b, void *out) { cpy(dT, out, ns_cmp(dT, a, b) >= 0 ? a : b); }
+static int64_t argbest(const char *dT, void *arr, int sign, const char *empty_msg) { // index of the first best
+  Arr *a = arr;
+  if (!a->len) ns_panic(empty_msg);
+  int64_t b = 0;
+  for (int64_t i = 1; i < a->len; i++) if (ns_cmp(dT, a->data + i * a->esz, a->data + b * a->esz) * sign > 0) b = i;
+  return b;
+}
 static void best(const char *dT, void *arr, int sign, void *out) {
   Arr *a = arr;
-  if (!a->len) ns_panic("min/max of empty array");
-  char *b = a->data;
-  for (int64_t i = 1; i < a->len; i++) if (ns_cmp(dT, a->data + i * a->esz, b) * sign > 0) b = a->data + i * a->esz;
-  cpy(dT, out, b);
+  cpy(dT, out, a->data + argbest(dT, arr, sign, "min/max of empty array") * a->esz);
 }
+//@ argmin ([T]) int
+int64_t ns_argmin(const char *dT, void *arr) { return argbest(dT, arr, -1, "argmin of empty array"); }
+//@ argmax ([T]) int
+int64_t ns_argmax(const char *dT, void *arr) { return argbest(dT, arr, 1, "argmax of empty array"); }
 //@ min ([T]) T = ns_min_arr
 void ns_min_arr(const char *dT, void *arr, void *out) { best(dT, arr, -1, out); }
 //@ max ([T]) T = ns_max_arr
@@ -1370,3 +1378,178 @@ void *ns_sunion(const char *dT, void *s, void *t) { return scombine(s, t, 0); }
 void *ns_sinter(const char *dT, void *s, void *t) { return scombine(s, t, 1); }
 //@ gdiff (%[T],%[T]) %[T] = ns_sdiff
 void *ns_sdiff(const char *dT, void *s, void *t) { return scombine(s, t, 2); }
+
+// ---------- stdlib: puzzle helpers ----------
+static const char *mdesc(const char *k, const char *v) { // interned "M<k><v>"
+  char d[256]; size_t a = skip(k) - k, b = skip(v) - v;
+  if (a + b + 2 > sizeof d) ns_panic("descriptor too long");
+  d[0] = 'M'; memcpy(d + 1, k, a); memcpy(d + 1 + a, v, b); d[1 + a + b] = 0;
+  return dintern(d);
+}
+static uint64_t uabs(int64_t n) { return n < 0 ? 0 - (uint64_t)n : (uint64_t)n; }
+//@ digits (int) [int]
+void *ns_digits(int64_t n) { // decimal digits of |n|, most significant first: 0 -> [0]
+  uint64_t u = uabs(n); int64_t d[20], k = 0;
+  do d[k++] = u % 10; while (u /= 10);
+  Arr *r = ns_arr_new("AI", k);
+  while (k--) apush(r, &d[k]);
+  return r;
+}
+//@ digits (str) [int] = ns_digits_s
+void *ns_digits_s(char *s) { // the digit characters: "a1b2" -> [1,2]
+  Arr *r = ns_arr_new("AI", strlen(s));
+  for (; *s; s++) if (isdigit((unsigned char)*s)) { int64_t d = *s - '0'; apush(r, &d); }
+  return r;
+}
+//@ undigits ([int]) int
+int64_t ns_undigits(void *arr) { Arr *a = arr; int64_t r = 0; for (int64_t i = 0; i < a->len; i++) r = r * 10 + ldi(a->data + i * 8); return r; }
+//@ gcd ([int]) int = ns_gcd_arr
+int64_t ns_gcd_arr(void *arr) { Arr *a = arr; int64_t g = 0; for (int64_t i = 0; i < a->len; i++) g = ns_gcd(g, ldi(a->data + i * 8)); return g; }
+//@ lcm ([int]) int = ns_lcm_arr
+int64_t ns_lcm_arr(void *arr) { Arr *a = arr; int64_t l = 1; for (int64_t i = 0; i < a->len; i++) l = ns_lcm(l, ldi(a->data + i * 8)); return l; }
+//@ windows ([T],int) [[T]]
+void *ns_windows(const char *dT, void *a, int64_t k) { // every k adjacent elements: [1,2,3],2 -> [[1,2],[2,3]]
+  if (k <= 0) ns_panic("windows: size must be positive");
+  Arr *x = a, *r = ns_arr_new(intern('A', HD(a)->d), 0);
+  for (int64_t i = 0; i + k <= x->len; i++) { void *w = ns_arr_slice(a, i, i + k); apush(r, &w); }
+  return r;
+}
+//@ chunks ([T],int) [[T]]
+void *ns_chunks(const char *dT, void *a, int64_t k) { // consecutive pieces of k; the last may be shorter
+  if (k <= 0) ns_panic("chunks: size must be positive");
+  Arr *x = a, *r = ns_arr_new(intern('A', HD(a)->d), 0);
+  for (int64_t i = 0; i < x->len; i += k) { void *w = ns_arr_slice(a, i, i + k); apush(r, &w); }
+  return r;
+}
+//@ counts ([T]) {T:int}
+void *ns_counts(const char *dT, void *arr) { // element -> number of occurrences
+  Arr *a = arr; void *m = ns_map_new(mdesc(dT, "I"));
+  for (int64_t i = 0; i < a->len; i++) { char *c = ns_map_put(m, a->data + i * a->esz); int64_t n = ldi(c) + 1; memcpy(c, &n, 8); }
+  return m;
+}
+//@ counts (str) {str:int} = ns_counts_s
+void *ns_counts_s(char *s) { void *c = ns_chars(s), *r = ns_counts("S", c); ns_release(c); return r; }
+//@ groupby ([T], fn(T)->K) {K:[T]}
+void *ns_groupby(const char *dT, const char *dK, void *arr, ns_fn f, void *env) { // key -> its elements, in order
+  Arr *a = arr; const char *ad = HD(arr)->d;
+  void *m = ns_map_new(mdesc(dK, ad));
+  for (int64_t i = 0, n = a->len; i < n; i++) { // n: f may grow a through an alias
+    char *e = a->data + i * a->esz, k[72];
+    f(env, e, k);
+    void *g = ns_map_ref(m, k), *ga;
+    if (g) ga = ldp(g); else { ga = ns_arr_new(ad, 0); ns_map_set(m, k, &ga); ns_release(ga); }
+    ns_arr_push(ga, e);
+    relv(dK, k);
+  }
+  return m;
+}
+//@ rle ([T]) [(T,int)]
+void *ns_rle(const char *dT, const char *dR, void *arr) { // runs of equal neighbours: [1,1,2] -> [(1,2),(2,1)]
+  Arr *a = arr, *r = ns_arr_new(dR, 0);
+  int val = dR[1] == 'V';
+  for (int64_t i = 0, j; i < a->len; i = j) {
+    char *e = a->data + i * a->esz;
+    for (j = i + 1; j < a->len && ns_eq(dT, a->data + j * a->esz, e); j++) {}
+    int64_t n = j - i;
+    if (val) { char t[16] = {0}; memcpy(t, e, a->esz); memcpy(t + 8, &n, 8); apush(r, t); continue; }
+    void *t = ns_tup_new(dR + 1);
+    ns_tup_set(t, 0, e); ns_tup_set(t, 1, &n);
+    apush(r, &t);
+  }
+  return r;
+}
+//@ rle (str) [(str,int)] = ns_rle_s
+void *ns_rle_s(const char *dR, char *s) { void *c = ns_chars(s), *r = ns_rle("S", dR, c); ns_release(c); return r; }
+//@ argsort ([T]) [int]
+void *ns_argsort(const char *dT, void *arr) { // indices that sort the array (stable)
+  Arr *a = arr, *r = ns_range(0, a->len);
+  kv.d = dT; kv.keys = a->data; kv.ksz = a->esz;
+  qsort(r->data, r->len, 8, kv_cmp);
+  return r;
+}
+static uint64_t mulmod(uint64_t a, uint64_t b, uint64_t m) { return (unsigned __int128)a * b % m; }
+static uint64_t powmod(uint64_t b, uint64_t e, uint64_t m) {
+  uint64_t r = 1 % m;
+  for (b %= m; e; e >>= 1, b = mulmod(b, b, m)) if (e & 1) r = mulmod(r, b, m);
+  return r;
+}
+//@ isprime (int) bool
+int64_t ns_isprime(int64_t n) { // Miller-Rabin; these bases are exact for every 64-bit n
+  static const uint64_t P[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37};
+  if (n < 2) return 0;
+  uint64_t u = n, d = u - 1; int s = 0;
+  for (int i = 0; i < 12; i++) if (u % P[i] == 0) return u == P[i];
+  while (!(d & 1)) d >>= 1, s++;
+  for (int i = 0; i < 12; i++) {
+    uint64_t x = powmod(P[i], d, u); int k = 1;
+    if (x == 1 || x == u - 1) continue;
+    while (k < s && (x = mulmod(x, x, u)) != u - 1) k++;
+    if (k == s) return 0;
+  }
+  return 1;
+}
+//@ primes (int) [int]
+void *ns_primes(int64_t n) { // primes below n (sieve)
+  Arr *r = ns_arr_new("AI", 0);
+  if (n < 3) return r;
+  char *c = alloc(n);
+  for (int64_t i = 2; i < n; i++)
+    if (!c[i]) { apush(r, &i); if (i <= n / i) for (int64_t j = i * i; j < n; j += i) c[j] = 1; }
+  free(c);
+  return r;
+}
+//@ factor (int) [(int,int)]
+void *ns_factor(const char *dR, int64_t n) { // |n| as (prime, exponent) pairs: 360 -> [(2,3),(3,2),(5,1)]
+  // ponytail: trial division, slow when |n| has two prime factors near 1e9; Pollard rho if that comes up
+  uint64_t u = uabs(n); Arr *r = ns_arr_new(dR, 0);
+  for (uint64_t p = 2; p * p <= u; p++)
+    if (u % p == 0) { int64_t t[2] = {(int64_t)p, 0}; while (u % p == 0) u /= p, t[1]++; apush(r, t); }
+  if (u > 1) { int64_t t[2] = {(int64_t)u, 1}; apush(r, t); }
+  return r;
+}
+//@ divisors (int) [int]
+void *ns_divisors(int64_t n) { // positive divisors of |n|, ascending (0 has none)
+  uint64_t u = uabs(n); Arr *lo = ns_arr_new("AI", 0), *hi = ns_arr_new("AI", 0);
+  for (uint64_t d = 1; d * d <= u; d++)
+    if (u % d == 0) { int64_t x = d, y = u / d; apush(lo, &x); if (x != y) apush(hi, &y); }
+  for (int64_t i = hi->len; i--;) apush(lo, hi->data + i * 8);
+  ns_release(hi);
+  return lo;
+}
+//@ egcd (int,int) (int,int,int)
+void ns_egcd(const char *dR, int64_t a, int64_t b, void *out) { // (g, x, y) with a*x + b*y = g = gcd:a,b
+  int64_t x0 = 1, x1 = 0, y0 = 0, y1 = 1;
+  while (b) {
+    int64_t q = a / b, t = a - q * b; a = b; b = t;
+    t = x0 - q * x1; x0 = x1; x1 = t;
+    t = y0 - q * y1; y0 = y1; y1 = t;
+  }
+  int64_t r[3] = {a, x0, y0};
+  if (a < 0) r[0] = -a, r[1] = -x0, r[2] = -y0;
+  memcpy(out, r, sizeof r);
+}
+//@ inv (int,int) int
+int64_t ns_inv(int64_t a, int64_t m) { // x in 0..m-1 with a*x = 1 (mod m)
+  if (m <= 0) ns_panic("inv: modulus must be positive");
+  int64_t r[3]; ns_egcd(NULL, a % m, m, r);
+  if (r[0] != 1) ns_panic("inv: no inverse (gcd is not 1)");
+  return (r[1] % m + m) % m;
+}
+//@ cell ([str],str) (int,int)
+void ns_cell(const char *dR, void *g, char *s, void *out) { // (row, col) of the first s in grid g, (-1,-1) if none
+  Arr *a = g; int64_t t[2] = {-1, -1};
+  for (int64_t i = 0; *s && i < a->len && t[0] < 0; i++) {
+    char *row = ldp(a->data + i * 8), *e = strstr(row, s);
+    if (e) t[0] = i, t[1] = e - row;
+  }
+  memcpy(out, t, sizeof t);
+}
+//@ cells ([str],str) [(int,int)]
+void *ns_cells(const char *dR, void *g, char *s) { // every (row, col) where s occurs, row-major
+  Arr *a = g, *r = ns_arr_new(dR, 0);
+  for (int64_t i = 0; *s && i < a->len; i++) {
+    char *row = ldp(a->data + i * 8);
+    for (char *e = row; (e = strstr(e, s)); e++) { int64_t t[2] = {i, e - row}; apush(r, t); }
+  }
+  return r;
+}
