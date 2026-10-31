@@ -54,7 +54,7 @@ let private totalStd = set [ "rev"; "chars"; "split"; "lower"; "upper"; "ws"; "i
 
 let rec private isRef t =
     match resolve t with
-    | TMap _ | TSet _ | TQ _ | TPQ _ | TTree _ -> true
+    | TMap _ | TCon _ -> true
     | TArr e -> isRef e
     | TTup ts -> List.exists isRef ts
     | _ -> false

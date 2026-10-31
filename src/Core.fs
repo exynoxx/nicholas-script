@@ -10,10 +10,7 @@ type Ty =
     | TBool
     | TArr of Ty
     | TMap of Ty * Ty
-    | TSet of Ty
-    | TQ of Ty
-    | TPQ of Ty
-    | TTree of Ty * (int * Ty) option // sorted set of elements; optionally ordered by a key block (its id, the key type)
+    | TCon of string * Ty list // a feature's type constructor: name, arguments (see `conShow`)
     | TTup of Ty list
     | TFn of int
     | THole of Ty option ref
@@ -61,6 +58,11 @@ and S =
 
 let mk k = { k = k; t = TUnk }
 
+/// How each TCon prints, by name (filled by the features that own the types): show of the arguments' types -> text.
+let conShow = System.Collections.Generic.Dictionary<string, (Ty -> string) -> Ty list -> string>()
+conShow.["set"] <- fun s ts -> "%" + s ts.Head // TEMP: moves to features
+conShow.["BT"] <- fun s ts -> match ts with [ e; _; k ] -> "BT " + s e + " by " + s k | _ -> "BT " + s ts.Head
+
 let rec showTy t =
     match resolve t with
     | TInt -> "int"
@@ -69,11 +71,10 @@ let rec showTy t =
     | TBool -> "bool"
     | TArr e -> "[" + showTy e + "]"
     | TMap(k, v) -> "{" + showTy k + ":" + showTy v + "}"
-    | TSet e -> "%" + showTy e
-    | TQ e -> "Q " + showTy e
-    | TPQ e -> "PQ " + showTy e
-    | TTree(e, None) -> "BT " + showTy e
-    | TTree(e, Some(_, k)) -> "BT " + showTy e + " by " + showTy k
+    | TCon(n, ts) ->
+        match conShow.TryGetValue n with
+        | true, f -> f showTy ts
+        | _ -> n + " " + (ts |> List.map showTy |> String.concat " ")
     | TTup ts -> "(" + (ts |> List.map showTy |> String.concat ",") + ")"
     | TFn id -> $"fn{id}"
     | THole _ -> "?"

@@ -43,11 +43,11 @@ let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option)
     let isMap = (match srcTy with TMap _ -> true | _ -> false) && not fused
     let folding = term.kind = IFold || term.kind = IScan
     // a queue source drains: pop until empty, so the body may push more work onto it (a worklist loop)
-    let drain = match srcTy with TQ _ | TPQ _ -> true | _ -> false
+    let drain = match srcTy with TCon(("Q" | "PQ"), _) -> true | _ -> false
     // result kind: a single stage keeps the source's kind; a fused chain yields an array
     // (or a string when only filters run over a string)
     let resTy =
-        if toSet then TSet TUnk
+        if toSet then TCon("set", [ TUnk ])
         elif drain then TArr TUnk
         elif not fused then srcTy
         elif srcTy = TStr && stages |> List.forall (fun st -> st.kind = IFilter) then TStr
@@ -76,7 +76,7 @@ let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option)
         | _ when drain ->
             // PQ of tuples: `@` = the priority (first value), `_` = the rest; otherwise `@` counts (Q) or is the element (PQ)
             match srcTy with
-            | TPQ el ->
+            | TCon("PQ", [ el ]) ->
                 match resolve el with
                 | TTup(_ :: rest) ->
                     let get i = mk (Index(v t, i64 (int64 i)))
@@ -107,14 +107,12 @@ let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option)
     let empty () =
         match resTy with
         | TMap _ -> call "mapof" [ mk (Arr []); mk (Arr []) ]
-        | TSet _ -> call "set" [ mk (Arr []) ]
-        | TQ _ -> call "Q" [ mk (Arr []) ]
-        | TPQ _ -> call "PQ" [ mk (Arr []) ]
+        | TCon(("set" | "Q" | "PQ") as n, _) -> call n [ mk (Arr []) ]
         | _ -> mk (Arr [])
     let add (x: E) =
         match resTy with
         | TMap _ -> SetIdx(v r, v key, x)
-        | TSet _ | TQ _ | TPQ _ -> Do(bin "+" (v r) x)
+        | TCon(("set" | "Q" | "PQ"), _) -> Do(bin "+" (v r) x)
         | _ -> Do(call "push" [ v r; x ])
     let terminal =
         match term.kind with

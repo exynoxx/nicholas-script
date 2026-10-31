@@ -21,10 +21,7 @@ type STy =
     | STup of STy list
     | SFn of STy list * STy // parameters, result
     | SMap of STy * STy
-    | SSet of STy
-    | SQ of STy
-    | SPQ of STy
-    | SBT of STy
+    | SCon of string * STy // a feature's collection type: `%[t]` is "set", `Name[t]` is Name (Q, PQ, BT)
 
 /// A signature type in the notation of the docs (SPEC.md), for error messages.
 let rec showSTy (t: STy) =
@@ -38,10 +35,8 @@ let rec showSTy (t: STy) =
     | STup ts -> "(" + (ts |> List.map showSTy |> String.concat ",") + ")"
     | SFn _ -> "block"
     | SMap(k, v) -> "{" + showSTy k + ":" + showSTy v + "}"
-    | SSet t -> "%" + showSTy t
-    | SQ t -> "Q " + showSTy t
-    | SPQ t -> "PQ " + showSTy t
-    | SBT t -> "BT " + showSTy t
+    | SCon("set", t) -> "%" + showSTy t
+    | SCon(n, t) -> n + " " + showSTy t
 
 type Sig = { name: string; parms: STy list; ret: STy; csym: string; tvars: string list; rdesc: bool }
 
@@ -55,10 +50,10 @@ let rec private parseTy (s: string) : STy =
     | _ when s.StartsWith "fn(" ->
         let close = s.IndexOf ")->"
         SFn(splitTop ',' (s.Substring(3, close - 3)) |> List.map parseTy, parseTy (s.Substring(close + 3)))
-    | _ when s.StartsWith "%[" -> SSet(parseTy (s.Substring(2, s.Length - 3)))
-    | _ when s.StartsWith "Q[" -> SQ(parseTy (s.Substring(2, s.Length - 3)))
-    | _ when s.StartsWith "PQ[" -> SPQ(parseTy (s.Substring(3, s.Length - 4)))
-    | _ when s.StartsWith "BT[" -> SBT(parseTy (s.Substring(3, s.Length - 4)))
+    | _ when s.StartsWith "%[" -> SCon("set", parseTy (s.Substring(2, s.Length - 3)))
+    | _ when s.Length > 2 && Char.IsUpper s.[0] && s.EndsWith "]" && s.IndexOf '[' > 0 && Seq.forall Char.IsLetterOrDigit (s.Substring(0, s.IndexOf '[')) ->
+        let b = s.IndexOf '['
+        SCon(s.Substring(0, b), parseTy (s.Substring(b + 1, s.Length - b - 2)))
     | _ when s.StartsWith "{" ->
         match splitTop ':' (s.Substring(1, s.Length - 2)) with
         | [ k; v ] -> SMap(parseTy k, parseTy v)
@@ -86,7 +81,7 @@ and private splitTop (sep: char) (s: string) : string list =
 let rec private vars (t: STy) =
     match t with
     | SVar v -> [ v ]
-    | SArr t | SSet t | SQ t | SPQ t | SBT t -> vars t
+    | SArr t | SCon(_, t) -> vars t
     | SMap(k, v) -> vars k @ vars v
     | STup ts -> List.collect vars ts
     | SFn(ps, b) -> List.collect vars ps @ vars b
@@ -95,7 +90,7 @@ let rec private vars (t: STy) =
 let rec private hasTup (t: STy) =
     match t with
     | STup _ -> true
-    | SArr t | SSet t | SQ t | SPQ t | SBT t -> hasTup t
+    | SArr t | SCon(_, t) -> hasTup t
     | SMap(k, v) -> hasTup k || hasTup v
     | _ -> false
 

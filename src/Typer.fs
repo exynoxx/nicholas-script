@@ -62,9 +62,9 @@ let newHole () = THole(ref None)
 let rec private holeIn (h: Ty) (t: Ty) =
     match resolve h, resolve t with
     | THole a, THole b -> obj.ReferenceEquals(a, b)
-    | _, (TArr x | TSet x | TQ x | TPQ x) -> holeIn h x
+    | _, TArr x -> holeIn h x
     | _, TMap(k, v) -> holeIn h k || holeIn h v
-    | _, TTree(x, k) -> holeIn h x || (match k with Some(_, kt) -> holeIn h kt | None -> false)
+    | _, TCon(_, ts) -> List.exists (holeIn h) ts
     | _, TTup ts -> List.exists (holeIn h) ts
     | _ -> false
 let private typed k t = { k = k; t = t }
@@ -85,11 +85,10 @@ let private unify a b =
         match resolve a, resolve b with
         | THole r1, THole r2 when obj.ReferenceEquals(r1, r2) -> true
         | THole r, t | t, THole r when not (holeIn (THole r) t) -> (r.Value <- Some t; bound.Add r; true) // occurs check: no infinite types
-        | TArr x, TArr y | TSet x, TSet y | TQ x, TQ y | TPQ x, TPQ y -> go x y
+        | TArr x, TArr y -> go x y
+        | TCon(a, xs), TCon(b, ys) -> a = b && xs.Length = ys.Length && List.forall2 go xs ys
         | TMap(k1, v1), TMap(k2, v2) -> go k1 k2 && go v1 v2
         | TTup xs, TTup ys -> xs.Length = ys.Length && List.forall2 go xs ys
-        | TTree(x, None), TTree(y, None) -> go x y
-        | TTree(x, Some(f, k1)), TTree(y, Some(g, k2)) -> f = g && go x y && go k1 k2
         | x, y -> x = y
     if go a b then true
     else
@@ -420,7 +419,7 @@ and private typeAt (e: E) : E =
             | _ ->
                 let x = typeE x
                 // ponytail: a set's `.one` copies it to an array; fine for the usual singleton set
-                let x = match resolve x.t with TSet _ -> stdCall "arr" [ x ] | _ -> x
+                let x = match resolve x.t with TCon("set", _) -> stdCall "arr" [ x ] | _ -> x
                 typeIndex x (typeE (mk (Int 0L)))
         | Call("take1", [ x ]) when (lookup "take1").IsNone -> typeE { e with k = Call("take", [ x; mk (Int 1L) ]) }
         // --debug of a block variable: typing the bare `f` would call it
@@ -488,7 +487,7 @@ and private typeIterInto (toSet: bool) (it: Iter) (limit: E option) (count: bool
     let src = match resolve src.t with TInt -> builtin "range" [ typed (Int 0L) TInt; src ] | _ -> src
     let limit =
         match at, resolve src.t with
-        | Some i, (TArr _ | TStr | TQ _ | TPQ _) ->
+        | Some i, (TArr _ | TStr | TCon(("Q" | "PQ"), _)) ->
             let plus1 = mk (Bin("+", i, mk (Int 1L)))
             Some(match i.k with Int _ -> plus1 | _ -> mk (If(mk (Bin("<", i, mk (Int 0L))), i, plus1)))
         | _ -> limit
@@ -504,8 +503,8 @@ and private typeIterInto (toSet: bool) (it: Iter) (limit: E option) (count: bool
           typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false None)
       // a set chain consumed by a fold/scan is lazy: `s{f}/+` sums every mapped value, it builds no (deduplicating) set
       // a queue drains (pop until empty) into an array, so its chains fuse like an array's
-      | TQ _ | TPQ _ -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false None)
-      | TSet _ when stages.Length > 1 && (it.kind = IFold || it.kind = IScan) ->
+      | TCon(("Q" | "PQ"), _) -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false None)
+      | TCon("set", _) when stages.Length > 1 && (it.kind = IFold || it.kind = IScan) ->
           typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false None)
       | _ ->
           // not fusable (maps/sets/queues keep their kind per stage): lower stage by stage
@@ -518,7 +517,7 @@ and private typeIterInto (toSet: bool) (it: Iter) (limit: E option) (count: bool
 /// A set that the caller may update in place: copied unless nothing else references it.
 and private setCopy (x: E) =
     match resolve x.t with
-    | TSet el when not (fresh x) -> stdCall "gunion" [ builtin "set" [ typed (Arr []) (TArr el) ]; x ]
+    | TCon("set", [ el ]) when not (fresh x) -> stdCall "gunion" [ builtin "set" [ typed (Arr []) (TArr el) ]; x ]
     | _ -> x
 
 and private typeBin op inPlace (a: E) (b: E) : E =
@@ -535,7 +534,7 @@ and private typeBin op inPlace (a: E) (b: E) : E =
     let same x = typed (Bin(op, a, conv b L)) L
     match op, L with
     | _ when isCmp -> typed (Bin(op, a, conv b L)) TBool
-    | ("&" | "|" | "+" | "-"), TSet _ when (match resolve b.t with TSet _ -> true | _ -> false) ->
+    | ("&" | "|" | "+" | "-"), TCon("set", _) when (match resolve b.t with TCon("set", _) -> true | _ -> false) ->
         stdCall (match op with "&" -> "ginter" | "-" -> "gdiff" | _ -> "gunion") [ (if inPlace then a else setCopy a); conv b L ]
     | ("&" | "|"), TInt -> same ()
     | _, TInt when isBit -> same ()
@@ -545,30 +544,30 @@ and private typeBin op inPlace (a: E) (b: E) : E =
     | "++", TArr el ->
         match resolve b.t with
         | TArr _ -> typed (Call("concat", [ a; conv b L ])) L
-        | TSet e | TQ e | TPQ e when not (unify b.t el) && unify e el -> typed (Call("concat", [ a; stdCall "arr" [ b ] ])) L
+        | TCon(("set" | "Q" | "PQ"), [ e ]) when not (unify b.t el) && unify e el -> typed (Call("concat", [ a; stdCall "arr" [ b ] ])) L
         | _ -> typed (Call("append", [ a; own (conv b el) ])) L
     // `s ++ xs`: add every element of a collection (array, set, Q, PQ); `s ++ x` adds one element
-    | "++", (TSet el | TQ el | TPQ el) ->
+    | "++", TCon(("set" | "Q" | "PQ"), [ el ]) ->
         // element type still unknown (`s = %[]`): a collection operand adds its elements, it is not one element
         let unknown = match resolve el with THole _ -> true | _ -> false
         match resolve b.t with
-        | TArr e | TSet e | TQ e | TPQ e when (unknown || not (unify b.t el)) && unify e el ->
+        | TArr e | TCon(("set" | "Q" | "PQ"), [ e ]) when (unknown || not (unify b.t el)) && unify e el ->
             let av, x = declare cur (Desugar.fresh "c") L, Desugar.fresh "_"
             let cv = typed (Var av) L
-            let b = match resolve b.t with TQ _ | TPQ _ -> stdCall "arr" [ b ] | _ -> b // iterating a queue would drain it
+            let b = match resolve b.t with TCon(("Q" | "PQ"), _) -> stdCall "arr" [ b ] | _ -> b // iterating a queue would drain it
             let it = { kind = IEach; src = b; el = x; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do(mk (Bin("+", cv, mk (Var x)))) ]; post = [] }
             typed (Seq([ Assign(av, a); Do(typeE (mk (Iter it))) ], cv)) L
         | _ -> typed (Call("add", [ a; own (conv b el) ])) L
-    | "+", (TSet el | TQ el | TPQ el) -> typed (Call("add", [ a; own (conv b el) ])) L
-    | "-", TSet el -> typed (Call("del", [ a; conv b el ])) L
-    | "+", TTree _ -> treeOp "btadd" a b
-    | "-", TTree _ -> treeOp "btdel" a b
+    | "+", TCon(("set" | "Q" | "PQ"), [ el ]) -> typed (Call("add", [ a; own (conv b el) ])) L
+    | "-", TCon("set", [ el ]) -> typed (Call("del", [ a; conv b el ])) L
+    | "+", TCon("BT", _) -> treeOp "btadd" a b
+    | "-", TCon("BT", _) -> treeOp "btdel" a b
     | "+", TMap _ -> typed (Call("merge", [ a; conv b L ])) L
     | "-", TMap(k, _) -> typed (Call("del", [ a; conv b k ])) L
     // `**` repeats: `[2,3]**2` = [2,3,2,3], `"ab"**3` = "ababab" (`[x]**n` becomes `repeat` in Desugar)
     | "**", TArr _ -> stdCall "flatten" [ builtin "repeat" [ a; b ] ]
     | "**", TStr -> typed (Bin("*", a, conv b TInt)) TStr
-    | "**", (TSet _ | TMap _ | TQ _ | TPQ _) -> stdCall "keep" [ a; conv b TInt ] // `st**F`, `m**0`: empty in place
+    | "**", (TMap _ | TCon(("set" | "Q" | "PQ"), _)) -> stdCall "keep" [ a; conv b TInt ] // `st**F`, `m**0`: empty in place
     | "**", (TInt | TFloat) -> err "** repeats arrays and strings; power is ^^"
     | "/", TStr ->
         match resolve b.t with
@@ -602,7 +601,7 @@ and private typeIndex (x: E) (i: E) =
     | TArr el -> typed (Index(x, conv i TInt)) el
     | TStr -> typed (Index(x, conv i TInt)) TStr
     | TMap(k, v) -> typed (Index(x, conv i k)) v
-    | TQ el | TPQ el ->
+    | TCon(("Q" | "PQ"), [ el ]) ->
         match i.k with
         | Int 0L -> typed (Call("peek", [ x ])) el
         | _ -> typed (Index(stdCall "arr" [ x ], conv i TInt)) el
@@ -621,7 +620,7 @@ and private builtin name (args: E list) : E =
     let bound (x: E) = match resolve x.t with TArr _ -> typed (Call("len", [ x ])) TInt | _ -> conv x TInt
     let elemOf (x: E) =
         match resolve x.t with
-        | TArr e | TSet e | TQ e | TPQ e | TTree(e, _) -> e
+        | TArr e | TCon(_, e :: _) -> e
         | TStr -> TStr
         | TMap(k, _) -> k
         | t -> err ($"""{(match name with "len" -> "#" | "has" -> "@?" | n -> n)}: not a collection: {showVal x}""")
@@ -650,7 +649,7 @@ and private builtin name (args: E list) : E =
         else err ($"!{{..}} negates a block that must return bool, but this one returns {showT x.t}")
     | "len", [ { k = Call("range", [ a; b ]) } ] -> stdCall "abs" [ typed (Bin("-", b, a)) TInt ] // no array: #(lo..hi)
     | "len", [ x ] -> (elemOf x |> ignore; call TInt)
-    | "has", [ c; x ] when (match resolve c.t with TTree _ -> true | _ -> false) -> treeOp "bthas" c x
+    | "has", [ c; x ] when (match resolve c.t with TCon("BT", _) -> true | _ -> false) -> treeOp "bthas" c x
     | "has", [ c; x ] -> typed (Call("has", [ c; conv x (elemOf c) ])) TBool
     | "range", [ a; b ] -> typed (Call("range", [ bound a; bound b ])) (TArr TInt)
     | "slice", [ x; a; b ] ->
@@ -667,7 +666,7 @@ and private builtin name (args: E list) : E =
         builtin name [ typed (Seq([ Assign(u, x) ], typed (Arr vs) (TArr ts.Head))) (TArr ts.Head) ]
     | ("set" | "Q" | "PQ"), [ xs ] ->
         let el = elemOf xs
-        let t = match name with "set" -> TSet el | "Q" -> TQ el | _ -> TPQ el
+        let t = TCon(name, [ el ])
         typed (Call(name, [ (match resolve xs.t with TArr _ -> xs | _ -> stdCall "arr" [ xs ]) ])) t
     | "BT", xs :: f ->
         // `BT[..]` / `BT:xs` / `BT:xs,{key}`: an empty tree, then each element added with `+`
@@ -676,7 +675,7 @@ and private builtin name (args: E list) : E =
             | [] -> None
             | [ f ] -> (match resolve f.t with TFn id -> Some(id, newHole ()) | _ -> err "BT: the second argument must be a key block")
             | _ -> err "BT: expects a collection and an optional key block"
-        let t = TTree(elemOf xs, key)
+        let t = match key with None -> TCon("BT", [ elemOf xs ]) | Some(id, kt) -> TCon("BT", [ elemOf xs; TFn id; kt ])
         let tv = typed (Var(declare cur (Desugar.fresh "bt") t)) t
         let fill =
             match xs.k with
@@ -703,7 +702,7 @@ and private builtin name (args: E list) : E =
     | ("sum" | "prod"), [ x ] when (match resolve x.t with TArr e -> (match resolve e with TInt | TFloat | THole _ -> false | _ -> true) | _ -> false) ->
         let hint = match resolve x.t with TArr e when (match resolve e with TTup _ -> true | _ -> false) -> "; fold tuples with /+ or /*" | _ -> ""
         err ($"{name}: needs an array of int or float, not {showT x.t}{hint}")
-    | ("any" | "all"), [ x ] when (match resolve x.t with TSet _ | TMap _ -> true | _ -> false) ->
+    | ("any" | "all"), [ x ] when (match resolve x.t with TCon("set", _) | TMap _ -> true | _ -> false) ->
         builtin name [ stdCall (match resolve x.t with TMap _ -> "vals" | _ -> "arr") [ x ] ] // a map's values
     | ("any" | "all"), [ x ] when (match resolve x.t with TArr e -> (match resolve e with TBool | TInt | TFloat | THole _ -> false | _ -> true) | _ -> true) ->
         err ($"{name}: needs an array of bool, int or float, not {showT x.t}; map it first, e.g. xs{{_ > 0}}.{name}")
@@ -734,10 +733,7 @@ and private stdCall name (args: E list) : E =
         | Stdlib.SVar v -> (match env.TryGetValue v with | true, t -> t | _ -> (let h = newHole () in env.[v] <- h; h))
         | Stdlib.SArr t -> TArr(toTy env t)
         | Stdlib.SMap(k, v) -> TMap(toTy env k, toTy env v)
-        | Stdlib.SSet t -> TSet(toTy env t)
-        | Stdlib.SQ t -> TQ(toTy env t)
-        | Stdlib.SPQ t -> TPQ(toTy env t)
-        | Stdlib.SBT t -> TTree(toTy env t, None)
+        | Stdlib.SCon(n, t) -> TCon(n, [ toTy env t ])
         | Stdlib.STup ts -> TTup(List.map (toTy env) ts)
         | Stdlib.SFn _ -> err "nested block types are not supported"
     /// binds unbound variables from the actual type; true when no conversion is needed
@@ -747,7 +743,8 @@ and private stdCall name (args: E list) : E =
             match env.TryGetValue v with
             | true, b -> resolve b = t
             | _ -> (env.[v] <- t; true)
-        | Stdlib.SArr p, TArr t | Stdlib.SSet p, TSet t | Stdlib.SQ p, TQ t | Stdlib.SPQ p, TPQ t | Stdlib.SBT p, TTree(t, _) -> bind env p t
+        | Stdlib.SArr p, TArr t -> bind env p t
+        | Stdlib.SCon(n, p), TCon(m, t :: _) when n = m -> bind env p t
         | Stdlib.SMap(pk, pv), TMap(k, v) -> bind env pk k && bind env pv v
         | Stdlib.STup ps, TTup ts -> ps.Length = ts.Length && List.forall2 (bind env) ps ts
         | Stdlib.SFn _, TFn _ -> true
@@ -782,7 +779,7 @@ and private stdCall name (args: E list) : E =
                     typed (BlockRef inst) a.t
                 | _ -> err ($"{name}: the block must return {Stdlib.showSTy rt}")
             | Stdlib.SFn _, _ -> err ($"{name} expects a block argument")
-            | Stdlib.SBT _, TTree _ -> (bind env p a.t |> ignore; a) // keeps its key block
+            | Stdlib.SCon("BT", _), TCon("BT", _) -> (bind env p a.t |> ignore; a) // keeps its key block
             | p, _ ->
                 let a = value a
                 bind env p a.t |> ignore
@@ -797,7 +794,7 @@ and private stdCall name (args: E list) : E =
 /// `t + x`, `t - x`, `has(t, x)` on a tree: the runtime gets the element and its key (the element itself
 /// when the tree has no key block); `+`/`-` change t in place and yield it.
 and private treeOp f (c: E) (x: E) : E =
-    let (TTree(el, key)) = resolve c.t
+    let el, key = match resolve c.t with TCon("BT", [ el; TFn id; kt ]) -> el, Some(id, kt) | TCon(_, el :: _) -> el, None | _ -> failwith "treeOp" 
     let tmp (e: E) = typed (Var(declare cur (Desugar.fresh "t") e.t)) e.t
     let x = own (conv x el)
     let tc, tx = tmp c, tmp x

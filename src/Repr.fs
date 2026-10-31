@@ -12,6 +12,11 @@ let isScalar t = match resolve t with TInt | TFloat | TBool | THole _ | TUnk -> 
 let isValueTuple t = match resolve t with TTup ts -> List.forall isScalar ts | _ -> false
 
 /// Runtime descriptor: I F S B, A<t>, M<k><v>, H<t>, Q<t>, P<t>, G<t>, T<t>, K<k><t> (tree keyed by k), U<n>.. (boxed tuple), V<n>.. (value tuple).
+/// Descriptor of each TCon, by name (filled by the features that own the types).
+let conDesc = System.Collections.Generic.Dictionary<string, (Ty -> string) -> Ty list -> string>()
+for n, c in [ "set", "H"; "Q", "Q"; "PQ", "P" ] do conDesc.[n] <- fun d ts -> c + d ts.Head // TEMP: moves to features
+conDesc.["BT"] <- fun d ts -> match ts with [ e ] -> "T" + d e | [ e; _; k ] -> "K" + d k + d e | _ -> failwith "BT"
+
 let rec desc t =
     match resolve t with
     | TFloat -> "F"
@@ -19,11 +24,7 @@ let rec desc t =
     | TBool -> "B"
     | TArr e -> "A" + desc e
     | TMap(k, v) -> "M" + desc k + desc v
-    | TSet e -> "H" + desc e
-    | TQ e -> "Q" + desc e
-    | TPQ e -> "P" + desc e
-    | TTree(e, None) -> "T" + desc e
-    | TTree(e, Some(_, k)) -> "K" + desc k + desc e
+    | TCon(n, ts) -> conDesc.[n] desc ts
     | TTup ts -> (if isValueTuple t then "V" else "U") + string ts.Length + (ts |> List.map desc |> String.concat "")
     | _ -> "I"
 
@@ -55,8 +56,8 @@ let isPtr t = llty t = "ptr"
 let describe (prog: Typer.Program) =
     let rec parts t =
         t :: (match resolve t with
-              | TArr e | TSet e | TQ e | TPQ e | TTree(e, None) -> parts e
-              | TTree(e, Some(_, k)) -> parts k @ parts e
+              | TArr e -> parts e
+              | TCon(_, ts) -> List.collect parts ts
               | TMap(k, v) -> parts k @ parts v
               | TTup ts -> List.collect parts ts
               | _ -> [])
