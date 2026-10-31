@@ -16,13 +16,47 @@ let private isFn t = match resolve t with TFn _ -> true | _ -> false
 /// True when evaluating `e` cannot reassign a variable (no statements, no user calls).
 let rec private noAssign (e: E) =
     match e.k with
-    | Seq _ | Iter _ | MatchOn _ -> false
+    | Seq _ | Iter _ -> false
     | UserCall _ -> false
     | Call(_, xs) | StdCall(_, xs) | Arr xs -> List.forall noAssign xs
     | Bin(_, a, b) | Index(a, b) -> noAssign a && noAssign b
     | If(a, b, c) -> noAssign a && noAssign b && noAssign c
     | Conv x -> noAssign x
     | _ -> true
+
+/// What a feature's code generation sees: the generator's own helpers. Every expression yields an owned (+1)
+/// value; values passed to the runtime are borrowed.
+type Api =
+    { /// evaluates to an owned value (an LLVM operand)
+      ex: E -> string
+      /// evaluates for a borrowing use: (value, owned)
+      exB: E -> string * bool
+      /// calls a runtime function: result LLVM type ("void": none), name, (type, operand) arguments
+      rt: string -> string -> (string * string) list -> string
+      /// emits `%r = <instruction>`, returns %r
+      instr: string -> string
+      emit: string -> unit
+      alloca: string -> string
+      label: unit -> string
+      place: string -> unit
+      /// a fresh stack cell holding the value in its storage layout
+      spill: string -> Ty -> string
+      loadFrom: string -> Ty -> string
+      storeTo: string -> Ty -> string -> unit
+      outCell: Ty -> string
+      /// the descriptor argument of a type
+      desc: Ty -> string * string
+      retain: string -> Ty -> unit
+      release: string -> Ty -> unit
+      /// declares an external function: name, declaration line
+      declare: string -> string -> unit }
+
+/// Primitive calls by name: their arguments evaluated (all borrowed but the first `kept`), operands in order.
+let calls = Dictionary<string, Api -> E -> E list -> string list -> string>()
+/// Primitive calls that evaluate their own arguments (`mapof` of literal key/value arrays).
+let rawCalls = Dictionary<string, Api -> E -> E list -> string>()
+/// Pass-through primitives whose result owns their first argument (print, push, ...): how many leading arguments.
+let kept = Dictionary<string, int>(dict [ "print", 1; "println", 1 ])
 
 type private Ctx =
     { body: StringBuilder
@@ -150,6 +184,7 @@ let generate (prog: Program) : string =
             place lend
             if res = "" then "0" else instr $"load {llty e.t}, ptr {res}"
         | Desc -> strConst (desc e.t)
+        | Call(f, args) when rawCalls.ContainsKey f -> rawCalls.[f] (api ()) e args
         | Call(f, args) -> call e f args
         | StdCall(sg, args) -> stdCall e sg args
         | UserCall(f, args) ->
@@ -209,7 +244,7 @@ let generate (prog: Program) : string =
         | Seq(ss, x) ->
             stmts ss
             ex x
-        | Iter _ | MatchOn _ -> failwith "Iter/MatchOn must be lowered by the typer"
+        | Iter _ -> failwith "Iter must be lowered by the typer"
         | BlockRef _ -> failwith "a block reference is only a stdlib argument"
 
     /// Evaluates for a borrowing use: a plain variable read skips retain; returns (value, owned).
@@ -292,21 +327,8 @@ let generate (prog: Program) : string =
         | t, _ -> failwith $"codegen: operator {op} on {showTy t}"
 
     and call (e: E) (f: string) (args: E list) =
-        match f, args with
-        | "mapof", [ { k = Arr ks }; { k = Arr vs } ] ->
-            let m = rt "ptr" "ns_map_new" [ d e.t ]
-            for (k, v) in List.zip ks vs do
-                let kv, vv = ex k, ex v
-                rt "void" "ns_map_set" [ "ptr", m; "ptr", spill kv k.t; "ptr", spill vv v.t ] |> ignore
-                release kv k.t
-                release vv v.t
-            m
-        | _ ->
         // pass-through results own their first argument
-        let kept =
-            match f with
-            | "print" | "println" | "push" | "add" | "del" | "merge" -> 1
-            | _ -> 0
+        let kept = match kept.TryGetValue f with | true, k -> k | _ -> 0
         let evs = exArgs kept args
         let r = call1 e f args (List.map fst evs)
         List.zip evs args |> List.skip kept |> List.iter (fun (v, a) -> drop v a.t)
@@ -316,6 +338,9 @@ let generate (prog: Program) : string =
         let arg i = vs.[i]
         let ty i = args.[i].t
         let cell i = "ptr", spill (arg i) (ty i)
+        match calls.TryGetValue f with
+        | true, gen -> gen (api ()) e args vs
+        | _ ->
         match f, args with
         | ("print" | "println"), [ x ] -> (rt "void" ("ns_" + f) [ d x.t; cell 0 ] |> ignore; arg 0)
         | "neg", [ x ] -> if resolve x.t = TFloat then instr $"fneg double {arg 0}" else instr $"sub i64 0, {arg 0}"
@@ -324,65 +349,8 @@ let generate (prog: Program) : string =
         | "has", [ x; _ ] ->
             let r = rt "i64" "ns_has" [ d x.t; "ptr", arg 0; cell 1 ]
             instr $"icmp ne i64 {r}, 0"
-        | "range", _ -> rt "ptr" "ns_range" [ "i64", arg 0; "i64", arg 1 ]
-        | "slice", [ x; _; _ ] ->
-            rt "ptr" (if resolve x.t = TStr then "ns_slice_s" else "ns_arr_slice") [ "ptr", arg 0; "i64", arg 1; "i64", arg 2 ]
-        | "BT", [] -> rt "ptr" "ns_bt_new" [ d e.t ] // empty; the typer adds the elements
-        | ("set" | "Q" | "PQ"), [ xs ] ->
-            let ctor = match f with "set" -> "ns_set_new" | "Q" -> "ns_q_new" | _ -> "ns_pq_new"
-            let coll = rt "ptr" ctor [ d e.t ]
-            rt "void" "ns_add_all" [ d e.t; "ptr", coll; "ptr", arg 0 ] |> ignore
-            coll
-        | "peek", [ q ] ->
-            let out = outCell e.t
-            rt "void" "ns_peek" [ d q.t; "ptr", arg 0; "ptr", out ] |> ignore
-            loadFrom out e.t
-        | "tuple", _ when Repr.isValueTuple e.t ->
-            // value tuple: an LLVM struct built in registers (bool members widened to i64)
-            args |> List.indexed |> List.fold (fun acc (i, a) ->
-                let m = if resolve a.t = TBool then instr $"zext i1 {arg i} to i64" else arg i
-                let mt = if resolve a.t = TFloat then "double" else "i64"
-                instr $"insertvalue {llty e.t} {acc}, {mt} {m}, {i}") "undef"
-        | "tuple", _ ->
-            let t = rt "ptr" "ns_tup_new" [ d e.t ]
-            args |> List.iteri (fun i a -> rt "void" "ns_tup_set" [ "ptr", t; "i64", string i; cell i ] |> ignore)
-            t
-        | "tget", [ x; { k = Int k } ] when Repr.isValueTuple x.t ->
-            let m = instr $"extractvalue {llty x.t} {arg 0}, {k}"
-            if resolve e.t = TBool then instr $"icmp ne i64 {m}, 0" else m
-        | "tget", [ x; { k = Int k } ] ->
-            // boxed tuple: the member sits at a fixed offset in the object; borrowed from it, so retain
-            let p = instr $"getelementptr i8, ptr {arg 0}, i64 {Repr.tupOffset x.t (int k)}"
-            // members are packed, so one after a bool member may be unaligned
-            let v = instr $"load {Repr.storage e.t}, ptr {p}, align 1"
-            let v = if resolve e.t = TBool then instr $"trunc i8 {v} to i1" else v
-            retain v e.t
-            v
-        | "repeat", [ x; _ ] -> rt "ptr" "ns_arr_repeat" [ d e.t; cell 0; "i64", arg 1 ]
         | "panic", _ -> (rt "void" "ns_panic" [ "ptr", arg 0 ] |> ignore; "0")
-        | "try", _ ->
-            // `?? stmt`: a handler frame in this function; _setjmp returns again (nonzero) when the statement panics
-            let buf = alloca "[512 x i8], align 16"
-            rt "void" "ns_try" [ "ptr", buf ] |> ignore
-            // Win64's _setjmp takes a frame to unwind to (null: plain longjmp); other ABIs ignore the extra argument
-            decls.["_setjmp"] <- "declare i32 @_setjmp(ptr, ptr) returns_twice"
-            let r = instr $"call i32 @_setjmp(ptr {buf}, ptr null) returns_twice"
-            instr $"icmp eq i32 {r}, 0"
-        | "untry", _ -> (rt "void" "ns_untry" [] |> ignore; "0")
         | "copy", _ -> rt "ptr" "ns_arr_copy" [ "ptr", arg 0 ]
-        | "push", _ ->
-            storeTo (arg 1) (ty 1) (rt "ptr" "ns_arr_append" [ "ptr", arg 0 ])
-            retain (arg 1) (ty 1) // the array holds its own reference; the argument is dropped as usual
-            arg 0
-        | "append", _ ->
-            let cp = rt "ptr" "ns_arr_copy" [ "ptr", arg 0 ]
-            storeTo (arg 1) (ty 1) (rt "ptr" "ns_arr_append" [ "ptr", cp ])
-            retain (arg 1) (ty 1)
-            cp
-        | "concat", _ -> rt "ptr" "ns_arr_concat" [ "ptr", arg 0; "ptr", arg 1 ]
-        | "add", [ coll; _ ] -> (rt "void" "ns_add" [ d coll.t; "ptr", arg 0; cell 1 ] |> ignore; arg 0)
-        | "del", [ coll; _ ] -> (rt "void" "ns_del" [ d coll.t; "ptr", arg 0; cell 1 ] |> ignore; arg 0)
-        | "merge", _ -> (rt "void" "ns_map_merge" [ "ptr", arg 0; "ptr", arg 1 ] |> ignore; arg 0)
         | _ -> failwith $"codegen: unknown call {f}/{args.Length}"
 
     /// Calls a runtime stdlib function per its signature: descriptors, then arguments (type-variable values by
@@ -454,6 +422,11 @@ let generate (prog: Program) : string =
                 let slot = instr $"getelementptr ptr, ptr {env}, i64 {i}"
                 emit $"store ptr {ptrOf u}, ptr {slot}")
             env
+
+    and api () : Api =
+        { ex = ex; exB = exB; rt = rt; instr = instr; emit = emit; alloca = alloca; label = label; place = place
+          spill = spill; loadFrom = loadFrom; storeTo = storeTo; outCell = outCell; desc = d; retain = retain; release = release
+          declare = fun name decl -> decls.[name] <- decl }
 
     and stmt (s: S) =
         match s with

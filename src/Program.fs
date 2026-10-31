@@ -219,6 +219,7 @@ let main argv =
             | a :: rest -> a :: go rest
             | [] -> []
         go args
+    AllFeatures.registerAll ()
     let report (path: string) (f: unit -> int) =
         try f () with
         | CompileError(line, col, msg) -> (Console.Error.WriteLine(showError path line col msg); 1)

@@ -14,8 +14,6 @@ let isValueTuple t = match resolve t with TTup ts -> List.forall isScalar ts | _
 /// Runtime descriptor: I F S B, A<t>, M<k><v>, H<t>, Q<t>, P<t>, G<t>, T<t>, K<k><t> (tree keyed by k), U<n>.. (boxed tuple), V<n>.. (value tuple).
 /// Descriptor of each TCon, by name (filled by the features that own the types).
 let conDesc = System.Collections.Generic.Dictionary<string, (Ty -> string) -> Ty list -> string>()
-for n, c in [ "set", "H"; "Q", "Q"; "PQ", "P" ] do conDesc.[n] <- fun d ts -> c + d ts.Head // TEMP: moves to features
-conDesc.["BT"] <- fun d ts -> match ts with [ e ] -> "T" + d e | [ e; _; k ] -> "K" + d k + d e | _ -> failwith "BT"
 
 let rec desc t =
     match resolve t with

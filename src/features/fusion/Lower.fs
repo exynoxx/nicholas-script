@@ -1,5 +1,5 @@
-/// Type-directed rewrites into plain core. The typer calls these once it knows an operand's type,
-/// then types the produced (untyped) core like any other code. Typed sub-expressions pass through unchanged.
+/// Iteration fusion, the engine: a chain of map/filter stages and its ending become one plain loop. Fusion.fs
+/// calls it once the source's type is known, then types the produced (untyped) core like any other code.
 module Lower
 
 open Ast
@@ -10,6 +10,13 @@ let private i64 n = mk (Int n)
 let private call f args = mk (Call(f, args))
 let private bin op a b = mk (Bin(op, a, b))
 let private seq ss e = mk (Seq(ss, e))
+
+/// Collection kinds (TCon names) that drain when iterated: pop until empty, so the body may push more work. The
+/// function gives the statements loading one element: source type, then the variables s (the collection),
+/// t (a temporary), el, ix (`_`, `@`) and c (the count so far).
+let drains = System.Collections.Generic.Dictionary<string, Ty -> string -> string -> string -> string -> string -> S list>()
+/// Collection kinds whose single map/filter stage builds the same kind, adding each result with `+`.
+let collects = System.Collections.Generic.HashSet<string>()
 
 let private splitBody (body: S list) =
     match List.rev body with
@@ -43,7 +50,7 @@ let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option)
     let isMap = (match srcTy with TMap _ -> true | _ -> false) && not fused
     let folding = term.kind = IFold || term.kind = IScan
     // a queue source drains: pop until empty, so the body may push more work onto it (a worklist loop)
-    let drain = match srcTy with TCon(("Q" | "PQ"), _) -> true | _ -> false
+    let drain = match srcTy with TCon(n, _) -> drains.ContainsKey n | _ -> false
     // result kind: a single stage keeps the source's kind; a fused chain yields an array
     // (or a string when only filters run over a string)
     let resTy =
@@ -74,16 +81,8 @@ let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option)
         match range with
         | _ when sink.IsSome -> [ Assign(it0.el, v "_1"); Assign(it0.ix, v c) ]
         | _ when drain ->
-            // PQ of tuples: `@` = the priority (first value), `_` = the rest; otherwise `@` counts (Q) or is the element (PQ)
-            match srcTy with
-            | TCon("PQ", [ el ]) ->
-                match resolve el with
-                | TTup(_ :: rest) ->
-                    let get i = mk (Index(v t, i64 (int64 i)))
-                    let value = match rest with [ _ ] -> get 1 | _ -> call "tuple" (rest |> List.mapi (fun i _ -> get (i + 1)))
-                    [ Assign(t, call "pop" [ v s ]); Assign(it0.ix, get 0); Assign(it0.el, value) ]
-                | _ -> [ Assign(it0.el, call "pop" [ v s ]); Assign(it0.ix, v it0.el) ]
-            | _ -> [ Assign(it0.el, call "pop" [ v s ]); Assign(it0.ix, v c) ]
+            let (TCon(name, _)) = srcTy
+            drains.[name] srcTy s t it0.el it0.ix c
         | _ when isMap && not folding ->
             [ Assign(key, mk (Index(v t, v c))); Assign(it0.ix, v key); Assign(it0.el, mk (Index(v s, v key))) ]
         | Some _ -> [ Assign(it0.el, bin "+" (v s) (bin "*" (v c) (v t))); Assign(it0.ix, v c) ]
@@ -107,12 +106,12 @@ let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option)
     let empty () =
         match resTy with
         | TMap _ -> call "mapof" [ mk (Arr []); mk (Arr []) ]
-        | TCon(("set" | "Q" | "PQ") as n, _) -> call n [ mk (Arr []) ]
+        | TCon(n, _) when collects.Contains n -> call n [ mk (Arr []) ]
         | _ -> mk (Arr [])
     let add (x: E) =
         match resTy with
         | TMap _ -> SetIdx(v r, v key, x)
-        | TCon(("set" | "Q" | "PQ"), _) -> Do(bin "+" (v r) x)
+        | TCon(n, _) when collects.Contains n -> Do(bin "+" (v r) x)
         | _ -> Do(call "push" [ v r; x ])
     let terminal =
         match term.kind with
@@ -185,19 +184,3 @@ let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option)
 
 and iter stages srcTy limit count sink = iterInto false stages srcTy limit count sink
 
-/// `a op b` with an array on the left: elementwise, right side either scalar or array.
-let broadcast op (a: E) (b: E) (bIsArr: bool) =
-    let y = Desugar.fresh "y"
-    let el, ix, acc = Desugar.fresh "_", Desugar.fresh "@", Desugar.fresh "$"
-    let rhs = if bIsArr then mk (Index(v y, v ix)) else v y
-    let map = mk (Iter { kind = IMap; src = a; el = el; ix = ix; acc = acc; body = [ Do(bin op (v el) rhs) ]; post = [] })
-    if not bIsArr then seq [ Assign(y, b) ] map
-    else // a longer `a` fails indexing `y`; a shorter one is caught after the loop (checked after, so `a` still fuses)
-        let r = Desugar.fresh "r"
-        let mismatch = mk (If(bin "!=" (call "len" [ v r ]) (call "len" [ v y ]), seq [ Do(call "panic" [ mk (Str "array length mismatch") ]) ] (i64 0L), i64 0L))
-        seq [ Assign(y, b); Assign(r, map); Do mismatch ] (v r)
-
-/// Array element conversion `[a] -> [b]` for a scalar target type.
-let convArr (a: E) (castName: string) =
-    let el, ix, acc = Desugar.fresh "_", Desugar.fresh "@", Desugar.fresh "$"
-    mk (Iter { kind = IMap; src = a; el = el; ix = ix; acc = acc; body = [ Do(call castName [ v el ]) ]; post = [] })

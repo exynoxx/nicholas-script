@@ -45,7 +45,6 @@ and K =
     | Fn of int * S list      // block literal: id, body (params are _1.._n)
     | Conv of E               // convert to this node's t
     | Seq of S list * E
-    | MatchOn of E * string * E * bool // subject, element var, arms; an array subject maps (filters when true) the arms over its elements
 
 and Iter = { kind: Ast.IterKind; src: E; el: string; ix: string; acc: string; body: S list; post: S list } // post: after every iteration (`x'` state)
 
@@ -58,10 +57,12 @@ and S =
 
 let mk k = { k = k; t = TUnk }
 
+/// Calls whose arguments after the first run per element or in their own scope (a match's arms): passes that
+/// move code into a call's arguments only touch the first one.
+let perElement = System.Collections.Generic.HashSet<string>()
+
 /// How each TCon prints, by name (filled by the features that own the types): show of the arguments' types -> text.
 let conShow = System.Collections.Generic.Dictionary<string, (Ty -> string) -> Ty list -> string>()
-conShow.["set"] <- fun s ts -> "%" + s ts.Head // TEMP: moves to features
-conShow.["BT"] <- fun s ts -> match ts with [ e; _; k ] -> "BT " + s e + " by " + s k | _ -> "BT " + s ts.Head
 
 let rec showTy t =
     match resolve t with
@@ -102,7 +103,6 @@ let rec showE (e: E) : string =
     | Fn(id, body) -> $"fn{id}{{{showBody body}}}"
     | Conv x -> ann ("conv(" + showE x + ")")
     | Seq(ss, x) -> "(" + showBody ss + "; " + showE x + ")"
-    | MatchOn(s, t, arms, filter) -> (if filter then "matchfilter(" else "match(") + showE s + "){" + t + "| " + showE arms + "}"
 
 and showBody ss = ss |> List.choose (function Line _ -> None | s -> Some(showS 0 s)) |> String.concat "; "
 

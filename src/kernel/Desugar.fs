@@ -28,7 +28,6 @@ let rec private arityE (e: E) : int =
     | If(c, a, b) -> max (arityE c) (max (arityE a) (arityE b))
     | Iter it -> max (arityE it.src) (arityS it.body)
     | Seq(ss, x) -> max (arityS ss) (arityE x)
-    | MatchOn(s, _, arms, _) -> max (arityE s) (arityE arms)
     | Conv x -> arityE x
     | _ -> 0
 
@@ -71,6 +70,24 @@ let private shifts (p: Prev) =
           for i in ch.Count - 1 .. -1 .. 1 -> Assign(ch.[i], mk (Var ch.[i - 1]))
           yield Assign(ch.[0], mk (Var u)) ]
 
+/// Implicit-name renaming: `_ @ $` (and `_#`, `@`, `_blk`) -> the variables of the innermost block.
+type Env = Map<string, string>
+
+/// What a feature's desugaring sees: the kernel's own translation functions.
+type Api =
+    { expr: Env -> Expr -> E
+      block: Env -> Stmt list -> S list
+      /// a loop over src binding `_ @ $` in the body (made from the extended env)
+      iter: Env -> IterKind -> E -> (Env -> S list) -> E
+      /// a block assigning `i` keeps it a variable, not the index
+      ownsI: Stmt list -> Env -> Env
+      /// runs f outside the enclosing loop's `x'` state (code that runs per element but not in that loop)
+      outsideLoop: (unit -> E) -> E
+      line: unit -> int }
+
+/// Feature constructs: `EExt(name, operands, blocks)` -> core, by name.
+let ext = Dictionary<string, Api -> Env -> Expr list -> Stmt list list -> E>()
+
 /// `env` renames the implicit names `_ @ $` to the variables of the innermost block.
 /// The core node keeps the source position of the AST node, for typer errors.
 let rec private expr (env: Map<string, string>) (e: Expr) : E =
@@ -86,10 +103,6 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
     | EFloat v -> mk (Float v)
     | EStr s -> mk (Str s)
     | EBool b -> mk (Bool b)
-    | EInterp parts ->
-        let parts = List.map ex parts
-        let first = match parts.Head.k with Str _ -> parts.Head | _ -> mk (Bin("+", mk (Str ""), parts.Head))
-        parts.Tail |> List.fold (fun acc p -> mk (Bin("+", acc, p))) first
     | EVar n when n.EndsWith "'" ->
         let b = n.TrimEnd '\''
         match (ex (EVar b)).k with
@@ -109,10 +122,8 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
     | ETuple xs -> call "tuple" xs
     | EBin("**", EArr [ x ], n) -> call "repeat" [ x; n ] // [x]**n: n copies of x; other arrays are repeated in Typer.typeBin
     | EMapLit ps -> mk (Call("mapof", [ mk (Arr(ps |> List.map (fst >> ex))); mk (Arr(ps |> List.map (snd >> ex))) ]))
-    | ECollLit(kind, xs) -> mk (Call(kind, [ mk (Arr(List.map ex xs)) ]))
     | ERange(a, b) -> call "range" [ a; b ]
     | EBin(op, a, b) -> mk (Bin(op, ex a, ex b))
-    | EUn("??", x) -> mk (If(call "try" [], mk (Seq([ Do(ex x) ], call "untry" [])), mk (Int 0L)))
     | EUn(op, x) -> call (match op with "-" -> "neg" | "!" -> "not" | "!b" -> "notbool" | _ -> "len") [ x ]
     | ETern(c, a, b) -> mk (If(ex c, ex a, ex b))
     | ECall(f, _) when f = callMark + "ret" -> fail line "ret: only as a statement of a block, `ret: v` or `cond ? ret: v`"
@@ -124,26 +135,6 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
     | EIndex(x, i) -> mk (Index(ex x, ex i))
     | EHas(x, k) -> call "has" [ x; k ]
     | EIter(kind, src, body) -> iter (ownsI body env) kind (ex src) (fun env' -> block env' body)
-    | ESort(src, body) ->
-        // x{(key, @, _)}.sort{_3}: the index breaks ties, so equal keys keep their order; a map sorts its (k,v) pairs
-        let keyed =
-            iter (ownsI body env) IMap (mk (Call("entries", [ ex src ]))) (fun env' ->
-                let ss = block env' body
-                let last = ss |> List.findIndexBack (function Do _ -> true | _ -> false)
-                ss |> List.mapi (fun j s ->
-                    match s with
-                    | Do key when j = last -> Do(mk (Call("tuple", [ key; mk (Var env'.["@"]); mk (Var env'.["_"]) ])))
-                    | s -> s))
-        iter env IMap (mk (Call("sort", [ keyed ]))) (fun env' -> [ Do(mk (Index(mk (Var env'.["_"]), mk (Int 2L)))) ])
-    | EIterOp(kind, src, op) ->
-        iter env kind (ex src) (fun (env': Map<string, string>) ->
-            let acc, el = mk (Var env'.["$"]), mk (Var env'.["_"])
-            let body =
-                match op with
-                | ">" -> If(mk (Bin(">", acc, el)), acc, el)
-                | "<" -> If(mk (Bin("<", acc, el)), acc, el)
-                | op -> Bin(op, acc, el)
-            [ Do(mk body) ])
     | EBlock(id, ps, body) ->
         // implicit names belong to the innermost block; named params of enclosing blocks stay visible.
         // A param is a fresh local copied from its `_i`, so assigning it never touches an outer variable.
@@ -164,17 +155,22 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
         loop <- saved
         arity.[id] <- arityS body
         mk (Fn(id, body))
-    | EMatch(kind, x, arms) ->
-        let t = fresh "_"
-        let saved = loop
-        if kind <> "whole" then loop <- None // the arms run per element, but outside the loop's `x'` shifts
-        let arms = expr (env.Add("_", t).Add("_#", t)) arms
-        loop <- saved
-        if kind = "whole" then mk (Seq([ Assign(t, ex x) ], arms)) else mk (MatchOn(ex x, t, arms, (kind = "filter")))
+    | EExt(name, xs, blocks) ->
+        match ext.TryGetValue name with
+        | true, f -> f (api ()) env xs blocks
+        | _ -> fail line $"no feature handles '{name}'"
     | EGroup body ->
         match List.rev (block env body) with
         | Do last :: rest -> mk (Seq(List.rev rest, last))
         | _ -> fail line "empty group: ( ) needs a value"
+
+and private api () : Api =
+    { expr = expr
+      block = block
+      iter = iter
+      ownsI = ownsI
+      outsideLoop = fun f -> (let saved = loop in loop <- None; let r = f () in loop <- saved; r)
+      line = fun () -> line }
 
 /// A block assigning `i` keeps it a variable, not the index.
 and private ownsI body (env: Map<string, string>) =
@@ -282,39 +278,6 @@ and private stmt1 env (s: Stmt) : S list =
     | SCompound("??", _, _) -> fail line "??= inserts into a map: m@k ??= v or m ??= (k, v)"
     | SCompound(op, lv, e) -> assign lv (mk (Bin(op, ex lv, ex e)))
 
-/// Debug mode: after every assignment to a user variable, `println:"line: x = "+x`.
-let rec private debugE (e: E) : E =
-    let d = debugE
-    let k =
-        match e.k with
-        | Arr xs -> Arr(List.map d xs)
-        | Bin(op, a, b) -> Bin(op, d a, d b)
-        | If(c, a, b) -> If(d c, d a, d b)
-        | Call(f, args) -> Call(f, List.map d args)
-        | Index(x, i) -> Index(d x, d i)
-        | Iter it -> Iter { it with src = d it.src; body = debugSS it.body }
-        | Fn(id, body) -> Fn(id, debugSS body)
-        | Conv x -> Conv(d x)
-        | Seq(ss, x) -> Seq(debugSS ss, d x)
-        | MatchOn(s, t, arms, f) -> MatchOn(d s, t, d arms, f)
-        | k -> k
-    { e with k = k }
-
-and private debugSS (ss: S list) : S list =
-    // a block's parameter copies come before its first line marker
-    let mutable line = ss |> List.tryPick (function Line n -> Some n | _ -> None) |> Option.defaultValue 0
-    // a named parameter `n` is renamed `n'<block id>`
-    let user (n: string) = match n.IndexOf '\'' with -1 -> n | k -> n.Substring(0, k)
-    // the typer drops it for a block (`f = memo:{..}` too)
-    let show n = [ Do(mk (Call("debug", [ mk (Str $"{showLine line}: {user n} = "); mk (Var n) ]))) ]
-    ss |> List.collect (fun s ->
-        match s with
-        | Line n -> (line <- n; [ s ])
-        | Assign(n, e) -> Assign(n, debugE e) :: (if n.Contains '%' || n.StartsWith "prev'^" then [] else show n)
-        | SetIdx(x, i, v) -> SetIdx(debugE x, debugE i, debugE v) :: (match x.k with Var n when not (n.Contains '%') -> show n | _ -> [])
-        | While(c, body) -> [ While(debugE c, debugSS body) ]
-        | Do e -> [ Do(debugE e) ])
-
 let mutable debug = false
 
 /// e with kind k, keeping e's source position (for error columns).
@@ -336,7 +299,6 @@ let mapE (f: E -> E) (fs: S list -> S list) (e: E) : E =
         | Fn(id, body) -> Fn(id, fs body)
         | Conv x -> Conv(f x)
         | Seq(ss, x) -> Seq(fs ss, f x)
-        | MatchOn(s, t, arms, b) -> MatchOn(f s, t, f arms, b)
         | k -> k
     rebuild e k
 
@@ -348,148 +310,21 @@ let mapS (f: E -> E) (fs: S list -> S list) (s: S) : S =
     | Do e -> Do(f e)
     | Line _ -> s
 
-/// `a = lo..hi` never builds the array when `a` is assigned once and only iterated (`a{…}`, `#a[…]`, `a/+`) or counted (`#a`):
-/// the bounds go to temps and each `a` source becomes the range again, which Lower loops over as a counter.
-let private inlineRanges (prog: S list) : S list =
-    let assigns = Dictionary<string, int>()
-    let used = HashSet<string>() // `a` seen anywhere but as an iteration source
-    let ranges = HashSet<string>()
-    let rec scanE (e: E) =
-        match e.k with
-        | Var n -> used.Add n |> ignore; e
-        | Iter({ src = { k = Var _ } } as it) -> mapE scanE scanSS { e with k = Iter { it with src = mk (Int 0L) } } |> ignore; e
-        | Call("len", [ { k = Var _ } ]) -> e
-        | _ -> mapE scanE scanSS e
-    and scanSS ss =
-        for s in ss do
-            match s with
-            | Assign(n, e) ->
-                assigns.[n] <- (match assigns.TryGetValue n with | true, c -> c + 1 | _ -> 1)
-                match e.k with Call("range", [ _; _ ]) -> ranges.Add n |> ignore | _ -> ()
-            | _ -> ()
-            mapS scanE scanSS s |> ignore
-        ss
-    scanSS prog |> ignore
-    let bounds = Dictionary<string, string * string>()
-    for n in ranges do
-        if assigns.[n] = 1 && not (used.Contains n) then bounds.[n] <- (fresh (n + "lo"), fresh (n + "hi"))
-    if bounds.Count = 0 then prog
-    else
-    let rec rwE (e: E) =
-        match e.k with
-        | Iter({ src = { k = Var n } } as it) when bounds.ContainsKey n ->
-            let lo, hi = bounds.[n]
-            let src = mk (Call("range", [ mk (Var lo); mk (Var hi) ]))
-            mapE rwE rwSS (rebuild e (Iter { it with src = src }))
-        | Call("len", [ { k = Var n } ]) when bounds.ContainsKey n ->
-            let lo, hi = bounds.[n]
-            rebuild e (Call("len", [ mk (Call("range", [ mk (Var lo); mk (Var hi) ])) ]))
-        | _ -> mapE rwE rwSS e
-    and rwSS ss =
-        ss |> List.collect (fun s ->
-            match s with
-            | Assign(n, { k = Call("range", [ a; b ]) }) when bounds.ContainsKey n ->
-                let lo, hi = bounds.[n]
-                [ Assign(lo, rwE a); Assign(hi, rwE b) ]
-            | _ -> [ mapS rwE rwSS s ])
-    rwSS prog
-
 /// Calls fe on every expression and fs on every statement nested in ss / e.
-let rec private visitSS (fe: E -> unit) (fs: S -> unit) (ss: S list) =
+let rec visitSS (fe: E -> unit) (fs: S -> unit) (ss: S list) =
     for s in ss do
         fs s
         mapS (visitE fe fs) (fun b -> visitSS fe fs b; b) s |> ignore
-and private visitE fe fs (e: E) : E =
+and visitE fe fs (e: E) : E =
     fe e
     mapE (visitE fe fs) (fun b -> visitSS fe fs b; b) e
 
-let private impure = set [ "print"; "println"; "read"; "lines"; "write"; "spawn"; "pop"; "btadd"; "btdel"; "keep"; "memo"; "ret" ]
-
-/// `a = chain; …; s` where `a` (an iteration: `0..n[…]`, `xs{…}`) is assigned once and used once, in a later
-/// statement s of the same list, outside any loop or block of s: the chain moves into s, so its consumer decides whether an array
-/// is ever built (`#a`, `a{…}.set`, `a/+` fuse into one loop). Applied left to right, `a = …; b = a{…}; c = #b` all fuse.
-/// Only for a side-effect-free chain whose inputs neither s nor the statements before it change.
-let private fuseChains (prog: S list) : S list =
-    let assigns, uses = Dictionary<string, int>(), Dictionary<string, int>()
-    let bump (d: Dictionary<string, int>) n = d.[n] <- (match d.TryGetValue n with | true, c -> c + 1 | _ -> 1)
-    let inFns = HashSet<string>() // assigned inside some block: a user call may change them
-    let target s = match s with Assign(n, _) | SetIdx({ k = Var n }, _, _) -> Some n | _ -> None
-    visitSS
-        (fun e ->
-            match e.k with
-            | Var n -> bump uses n
-            | Fn(_, body) -> visitSS ignore (fun s -> target s |> Option.iter (inFns.Add >> ignore)) body
-            | _ -> ())
-        (function Assign(n, _) -> bump assigns n | _ -> ()) prog
-    let user (f: string) = "'?!".Contains f.[0] && assigns.ContainsKey(f.Substring 1)
-    let pureCall (f: string) =
-        if "'?!".Contains f.[0] then
-            let g = f.Substring 1
-            Parser.builtins.Contains g && not (impure.Contains g) && not (assigns.ContainsKey g)
-        else f <> "debug"
-    let local (n: string) = n.Contains '%' || n.Contains '\''
-    let pureE (e: E) =
-        let mutable ok = true
-        visitE (fun x -> match x.k with Call(f, _) when not (pureCall f) -> ok <- false | _ -> ())
-               (fun s -> match target s with Some n when not (local n) -> ok <- false | _ -> ()) e |> ignore
-        ok
-    let freeVars (e: E) =
-        let vs = HashSet<string>()
-        visitE (fun x -> match x.k with Var n -> vs.Add n |> ignore | _ -> ()) ignore e |> ignore
-        vs
-    // s may run before its use of the chain: it must not change what the chain reads
-    let safe (s: S) (fv: HashSet<string>) =
-        let mutable ok = true
-        let calls = fv.Overlaps inFns
-        visitSS (fun x ->
-                    match x.k with
-                    | Call(f, _) when user f && calls -> ok <- false
-                    | Call(f, args) when not (pureCall f) && args |> List.exists (fun a -> fv.Overlaps(freeVars a)) -> ok <- false
-                    | _ -> ())
-                (fun s -> match target s with Some n when fv.Contains n -> ok <- false | _ -> ()) [ s ]
-        ok
-    // replaces the one `a` in s if it is evaluated once (not in a loop body, a block or match arms) and not
-    // written through (`a@0 = 5` must not write into the chain's source)
-    let subst (a: string) (chain: E) (s: S) =
-        let mutable did = false
-        let rec e (x: E) =
-            match x.k with
-            | Var n when n = a -> did <- true; chain
-            | Iter it -> rebuild x (Iter { it with src = e it.src })
-            | MatchOn(sub, t, arms, f) -> rebuild x (MatchOn(e sub, t, arms, f))
-            | Fn _ -> x
-            | _ -> mapE e ss x
-        and st s =
-            match s with
-            | While _ -> s
-            | SetIdx(x, i, v) -> SetIdx(x, e i, e v)
-            | _ -> mapS e ss s
-        and ss b = List.map st b
-        let s = st s
-        if did then Some s else None
-    let rec fuseSS (ss: S list) : S list =
-        let arr = ResizeArray(ss |> List.map (mapS fuseE fuseSS))
-        let mutable i = 0
-        while i < arr.Count do
-            match arr.[i] with
-            | Assign(a, ({ k = Iter _ } as chain)) when assigns.[a] = 1 && uses.GetValueOrDefault a = 1 && pureE chain ->
-                // the consumer: the later statement using `a`; it and every statement before it must be safe
-                let mentions s = (freeVars (mk (Seq([ s ], mk (Int 0L))))).Contains a
-                let fv = freeVars chain
-                match seq { i + 1 .. arr.Count - 1 } |> Seq.tryFind (fun j -> mentions arr.[j]) with
-                | Some j when seq { i + 1 .. j } |> Seq.forall (fun k -> safe arr.[k] fv) ->
-                    match subst a chain arr.[j] with
-                    | Some s -> arr.[j] <- s; arr.RemoveAt i
-                    | None -> i <- i + 1
-                | _ -> i <- i + 1
-            | _ -> i <- i + 1
-        List.ofSeq arr
-    and fuseE (e: E) = mapE fuseE fuseSS e
-    fuseSS prog
+/// Whole-program core passes, run in order after desugaring: (order, name, pass).
+let passes = ResizeArray<int * string * (S list -> S list)>()
 
 let desugar (prog: Stmt list) : S list =
     arity.Clear(); namesParts.Clear()
     prevOf.Clear()
     loop <- None
     let core = stmts Map.empty prog
-    if debug then debugSS core else core |> inlineRanges |> fuseChains
+    passes |> Seq.sortBy (fun (o, _, _) -> o) |> Seq.fold (fun c (_, _, pass) -> pass c) core

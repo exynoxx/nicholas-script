@@ -12,8 +12,37 @@ let private symbols =
 
 /// A block starting with one of these gets an implicit `_` on its left (operator section).
 let private sectionOps = set [ "+"; "*"; "**"; "/"; "%"; "^^"; "++"; "^"; "<<"; ">>"; ">>>"; ">>>"; "="; "!="; "<"; ">"; "<="; ">="; "&"; "|" ]
-let private openers = set [ "{"; "m{"; "f["; "/{"; "\\{"; "${" ]
-let private foldOps = [ "+"; "*"; ">"; "<"; "&"; "|"; "^"; "-" ]
+
+/// What a feature's lexer rule sees: the source, the position, and the token stream so far.
+type Ctx =
+    { src: string
+      /// index of the current character
+      pos: unit -> int
+      /// moves to index j, counting the line breaks skipped
+      moveTo: int -> unit
+      /// the character k past the current one ('\000' past the end)
+      at: int -> char
+      /// does the last token end an expression (so `{` / `[` / `/` after it are postfix)?
+      endsExpr: unit -> bool
+      count: unit -> int
+      tok: int -> Tok
+      /// adds a symbol token at the current position; brackets (ending in `(` `[` `{`) are tracked
+      sym: string -> unit
+      add: Tok -> unit
+      skipWs: int -> int
+      skipWsNl: int -> int
+      /// from the '"' at j: the index of its closing '"'
+      skipString: int -> int
+      /// fails at the current token
+      err: string -> unit }
+
+/// Feature lexer rules, tried in order at each token start (after whitespace, comments, numbers and strings):
+/// a rule that lexes a token returns true.
+let rules = ResizeArray<Ctx -> bool>()
+/// Opening brackets after which a leading operator gets an implicit `_` (operator sections).
+let openers = HashSet<string> [ "{"; "m{"; "f[" ]
+/// Symbol tokens that end an expression, like a name or `)` does.
+let closers = HashSet<string>()
 
 /// `startCol` is the column of src's first character (interpolations are lexed on their own).
 let private opener (o: char) = match o with '?' -> "?[" | 'f' -> "[" | o -> string o
@@ -46,12 +75,10 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
     let last () = if toks.Count = 0 then TERM else toks.[toks.Count - 1].tok
     let endsExpr () =
         match last () with
-        | INT _ | FLOAT _ | STR _ | BOOL _ | ID _ | FOLDOP _ | SCANOP _ -> true
+        | INT _ | FLOAT _ | STR _ | BOOL _ | ID _ -> true
         | SYM (")" | "]" | "}") -> true
+        | SYM s when closers.Contains s -> true
         | _ -> false
-    // `f = ?[ arms ]` defines a filter function (`f = { _ ?[ arms ] }`)
-    let assignedFn () =
-        toks.Count >= 2 && last () = SYM "=" && (match toks.[toks.Count - 2].tok with ID _ -> true | _ -> false)
     let add t =
         if sectionPending then
             sectionPending <- false
@@ -67,9 +94,9 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         match s with
         | "(" -> stack.Push('(', tokLine, tokCol)
         | "f[" -> stack.Push('f', tokLine, tokCol) // a filter holds statements, like a block
-        | "[" | "%[" | "Q[" | "PQ[" | "BT[" -> stack.Push('[', tokLine, tokCol)
-        | "{" | "m{" | "~{" | "/{" | "\\{" | "?{" | "${" -> stack.Push('{', tokLine, tokCol)
         | "?[" -> stack.Push('?', tokLine, tokCol)
+        | _ when s.EndsWith "[" -> stack.Push('[', tokLine, tokCol)
+        | _ when s.EndsWith "{" -> stack.Push('{', tokLine, tokCol)
         | ")" | "]" | "}" ->
             if stack.Count = 0 then failAt tokLine tokCol $"'{s}' has no matching opening bracket"
             let o, l, c = stack.Pop()
@@ -85,52 +112,11 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         | TERM -> ()
         | _ when toks.Count = 0 -> ()
         | _ -> add TERM
-    /// `/op` is a fold, except `/-` followed by an operand (`10/-x`, `10/-#x`, `10/-.5`):
-    /// `-` is the only fold operator that is also a prefix operator.
-    let tryOpAfter () =
-        foldOps |> List.tryFind (fun op ->
-            if at 1 <> op.[0] then false
-            elif op <> "-" then true
-            else
-                let k = skipWs (i + 2) - i
-                let c = at k
-                not (Char.IsLetterOrDigit c || "_$@\"(-".IndexOf c >= 0
-                     || (c = '#' && " \t\r\n\000".IndexOf(at (k + 1)) < 0)
-                     || (c = '.' && Char.IsAsciiDigit(at (k + 1))) || (c = '%' && at (k + 1) = '[')))
     /// From the '"' at j: the index of the closing '"' (escapes skipped), or n if there is none.
     let skipString j =
         let mutable j = j + 1
         while j < n && src.[j] <> '"' do j <- j + (if src.[j] = '\\' then 2 else 1)
         min j n
-    /// At `?[`: is this `c ?[..] : d`, a ternary whose branch is an array literal? (else a `?[ ]` match filter)
-    /// Not when the brackets can't hold an array literal (`?[>4]`, `?[1 => T; _]`), nor when an earlier `?` of
-    /// this statement still waits for its `:` (`c ? xs?[1] : ys`: that `:` is the outer ternary's).
-    let ternaryArray () =
-        let mutable j, depth = i + 1, 0
-        let mutable fin, arms = false, false
-        while j < n && not fin do
-            match src.[j] with
-            | '"' -> j <- skipString j
-            | '(' | '[' | '{' -> depth <- depth + 1
-            | ')' | ']' | '}' -> (depth <- depth - 1; if depth = 0 then fin <- true)
-            | ';' when depth = 1 -> arms <- true
-            | '=' when depth = 1 && j + 1 < n && src.[j + 1] = '>' -> arms <- true
-            | _ -> ()
-            if not fin then j <- j + 1
-        let f = skipWs (i + 2)
-        let compares = "<>=".IndexOf(at (f - i)) >= 0 || (at (f - i) = '!' && at (f - i + 1) = '=')
-        // `?`s at this bracket depth since the statement began that no later `:` answers (`println:` is not one)
-        let mutable k, d, pending, colons = toks.Count - 1, 0, 0, 0
-        while k >= 0 && toks.[k].tok <> TERM && d >= 0 do
-            match toks.[k].tok with
-            | SYM(")" | "]" | "}") -> d <- d + 1
-            | SYM s when s.EndsWith "(" || s.EndsWith "[" || s.EndsWith "{" -> d <- d - 1
-            | SYM "?" when d = 0 -> if colons > 0 then colons <- colons - 1 else pending <- pending + 1
-            | SYM ":" when d = 0 -> colons <- colons + 1
-            | _ -> ()
-            k <- k - 1
-        let k = skipWs (j + 1)
-        k < n && src.[k] = ':' && not arms && not compares && pending <= 0
     /// Advances `line` past the line breaks in src[a..b) (strings can span lines).
     let countLines a b =
         for j in a .. min b n - 1 do
@@ -215,6 +201,20 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             match Int64.TryParse text with
             | true, v -> add (INT v)
             | _ -> failAt tokLine tokCol $"number '{text}' is too large for an int (max {Int64.MaxValue})"
+    let ctx =
+        { src = src
+          pos = fun () -> i
+          moveTo = fun j -> (countLines i j; i <- j)
+          at = at
+          endsExpr = endsExpr
+          count = fun () -> toks.Count
+          tok = fun k -> toks.[k].tok
+          sym = sym
+          add = add
+          skipWs = skipWs
+          skipWsNl = skipWsNl
+          skipString = skipString
+          err = fun msg -> failAt tokLine tokCol msg }
     while i < n do
         mark ()
         let c = src.[i]
@@ -244,7 +244,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         elif Char.IsAsciiDigit c || (c = '.' && Char.IsAsciiDigit(at 1) && not (endsExpr ())) then lexNumber ()
         elif c = '-' && digitNext 1 && not (endsExpr ()) then lexNumber ()
         elif c = '"' then lexString ()
-        elif c = '$' && at 1 = '{' && endsExpr () then (sym "${"; i <- i + 2) // `x${key}` sorts by key
+        elif rules |> Seq.exists (fun r -> r ctx) then ()
         elif c = '$' then (add (ID "$"); i <- i + 1)
         elif c = '_' then
             let start = i
@@ -258,23 +258,11 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             match w with
             | "T" -> add (BOOL true)
             | "F" -> add (BOOL false)
-            | ("Q" | "PQ" | "BT") when at 0 = '[' && not (endsExpr ()) -> (i <- i + 1; sym (w + "["))
             | _ -> add (ID w)
         elif c = '@' then
             if endsExpr () then
                 if at 1 = '?' || at 1 = '%' then (sym ("@" + string (at 1)); i <- i + 2) else (sym "@"; i <- i + 1)
             else (add (ID "@"); i <- i + 1)
-        elif (c = '/' || c = '\\') && endsExpr () && (let j = skipWsNl (i + 1) in j < n && src.[j] = '{') then
-            // `x / {..}` is a fold too: dividing by a block can never type-check. The `{` may be on the next line.
-            sym (string c + "{")
-            let j = skipWsNl (i + 1)
-            for k in i + 1 .. j - 1 do
-                if src.[k] = '\n' then (line <- line + 1; lineStart <- k + 1)
-            i <- j + 1
-        elif (c = '/' || c = '\\') && endsExpr () && (tryOpAfter ()).IsSome then
-            let op = (tryOpAfter ()).Value
-            add (if c = '/' then FOLDOP op else SCANOP op)
-            i <- i + 2
         elif c = '\'' then
             // `x'`: x in the previous loop iteration; the quotes become part of the name (`x''` two back)
             match last () with
@@ -289,10 +277,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
             let j = skipWs (i + 1)
             failAt tokLine tokCol (if j > i + 1 && j < n && src.[j] = '{' then "write '~{' without a space: cond ~{ body }"
                                    else "'~' only starts a while loop: cond ~{ body }")
-        elif c = '?' && at 1 = '{' then (sym "?{"; i <- i + 2)
-        elif c = '?' && at 1 = '[' && ((endsExpr () && not (ternaryArray ())) || assignedFn ()) then (sym "?["; i <- i + 2)
         elif c = '[' then (sym (if endsExpr () then "f[" else "["); i <- i + 1)
-        elif c = '%' && at 1 = '[' && not (endsExpr ()) then (sym "%["; i <- i + 2)
         else
             match symbols |> List.tryFind (fun s -> String.CompareOrdinal(src, i, s, 0, s.Length) = 0) with
             | Some s -> (sym s; i <- i + s.Length)

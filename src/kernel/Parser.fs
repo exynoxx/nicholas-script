@@ -4,8 +4,8 @@ module Parser
 open System.Collections.Generic
 open Ast
 
-/// language primitives plus every function declared in runtime.c (see Stdlib.fs)
-let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ"; "BT"; "memo"; "ret"; "one"; "take1"; "isint"; "isfloat"; "isstr" ] + Stdlib.names
+/// language primitives plus every function declared in runtime.c (see Stdlib.fs); features add theirs
+let builtins = HashSet<string>(Seq.append [ "print"; "println"; "int"; "float"; "str"; "bool"; "ret"; "isint"; "isfloat"; "isstr" ] Stdlib.names)
 let private zeroArity = Stdlib.zeroArity
 let private compounds = set [ "+="; "-="; "*="; "**="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>="; "??=" ]
 
@@ -21,15 +21,8 @@ let private foreign =
            "let", "declare a variable by assigning it: x = 1"; "var", "declare a variable by assigning it: x = 1"
            "const", "declare a variable by assigning it: x = 1" ]
 
-/// Can this token start an expression? (then a missing operator or ',' is the likely mistake)
-let private startsExpr (t: Tok) =
-    match t with
-    | INT _ | FLOAT _ | STR _ | BOOL _ | ID _ -> true
-    | SYM("(" | "[" | "{" | "%[" | "Q[" | "PQ[" | "BT[") -> true
-    | _ -> false
-
 /// `c ? a` without `:` runs a only when c holds; its value is 0
-let private onlyIf c a = ETern(c, EGroup [ SExpr a; SExpr(EInt 0L) ], EInt 0L)
+let onlyIf c a = ETern(c, EGroup [ SExpr a; SExpr(EInt 0L) ], EInt 0L)
 
 /// Implicit names (_ _1 @ $) are never assigned, so `{_=p}` / `[=p]` compare.
 let private assignable (name: string) = not (name.StartsWith "_" || name = "@" || name = "$")
@@ -38,7 +31,7 @@ let private assignable (name: string) = not (name.StartsWith "_" || name = "@" |
 /// section `{=e}` is a comparison, so it is wrapped in a group, which that write-back does not match.
 /// `x@%i` wraps around: `x@(i % #x)` (floor modulo, so -1 is the last element)
 let private wrapIndex x i = EIndex(x, EBin("%", i, EUn("#", x)))
-let private compared e = match e with EBin("=", EVar "_", _) -> EGroup [ SExpr e ] | e -> e
+let compared e = match e with EBin("=", EVar "_", _) -> EGroup [ SExpr e ] | e -> e
 
 /// A filter's last statement is its predicate, so `xs[a@_ = b@_]` compares; earlier statements still assign.
 let private predicate (body: Stmt list) =
@@ -49,17 +42,24 @@ let private predicate (body: Stmt list) =
 let private opensBracket (s: string) = s.EndsWith "(" || s.EndsWith "[" || s.EndsWith "{"
 
 /// Directory of the file being parsed, and every file already imported (each is included once).
-type private Imports = { dir: string; seen: HashSet<string> }
+type Imports = { dir: string; seen: HashSet<string> }
 
-type private Pat =
+type Pat =
     | PName of string
     | PLit of Expr
     | PGroup of bool * Pat list // is an array, items
 
-type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>, params: HashSet<string>, stdAliases: Dictionary<string, string>, nextId: int ref, imports: Imports) =
+type Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>, params: HashSet<string>, stdAliases: Dictionary<string, string>, nextId: int ref, imports: Imports) =
     let mutable pos = 0
-    /// base-case clauses (`f 0 [a, b] = a`) waiting for f's general definition: arity, guard statements, memo on one of them
-    let clauses = Dictionary<string, int * Stmt list * bool>()
+    /// base-case clauses (`f 0 [a, b] = a`) waiting for f's general definition: arity, guard statements, a modifier on one of them
+    let clauses = Dictionary<string, int * Stmt list * string option>()
+    /// Can this token start an expression? (then a missing operator or ',' is the likely mistake)
+    let startsExpr (t: Tok) =
+        match t with
+        | INT _ | FLOAT _ | STR _ | BOOL _ | ID _ -> true
+        | SYM("(" | "[" | "{") -> true
+        | SYM s -> Parser.PrefixHooks.ContainsKey s
+        | _ -> false
     let peek () = tokens.[pos].tok
     let line () = tokens.[pos].line
     let advance () = pos <- pos + 1
@@ -95,6 +95,43 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             stdAliases.[a] <- (match stdAliases.TryGetValue f with | true, b -> b | _ -> f)
             fnames.Add a |> ignore
 
+    // ---------- feature hooks (filled by Feature.register) ----------
+
+    /// An expression starting with this token (already consumed; the argument is its index): `%[`, `?{`, ...
+    /// The key "STR{" is a string literal with interpolated code.
+    static member val PrefixHooks: Dictionary<string, Parser -> int -> Expr> = Dictionary<string, Parser -> int -> Expr>() with get
+    /// A postfix form after an operand (token consumed): `x${key}`, `x/+`, ...
+    static member val PostfixHooks: Dictionary<string, Parser -> Expr -> Expr> = Dictionary<string, Parser -> Expr -> Expr>() with get
+    /// A form after a whole operand expression, at ternary level (token consumed): `x ?{ arms }`
+    static member val SuffixHooks: Dictionary<string, Parser -> Expr -> Expr> = Dictionary<string, Parser -> Expr -> Expr>() with get
+    /// A statement starting with this token (consumed): `?? stmt`
+    static member val StmtHooks: Dictionary<string, Parser -> Stmt> = Dictionary<string, Parser -> Stmt>() with get
+    /// `f = <token> …` (token consumed) defining a function f: `f = ?{ arms }`
+    static member val AssignHooks: Dictionary<string, Parser -> Expr> = Dictionary<string, Parser -> Expr>() with get
+    /// Tokens after `f =` that make f a function (besides `{`); a name must be followed by `:` (`f = memo:{…}`)
+    static member val FnStarts: HashSet<Tok> = HashSet<Tok>() with get
+    /// Function modifiers: `m f a = …`, `m f = {…}` and `m <base case>` wrap the block as `m:{…}`
+    static member val Modifiers: HashSet<string> = HashSet<string>() with get
+
+    // ---------- the parser state features may use ----------
+
+    member p.Peek() = peek ()
+    member p.Advance() = advance ()
+    member p.Accept s = accept s
+    member p.IsSym s = isSym s
+    member p.Expect s = expect s
+    member p.Pos with get () = pos and set v = pos <- v
+    member p.Tok j = tokens.[j].tok
+    member p.Line() = line ()
+    member p.Mark j e = mark j e
+    member p.Err msg : 'a = err msg
+    member p.ErrAt j msg : 'a = errAt j msg
+    member p.Found() = found ()
+    member p.NewId() = (nextId.Value <- nextId.Value + 1; nextId.Value)
+    member p.IsFunc name = isFunc name
+    /// A parser over other tokens that shares this one's names (interpolated code)
+    member p.Sub(toks: Token list) = Parser(Array.ofList toks, fnames, shadowed, params, stdAliases, nextId, imports)
+
     member p.Program() =
         p.DeclareFunctions()
         let body = p.Stmts EOF
@@ -109,11 +146,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         let mutable stmtStart = true
         for j in 0 .. tokens.Length - 1 do
             if stmtStart && depth = 0 then
-                pos <- if tokens.[j].tok = ID "memo" || tokens.[j].tok = ID "lazy" then j + 1 else j // `memo f a = …`, `lazy f = {…}`
+                pos <- (match tokens.[j].tok with ID m when Parser.Modifiers.Contains m -> j + 1 | _ -> j) // `memo f a = …`, `lazy f = {…}`
                 match p.FnDefAhead(), tokens.[pos].tok with
                 | Some(f, _, _), _ -> fnames.Add f |> ignore
                 | None, ID f when pos + 2 < tokens.Length && tokens.[pos + 1].tok = SYM "="
-                                  && (tokens.[pos + 2].tok = SYM "{" || tokens.[pos + 2].tok = SYM "?{" || tokens.[pos + 2].tok = SYM "?[" || tokens.[pos + 2].tok = ID "memo") -> fnames.Add f |> ignore
+                                  && (tokens.[pos + 2].tok = SYM "{" || Parser.FnStarts.Contains tokens.[pos + 2].tok) -> fnames.Add f |> ignore
                 | _ -> ()
             match tokens.[j].tok with
             | SYM s when opensBracket s -> depth <- depth + 1
@@ -201,19 +238,20 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         | body -> body
 
     member p.Stmt() : Stmt =
-        // `?? stmt`: skip the statement if it fails at runtime (missing key, index out of range, ...)
-        if accept "??" then SExpr(EUn("??", EGroup [ p.Stmt(); SExpr(EInt 0L) ])) else
-        // `memo f a b = body` is `f = memo:{body}` with named parameters
-        let memo = peek () = ID "memo" && (pos <- pos + 1; p.FnDefAhead().IsSome || p.ClauseAhead().IsSome || (pos <- pos - 1; false))
-        // `lazy f a = body` / `lazy f = {…}`: `f = lazy:{…}` (lazy is not callable by name)
-        let lazyAt = pos
-        let lazy' =
-            peek () = ID "lazy" && pos + 2 < tokens.Length && (match tokens.[pos + 1].tok, tokens.[pos + 2].tok with ID _, _ -> true | _ -> false)
-            && (pos <- pos + 1
-                p.FnDefAhead().IsSome || tokens.[pos + 1].tok = SYM "=" || (pos <- pos - 1; false))
-        let wrap fn = if memo then ECall("memo", [ fn ]) elif lazy' then ECall("lazy", [ fn ]) else fn
+        match peek () with
+        | SYM s when Parser.StmtHooks.ContainsKey s -> (advance (); Parser.StmtHooks.[s] p)
+        | _ ->
+        // a modifier: `memo f a b = body` is `f = memo:{body}` with named parameters; also `m f = {…}` and `m <base case>`
+        let modAt = pos
+        let modifier =
+            match peek () with
+            | ID m when Parser.Modifiers.Contains m && pos + 2 < tokens.Length && (match tokens.[pos + 1].tok with ID _ -> true | _ -> false) ->
+                pos <- pos + 1
+                if p.FnDefAhead().IsSome || p.ClauseAhead().IsSome || tokens.[pos + 1].tok = SYM "=" then Some m else (pos <- pos - 1; None)
+            | _ -> None
+        let wrap fn = match modifier with Some m -> ECall(m, [ fn ]) | None -> fn
         match p.ClauseAhead() with
-        | Some(f, pats, eq) -> p.Clause(f, pats, eq, memo)
+        | Some(f, pats, eq) -> p.Clause(f, pats, eq, modifier)
         | None ->
         match p.FnDefAhead() with
         | Some(f, ps, eq) ->
@@ -230,8 +268,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             let body = if accept "{" then p.Block "}" else [ SLine(line ()); SExpr(p.Expr()) ]
             shadowed.Clear(); shadowed.UnionWith saved
             params.Clear(); params.UnionWith savedParams
-            // `memo` on a base case memoizes the whole function
-            let wrap = match clauses.TryGetValue f with | true, (_, _, true) when not lazy' -> (fun fn -> ECall("memo", [ fn ])) | _ -> wrap
+            // a modifier on a base case (`memo f 0 = 1`) applies to the whole function
+            let wrap = match clauses.TryGetValue f with | true, (_, _, Some m) when modifier.IsNone -> (fun fn -> ECall(m, [ fn ])) | _ -> wrap
             let body =
                 match clauses.TryGetValue f with
                 | true, (n, gs, _) ->
@@ -247,16 +285,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             let lvs = p.LValues()
             advance ()
             match lvs with
-            | [ EVar f ] when isSym "{" || isSym "?{" || isSym "?[" || (peek () = ID "memo" && tokens.[pos + 1].tok = SYM ":") -> fnames.Add f |> ignore
+            | [ EVar f ] when isSym "{" || (Parser.FnStarts.Contains(peek ()) && (match peek () with ID _ -> tokens.[pos + 1].tok = SYM ":" | _ -> true)) ->
+                fnames.Add f |> ignore
             | _ -> ()
             let rhs =
-                match lvs with
-                | [ EVar _ ] when isSym "?{" || isSym "?[" -> // `f = ?{ arms }` is `f = { _ ?{ arms } }`
-                    let filter = isSym "?["
-                    advance ()
-                    nextId.Value <- nextId.Value + 1
-                    let id = nextId.Value
-                    [ EBlock(id, [], [ SExpr(p.Match(Some(EVar "_"), filter)) ]) ]
+                match lvs, peek () with
+                | [ EVar _ ], SYM s when Parser.AssignHooks.ContainsKey s -> (advance (); [ Parser.AssignHooks.[s] p ])
                 | _ -> p.ExprList()
             match lvs, rhs with
             | [ EVar f ], [ ECall(g, _) ] when g.StartsWith negMark -> fnames.Add f |> ignore // g = !ws
@@ -265,8 +299,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             | [ EVar a ], [ EVar f ] when fnames.Contains f -> fnames.Add a |> ignore
             | _ -> for lv in lvs do (match lv with EVar a when builtins.Contains a && not (fnames.Contains a) -> shadowed.Add a |> ignore | _ -> ())
             match lvs, rhs with
-            | [ EVar f ], [ EBlock _ as fn ] when lazy' -> SAssign([ EVar f ], [ wrap fn ])
-            | _ when lazy' -> errAt lazyAt "lazy marks a function: lazy f x = … or lazy f = {…}"
+            | [ EVar f ], [ EBlock _ as fn ] when modifier.IsSome -> SAssign([ EVar f ], [ wrap fn ])
+            | _ when modifier.IsSome -> errAt modAt $"{modifier.Value} marks a function: {modifier.Value} f x = … or {modifier.Value} f = {{…}}"
             | [ EVar a ], [ EVar _ ] when stdAliases.ContainsKey a -> SExpr(EInt 0L)
             | _ -> SAssign(lvs, rhs)
         | Some op when op <> ":=" ->
@@ -354,7 +388,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
 
     /// A base case becomes a hidden function `f'k` of its pattern's names, and a guard `cond ? ret: f'k: names`
     /// that f's general definition puts first in its body.
-    member p.Clause(f, pats: Pat list, eq, memo) =
+    member p.Clause(f, pats: Pat list, eq, modifier: string option) =
         let l = line ()
         pos <- eq + 1
         let conds, binds = ResizeArray(), ResizeArray()
@@ -387,9 +421,9 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                 fnames.Add h |> ignore
                 ECall(callMark + h, List.ofSeq (Seq.map snd binds)), SAssign([ EVar h ], [ EBlock(id, names |> List.map (fun n -> [ n ]), body) ])
         let guard = SExpr(ETern(cond, EGroup [ SExpr(ECall(callMark + "ret", [ value ])); SExpr(EInt 0L) ], EInt 0L))
-        let n, gs, m = match clauses.TryGetValue f with | true, c -> c | _ -> pats.Length, [], false
+        let n, gs, m = match clauses.TryGetValue f with | true, c -> c | _ -> pats.Length, [], None
         if n <> pats.Length then errAt eq $"base cases of '{f}' have different numbers of parameters"
-        clauses.[f] <- (n, gs @ [ SLine l; guard ], m || memo)
+        clauses.[f] <- (n, gs @ [ SLine l; guard ], (if m.IsSome then m else modifier))
         def
 
     /// Does `lvalue {, lvalue} =` (or `lvalue op=`) start here? Walks the tokens LValues would take; Some the operator.
@@ -471,80 +505,10 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         if accept "?" then
             let a = p.Expr()
             mark j (if accept ":" then ETern(c, a, p.Expr()) else onlyIf c a)
-        elif accept "?{" then p.Match(Some c, false)
-        elif accept "?[" then p.Match(Some c, true)
-        else c
-
-    /// `x ?{ 1 => a; 2, 3 => b; >9 => c; d }` compares x with each arm's values (an arm starting with a comparison
-    /// tests x with it; `_` is x); `?{ c1 => a; c2 => b; d }` takes the first true condition. The first matching arm
-    /// wins; `_ => d` (or a last arm without `=>`) is the default; without one it is a ternary chain like `c ? a` (value 0).
-    /// An array x maps the match over its elements, unless a pattern is an array literal (`[1,2] => …`): then x is
-    /// matched whole. `xs ?[ 1, 2; >9 ]` keeps the elements matching an arm.
-    member p.Match(subject: Expr option, filter: bool) : Expr =
-        let closer = if filter then "]" else "}"
-        let test () =
-            match subject, peek () with
-            | Some _, SYM("=" | "!=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, EVar "_", p.Shift()))
-            | Some _, _ ->
-                // an arm that mentions `_` (outside a nested block) is a condition on the subject: `_%2=0 => …`
-                let start = pos
-                let e = p.Expr()
-                let mutable depth, uses = 0, false
-                for t in tokens.[start .. pos - 1] do
-                    match t.tok with
-                    | SYM s when s.EndsWith "{" -> depth <- depth + 1
-                    | SYM "}" -> depth <- depth - 1
-                    | ID "_" when depth = 0 -> uses <- true
-                    | _ -> ()
-                if uses then e else EBin("=", EVar "_", e)
-            | None, _ -> p.Expr()
-        let skipTerms () = while peek () = TERM do advance ()
-        // in `?[ ]` every arm's value is tested for truthiness on its own, so arms may give different types
-        let truth r = if filter then ETern(r, EBool true, EBool false) else r
-        // an arm's result may be a statement (`5 => c += 1`); its value is then 0. `=> { s1; s2 }` runs several
-        // statements in the match's scope (`_` stays the subject); the last expression is the value, else 0
-        let result () =
-            let start = pos
-            if isSym "{" then
-                advance ()
-                let body = p.Block "}"
-                match body |> List.filter (function SLine _ -> false | _ -> true) |> List.tryLast with
-                | Some(SExpr _) -> truth (EGroup body)
-                | _ when filter -> errAt start "a ?[ ] arm's block must end in a value: truthy keeps the element, falsy drops it"
-                | _ -> EGroup(body @ [ SExpr(EInt 0L) ])
-            else
-                match p.Stmt() with
-                | SExpr e -> truth e
-                | _ when filter -> errAt start "a ?[ ] arm must give a value, not a statement: truthy keeps the element, falsy drops it"
-                | st -> EGroup [ st; SExpr(EInt 0L) ]
-        let arms = ResizeArray<Expr list * Expr>()
-        let mutable deflt = None
-        skipTerms ()
-        while not (isSym closer) do
-            if deflt.IsSome then err "the default arm (`_ => …`, or one without '=>') must be the last arm"
-            if peek () = ID "_" && tokens.[pos + 1].tok = SYM "=>" then
-                advance (); advance ()
-                deflt <- Some(result ())
-            elif filter || p.Ahead(SYM "=>") then
-                let tests = ResizeArray [ test () ]
-                while accept "," do tests.Add(test ())
-                if accept "=>" then arms.Add(List.ofSeq tests, result ())
-                elif filter then arms.Add(List.ofSeq tests, EBool true)
-            else deflt <- Some(result ())
-            if peek () = TERM then skipTerms ()
-            elif not (isSym closer) then err ($"expected '=>', a new arm or '{closer}', found {found ()}")
-        expect closer
-        if arms.Count = 0 && (filter || deflt.IsNone) then err "a match needs at least one arm"
-        let deflt = if filter && deflt.IsNone then Some(EBool false) else deflt
-        let chain =
-            Seq.foldBack (fun (tests, r) acc ->
-                let c = List.reduce (fun a b -> EBin("|", a, b)) tests
-                Some(match acc with Some e -> ETern(c, r, e) | None -> onlyIf c r)) arms deflt
-        // an array-literal pattern (`[1,2] => …`) matches an array subject as a whole instead of per element
-        let whole = arms |> Seq.exists (fst >> List.exists (function EBin(_, _, EArr _) -> true | _ -> false))
-        match subject with
-        | Some s -> EMatch((if filter then "filter" elif whole then "whole" else "map"), s, chain.Value)
-        | None -> chain.Value
+        else
+            match peek () with
+            | SYM s when Parser.SuffixHooks.ContainsKey s -> (advance (); Parser.SuffixHooks.[s] p c)
+            | _ -> c
 
     /// One left-associative level: `next {op next}` for op in ops.
     member p.LeftAssoc(ops: string list, next: unit -> Expr) =
@@ -621,11 +585,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             match peek () with
             | SYM "m{" -> (advance (); e <- EIter(IMap, e, p.MapSection(p.Block "}")))
             | SYM "f[" -> (advance (); e <- EIter(IFilter, e, predicate (p.SectionBlock "]")))
-            | SYM "/{" -> (advance (); e <- EIter(IFold, e, p.Block "}"))
-            | SYM "${" -> (advance (); e <- ESort(e, p.SectionBlock "}"))
-            | SYM "\\{" -> (advance (); e <- EIter(IScan, e, p.Block "}"))
-            | FOLDOP op -> (advance (); e <- EIterOp(IFold, e, op))
-            | SCANOP op -> (advance (); e <- EIterOp(IScan, e, op))
+            | SYM s when Parser.PostfixHooks.ContainsKey s -> (advance (); e <- Parser.PostfixHooks.[s] p e)
             | SYM "@" -> (advance (); e <- EIndex(e, p.IndexOperand()))
             | SYM "@?" -> (advance (); e <- EHas(e, p.IndexOperand()))
             | SYM "@%" ->
@@ -694,19 +654,16 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
     member p.BaseAt(at: int) : Expr =
         let t = peek ()
         advance ()
+        let key = match t with SYM s -> s | STR parts when parts |> List.exists (function Code _ -> true | _ -> false) -> "STR{" | _ -> ""
+        match Parser.PrefixHooks.TryGetValue key with
+        | true, hook -> hook p at
+        | _ ->
         match t with
         | INT v -> EInt v
         | FLOAT v -> EFloat v
         | BOOL v -> EBool v
         | STR [ Lit s ] -> EStr s
-        | STR parts ->
-            parts
-            |> List.map (function
-                | Lit s -> EStr s
-                | Code(src, l, c) ->
-                    let sub = Parser(Array.ofList (Lexer.lex src l c), fnames, shadowed, params, stdAliases, nextId, imports)
-                    sub.InterpExpr())
-            |> EInterp
+        | STR parts -> EStr(parts |> List.map (function Lit s -> s | Code _ -> "") |> String.concat "")
         | ID name when isFunc name && isSym ":" -> (advance (); markCall callMark name (p.ExprList()))
         // a parameter may be a block passed in (`apply f x = f: x`, `{_1: _2}`), except where the `:` ends the
         // then-branch of a ternary (`c ? a : b`, `_ > 3 ? _ : 0`)
@@ -746,11 +703,6 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                     while accept "," do items.Add(p.Expr())
                     expect "]"
                     EArr(List.ofSeq items)
-        | SYM("%[" | "Q[" | "PQ[" | "BT[" as s) ->
-            let items = if isSym "]" then [] else p.ExprList()
-            expect "]"
-            ECollLit((if s = "%[" then "set" else s.TrimEnd '['), items)
-        | SYM "?{" -> p.Match(None, false)
         | SYM "{" ->
             nextId.Value <- nextId.Value + 1
             let id = nextId.Value
@@ -778,12 +730,6 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
 
     /// After `(`: a `;` at this paren's top level makes it a statement group `(s1; s2; value)`.
     member p.GroupAhead() = p.Ahead TERM
-
-    member p.InterpExpr() =
-        let e = p.Expr()
-        while peek () = TERM do advance ()
-        if peek () <> EOF then err ($"expected '}}' to end the interpolation, found {describeTok (peek ())}")
-        e
 
 /// Parses a file's tokens; `path` anchors relative imports.
 let parse (tokens: Token list) (path: string) : Stmt list =

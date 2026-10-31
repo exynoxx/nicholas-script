@@ -15,17 +15,45 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Ast.fs" />
-    <Compile Include="Stdlib.fs" />
-    <Compile Include="Lexer.fs" />
-    <Compile Include="Parser.fs" />
-    <Compile Include="Core.fs" />
-    <Compile Include="Desugar.fs" />
-    <Compile Include="Lower.fs" />
-    <Compile Include="Typer.fs" />
-    <Compile Include="Opt.fs" />
-    <Compile Include="Repr.fs" />
-    <Compile Include="Codegen.fs" />
+    <Compile Include="kernel/Ast.fs" />
+    <Compile Include="kernel/Stdlib.fs" />
+    <Compile Include="kernel/Lexer.fs" />
+    <Compile Include="kernel/Parser.fs" />
+    <Compile Include="kernel/Core.fs" />
+    <Compile Include="kernel/Desugar.fs" />
+    <Compile Include="kernel/Typer.fs" />
+    <Compile Include="kernel/Opt.fs" />
+    <Compile Include="kernel/Repr.fs" />
+    <Compile Include="kernel/Codegen.fs" />
+    <Compile Include="Feature.fs" />
+    <Compile Include="features/fusion/Lower.fs" />
+    <Compile Include="features/fusion/Fusion.fs" />
+    <Compile Include="features/Ranges.fs" />
+    <Compile Include="features/Arrays.fs" />
+    <Compile Include="features/Strings.fs" />
+    <Compile Include="features/Tuples.fs" />
+    <Compile Include="features/Maps.fs" />
+    <Compile Include="features/Coll.fs" />
+    <Compile Include="features/Set.fs" />
+    <Compile Include="features/Queue.fs" />
+    <Compile Include="features/Tree.fs" />
+    <Compile Include="features/Sort.fs" />
+    <Compile Include="features/Interp.fs" />
+    <Compile Include="features/Match.fs" />
+    <Compile Include="features/Fold.fs" />
+    <Compile Include="features/Try.fs" />
+    <Compile Include="features/Memo.fs" />
+    <Compile Include="features/Lazy.fs" />
+    <Compile Include="features/Debug.fs" />
+    <Compile Include="features/opt/Sat.fs" />
+    <Compile Include="features/opt/TailLoop.fs" />
+    <Compile Include="features/opt/Licm.fs" />
+    <Compile Include="features/opt/Fbip.fs" />
+    <Compile Include="features/opt/Cse.fs" />
+    <Compile Include="features/opt/Dce.fs" />
+    <Compile Include="features/opt/StrBuild.fs" />
+    <Compile Include="features/opt/Borrow.fs" />
+    <Compile Include="AllFeatures.fs" />
     <Compile Include="Program.fs" />
     <!-- the runtime is precompiled to LLVM IR at build time and embedded; programs are merged with it -->
     <EmbeddedResource Include="$(IntermediateOutputPath)runtime.ll" LogicalName="runtime.ll" />

@@ -21,22 +21,32 @@ New feature → add `tests/<milestone>_<name>.ns` + `.out`. A `.err` file instea
 (the message after `path:`, with the source line and caret); see `tests/e_*`. `runtime.c` is compiled to `obj/.../runtime.ll`
 by the `CompileRuntime` target in `NS.fsproj`.
 
-## Pipeline (one file per stage)
+## Layout: kernel + features
 
-| stage | file | in → out | look here for |
-|---|---|---|---|
-| 1 | `Lexer.fs` | text → `Token list` | every context-sensitive decision: `m{` map vs `{` block, `f[` filter vs `[` literal, `/{` `\{` fold/scan, `${` sort, `${` sort, `FOLDOP`/`SCANOP` (`/+`), `~{` while, `?{` `?[` match (`?[..]:` stays a ternary), `-` number vs minus, `#` comment vs length, operator sections (`sectionOps`, inserts `_`), newline continuation |
-| 2 | `Parser.fs` | tokens → surface AST (`Ast.Expr`/`Stmt`) | recursive descent, one member per precedence level (`Expr` ternary → `Or` … `Pow` → `Prefix` → `Postfix` → `Primary` → `Base`). `f:args` calls only when `isFunc` (builtins + `Stdlib.names` + names assigned a block). `.method`, `@` index, `import` splicing, `SectionBlock` (`x{int}` = `x{int:_}`), `RangeEnd` (`0..n-1`), `GroupAhead` (`(s1; s2)` → `EGroup`), else-less ternary in `Expr` |
-| — | `Ast.fs` | | token + surface AST types, `CompileError`/`fail`, printers |
-| 3 | `Desugar.fs` | AST → `Core` (untyped) | type-free sugar: interpolation → `+`, ranges/slices → calls, `[x]**n` → `repeat`, parallel assign via temps, `_ @ $` renamed to fresh per-block vars, fold ops `/>` `/<` → `If`; `inlineRanges`/`fuseChains`: a range or single-use iteration chain stored in a variable is moved into its consumer, so Lower fuses it (no array) |
-| — | `Core.fs` | | core IR: `Ty` (with `THole` unification vars), `E`/`K`, `S`, `Iter` |
-| 4 | `Typer.fs` | core → typed core (`Typer.Program`) | inference + unification, left-operand conversion (`conv`, `typeBin`), scopes/captures (`Frame`, `propagateCaptures`), monomorphising blocks per call site (`userCall`, `Inst`), primitives in `builtin` (`print`, casts, `neg`, `len`, `has`, `set`…), runtime stdlib in `stdCall` |
-| — | `Lower.fs` | | type-directed rewrites the typer invokes: `iter` (fuses map/filter/fold/scan chains into one loop), `broadcast` (array arithmetic), `convArr` |
-| 4b | `Opt.fs` | typed core → typed core | effect summaries; LICM, static-argument hoisting, pure-call CSE, dead pure code, borrowed parameters, in-place `x = x{f}` (FBIP), string building (`ns_sb_*` builder for `.join` of loops, 3+-part `+`, `s = s + e` loops) |
-| 5 | `Repr.fs` | | memory layout per type: `llty` register type, `storage`/`esz` in containers, `desc` runtime descriptor, value vs boxed tuples |
-| 6 | `Codegen.fs` | typed core → LLVM IR text | `generate`; refcount retain/release, inline element access |
-| 6b | `CGen.fs` | typed core → C text | twin of `Codegen.fs` (same refcounting/layouts, goto control flow); `ns c f.ns`, `--c` on run/build/test, `$CC` (default `cc`) |
-| — | `Program.fs` | | CLI (`main`), `pipeline` stage dumps, `build` (clang), `test` runner, `help` |
+The compiler is split into a **kernel** (`src/kernel/`, one file per stage, knows no feature) and **features**
+(`src/features/`, one file per language construct or compiler mechanism). Each stage exposes hook tables; a feature is
+a `Feature.Feature` record (`src/Feature.fs`) filling the hooks it needs, registered in order by `src/AllFeatures.fs`
+(order matters for list hooks: first match wins). Compile order in `NS.fsproj`: kernel → `Feature.fs` → features →
+`AllFeatures.fs` → `Program.fs`; a later feature may call an earlier one directly (`Lazy` → `Fusion.typeIter`).
+
+| stage | kernel file | hooks a feature fills |
+|---|---|---|
+| 1 | `Lexer.fs` | `lex` rules (get a `Lexer.Ctx`), `openers` (sections), `closers` (tokens ending an expression) |
+| 2 | `Parser.fs` | `prefix`/`postfix`/`suffix` forms by token, `stmtPrefix`, `assignRhs`, `fnStarts`, `modifiers`, `builtins`; hooks get the `Parser` object (public members: `Expr`, `Block`, `Peek`, ...) |
+| — | `Ast.fs` | features produce `EExt(name, operands, blocks)` (or existing nodes) |
+| 3 | `Desugar.fs` | `desugar` per `EExt` name (gets a `Desugar.Api`), `corePasses` (whole program), `perElement` |
+| — | `Core.fs` | `Ty.TCon(name, args)` for feature types (`types`: show + runtime descriptor) |
+| 4 | `Typer.fs` | `intercept` (untyped nodes), `prims` (typed calls by name), `bin`, `index`, `freshness`, `assignRewrite`, `bodyRewrite`, `noSpread`, `fixerExempt`, `prologue`, `reset`; the typer's functions are public |
+| 4b | `Opt.fs` | `effects` of primitives, `optPasses` (`Opt.Pass`) |
+| 5 | `Repr.fs` | (descriptors via `types`) |
+| 6 | `Codegen.fs` | `llvm` per primitive (gets a `Codegen.Api`), `llvmRaw`, `kept` |
+
+Features: `fusion/` (iteration typing + the loop engine `Lower.fs` + the chain-moving core pass), `Ranges`, `Arrays`,
+`Strings`, `Tuples`, `Maps`, `Coll` (shared by `Set`, `Queue` (Q, PQ)), `Tree` (BT), `Sort` (`${`), `Interp`, `Match`
+(`?{` `?[`), `Fold` (`/op` `/{`), `Try` (`?? stmt`), `Memo`, `Lazy`, `Debug` (`--debug`), `opt/` (one file per pass).
+Still in the kernel: map/filter/while syntax, `..` parsing, `x'` state, base cases, sections, destructuring,
+scopes/captures, monomorphisation, conversions, refcounting, layouts. `Program.fs`: CLI, `pipeline` stage dumps,
+`build` (clang), `test` runner, `help`. (The C backend and `explain` were removed on this branch.)
 
 ## Runtime and stdlib
 

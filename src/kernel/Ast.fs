@@ -55,9 +55,7 @@ type Tok =
     | STR of Part list
     | BOOL of bool
     | ID of string    // names, plus "_", "_1", "$" and bare "@"
-    | SYM of string   // operators and brackets; context forms: "f[" filter, "m{" map, "${" sort, "~{" while, "/{" "\{" fold/scan, "%[" "Q[" "PQ[" "BT["
-    | FOLDOP of string
-    | SCANOP of string
+    | SYM of string   // operators and brackets; context forms: "f[" filter, "m{" map, "~{" while, plus the features' own
     | TERM
     | EOF
 
@@ -76,13 +74,11 @@ type Expr =
     | EInt of int64
     | EFloat of float
     | EStr of string
-    | EInterp of Expr list
     | EBool of bool
     | EVar of string
     | EArr of Expr list
     | ETuple of Expr list
     | EMapLit of (Expr * Expr) list
-    | ECollLit of string * Expr list    // "set" | "Q" | "PQ" | "BT"
     | ERange of Expr * Expr
     | EBin of string * Expr * Expr
     | EUn of string * Expr              // "-" | "!" | "#"
@@ -91,11 +87,9 @@ type Expr =
     | EIndex of Expr * Expr
     | EHas of Expr * Expr
     | EIter of IterKind * Expr * Stmt list
-    | EIterOp of IterKind * Expr * string // fold or scan with an operator
-    | ESort of Expr * Stmt list // `x${key}`
     | EBlock of int * string list list * Stmt list // id, named params (`f a (b, c) = …`; a group unpacks), body
     | EGroup of Stmt list               // (s1; s2; value)
-    | EMatch of string * Expr * Expr    // "map" `x ?{}` | "filter" `x ?[]` | "whole" (array-literal pattern): subject, arms (`_` = subject/element)
+    | EExt of string * Expr list * Stmt list list // a feature's construct: name (its Desugar.ext key), operands, blocks
 
 and Stmt =
     | SAssign of Expr list * Expr list
@@ -116,8 +110,6 @@ let showTok (t: Tok) =
     | BOOL b -> if b then "BOOL T" else "BOOL F"
     | ID s -> $"ID {s}"
     | SYM s -> $"SYM {s}"
-    | FOLDOP s -> $"FOLDOP {s}"
-    | SCANOP s -> $"SCANOP {s}"
     | TERM -> "TERM"
     | EOF -> "EOF"
 
@@ -131,8 +123,6 @@ let describeTok (t: Tok) =
     | ID s -> $"'{s}'"
     | SYM("f[" | "m{" as s) -> $"'{s.Substring 1}'"
     | SYM s -> $"'{s}'"
-    | FOLDOP s -> $"'/{s}'"
-    | SCANOP s -> $"'\\{s}'"
     | TERM -> "end of line"
     | EOF -> "end of file"
 
@@ -142,13 +132,11 @@ let rec showExpr (e: Expr) : string =
     | EInt v -> $"EInt {v}"
     | EFloat v -> $"EFloat {v}"
     | EStr s -> "EStr " + quote s
-    | EInterp xs -> $"EInterp [{list xs}]"
     | EBool b -> $"EBool {b}"
     | EVar n -> $"EVar {n}"
     | EArr xs -> $"EArr [{list xs}]"
     | ETuple xs -> $"ETuple [{list xs}]"
     | EMapLit ps -> "EMapLit [" + (ps |> List.map (fun (k, v) -> showExpr k + " -> " + showExpr v) |> String.concat "; ") + "]"
-    | ECollLit(k, xs) -> $"ECollLit {k} [{list xs}]"
     | ERange(a, b) -> $"ERange({showExpr a}, {showExpr b})"
     | EBin(op, a, b) -> $"EBin({op}, {showExpr a}, {showExpr b})"
     | EUn(op, x) -> $"EUn({op}, {showExpr x})"
@@ -157,11 +145,9 @@ let rec showExpr (e: Expr) : string =
     | EIndex(x, i) -> $"EIndex({showExpr x}, {showExpr i})"
     | EHas(x, k) -> $"EHas({showExpr x}, {showExpr k})"
     | EIter(k, src, body) -> $"EIter({showKind k}, {showExpr src}, {showStmts body})"
-    | EIterOp(k, src, op) -> $"EIterOp({showKind k}, {showExpr src}, {op})"
-    | ESort(src, body) -> $"ESort({showExpr src}, {showStmts body})"
     | EBlock(id, ps, body) -> $"EBlock({id}, {ps}, {showStmts body})"
     | EGroup body -> $"EGroup {showStmts body}"
-    | EMatch(kind, x, arms) -> $"EMatch({kind}, {showExpr x}, {showExpr arms})"
+    | EExt(name, xs, blocks) -> $"EExt({name}, [{list xs}]" + (blocks |> List.map (fun b -> ", " + showStmts b) |> String.concat "") + ")"
 
 and showStmt (s: Stmt) : string =
     let list xs = xs |> List.map showExpr |> String.concat ", "
