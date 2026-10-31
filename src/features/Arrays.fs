@@ -44,10 +44,33 @@ let private bins op (_: bool) (a: E) (b: E) =
         Some(typeE (broadcast op a b bIsArr))
     | _ -> None
 
+let private isArr (x: E) = match resolve x.t with TArr _ -> true | _ -> false
+
 let feature =
     { Feature.empty with
         name = "arrays"
         bin = [ bins ]
+        index = [ fun x i -> match resolve x.t with TArr el -> Some(typed (Index(x, conv i TInt)) el) | _ -> None ]
+        setIndex = [ fun x i v -> match resolve x.t with TArr el -> Some(SetIdx(x, conv i TInt, own (conv v el))) | _ -> None ]
+        // a literal: a new array, each element's owned value moved in
+        llvmNode =
+          [ fun g e ->
+                match e.k with
+                | Arr xs ->
+                    let a = g.rt "ptr" "ns_arr_new" [ g.desc e.t; "i64", string xs.Length ]
+                    for x in xs do
+                        let v = g.ex x
+                        g.storeTo v x.t (g.rt "ptr" "ns_arr_append" [ "ptr", a ])
+                    Some a
+                | _ -> None ]
+        llvmIndex =
+          [ fun g e x xv iv ->
+                if not (isArr x) then None
+                else
+                    let v = g.loadFrom (g.rt "ptr" "ns_arr_at" [ "ptr", xv; "i64", iv ]) e.t
+                    g.retain v e.t // the element is borrowed from the array
+                    Some v ]
+        llvmSlot = [ fun g t xv iv -> match resolve t with TArr _ -> Some(g.rt "ptr" "ns_arr_at" [ "ptr", xv; "i64", iv ]) | _ -> None ]
         prims =
           [ "neg", (function [ x ] when (match resolve x.t with TArr _ -> true | _ -> false) -> Some(typeE (broadcast "*" x (typed (Int -1L) TInt) false)) | _ -> None)
             "push", (function

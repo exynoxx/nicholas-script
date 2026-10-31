@@ -36,6 +36,18 @@ let feature =
           [ "tuple", fun xs ->
                 if xs.Length > 9 then err $"a tuple holds at most 9 values, not {xs.Length}; use an array"
                 Some(typed (Call("tuple", List.map (value >> own) xs)) (TTup(xs |> List.map (fun x -> x.t)))) ]
+        // value tuples compare their members in registers (bools widened to i64); boxed ones by descriptor
+        llvmBin =
+          [ fun g op a _ av bv ->
+                match resolve a.t, op with
+                | TTup ts, ("=" | "!=") when Repr.isValueTuple a.t ->
+                    let ty = Repr.llty a.t
+                    let eqs = ts |> List.mapi (fun i m ->
+                        let x, y = g.instr $"extractvalue {ty} {av}, {i}", g.instr $"extractvalue {ty} {bv}, {i}"
+                        if resolve m = TFloat then g.instr $"fcmp oeq double {x}, {y}" else g.instr $"icmp eq i64 {x}, {y}")
+                    let all = eqs.Tail |> List.fold (fun acc q -> g.instr $"and i1 {acc}, {q}") eqs.Head
+                    Some(if op = "=" then all else g.instr $"xor i1 {all}, true")
+                | _ -> None ]
         freshness = [ "tget", fun _ -> false ] // a member is shared with the tuple
         effects = [ "tuple", Feature.Total; "tget", Feature.Total ]
         llvm =

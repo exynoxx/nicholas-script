@@ -44,6 +44,7 @@ type Feature =
       prims: (string * (E list -> E option)) list
       bin: (string -> bool -> E -> E -> E option) list
       index: (E -> E -> E option) list
+      setIndex: (E -> E -> E -> S option) list
       freshness: (string * (E -> bool)) list
       assignRewrite: (string -> E -> S option) list
       bodyRewrite: (int -> int -> S list -> S list) list
@@ -59,6 +60,11 @@ type Feature =
       llvmRaw: (string * (Codegen.Api -> E -> E list -> string)) list
       /// pass-through primitives: how many leading arguments their result owns
       kept: (string * int) list
+      llvmNode: (Codegen.Api -> E -> string option) list
+      llvmBin: (Codegen.Api -> string -> E -> E -> string -> string -> string option) list
+      llvmConv: (Codegen.Api -> string -> Ty -> Ty -> string option) list
+      llvmIndex: (Codegen.Api -> E -> E -> string -> string -> string option) list
+      llvmSlot: (Codegen.Api -> Ty -> string -> string -> string option) list
       // ---- anything else: registration into another feature's own tables ----
       init: (unit -> unit) list }
 
@@ -66,10 +72,10 @@ let empty =
     { name = ""; lex = []; openers = []; closers = []
       builtins = []; prefix = []; postfix = []; suffix = []; stmtPrefix = []; assignRhs = []; fnStarts = []; modifiers = []
       desugar = []; corePasses = []; perElement = []
-      types = []; intercept = []; prims = []; bin = []; index = []; freshness = []; assignRewrite = []
+      types = []; intercept = []; prims = []; bin = []; index = []; setIndex = []; freshness = []; assignRewrite = []
       bodyRewrite = []; noSpread = []; fixerExempt = []; prologue = []; reset = []
       effects = []; optPasses = []
-      llvm = []; llvmRaw = []; kept = []
+      llvm = []; llvmRaw = []; kept = []; llvmNode = []; llvmBin = []; llvmConv = []; llvmIndex = []; llvmSlot = []
       init = [] }
 
 /// Fills every stage's tables from f. Two features claiming the same token, construct or primitive is an error
@@ -102,6 +108,7 @@ let register (f: Feature) =
         | _ -> Typer.prims.[name] <- ResizeArray [ h ]
     Typer.bins.AddRange f.bin
     Typer.indexers.AddRange f.index
+    Typer.setIndexers.AddRange f.setIndex
     List.iter (once Typer.freshness "freshness of") f.freshness
     Typer.assignRewrites.AddRange f.assignRewrite
     Typer.bodyRewrites.AddRange f.bodyRewrite
@@ -115,4 +122,9 @@ let register (f: Feature) =
     List.iter (once Codegen.calls "primitive") f.llvm
     List.iter (once Codegen.rawCalls "primitive") f.llvmRaw
     for name, k in f.kept do Codegen.kept.[name] <- k
+    Codegen.nodes.AddRange f.llvmNode
+    Codegen.binops.AddRange f.llvmBin
+    Codegen.convs.AddRange f.llvmConv
+    Codegen.indexes.AddRange f.llvmIndex
+    Codegen.slots.AddRange f.llvmSlot
     for i in f.init do i ()

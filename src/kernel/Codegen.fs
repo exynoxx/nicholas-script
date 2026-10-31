@@ -53,6 +53,16 @@ type Api =
 
 /// Primitive calls by name: their arguments evaluated (all borrowed but the first `kept`), operands in order.
 let calls = Dictionary<string, Api -> E -> E list -> string list -> string>()
+/// Whole nodes, tried first: (api, node) -> its owned value (array literals, user calls).
+let nodes = ResizeArray<Api -> E -> string option>()
+/// `a op b` on the operands' values (api, op, a, b, a's value, b's value), before the kernel's scalar operators.
+let binops = ResizeArray<Api -> string -> E -> E -> string -> string -> string option>()
+/// Conversions (api, value, from, to), before the kernel's scalar ones.
+let convs = ResizeArray<Api -> string -> Ty -> Ty -> string option>()
+/// `x@i`: (api, the node, x, x's value, i's value) -> the element's value, owned; by the type of x.
+let indexes = ResizeArray<Api -> E -> E -> string -> string -> string option>()
+/// `x@i = v`: (api, x's type, x's value, i's value) -> a pointer to the element's storage, by the type of x.
+let slots = ResizeArray<Api -> Ty -> string -> string -> string option>()
 /// Primitive calls that evaluate their own arguments (`mapof` of literal key/value arrays).
 let rawCalls = Dictionary<string, Api -> E -> E list -> string>()
 /// Pass-through primitives whose result owns their first argument (print, push, ...): how many leading arguments.
@@ -154,6 +164,9 @@ let generate (prog: Program) : string =
     let wrapped = HashSet<string>()
 
     let rec ex (e: E) : string =
+        match (if nodes.Count = 0 then None else nodes |> Seq.tryPick (fun h -> h (api ()) e)) with
+        | Some v -> v
+        | None ->
         match e.k with
         | Int v -> string v
         | Float f -> $"0x{BitConverter.DoubleToInt64Bits f:X16}"
@@ -165,12 +178,6 @@ let generate (prog: Program) : string =
             retain v e.t
             v
         | Fn _ -> "0"
-        | Arr xs ->
-            let a = rt "ptr" "ns_arr_new" [ d e.t; "i64", string xs.Length ]
-            for x in xs do
-                let v = ex x
-                storeTo v x.t (rt "ptr" "ns_arr_append" [ "ptr", a ]) // the owned value moves in
-            a
         | Bin(op, a, b) -> binop op a b
         | If(cond, a, b) ->
             let res = if isFn e.t then "" else alloca (llty e.t)
@@ -207,30 +214,9 @@ let generate (prog: Program) : string =
         | Index(x, i) ->
             let [ (xv, xo); (iv, io) ] = exArgs 0 [ x; i ]
             let r =
-                match resolve x.t with
-                | TStr -> rt "ptr" "ns_str_at" [ "ptr", xv; "i64", iv ]
-                | TMap(k, _) ->
-                    // present: read the value in place (borrowed, so retain); missing: the runtime's zero value
-                    let out = outCell e.t
-                    let key = spill iv k
-                    let p = rt "ptr" "ns_map_ref" [ "ptr", xv; "ptr", key ]
-                    let lf, ls, lend = label (), label (), label ()
-                    let present = instr $"icmp ne ptr {p}, null"
-                    emit $"br i1 {present}, label %%{lf}, label %%{ls}"
-                    place lf
-                    let v = loadFrom p e.t
-                    retain v e.t
-                    storeTo v e.t out
-                    emit ($"br label %%{lend}")
-                    place ls
-                    rt "void" "ns_map_get" [ "ptr", xv; "ptr", key; "ptr", out ] |> ignore
-                    emit ($"br label %%{lend}")
-                    place lend
-                    loadFrom out e.t
-                | _ ->
-                    let v = loadFrom (rt "ptr" "ns_arr_at" [ "ptr", xv; "i64", iv ]) e.t
-                    retain v e.t // the element is borrowed from the array
-                    v
+                match indexes |> Seq.tryPick (fun h -> h (api ()) e x xv iv) with
+                | Some r -> r
+                | None -> failwith $"codegen: no feature indexes {showTy x.t}"
             drop (xv, xo) x.t
             drop (iv, io) i.t
             r
@@ -261,6 +247,9 @@ let generate (prog: Program) : string =
     and drop (v: string, owned) t = if owned then release v t
 
     and convert1 (v: string) (src: Ty) (dst: Ty) =
+        match convs |> Seq.tryPick (fun h -> h (api ()) v src dst) with
+        | Some r -> r
+        | None ->
         match resolve src, resolve dst with
         | TInt, TFloat -> instr $"sitofp i64 {v} to double"
         | TFloat, TInt -> instr $"fptosi double {v} to i64"
@@ -268,8 +257,6 @@ let generate (prog: Program) : string =
         | TFloat, TBool -> instr $"fcmp une double {v}, 0.0"
         | TBool, TInt -> instr $"zext i1 {v} to i64"
         | TBool, TFloat -> instr $"uitofp i1 {v} to double"
-        | TStr, TInt -> rt "i64" "ns_s2i" [ "ptr", v ]
-        | TStr, TFloat -> rt "double" "ns_s2f" [ "ptr", v ]
         | s, TStr -> rt "ptr" "ns_tostr" [ d s; "ptr", spill v s ]
         | s, TBool ->
             let n = rt "i64" "ns_len" [ d s; "ptr", spill v s ]
@@ -284,23 +271,15 @@ let generate (prog: Program) : string =
         r
 
     and binop1 op (a: E) (b: E) av bv =
+        match binops |> Seq.tryPick (fun h -> h (api ()) op a b av bv) with
+        | Some r -> r
+        | None ->
         let cmpOp = dict [ "=", ("eq", "oeq", "eq"); "!=", ("ne", "une", "ne"); "<", ("slt", "olt", "ult"); ">", ("sgt", "ogt", "ugt"); "<=", ("sle", "ole", "ule"); ">=", ("sge", "oge", "uge") ]
         match resolve a.t, op with
         | TInt, _ when cmpOp.ContainsKey op -> let (i, _, _) = cmpOp.[op] in instr $"icmp {i} i64 {av}, {bv}"
         | TFloat, _ when cmpOp.ContainsKey op -> let (_, f, _) = cmpOp.[op] in instr $"fcmp {f} double {av}, {bv}"
         | TBool, _ when cmpOp.ContainsKey op -> let (_, _, u) = cmpOp.[op] in instr $"icmp {u} i1 {av}, {bv}"
-        | TStr, ("=" | "!=") ->
-            let r = rt "i64" "ns_str_eq" [ "ptr", av; "ptr", bv ]
-            let pred = if op = "=" then "ne" else "eq"
-            instr $"icmp {pred} i64 {r}, 0"
-        | TTup ts, ("=" | "!=") when Repr.isValueTuple a.t ->
-            // value tuple: compare members in registers (bools are widened to i64)
-            let eqs = ts |> List.mapi (fun i m ->
-                let x, y = instr $"extractvalue {llty a.t} {av}, {i}", instr $"extractvalue {llty a.t} {bv}, {i}"
-                if resolve m = TFloat then instr $"fcmp oeq double {x}, {y}" else instr $"icmp eq i64 {x}, {y}")
-            let all = eqs.Tail |> List.fold (fun acc q -> instr $"and i1 {acc}, {q}") eqs.Head
-            if op = "=" then all else instr $"xor i1 {all}, true"
-        | t, ("=" | "!=") when t <> TStr ->
+        | t, ("=" | "!=") ->
             let r = rt "i64" "ns_eq" [ d t; "ptr", spill av t; "ptr", spill bv t ]
             let pred = if op = "=" then "ne" else "eq"
             instr $"icmp {pred} i64 {r}, 0"
@@ -322,8 +301,6 @@ let generate (prog: Program) : string =
         | TBool, _ ->
             let ins = match op with "+" -> "or" | "*" -> "and" | _ -> "xor"
             instr $"{ins} i1 {av}, {bv}"
-        | TStr, "+" -> rt "ptr" "ns_concat" [ "ptr", av; "ptr", bv ]
-        | TStr, "*" -> rt "ptr" "ns_repeat" [ "ptr", av; "i64", bv ]
         | t, _ -> failwith $"codegen: operator {op} on {showTy t}"
 
     and call (e: E) (f: string) (args: E list) =
@@ -443,9 +420,9 @@ let generate (prog: Program) : string =
             let [ (xv, xo); (iv, io); (vv, vo) ] = exArgs 0 [ x; i; v ]
             // locate the element's storage, then replace it in place: retain the new value before releasing the old
             let p =
-                match resolve x.t with
-                | TMap(k, _) -> rt "ptr" "ns_map_put" [ "ptr", xv; "ptr", spill iv k ]
-                | _ -> rt "ptr" "ns_arr_at" [ "ptr", xv; "i64", iv ]
+                match slots |> Seq.tryPick (fun h -> h (api ()) x.t xv iv) with
+                | Some p -> p
+                | None -> failwith $"codegen: no feature assigns into {showTy x.t}"
             let old = if isPtr v.t then instr $"load ptr, ptr {p}" else ""
             retain vv v.t
             storeTo vv v.t p

@@ -61,8 +61,10 @@ let intercept = ResizeArray<E -> E option>()
 let prims = Dictionary<string, ResizeArray<E list -> E option>>()
 /// `a op b` (typed operands; inPlace: the statement is `a = a op b`), after comparisons and before the kernel's rules.
 let bins = ResizeArray<string -> bool -> E -> E -> E option>()
-/// `x@i` (typed) for types the kernel doesn't index (arrays, strings, maps).
+/// `x@i` (typed operands), by the type of x.
 let indexers = ResizeArray<E -> E -> E option>()
+/// `x@i = v` (typed operands), by the type of x.
+let setIndexers = ResizeArray<E -> E -> E -> S option>()
 /// Is a primitive call's result a fresh array nothing else references? By name; the kernel's default is yes.
 let freshness = Dictionary<string, E -> bool>()
 /// `u = e` (typed, u the variable's unique name) rewritten as another statement (`x = append(x, v)` -> push).
@@ -348,22 +350,14 @@ and typeBin op inPlace (a: E) (b: E) : E =
         match resolve b.t with
         | TArr _ -> err ($"{showT L} {op} {showT b.t}: put the array on the left")
         | _ -> same ()
-    | "+", TStr -> same ()
     | ("+" | "-" | "*"), TBool -> same ()
     | _, TFn _ -> err ($"operator {op} not defined for a block; to call it, write f:x")
     | _ -> err ($"operator {op} not defined for {showVal a}")
 
 and typeIndex (x: E) (i: E) =
-    match resolve x.t with
-    | TArr el -> typed (Index(x, conv i TInt)) el
-    | TStr -> typed (Index(x, conv i TInt)) TStr
-    | TMap(k, v) -> typed (Index(x, conv i k)) v
-    | _ ->
     match indexers |> Seq.tryPick (fun h -> h x i) with
     | Some r -> r
-    | None ->
-    match resolve x.t with
-    | t -> err ($"cannot index {showVal x}")
+    | None -> err ($"cannot index {showVal x}")
 
 /// The element type of a collection (a map's keys), for primitive `name`'s error.
 and elemOf (name: string) (x: E) =
@@ -580,10 +574,9 @@ and typeStmt (s: S) : S =
     | SetIdx(x, i, value) ->
         let x = typeE x
         let i, value = typeE i, typeE value
-        match resolve x.t with
-        | TArr el -> SetIdx(x, conv i TInt, own (conv value el))
-        | TMap(k, v) -> SetIdx(x, own (conv i k), own (conv value v))
-        | t -> err ($"cannot assign into {showVal x}")
+        match setIndexers |> Seq.tryPick (fun h -> h x i value) with
+        | Some s -> s
+        | None -> err ($"cannot assign into {showVal x}")
     | Assign(name, e0) ->
         let rec self (x: E) =
             match x.k with

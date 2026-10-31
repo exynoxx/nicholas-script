@@ -1,5 +1,4 @@
-/// Map operations beyond literals-as-calls, indexing and `m@k = v` (the kernel's): the `[k -> v]` literal's
-/// construction (`mapof`), `m ?? d` defaults, `m + m2` merge, `m - k`, `m ** 0`, `.entries`, and `.any`/`.all`
+/// Maps: `m@k` (missing keys read as the zero value), `m@k = v`, the `[k -> v]` literal's construction (`mapof`), `m ?? d` defaults, `m + m2` merge, `m - k`, `m ** 0`, `.entries`, and `.any`/`.all`
 /// over the values. `m - k` uses Coll's `del`.
 module Features.Maps
 
@@ -25,9 +24,37 @@ let private intercept (e: E) =
         | t -> err $"?? gives a map a default value (m ?? d), not {showT t}"
     | _ -> None
 
+let private isMap t = match resolve t with TMap _ -> true | _ -> false
+
+/// `m@k`: present, the value read in place (borrowed, so retained); missing, the runtime's zero value (or `m ?? d`).
+let private load (g: Codegen.Api) (e: E) (x: E) xv iv =
+    match resolve x.t with
+    | TMap(k, _) ->
+        let out = g.outCell e.t
+        let key = g.spill iv k
+        let p = g.rt "ptr" "ns_map_ref" [ "ptr", xv; "ptr", key ]
+        let lf, ls, lend = g.label (), g.label (), g.label ()
+        let present = g.instr $"icmp ne ptr {p}, null"
+        g.emit $"br i1 {present}, label %%{lf}, label %%{ls}"
+        g.place lf
+        let v = g.loadFrom p e.t
+        g.retain v e.t
+        g.storeTo v e.t out
+        g.emit $"br label %%{lend}"
+        g.place ls
+        g.rt "void" "ns_map_get" [ "ptr", xv; "ptr", key; "ptr", out ] |> ignore
+        g.emit $"br label %%{lend}"
+        g.place lend
+        Some(g.loadFrom out e.t)
+    | _ -> None
+
 let feature =
     { Feature.empty with
         name = "maps"
+        index = [ fun x i -> match resolve x.t with TMap(k, v) -> Some(typed (Index(x, conv i k)) v) | _ -> None ]
+        setIndex = [ fun x i v -> match resolve x.t with TMap(k, vt) -> Some(SetIdx(x, own (conv i k), own (conv v vt))) | _ -> None ]
+        llvmIndex = [ load ]
+        llvmSlot = [ fun g t xv iv -> match resolve t with TMap(k, _) -> Some(g.rt "ptr" "ns_map_put" [ "ptr", xv; "ptr", g.spill iv k ]) | _ -> None ]
         intercept = [ intercept ]
         bin = [ bins ]
         prims =
