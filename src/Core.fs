@@ -16,6 +16,7 @@ type Ty =
     | TTree of Ty * (int * Ty) option // sorted set of elements; optionally ordered by a key block (its id, the key type)
     | TTup of Ty list
     | TFn of int
+    | TVoid // no value: a statement, `println`, a match without a default arm, a function run for its effects
     | THole of Ty option ref
     | TUnk
 
@@ -77,6 +78,7 @@ let rec showTy t =
     | TTup ts -> "(" + (ts |> List.map showTy |> String.concat ",") + ")"
     | TFn id -> $"fn{id}"
     | THole _ -> "?"
+    | TVoid -> "void"
     | TUnk -> ""
 
 /// Prints core as NS-like text; typed nodes get a `:type` suffix on variables, calls and conversions.

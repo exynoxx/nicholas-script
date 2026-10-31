@@ -305,7 +305,7 @@ let generate (prog: Program) : string =
         // pass-through results own their first argument
         let kept =
             match f with
-            | "print" | "println" | "push" | "add" | "del" | "merge" -> 1
+            | "push" | "add" | "del" | "merge" -> 1
             | _ -> 0
         let evs = exArgs kept args
         let r = call1 e f args (List.map fst evs)
@@ -317,7 +317,7 @@ let generate (prog: Program) : string =
         let ty i = args.[i].t
         let cell i = "ptr", spill (arg i) (ty i)
         match f, args with
-        | ("print" | "println"), [ x ] -> (rt "void" ("ns_" + f) [ d x.t; cell 0 ] |> ignore; arg 0)
+        | ("print" | "println"), [ x ] -> (rt "void" ("ns_" + f) [ d x.t; cell 0 ] |> ignore; "0")
         | "neg", [ x ] -> if resolve x.t = TFloat then instr $"fneg double {arg 0}" else instr $"sub i64 0, {arg 0}"
         | "not", _ -> instr $"xor i1 {arg 0}, true"
         | "len", [ x ] -> rt "i64" "ns_len" [ d x.t; cell 0 ]

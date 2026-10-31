@@ -1,0 +1,3 @@
+2:17: error: this gives no value (void): a statement, println, a match without a `_ =>` default arm or a function run for its effects
+2 | println: (f: 2) + 1
+  |                 ^

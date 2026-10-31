@@ -45,7 +45,7 @@ let generate (prog: Program) : string =
     /// C type in registers (Repr.llty's twin); value tuples get a typedef named after their descriptor.
     let cty t =
         match resolve t with
-        | TInt | TFn _ | THole _ | TUnk -> "int64_t"
+        | TInt | TVoid | TFn _ | THole _ | TUnk -> "int64_t"
         | TFloat -> "double"
         | TBool -> "bool"
         | TTup ts when Repr.isValueTuple t ->
@@ -285,7 +285,7 @@ let generate (prog: Program) : string =
         | _ ->
         let kept =
             match f with
-            | "print" | "println" | "push" | "add" | "del" | "merge" -> 1
+            | "push" | "add" | "del" | "merge" -> 1
             | _ -> 0
         let evs = exArgs kept args
         let r = call1 e f args (List.map fst evs)
@@ -297,7 +297,7 @@ let generate (prog: Program) : string =
         let ty i = args.[i].t
         let cell i = spill (arg i) (ty i)
         match f, args with
-        | ("print" | "println"), [ x ] -> (rt "void" ("ns_" + f) [ d x.t; cell 0 ] |> ignore; arg 0)
+        | ("print" | "println"), [ x ] -> (rt "void" ("ns_" + f) [ d x.t; cell 0 ] |> ignore; "0")
         | "neg", [ x ] ->
             if resolve x.t = TFloat then instr "double" $"-{arg 0}" else instr "int64_t" $"(int64_t)(0 - (uint64_t){arg 0})"
         | "not", _ -> instr "bool" $"!{arg 0}"

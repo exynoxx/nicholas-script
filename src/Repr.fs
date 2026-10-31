@@ -6,7 +6,7 @@ module Repr
 open Core
 
 /// Scalars have no heap object. An unbound hole defaults to int.
-let isScalar t = match resolve t with TInt | TFloat | TBool | THole _ | TUnk -> true | _ -> false
+let isScalar t = match resolve t with TInt | TVoid | TFloat | TBool | THole _ | TUnk -> true | _ -> false
 
 /// A tuple of scalars is a value: an LLVM struct in registers, stored inline (8 bytes per member), never boxed.
 let isValueTuple t = match resolve t with TTup ts -> List.forall isScalar ts | _ -> false
@@ -33,7 +33,7 @@ let private memberTy t = match resolve t with TFloat -> "double" | _ -> "i64"
 /// LLVM type of a value in registers / locals.
 let llty t =
     match resolve t with
-    | TInt | TFn _ | THole _ | TUnk -> "i64"
+    | TInt | TVoid | TFn _ | THole _ | TUnk -> "i64"
     | TFloat -> "double"
     | TBool -> "i1"
     | TTup ts when isValueTuple t -> "{ " + (ts |> List.map memberTy |> String.concat ", ") + " }"

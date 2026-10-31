@@ -32,6 +32,13 @@ let private fnDefs = Dictionary<int, S list * Frame>()
 let private spreads = Dictionary<int, int>() // block id -> its tuple-taking copy (spreadBlock)
 let private insts = Dictionary<string, Inst>()
 let private instList = ResizeArray<Inst>()
+/// Instances whose body is being typed (they nest: a call inside a body types the callee first).
+let private incomplete = ResizeArray<Inst>()
+/// A branch giving a value meets a void branch while the value's type still holds the result of an instance being
+/// typed (a map of recursive calls): that instance is retyped with its tail maps run as `each` (see `voidTail`).
+exception private VoidRetry of string
+/// One flag per map being typed: its body turned out void, so the map is an `each` with no value.
+let private voidMaps = Stack<bool ref>()
 let private global0 = { parent = None; vars = Dictionary(); inst = None }
 let mutable private cur = global0
 let mutable private line = 0
@@ -232,6 +239,25 @@ let rec private ownIn (local: string -> bool) (e: E) =
 
 let private own = ownIn (fun _ -> false)
 
+/// A function body with its tail maps (the value's map, through ternaries, groups and matches) run as `each`,
+/// giving no value: None when it has none.
+let private voidMix = "another gives no value (void: a statement, println, or a match without a `_ =>` default arm); give every branch a value, or none"
+
+let private voidTail (body: S list) : S list option =
+    let rec tail (e: E) : E option =
+        match e.k with
+        | Iter it when it.kind = IMap -> Some(mk (Seq([ Do { e with k = Iter { it with kind = IEach } } ], mk (Call("%void", [])))))
+        | Seq(ss, x) -> tail x |> Option.map (fun x -> { e with k = Seq(ss, x) })
+        | If(c, a, b) ->
+            match tail a, tail b with
+            | None, None -> None
+            | a', b' -> Some { e with k = If(c, defaultArg a' a, defaultArg b' b) }
+        | MatchOn(src, t, arms, false) -> tail arms |> Option.map (fun arms -> { e with k = MatchOn(src, t, arms, false) })
+        | _ -> None
+    match List.rev body with
+    | Do e :: rest -> tail e |> Option.map (fun e -> List.rev (Do e :: rest))
+    | _ -> None
+
 let rec private tryConv (e: E) (ty: Ty) : E option =
     let a, b = resolve e.t, resolve ty
     if unify a b then Some e
@@ -239,6 +265,7 @@ let rec private tryConv (e: E) (ty: Ty) : E option =
         match a, b with
         | TFn _, _ -> None // a block is not a value: no truthiness or text
         | _ when isScalar a && isScalar b -> Some(typed (Conv e) b)
+        | TVoid, _ -> None
         | _, TStr | _, TBool -> Some(typed (Conv e) b)
         | TArr _, TArr y when isScalar y -> Some(typeE (Lower.convArr e (castName y)))
         | _ -> None
@@ -250,6 +277,7 @@ and private conv (e: E) (ty: Ty) : E =
         match resolve e.t with
         | TFn _ when resolve ty = TBool -> err "a block can't be used as bool; to filter or test, write the condition itself: x[_>2], not x[{_>2}]"
         | TFn _ -> err ($"a block can't be used as {showT ty}; to use its result, call it: f:x")
+        | TVoid -> noVoid e
         | _ -> err ($"cannot convert {showVal e} to {showT ty}")
 
 /// Blocks can't escape, so none can be put into an array (also catches a map whose body is a block: x{{..}}).
@@ -262,6 +290,12 @@ and private stored (x: E) : E =
 and private value (x: E) : E =
     match resolve x.t with
     | TFn _ -> err "a block isn't a value: call it, as in f:x"
+    | _ -> x
+
+/// A void expression (a statement, `println`, a match without a default arm, a void function) can't be used as a value.
+and private noVoid (x: E) : E =
+    match resolve x.t with
+    | TVoid -> err "this gives no value (void): a statement, println, a match without a `_ =>` default arm or a function run for its effects"
     | _ -> x
 
 // ---------- expressions ----------
@@ -305,9 +339,25 @@ and private typeAt (e: E) : E =
             emptyEls.Add h
             typed (Arr []) (TArr h)
         | Arr xs ->
-            let xs = List.map (typeE >> stored) xs
+            let xs = List.map (typeE >> noVoid >> stored) xs
             let el = xs.Head.t
             typed (Arr(xs |> List.map (fun x -> own (conv x el)))) (TArr el)
+        | Call("%void", []) -> typed (Int 0L) TVoid
+        | Call("%add", [ x; put ]) ->
+            // a map's result element: dropped, with the map made void, when the body gives no value
+            let x = typeE x
+            if resolve x.t = TVoid then
+                (if voidMaps.Count > 0 then voidMaps.Peek().Value <- true)
+                x
+            else
+                let rec sub (e: E) =
+                    match e.k with
+                    | Var "%x" -> x
+                    | Call(f, args) -> { e with k = Call(f, List.map sub args) }
+                    | Bin(op, a, b) -> { e with k = Bin(op, sub a, sub b) }
+                    | Seq(ss, y) -> { e with k = Seq(ss |> List.map (function SetIdx(a, i, y) -> SetIdx(sub a, sub i, sub y) | s -> s), sub y) }
+                    | _ -> e
+                typeE (sub put)
         | Call("zero", []) ->
             // the zero value of a type known later (Desugar: `x'` before enough iterations); the runtime builds it
             let h = newHole ()
@@ -335,7 +385,7 @@ and private typeAt (e: E) : E =
                 (match resolve v with THole _ -> unify v b.t |> ignore | _ -> ())
                 stdCall "mapdef" [ a; conv b v ]
             | t -> err $"?? gives a map a default value (m ?? d), not {showT t}"
-        | Bin(op, a, b) -> typeBin op (inPlace |> Option.exists (fun x -> obj.ReferenceEquals(x, e))) (typeE a) (typeE b)
+        | Bin(op, a, b) -> typeBin op (inPlace |> Option.exists (fun x -> obj.ReferenceEquals(x, e))) (noVoid (typeE a)) (noVoid (typeE b))
         | Call("%own", [ x ]) -> setCopy (typeE x) // a fold's first element becomes the accumulator, which is updated in place
         | If(c, a, b) ->
             let c = conv (typeE c) TBool
@@ -346,12 +396,30 @@ and private typeAt (e: E) : E =
             | t -> expect <- Some t
             let b = value (typeE b)
             expect <- saved
+            let isVoid (x: E) = resolve x.t = TVoid
+            let unfixed (x: E) = match resolve x.t with THole _ -> true | _ -> false
+            // a group ending in an assignment (`(r ++= [x];)`) gives the variable, but is there for its effect
+            let assigns (x: E) =
+                match x.k with
+                | Seq(ss, { k = Var u }) ->
+                    match ss |> List.filter (function Line _ -> false | _ -> true) |> List.tryLast with
+                    | Some(Assign(w, _)) | Some(Do { k = Call("push", [ { k = Var w }; _ ]) }) -> w = u
+                    | _ -> false
+                | _ -> false
+            // `c ? println:x : 0`: a literal 0 is the old way of writing "nothing"
+            let zero (x: E) = match x.k with Int 0L -> true | _ -> false
+            if isVoid a <> isVoid b && not (unfixed a || unfixed b || assigns a || assigns b || zero a || zero b) then
+                let v = if isVoid a then b else a
+                // a map of recursive calls: retype that function with it run as `each`
+                match incomplete |> Seq.tryFind (fun i -> (match resolve i.ret with THole _ -> true | _ -> false) && holeIn i.ret v.t) with
+                | Some i -> raise (VoidRetry i.name)
+                | None -> err ($"one branch gives {showT v.t} but " + voidMix)
             match tryConv b a.t with
             | Some b -> typed (If(c, a, b)) a.t
             | None ->
-                // branches with unrelated types (e.g. two statement groups) run as a statement whose value is 0
-                let asStmt (x: E) = typed (Seq([ Do x ], typed (Int 0L) TInt)) TInt
-                typed (If(c, asStmt a, asStmt b)) TInt
+                // branches with unrelated types (e.g. two statement groups) run as a statement: no value
+                let asStmt (x: E) = typed (Seq([ Do x ], typed (Int 0L) TVoid)) TVoid
+                typed (If(c, asStmt a, asStmt b)) TVoid
         | Call(name, args) when name.StartsWith callMark || name.StartsWith nameMark || name.StartsWith negMark ->
             let f = name.Substring 1
             match lookup f with
@@ -436,9 +504,9 @@ and private typeAt (e: E) : E =
                 match Desugar.arity.TryGetValue id with
                 | true, n when args.Length > max 1 n || args.Length < n -> err ($"'{name.Split('\'').[0]}' takes {n} argument(s) but was given {args.Length}")
                 | _ -> ()
-                userCall id (List.map (typeE >> own) args)
-            | _ -> builtin name (List.map typeE args)
-        | Index(x, i) -> typeIndex (typeE x) (typeE i)
+                userCall id (List.map (typeE >> noVoid >> own) args)
+            | _ -> builtin name (List.map (typeE >> noVoid) args)
+        | Index(x, i) -> typeIndex (noVoid (typeE x)) (noVoid (typeE i))
         | Iter it -> typeIter it None false None
         | Fn(id, body) ->
             fnDefs.[id] <- (body, cur)
@@ -464,6 +532,12 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) (at: E option) :
 
 /// toSet: the chain's consumer is `.set`; an array source adds straight into the set (no array in between).
 and private typeIterInto (toSet: bool) (it: Iter) (limit: E option) (count: bool) (at: E option) : E =
+    let flag = ref false
+    voidMaps.Push flag
+    let r = try typeIterInto0 toSet it limit count at finally voidMaps.Pop() |> ignore
+    if flag.Value then typed (Seq([ Do r ], typed (Int 0L) TVoid)) TVoid else r
+
+and private typeIterInto0 (toSet: bool) (it: Iter) (limit: E option) (count: bool) (at: E option) : E =
     // collect a chain of map/filter stages feeding this one (innermost first)
     let rec chain (it: Iter) acc =
         match it.src.k with
@@ -495,7 +569,7 @@ and private typeIterInto (toSet: bool) (it: Iter) (limit: E option) (count: bool
     let limit = limit |> Option.map (fun k -> conv (typeE k) TInt)
     let r =
       match resolve src.t with
-      | TFloat | TBool | TTup _ | TFn _ as t ->
+      | TFloat | TBool | TTup _ | TFn _ | TVoid as t ->
           err ($"cannot {showKind stages.Head.kind} over {showVal src}: it needs an int, array, string, map, set, queue or tree")
       | TArr _ when feed.IsSome -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false feed)
       | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true None)
@@ -630,7 +704,7 @@ and private builtin name (args: E list) : E =
         match resolve x.t with
         | TFn _ -> typed (Int 0L) TInt
         | _ -> builtin "println" [ typeE (mk (Bin("+", label, x))) ]
-    | ("print" | "println"), [ x ] -> typed (Call(name, [ value x ])) x.t
+    | ("print" | "println"), [ x ] -> typed (Call(name, [ value x ])) TVoid
     | "str", [ x ] when resolve x.t = TArr TStr -> stdCall "join" [ x ] // `str:["a","b"]` = "ab"
     | ("int" | "float" | "str" | "bool"), [ x ] ->
         conv x (match name with "int" -> TInt | "float" -> TFloat | "str" -> TStr | _ -> TBool)
@@ -891,16 +965,30 @@ and private userCall id (args: E list) : E =
                     // the body is fine in general; say which call's argument types broke it
                     let ats = if tys.IsEmpty then "" else " with " + (tys |> List.map showT |> String.concat ", ")
                     raise (CompileError(l, c, $"{msg} (when called at line {showLine savedLine}{ats})"))
-            let ss = typeBody body
-            // a body ending in a map over its own recursive calls has no finite type ([[[..]]]): the function is
-            // run for its effects, so that map becomes an `each` and the function returns nothing (0)
+            // a body ending in a map over its own recursive calls has no finite type ([[[..]]]), nor does one where such
+            // a map meets a void branch: the function is run for its effects, its tail maps run as `each` (void)
+            let retry () =
+                // the instances started inside this body were abandoned half-typed: forget them
+                let at = incomplete.FindIndex(fun i -> obj.ReferenceEquals(i, inst))
+                for i in List.ofSeq (Seq.skip (at + 1) incomplete) do
+                        incomplete.RemoveAll(fun j -> obj.ReferenceEquals(i, j)) |> ignore
+                        instList.RemoveAll(fun j -> obj.ReferenceEquals(i, j)) |> ignore
+                        for k in insts |> Seq.filter (fun kv -> obj.ReferenceEquals(kv.Value, i)) |> Seq.map (fun kv -> kv.Key) |> List.ofSeq do
+                            insts.Remove k |> ignore
+                inst.owned.Clear(); inst.calls.Clear(); inst.caps <- []
+                cur <- fr
+                inst.parms <- tys |> List.mapi (fun i t -> declare fr ($"_{i + 1}") t, t)
+                try typeBody (voidTail body).Value
+                with VoidRetry n when n = inst.name -> err voidMix
+            incomplete.Add inst
             let ss =
-                match List.rev ss, List.rev body with
-                | Do r :: _, Do({ k = Iter it } as e) :: rest when it.kind = IMap && unfixed inst.ret && holeIn inst.ret r.t ->
-                    inst.owned.Clear(); inst.calls.Clear(); inst.caps <- []
-                    inst.parms <- tys |> List.mapi (fun i t -> declare fr ($"_{i + 1}") t, t)
-                    typeBody (List.rev (Do { e with k = Iter { it with kind = IEach } } :: rest))
-                | _ -> ss
+                try
+                    let ss = typeBody body
+                    match List.rev ss with
+                    | Do r :: _ when unfixed inst.ret && holeIn inst.ret r.t && (voidTail body).IsSome -> retry ()
+                    | _ -> ss
+                with VoidRetry n when n = inst.name -> if (voidTail body).IsSome then retry () else err voidMix
+            incomplete.RemoveAll(fun j -> obj.ReferenceEquals(inst, j)) |> ignore
             match List.rev ss with
             | Do r :: _ when unfixed inst.ret && holeIn inst.ret r.t ->
                 err "this function's result contains its own result ([[..]] without end); give it a base case of a fixed type first, or end it in a map of the recursive calls to run it for effect"
@@ -947,6 +1035,7 @@ and private typeStmt (s: S) : S =
         let e = typeE e0
         inPlace <- saved
         let generated = name.Contains '%'
+        if not generated then noVoid e |> ignore
         if not generated then posOf e0 |> Option.iter (fun (l, _) -> hovers.Add(l, 0, name.Split('\'').[0], e.t))
         let store u (e: E) =
             if generated then freshTemps.[u] <- (match freshTemps.TryGetValue u with | true, f -> f | _ -> true) && fresh e
@@ -994,7 +1083,7 @@ let private propagateCaptures () =
 
 let check (prog: S list) : Program =
     hovers.Clear(); varTy.Clear(); globals.Clear(); fnDefs.Clear(); spreads.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear(); freshTemps.Clear()
-    memos.Clear(); memoCaches.Clear(); emptyEls.Clear(); fixers.Clear(); lazyFns.Clear(); lazySinks.Clear()
+    incomplete.Clear(); voidMaps.Clear(); memos.Clear(); memoCaches.Clear(); emptyEls.Clear(); fixers.Clear(); lazyFns.Clear(); lazySinks.Clear()
     cur <- global0
     let main = typeStmts prog
     let caches =

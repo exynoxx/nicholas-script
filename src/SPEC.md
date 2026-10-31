@@ -88,7 +88,7 @@ int:"42"      float:x     str:3.5     bool:n
 | 7.5 not   | `!x` (binds looser than compare, like Python `not`: `!_%2` = `!(_%2)`); `!f` of a function or block is the negated function: `g = !ws`, `xs.sortby:!isupper`, `!{_>2}` | right |
 | 8 logic   | `&` then `^` (xor) then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
 | 8.5 map default | `m ?? d` (m with default value d for missing keys, see maps) | left |
-| 9 ternary | `x ?{…}` `x ?[…]` match (§5); `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (value 0); branches of unrelated types run as a statement (value 0) | right |
+| 9 ternary | `x ?{…}` `x ?[…]` match (§5); `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (void); branches of unrelated types run as a statement (void) | right |
 | 10 call   | `f:a,b` (args extend to end of statement / closing bracket, so `(f:1,2, f:3,4)` is an error: write `((f:1,2), f:3,4)`; passing a block more arguments than it has parameters / highest `_k` is an error). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary. A block can be passed to a function and called through its parameter (`apply f x = f: x`, `{_1: _2}`), except in a ternary's then-branch, where `p :` is the ternary's `:` (write `c ? (f: x) : y`) | right |
 | 11 assign | `x = e`, `a,b = b,a`; `x := e` inside an expression | right |
 
@@ -316,8 +316,14 @@ A base case must have as many parameters as the definition. `memo` on the defini
 Blocks capture variables from the enclosing scope **by reference** (`s=0; x{s+=_}` updates `s`). In v1 blocks may not escape (be returned or stored in collections), so captures live on the stack. A block without parameters (no `_`, `_1`, …) is called by its bare name, like `read`: after `n = 0; tick = {n += 1; n}`, `tick; println: tick` prints 2 (`tick:0` also works). Any other block isn't a value: it can be called, named, or passed to a function that takes a block (`sortby`, `memo`, `BT`), but printing one, putting it in a tuple or a ternary branch, or returning one is a compile error.
 A name is bound before its block body is checked, so blocks can recurse: `f={_<2?_:f:_-1}`.
 A function whose body ends in a map over its own recursive calls (a DFS: `f p = {vis += p; p.nb4[g@_=1 & !(vis@?_)]{f:_}}`)
-would have an infinite type `[[[..]]]`; that map runs as an each instead and the function returns nothing (0), like a
-void function. Any other self-referential type is a compile error.
+would have an infinite type `[[[..]]]`; that map runs as an each instead and the function is void. The same holds
+for such a map in a match arm next to a void arm (`f p = ?{!(p in vis) => {vis += p; p.nb4{f}}}`). Any other
+self-referential type is a compile error.
+
+**void** is the type of things that give no value: statements, `print`/`println`, a match without a default arm,
+`c ? a` without `:`, a map whose body is void (`xs{println:_}`), and a function whose body ends in one of these.
+A void value can't be assigned, passed, printed or computed with (compile error). Ternary/match branches must all
+give a value or all give none; a literal `0` branch pairs with a void one (`c ? println:x : 0`).
 Top-level functions (`f a = …`, `f = {…}`, `f = memo:…`) may call functions defined later in the file, so they can be
 mutually recursive: `ev x = x=0 ? T : (od:x-1)` before `od x = x=0 ? F : (ev:x-1)`. Top-level code still calls a
 function only after its definition.
@@ -406,11 +412,12 @@ function, `big = ?[>9]; big:xs`). For a subject-less match as a value, parenthes
 Arms are separated by newline or `;` and tried in order; the first match wins. Inside a subject match `_` is the
 subject (the element, for an array); an arm that mentions `_` is a condition used as is (`_%2=0 => …`, `_ = _.int => …`),
 any other arm value is compared with the subject. If any pattern is an array literal (`[1,2] =>`, `[] =>`, `<[2] =>`), an array
-subject is compared as a whole value instead of mapped over. An arm's result may be a statement (`5 => c += 1`, value 0), or a block `=> { … }` of statements separated by
+subject is compared as a whole value instead of mapped over. An arm's result may be a statement (`5 => c += 1`, void), or a block `=> { … }` of statements separated by
 newlines or `;`: it runs in the match's own scope (`_` is still the subject, assignments are visible after the match),
-and its value is its last expression, or 0 if that is a statement. An arm block is not a function value; as in any block,
+and its value is its last expression, or void if that is a statement. An arm block is not a function value; as in any block,
 a body starting with an operator gets `_` on its left (`=> { *2 }` is `_*2`). Without a default
-the match behaves like `c ? a`: arms run for effect and the value is 0. In `?[ ]` an arm without `=>` keeps its
+the match gives no value (void), so its arms must give none either: `x ?{1 => println:"a"; 2 => c += 1}` is fine,
+`y = x ?{1 => "one"; 2 => "two"}` is a compile error (add `_ => …`). `=> {}` is an arm that does nothing. In `?[ ]` an arm without `=>` keeps its
 elements, `=> F` drops them, and `_ =>` decides the rest (default `F`). Every `?[ ]` arm must give a value, which is
 tested for truthiness on its own (`?[>4 => "a"; _ => 0]` keeps the elements over 4); a statement arm, or an arm block
 that doesn't end in a value, is an error. `?[` directly after an operand is a match filter unless its `]` is followed

@@ -1,0 +1,2 @@
+2: error: one branch gives str but another gives no value (void: a statement, println, or a match without a `_ =>` default arm); give every branch a value, or none
+2 | y = x ?{ 1 => "one"; 2 => "two" }

@@ -119,7 +119,8 @@ let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option)
     let terminal =
         match term.kind with
         | IMap when count -> [ Do(bodyE term); Assign(r, bin "+" (v r) (i64 1L)) ]
-        | IMap -> [ add (bodyE term) ]
+        // `%add` puts the value in unless it is void (`xs{println:_}`): then the whole map is void (see Typer)
+        | IMap -> [ Do(call "%add" [ bodyE term; (match add (v "%x") with Do e -> e | s -> seq [ s ] skip) ]) ]
         | IFilter when count -> [ when' (bodyE term) [ Assign(r, bin "+" (v r) (i64 1L)) ] ]
         | IFilter -> [ when' (bodyE term) [ add (v term.el) ] ]
         | IFold | IScan ->

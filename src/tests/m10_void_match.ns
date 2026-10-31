@@ -1,0 +1,13 @@
+# a match without a default arm gives no value (void); its arms must give none either
+x = 3
+x ?{ 1 => println: "one"; 3 => println: "three" }
+c = 0
+[1,2,3] ?{ 2 => c += 1 }
+println: c
+# a DFS: the arm's map of recursive calls runs as each, the function is void
+vis = %[]
+f p = ?{ !(p in vis) & p>=0 & p<6 => {vis += p; [p-1,p+1]{f}} }
+f: 2
+println: #vis
+# a map whose body is void is void
+[1,2]{println:_*10}

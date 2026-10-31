@@ -29,7 +29,7 @@ let private startsExpr (t: Tok) =
     | _ -> false
 
 /// `c ? a` without `:` runs a only when c holds; its value is 0
-let private onlyIf c a = ETern(c, EGroup [ SExpr a; SExpr(EInt 0L) ], EInt 0L)
+let private onlyIf c a = ETern(c, EGroup [ SExpr a; SExpr(ECall("%void", [])) ], ECall("%void", []))
 
 /// Implicit names (_ _1 @ $) are never assigned, so `{_=p}` / `[=p]` compare.
 let private assignable (name: string) = not (name.StartsWith "_" || name = "@" || name = "$")
@@ -386,7 +386,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                 let h = $"{f}'{id}"
                 fnames.Add h |> ignore
                 ECall(callMark + h, List.ofSeq (Seq.map snd binds)), SAssign([ EVar h ], [ EBlock(id, names |> List.map (fun n -> [ n ]), body) ])
-        let guard = SExpr(ETern(cond, EGroup [ SExpr(ECall(callMark + "ret", [ value ])); SExpr(EInt 0L) ], EInt 0L))
+        let guard = SExpr(ETern(cond, EGroup [ SExpr(ECall(callMark + "ret", [ value ])); SExpr(ECall("%void", [])) ], ECall("%void", [])))
         let n, gs, m = match clauses.TryGetValue f with | true, c -> c | _ -> pats.Length, [], false
         if n <> pats.Length then errAt eq $"base cases of '{f}' have different numbers of parameters"
         clauses.[f] <- (n, gs @ [ SLine l; guard ], m || memo)
@@ -511,12 +511,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                 match body |> List.filter (function SLine _ -> false | _ -> true) |> List.tryLast with
                 | Some(SExpr _) -> truth (EGroup body)
                 | _ when filter -> errAt start "a ?[ ] arm's block must end in a value: truthy keeps the element, falsy drops it"
-                | _ -> EGroup(body @ [ SExpr(EInt 0L) ])
+                | _ -> EGroup(body @ [ SExpr(ECall("%void", [])) ])
             else
                 match p.Stmt() with
                 | SExpr e -> truth e
                 | _ when filter -> errAt start "a ?[ ] arm must give a value, not a statement: truthy keeps the element, falsy drops it"
-                | st -> EGroup [ st; SExpr(EInt 0L) ]
+                | st -> EGroup [ st; SExpr(ECall("%void", [])) ]
         let arms = ResizeArray<Expr list * Expr>()
         let mutable deflt = None
         skipTerms ()
@@ -539,7 +539,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         let chain =
             Seq.foldBack (fun (tests, r) acc ->
                 let c = List.reduce (fun a b -> EBin("|", a, b)) tests
-                Some(match acc with Some e -> ETern(c, r, e) | None -> onlyIf c r)) arms deflt
+                // no default arm: the match gives no value (void), so every arm must give none either
+                Some(match acc with Some e -> ETern(c, r, e) | None -> ETern(c, r, ECall("%void", [])))) arms deflt
         // an array-literal pattern (`[1,2] => …`) matches an array subject as a whole instead of per element
         let whole = arms |> Seq.exists (fst >> List.exists (function EBin(_, _, EArr _) -> true | _ -> false))
         match subject with

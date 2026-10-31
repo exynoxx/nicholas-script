@@ -1,0 +1,2 @@
+f x = println: x
+println: (f: 2) + 1

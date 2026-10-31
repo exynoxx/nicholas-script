@@ -197,14 +197,14 @@ and private guards (body: Stmt list) =
     let ret = callMark + "ret"
     let value vs = match vs with [ v ] -> v | vs -> ETuple vs
     match body with
-    | SExpr(ETern(c, EGroup [ SExpr(ECall(r, vs)); SExpr(EInt 0L) ], EInt 0L) as t) :: rest when r = ret ->
+    | SExpr(ETern(c, EGroup [ SExpr(ECall(r, vs)); SExpr(ECall("%void", [])) ], ECall("%void", [])) as t) :: rest when r = ret ->
         let e =
             if rest |> List.forall (function SLine _ -> true | _ -> false) then ETern(c, EGroup [ SExpr(value vs); SExpr(EInt 0L) ], EInt 0L)
             else ETern(c, value vs, EGroup(guards rest))
         posOf t |> Option.iter (setPos e)
         [ SExpr e ]
     // bare `ret` (no value): skip the rest of the block, whose value is then 0 (`@ > d@_ ? ret` in a draining queue loop)
-    | SExpr(ETern(c, EGroup [ SExpr(EVar "ret"); SExpr(EInt 0L) ], EInt 0L) as t) :: rest ->
+    | SExpr(ETern(c, EGroup [ SExpr(EVar "ret"); SExpr(ECall("%void", [])) ], ECall("%void", [])) as t) :: rest ->
         let e = ETern(c, EInt 0L, EGroup(guards rest @ [ SExpr(EInt 0L) ]))
         posOf t |> Option.iter (setPos e)
         [ SExpr e ]
@@ -219,7 +219,7 @@ and private block env body =
     match ss |> List.filter (function Line _ -> false | _ -> true) |> List.tryLast with
     | Some(Do _) -> ss
     | Some(Assign(x, _)) -> ss @ [ Do(mk (Var x)) ]
-    | _ -> ss @ [ Do(mk (Int 0L)) ]
+    | _ -> ss @ [ Do(mk (Call("%void", []))) ] // ends in a statement: no value
 
 and private stmts env (body: Stmt list) : S list = body |> List.collect (stmt env)
 
