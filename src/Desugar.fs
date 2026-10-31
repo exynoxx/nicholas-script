@@ -17,6 +17,8 @@ let freshId () =
 
 /// Block id -> how many arguments it takes: the highest `_k` its body reads (nested blocks have their own).
 let arity = System.Collections.Generic.Dictionary<int, int>()
+/// Blocks whose body names `_1 _2 …` (not just `_`): given one tuple by a stdlib callback, they destructure it.
+let namesParts = System.Collections.Generic.HashSet<int>()
 
 let rec private arityE (e: E) : int =
     match e.k with
@@ -99,6 +101,9 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
         mk (Index(mk (Var env.["_#"]), mk (Int(int64 n.[1..] - 1L))))
     // `i` in an iter block is its index unless a variable `i` exists: the typer picks (`i|` ix i)
     | EVar "i" when not (env.ContainsKey "i") && env.ContainsKey "@" -> mk (Call("i|", [ mk (Var env.["@"]); mk (Var "i") ]))
+    | EVar n when n.Length > 1 && n.[0] = '_' && Seq.forall System.Char.IsDigit n.[1..] && env.ContainsKey "_blk" ->
+        namesParts.Add(int env.["_blk"]) |> ignore
+        mk (Var n)
     | EVar n -> mk (Var(defaultArg (Map.tryFind n env) n))
     | EArr xs -> mk (Arr(List.map ex xs))
     | ETuple xs -> call "tuple" xs
@@ -143,7 +148,7 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
         // implicit names belong to the innermost block; named params of enclosing blocks stay visible.
         // A param is a fresh local copied from its `_i`, so assigning it never touches an outer variable.
         let outer = env |> Map.filter (fun k _ -> not (k.StartsWith "_" || k = "@" || k = "$"))
-        let env' = List.concat ps |> List.filter ((<>) "_") |> List.fold (fun (m: Map<_, _>) p -> m.Add(p, $"{p}'{id}")) (outer.Add("_", "_1"))
+        let env' = List.concat ps |> List.filter ((<>) "_") |> List.fold (fun (m: Map<_, _>) p -> m.Add(p, $"{p}'{id}")) (outer.Add("_", "_1").Add("_blk", string id))
         let bind =
             ps |> List.mapi (fun i group ->
                 let arg = mk (Var $"_{i + 1}")
@@ -313,13 +318,13 @@ and private debugSS (ss: S list) : S list =
 let mutable debug = false
 
 /// e with kind k, keeping e's source position (for error columns).
-let private rebuild (e: E) (k: K) =
+let rebuild (e: E) (k: K) =
     let r = { e with k = k }
     posOf e |> Option.iter (setPos r)
     r
 
 /// e with f on each direct subexpression and fs on each nested statement list.
-let private mapE (f: E -> E) (fs: S list -> S list) (e: E) : E =
+let mapE (f: E -> E) (fs: S list -> S list) (e: E) : E =
     let k =
         match e.k with
         | Arr xs -> Arr(List.map f xs)
@@ -335,7 +340,7 @@ let private mapE (f: E -> E) (fs: S list -> S list) (e: E) : E =
         | k -> k
     rebuild e k
 
-let private mapS (f: E -> E) (fs: S list -> S list) (s: S) : S =
+let mapS (f: E -> E) (fs: S list -> S list) (s: S) : S =
     match s with
     | Assign(n, e) -> Assign(n, f e)
     | SetIdx(x, i, v) -> SetIdx(f x, f i, f v)
@@ -483,7 +488,7 @@ let private fuseChains (prog: S list) : S list =
     fuseSS prog
 
 let desugar (prog: Stmt list) : S list =
-    arity.Clear()
+    arity.Clear(); namesParts.Clear()
     prevOf.Clear()
     loop <- None
     let core = stmts Map.empty prog

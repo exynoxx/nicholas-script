@@ -1,0 +1,13 @@
+# a stdlib callback given one tuple: a block naming _1 _2 … (or with several parameters) destructures it, like a map block
+ps = [(3,"a"),(1,"c"),(2,"b")]
+println: sortby: ps,{_2}
+println: sortby: ps,{_1}
+println: sortby: ps,{_}
+println: maxkey: ps,{_2}
+println: ps.find:{_2 = "b"}
+println: groupby: [(1,"x"),(2,"y"),(1,"z")],{_1}
+key a b = -a
+println: sortby: ps,key
+println: [[1,2],[3]].sortby:{-#_1}
+println: [3,1,2].sortby:{-_1}
+println: (zip: [1,2,3],[30,10,20]).minkey:{_1 * _2}

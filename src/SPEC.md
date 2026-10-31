@@ -189,7 +189,7 @@ Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter;
   `i`: `[5,6,7]{_*i}` → `[0,6,14]`, but `i = 10; [5,6,7]{_*i}` → `[50,60,70]`. The innermost loop owns it, like `@`;
   a plain block (`f = {..}`) has no index, so `i` there is an ordinary name.
 - `x{{..}}` is `x{_{..}}`: map each inner array (or string, or `0..n` of an int): `[[1,2],[3]]{{_*2}}` → `[[2,4],[6]]`.
-- `_1`, `_2`, … for multi-argument blocks. Inside a map/filter/fold/scan block they destructure the element instead (`_1` = `_@0`): `xs.pairwise{_2-_1}`, `(zip:a,b){_1*_2}`.
+- `_1`, `_2`, … for multi-argument blocks. Inside a map/filter/fold/scan block they destructure the element instead (`_1` = `_@0`): `xs.pairwise{_2-_1}`, `(zip:a,b){_1*_2}`. The same holds for a stdlib block argument that gets one tuple (`sortby minkey maxkey find bsearch groupby`): `ps.sortby:{_2}` sorts pairs by their second member, `f a b = …` passed there takes the members as a and b; `_` is still the whole tuple.
 - Last expression in a block is its value.
 
 ### Array concat / append

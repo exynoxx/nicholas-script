@@ -29,6 +29,7 @@ type Program =
 let private varTy = Dictionary<string, Ty>()
 let private globals = ResizeArray<string>()
 let private fnDefs = Dictionary<int, S list * Frame>()
+let private spreads = Dictionary<int, int>() // block id -> its tuple-taking copy (spreadBlock)
 let private insts = Dictionary<string, Inst>()
 let private instList = ResizeArray<Inst>()
 let private global0 = { parent = None; vars = Dictionary(); inst = None }
@@ -767,6 +768,12 @@ and private stdCall name (args: E list) : E =
         List.map2 (fun (p: Stdlib.STy) (a: E) ->
             match p, resolve a.t with
             | Stdlib.SFn(pts, rt), TFn id ->
+                // one tuple for a block that names `_1 _2 …` (or takes several parameters): its parts, as in a map block
+                let id =
+                    match pts with
+                    | [ pt ] when (Desugar.namesParts.Contains id || Desugar.arity.[id] > 1) && not (memos.Contains id) ->
+                        match resolve (toTy env pt) with TTup _ -> spreadBlock id | _ -> id
+                    | _ -> id
                 let call = userCall id (pts |> List.map (fun pt -> typed (Int 0L) (toTy env pt)))
                 match call.k, rt with
                 | UserCall(inst, _), Stdlib.SBool when unify call.t TBool -> typed (BlockRef inst) a.t
@@ -825,6 +832,25 @@ and private lazySink id n =
         lazySinks.[(id, n)] <- s
         fnDefs.[s] <- (sinkBody body $"_{n + 1}", fr)
         s
+
+/// A copy of block `id` taking one tuple, `_k` reading its member k-1 (nested blocks keep their own `_k`).
+and private spreadBlock id =
+    match spreads.TryGetValue id with
+    | true, w -> w
+    | _ ->
+        let body, fr = fnDefs.[id]
+        let rec e (x: E) =
+            match x.k with
+            | Var n when n.Length > 1 && n.[0] = '_' && Seq.forall System.Char.IsDigit n.[1..] ->
+                Desugar.rebuild x (Index(mk (Var "_1"), mk (Int(int64 n.[1..] - 1L))))
+            | Fn _ -> x
+            | _ -> Desugar.mapE e ss x
+        and ss body = List.map (Desugar.mapS e ss) body
+        let w = Desugar.freshId ()
+        fnDefs.[w] <- (ss body, fr)
+        Desugar.arity.[w] <- 1
+        spreads.[id] <- w
+        w
 
 and private userCall id (args: E list) : E =
     let tys = args |> List.map (fun a -> resolve a.t)
@@ -955,7 +981,7 @@ let private propagateCaptures () =
                         changed <- true
 
 let check (prog: S list) : Program =
-    hovers.Clear(); varTy.Clear(); globals.Clear(); fnDefs.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear(); freshTemps.Clear()
+    hovers.Clear(); varTy.Clear(); globals.Clear(); fnDefs.Clear(); spreads.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear(); freshTemps.Clear()
     memos.Clear(); memoCaches.Clear(); emptyEls.Clear(); fixers.Clear(); lazyFns.Clear(); lazySinks.Clear()
     cur <- global0
     let main = typeStmts prog
