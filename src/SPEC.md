@@ -84,7 +84,7 @@ int:"42"      float:x     str:3.5     bool:n
 | 4 mul     | `* ** / %` | left |
 | 5 add     | `+ - ++` | left |
 | 5.5 shift | `<< >>` (ints; `>>` is arithmetic) | left |
-| 7 compare | `= != < > <= >=` | none |
+| 7 compare | `= != < > <= >=`; `x in xs` (= `xs@?x`) | none |
 | 7.5 not   | `!x` (binds looser than compare, like Python `not`: `!_%2` = `!(_%2)`); `!f` of a function or block is the negated function: `g = !ws`, `xs.sortby:!isupper`, `!{_>2}` | right |
 | 8 logic   | `&` then `^` (xor) then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
 | 8.5 map default | `m ?? d` (m with default value d for missing keys, see maps) | left |
@@ -261,7 +261,7 @@ body for this element and the loop goes on popping: `q{ @ > d@_ ? ret; … }` sk
 without draining, iterate a snapshot: `(arr:q){…}`. (`s ++= q` and `arr:q` don't drain.)
 `m{…}` returns a map with the same keys; `s{…}` returns a set; `m[…]`/`s[…]` return the same kind.
 A set chain that ends in a fold or scan is lazy, like a LINQ enumerable: `s{f}/+` folds every mapped value and builds no set, so equal values are not merged (`%[1,2,3]{_%2}/+` → 2).
-`@?` (contains) also works on arrays and strings: `"hello"@?"ll"`.
+`@?` (contains) also works on arrays and strings: `"hello"@?"ll"`. `x in c` is the same test written the other way round: `2 in xs`, `k in m` (key), `!(p in vis)`.
 Conversions: `map:pairs`, `set:arr`, `Q:arr`, `PQ:arr` (also from a tuple: `#set:(1,2,1)` → 2, values converted to the first one's type), `arr:s` (to array; map → array of keys).
 Truthiness: an empty map/set/queue is falsy.
 

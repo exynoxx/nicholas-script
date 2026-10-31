@@ -595,6 +595,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             match peek () with
             | SYM ("=" | "!=" | "<" | ">" | "<=" | ">=" as op2) -> err ($"comparisons don't chain: write a {op} b & b {op2} c, or (a {op} b) {op2} c")
             | _ -> e
+        | ID "in" -> (advance (); EHas(p.Shift(), l)) // `x in xs` is `xs @? x`
         | _ -> l
 
     member p.Shift() = p.LeftAssoc([ "<<"; ">>"; ">>>" ], p.Add)
