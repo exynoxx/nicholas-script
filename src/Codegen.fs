@@ -29,7 +29,15 @@ type private Ctx =
       allocas: StringBuilder
       locals: Dictionary<string, string>
       caps: Set<string>
-      mutable tmp: int }
+      mutable tmp: int
+      /// -g: this function's DISubprogram ("" = no debug info) and the source line being emitted
+      sp: string
+      mutable line: int }
+
+/// -g: emit DWARF (lines, functions, locals) so lldb/gdb can step through the .ns source.
+let mutable debug = false
+/// The main source file (absolute), for the debug info's DIFile.
+let mutable srcPath = ""
 
 let generate (prog: Program) : string =
     let strings = Dictionary<string, string>()
@@ -58,12 +66,74 @@ let generate (prog: Program) : string =
     let label () =
         c.tmp <- c.tmp + 1
         $"L{c.tmp}"
-    let emit (s: string) = c.body.Append("  ").Append(s).Append('\n') |> ignore
+    // ---- -g: debug metadata. Ids start high so they never collide with the runtime module's !0, !1, ...
+    let meta = StringBuilder()
+    let mutable nextMd = 1_000_000
+    let md (s: string) =
+        let id = $"!{nextMd}"
+        nextMd <- nextMd + 1
+        meta.Append(id).Append(" = ").Append(s).Append('\n') |> ignore
+        id
+    let mdCache = Dictionary<string, string>()
+    let mdu (s: string) = // identical nodes share one id
+        match mdCache.TryGetValue s with
+        | true, id -> id
+        | _ -> let id = md s in (mdCache.[s] <- id; id)
+    let q (s: string) = "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\""
+    let file (f: string) = mdu $"!DIFile(filename: {q f}, directory: \"\")"
+    /// The (absolute file, line in it) of a core line; imported files' lines are offset (see Ast.source).
+    let srcOf line = match Ast.source line with Some(p, l) -> IO.Path.GetFullPath p, l | None -> srcPath, line
+    let cu = lazy (md $"distinct !DICompileUnit(language: DW_LANG_C99, file: {file srcPath}, producer: \"ns\", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug)")
+    let spFile = Dictionary<string, string>()
+    let subprogram (name: string) line =
+        let f, l = srcOf line
+        let fnTy = mdu "!DISubroutineType(types: !{null})"
+        let sp = md $"distinct !DISubprogram(name: {q name}, scope: {file f}, file: {file f}, line: {l}, type: {fnTy}, scopeLine: {l}, spFlags: DISPFlagDefinition, unit: {cu.Force()})"
+        spFile.[sp] <- f
+        sp
+    /// The current line as a location in the current function (an imported file's line via a lexical block file).
+    let loc () =
+        let f, l = srcOf c.line
+        let scope = if f = spFile.[c.sp] then c.sp else mdu $"!DILexicalBlockFile(scope: {c.sp}, file: {file f}, discriminator: 0)"
+        mdu $"!DILocation(line: {l}, column: 0, scope: {scope})"
+    let emit (s: string) =
+        c.body.Append("  ").Append(s) |> ignore
+        if c.sp <> "" then c.body.Append(", !dbg ").Append(loc ()) |> ignore
+        c.body.Append('\n') |> ignore
     let place (l: string) = c.body.Append(l).Append(":\n") |> ignore
     let alloca ty =
         let r = tmp ()
         c.allocas.Append($"  {r} = alloca {ty}\n") |> ignore
         r
+    /// Debug type of a variable: scalars as C base types, str as char* (debuggers show the text), value tuples as
+    /// structs, other heap objects as a pointer to `ns_obj` typedef'd to the NS type (ns_lldb.py prints them).
+    let rec diType (t: Ty) =
+        let basic n size enc = mdu $"!DIBasicType(name: {q n}, size: {size}, encoding: {enc})"
+        let int = basic "int" 64 "DW_ATE_signed"
+        let ptrTo b = mdu $"!DIDerivedType(tag: DW_TAG_pointer_type, baseType: {b}, size: 64)"
+        let typedef n b = mdu $"!DIDerivedType(tag: DW_TAG_typedef, name: {q n}, baseType: {b})"
+        match resolve t with
+        | TInt -> int
+        | TFloat -> basic "float" 64 "DW_ATE_float"
+        | TBool -> basic "bool" 8 "DW_ATE_boolean"
+        | TStr -> typedef "str" (ptrTo (basic "char" 8 "DW_ATE_signed_char"))
+        | TTup ms when Repr.isValueTuple t ->
+            let members =
+                ms |> List.mapi (fun i m ->
+                    let mt = if resolve m = TBool then int else diType m // bool members are widened to i64
+                    mdu $"!DIDerivedType(tag: DW_TAG_member, name: \"_{i + 1}\", baseType: {mt}, size: 64, offset: {64 * i})")
+            let els = String.concat ", " members
+            mdu $"!DICompositeType(tag: DW_TAG_structure_type, name: {q (showTy t)}, size: {64 * ms.Length}, elements: !{{{els}}})"
+        | _ ->
+            let obj = mdu "!DICompositeType(tag: DW_TAG_structure_type, name: \"ns_obj\", flags: DIFlagFwdDecl)"
+            typedef (showTy t) (ptrTo obj)
+    /// Declares a local's stack cell to the debugger, under its source name (`d.8` -> d, parameter copy `x'1.6` -> x).
+    let declare (u: string) (p: string) =
+        let name = Text.RegularExpressions.Regex.Replace(u, @"('\d+)?\.\d+$", "")
+        let f, l = srcOf c.line
+        let v = mdu $"!DILocalVariable(name: {q name}, scope: {c.sp}, file: {file f}, line: {l}, type: {diType prog.varTy.[u]})"
+        let at = mdu $"!DILocation(line: {l}, column: 0, scope: {c.sp})"
+        c.allocas.Append($"    #dbg_declare(ptr {p}, {v}, !DIExpression(), {at})\n") |> ignore
     let ptrOf (u: string) =
         if globals.Contains u && not (inMain && not (fnGlobals.Contains u)) then
             fnGlobals.Add u |> ignore // functions are emitted before main
@@ -76,6 +146,7 @@ let generate (prog: Program) : string =
                 let ty = llty prog.varTy.[u]
                 let p = alloca ty
                 c.allocas.Append($"  store {ty} zeroinitializer, ptr {p}\n") |> ignore
+                if c.sp <> "" && not (isFn prog.varTy.[u]) then declare u p
                 c.locals.[u] <- p
                 p
     /// Calls a runtime function; args are (llvm type, operand) pairs.
@@ -424,7 +495,7 @@ let generate (prog: Program) : string =
     and wrapper (inst: Inst) : string =
         if wrapped.Add inst.name then
             let saved = c
-            c <- { body = StringBuilder(); allocas = StringBuilder(); locals = Dictionary(); caps = Set.empty; tmp = 0 }
+            c <- { body = StringBuilder(); allocas = StringBuilder(); locals = Dictionary(); caps = Set.empty; tmp = 0; sp = ""; line = 0 }
             let caps = inst.caps |> List.mapi (fun i _ -> let slot = instr $"getelementptr ptr, ptr %%env, i64 {i}" in instr $"load ptr, ptr {slot}")
             // one parameter: x points at it; several: x is an array of pointers to them
             let args =
@@ -457,7 +528,7 @@ let generate (prog: Program) : string =
 
     and stmt (s: S) =
         match s with
-        | Line _ -> ()
+        | Line n -> c.line <- n
         | Do e -> release (ex e) e.t
         | Assign(u, e) when isFn prog.varTy.[u] -> ()
         | Assign(u, e) ->
@@ -492,12 +563,28 @@ let generate (prog: Program) : string =
 
     and stmts ss = List.iter stmt ss
 
-    let newCtx caps = { body = StringBuilder(); allocas = StringBuilder(); locals = Dictionary(); caps = caps; tmp = 0 }
+    // -g: a function's debug name is the variable its block literal is assigned to (`dist = {..}` -> dist)
+    let fnNames = Dictionary<int, string>()
+    let rec scan ss =
+        for s in ss do
+            match s with
+            | Assign(u, { k = Fn(id, body) }) -> (fnNames.[id] <- Text.RegularExpressions.Regex.Replace(u, @"\.\d+$", "")); scan body
+            | While(_, b) -> scan b
+            | _ -> ()
+    if debug then (scan prog.main; for i in prog.insts do scan i.body)
+    let firstLine ss = ss |> List.tryPick (function Line n -> Some n | _ -> None) |> Option.defaultValue 0
+    let newCtx caps name ss =
+        let line = firstLine ss
+        let sp = if debug then subprogram name line else ""
+        { body = StringBuilder(); allocas = StringBuilder(); locals = Dictionary(); caps = caps; tmp = 0; sp = sp; line = line }
+    let dbgOf () = if c.sp = "" then "" else $" !dbg {c.sp}"
     let out = StringBuilder()
     let fns = StringBuilder()
 
     for inst in prog.insts do
-        c <- newCtx (set inst.caps)
+        let m = Text.RegularExpressions.Regex.Match(inst.name, @"^f(\d+)_")
+        let name = match fnNames.TryGetValue(if m.Success then int m.Groups.[1].Value else -1) with | true, n -> n | _ -> inst.name
+        c <- newCtx (set inst.caps) name inst.body
         for (u, t) in inst.parms do emit ($"store {llty t} %%\"p.{u}\", ptr {ptrOf u}")
         stmts inst.body
         let r = ex inst.result
@@ -506,15 +593,15 @@ let generate (prog: Program) : string =
         emit ($"ret {llty inst.ret} {r}")
         let ps = (inst.parms |> List.map (fun (u, t) -> $"{llty t} %%\"p.{u}\"")) @ (inst.caps |> List.map (fun u -> $"ptr %%\"c.{u}\""))
         let parmList = String.concat ", " ps
-        fns.Append($"define {llty inst.ret} @\"{inst.name}\"({parmList}) {{\nentry:\n{c.allocas}{c.body}}}\n\n") |> ignore
+        fns.Append($"define {llty inst.ret} @\"{inst.name}\"({parmList}){dbgOf ()} {{\nentry:\n{c.allocas}{c.body}}}\n\n") |> ignore
 
-    c <- newCtx Set.empty
+    c <- newCtx Set.empty "main" prog.main
     inMain <- true
     stmts prog.main
     for KeyValue(u, p) in List.ofSeq c.locals do // main's former globals: release like any function's locals
         if isPtr prog.varTy.[u] then release (instr $"load ptr, ptr {p}") prog.varTy.[u]
     emit "ret i32 0"
-    fns.Append($"define i32 @main() {{\nentry:\n{string c.allocas}{string c.body}}}\n") |> ignore
+    fns.Append($"define i32 @main(){dbgOf ()} {{\nentry:\n{string c.allocas}{string c.body}}}\n") |> ignore
 
     for (g, t) in prog.globals do
         if not (isFn t) then
@@ -525,4 +612,8 @@ let generate (prog: Program) : string =
         let esc = bytes |> Array.map (fun b -> if b >= 32uy && b < 127uy && b <> 34uy && b <> 92uy then string (char b) else $"\\{b:X2}") |> String.concat ""
         out.Append($"{n} = private unnamed_addr constant {{ i64, ptr, [{bytes.Length + 1} x i8] }} {{ i64 -1, ptr null, [{bytes.Length + 1} x i8] c\"{esc}\\00\" }}\n") |> ignore
     for KeyValue(_, decl) in decls do out.Append(decl).Append('\n') |> ignore
-    out.Append('\n').Append(fns).Append(wrappers).ToString()
+    if debug then
+        let v = md "!{i32 2, !\"Debug Info Version\", i32 3}"
+        let w = md "!{i32 7, !\"Dwarf Version\", i32 5}"
+        meta.Insert(0, $"!llvm.dbg.cu = !{{{cu.Force()}}}\n!llvm.module.flags = !{{{v}, {w}}}\n") |> ignore
+    out.Append('\n').Append(fns).Append(wrappers).Append('\n').Append(meta).ToString()
