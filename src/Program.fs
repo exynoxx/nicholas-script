@@ -203,6 +203,7 @@ commands:
   typed <file>               dump stage 4: typed core (functions, captures, conversions)
   repr <file>                dump stage 5: the layout chosen for each type (register, storage, size)
   check <file>               type-check stdin as <file>, print errors only (editor diagnostics)
+  types <file>               type stdin as <file>, print `line col name type` per variable (editor hovers)
   doc                        list the stdlib: one `signature<TAB>description` line per overload (editor hovers)
   test [dir]                 run golden tests: dir/*.ns vs *.out (stdin from *.in); default ./tests
   help                       show this page
@@ -263,6 +264,15 @@ let main argv =
             0)
     // check: lex, parse and type stdin as if it were <file> (imports resolve next to it); used by the VS Code extension
     | [ "check"; path ] -> report path (fun () -> (pipelineSrc "check" (Console.In.ReadToEnd()) path |> ignore; 0))
+    // types: like check, then `line<TAB>col<TAB>name<TAB>type` per variable use (col 0: assigned on that line); partial on an error
+    | [ "types"; path ] ->
+        (try pipelineSrc "check" (Console.In.ReadToEnd()) path |> ignore with _ -> ())
+        Typer.hovers
+        |> Seq.map (fun (l, c, n, t) -> l, c, n, Core.showTy t)
+        |> Seq.filter (fun (l, _, _, t) -> l < fileLines && t <> "" && not (t.Contains "?") && not (t.StartsWith "fn"))
+        |> Seq.distinct
+        |> Seq.iter (fun (l, c, n, t) -> Console.WriteLine($"{l}\t{c}\t{n}\t{t}"))
+        0
     | [ "doc" ] -> (Stdlib.docs |> List.iter (fun (sg, d) -> Console.WriteLine(sg + "\t" + d)); 0)
     | [ "c"; path ] -> report path (fun () -> (Console.Write(pureC (lock frontLock (fun () -> pipeline "c" path))); 0))
     | [ ("tokens" | "ast" | "core" | "typed" | "repr" | "explain") as stage; path ] ->

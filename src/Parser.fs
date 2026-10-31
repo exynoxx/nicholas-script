@@ -438,8 +438,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             match peek () with
             // any name may be (re)defined, so user functions can shadow built-ins; implicit names never
             | ID name when assignable name ->
+                let mutable e = mark pos (EVar name)
                 advance ()
-                let mutable e = EVar name
                 let mutable go = true
                 while go do
                     if accept "@" then e <- EIndex(e, p.IndexOperand())

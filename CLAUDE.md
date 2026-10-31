@@ -60,4 +60,4 @@ gotchas that matter when writing a large NS program.
 - `src/examples/` — larger programs with `.out` (and `.in`) files; also golden tests.
 - `src/bench/` — NS vs Rust vs Python, `bench.sh`.
 - `src/tests/lib/` — files used by the import test.
-- `src/vscode/` — VS Code extension: grammar + live error squiggles via `ns check` (symlink it into `~/.vscode/extensions/ns-lang`).
+- `src/vscode/` — VS Code extension: grammar, live error squiggles via `ns check`, hovers via `ns doc` (stdlib) and `ns types` (variable types, recorded in `Typer.hovers`) (symlink it into `~/.vscode/extensions/ns-lang`).

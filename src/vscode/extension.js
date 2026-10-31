@@ -1,5 +1,6 @@
 // Live diagnostics: pipes the buffer to `ns check <file>` and turns `path:line[:col]: error: msg` into a squiggle.
-// Hovers: stdlib signatures and docs from `ns doc` (one `signature<TAB>doc` line per overload), loaded once.
+// Hovers: stdlib signatures and docs from `ns doc` (one `signature<TAB>doc` line per overload), loaded once;
+// variable types from `ns types` (`line<TAB>col<TAB>name<TAB>type`; col 0 = assigned on that line), per buffer version.
 const vscode = require('vscode');
 const { execFile } = require('child_process');
 
@@ -48,8 +49,36 @@ function activate(context) {
       stdlib.get(name).push({ sig, doc });
     }
   });
+  const types = new Map(); // uri -> { version, rows: Promise<[line, col, name, type][]> }
+  const typesOf = (doc) => {
+    const key = doc.uri.toString(), hit = types.get(key);
+    if (hit && hit.version === doc.version) return hit.rows;
+    const rows = new Promise((done) => {
+      const p = execFile(exe, ['types', doc.fileName], { timeout: 10000 }, (_err, out) =>
+        done((out || '').split('\n').filter(Boolean).map((l) => l.split('\t')).map(([l, c, n, t]) => [+l, +c, n, t])));
+      p.stdin.on('error', () => {});
+      p.stdin.end(doc.getText());
+    });
+    types.set(key, { version: doc.version, rows });
+    return rows;
+  };
+  const varHover = async (doc, pos) => {
+    const range = doc.getWordRangeAtPosition(pos, /[A-Za-z][A-Za-z0-9_]*'?|_[0-9]*|[@$]/);
+    if (!range) return;
+    const word = doc.getText(range).replace(/'$/, ''), line = range.start.line + 1, col = range.start.character + 1;
+    const rows = await typesOf(doc);
+    // the use at this position, else the same name elsewhere on the line (an assignment target, a parameter)
+    let ts = rows.filter(([l, c]) => l === line && c === col);
+    if (!ts.length) ts = rows.filter(([l, , n]) => l === line && n === word);
+    if (!ts.length) return;
+    const md = new vscode.MarkdownString();
+    md.appendCodeblock(`${word}: ${[...new Set(ts.map((r) => r[3]))].join(' | ')}`, 'ns');
+    return new vscode.Hover(md, range);
+  };
   const hover = {
-    provideHover(doc, pos) {
+    async provideHover(doc, pos) {
+      const v = await varHover(doc, pos);
+      if (v) return v;
       const range = doc.getWordRangeAtPosition(pos, /[A-Za-z][A-Za-z0-9_]*/);
       const ovs = range && stdlib.get(doc.getText(range));
       if (!ovs || !ovs.some((o) => o.doc)) return; // undocumented = internal (operator helpers)

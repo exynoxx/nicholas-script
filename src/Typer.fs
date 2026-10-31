@@ -34,6 +34,9 @@ let private instList = ResizeArray<Inst>()
 let private global0 = { parent = None; vars = Dictionary(); inst = None }
 let mutable private cur = global0
 let mutable private line = 0
+/// Editor hovers (`ns types`): (line, col, type) of each variable use, and (line, 0, type) of each assignment
+/// (the target's column isn't kept; col 0 = "named on this line"). Types are resolved when printed.
+let hovers = ResizeArray<int * int * string * Ty>()
 /// Column of the node being typed (0: unknown, e.g. in generated code)
 let mutable private col = 0
 /// Type of the then-branch while typing an else-branch; resolves `rec + rec` in recursive functions.
@@ -289,7 +292,9 @@ and private typeAt (e: E) : E =
                 | _ -> ()
                 match resolve varTy.[u] with
                 | TFn id when (match Desugar.arity.TryGetValue id with | true, 0 -> true | _ -> false) -> userCall id [] // bare `f` calls a block without parameters
-                | t -> typed (Var u) t
+                | t ->
+                    posOf e |> Option.iter (fun (l, c) -> hovers.Add(l, c, name.Split([| '\''; '%' |]).[0], t))
+                    typed (Var u) t
             | None when name = "true" || name = "false" -> err ($"undefined variable '{name}': booleans are T and F")
             | None ->
                 let rec names (f: Frame) = Seq.append f.vars.Keys (match f.parent with Some p -> names p | None -> Seq.empty)
@@ -904,6 +909,7 @@ and private typeStmt (s: S) : S =
         let e = typeE e0
         inPlace <- saved
         let generated = name.Contains '%'
+        if not generated then posOf e0 |> Option.iter (fun (l, _) -> hovers.Add(l, 0, name.Split('\'').[0], e.t))
         let store u (e: E) =
             if generated then freshTemps.[u] <- (match freshTemps.TryGetValue u with | true, f -> f | _ -> true) && fresh e
             Assign(u, if generated then e else own e)
@@ -949,7 +955,7 @@ let private propagateCaptures () =
                         changed <- true
 
 let check (prog: S list) : Program =
-    varTy.Clear(); globals.Clear(); fnDefs.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear(); freshTemps.Clear()
+    hovers.Clear(); varTy.Clear(); globals.Clear(); fnDefs.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear(); freshTemps.Clear()
     memos.Clear(); memoCaches.Clear(); emptyEls.Clear(); fixers.Clear(); lazyFns.Clear(); lazySinks.Clear()
     cur <- global0
     let main = typeStmts prog
