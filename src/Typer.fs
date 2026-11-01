@@ -439,6 +439,11 @@ and private typeAt (e: E) : E =
             match lazyArgs x with
             | x, true -> typeIter (newIter IMap x (fun el -> [ Do el ])) None false (Some i)
             | x, false -> typeIndex (typeE x) (typeE i)
+        // `#` and `.set` of a `lazy` call stream into typeIter's counting / set-building loop
+        | Call(("len" | "set") as f, [ x ]) when (match x.k with Iter _ -> false | _ -> true) && (lookup f).IsNone && streams x ->
+            match lazyArgs x with
+            | x, true -> typeE { e with k = Call(f, [ mk (Iter(newIter IMap x (fun el -> [ Do el ]))) ]) }
+            | x, false -> typeE { e with k = Call(f, [ typeE x ]) }
         // `.any` is `{bool:_}/|`, `.all` is `{bool:_}/&`, `@?y` is `{_ = y}/|`: a fold of bools stops at the first T / F
         | Call(("any" | "all") as f, [ x ]) when (lookup f).IsNone && streams x ->
             match lazyArgs x with
@@ -544,10 +549,10 @@ and private typeIterInto0 (toSet: bool) (it: Iter) (limit: E option) (count: boo
         | Iter inner when it.src.t = TUnk && (inner.kind = IMap || inner.kind = IFilter) -> chain inner (it :: acc)
         | _ -> it :: acc
     let stages = chain it []
-    // a `lazy` call feeding a chain whose ending stops early streams into it: the stages run per element, no array
+    // a `lazy` call feeding a chain streams into it: the stages run per element, no array
     let lazySrc =
         match lazyCall stages.Head.src with
-        | Some(id, f, args) when limit.IsSome || at.IsSome || (Lower.boolFold it).IsSome ->
+        | Some(id, f, args) ->
             let args = args |> List.map (typeE >> own)
             let plain = typeE { stages.Head.src with k = Call(f, args) } // types the call, gives the result type
             let feed fn = mk (Call("%lazy", mk (Int(int64 id)) :: args @ [ fn ]))
@@ -571,7 +576,7 @@ and private typeIterInto0 (toSet: bool) (it: Iter) (limit: E option) (count: boo
       match resolve src.t with
       | TFloat | TBool | TTup _ | TFn _ | TVoid as t ->
           err ($"cannot {showKind stages.Head.kind} over {showVal src}: it needs an int, array, string, map, set, queue or tree")
-      | TArr _ when feed.IsSome -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false feed)
+      | TArr _ when feed.IsSome -> typeE (Lower.iterInto toSet ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit count feed)
       | TArr _ when count -> typeE (Lower.iter ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) None true None)
       | TArr _ when toSet -> typeE (Lower.iterInto true ({ stages.Head with src = src } :: stages.Tail) (resolve src.t) limit false None)
       | TArr _ | TStr when stages.Length > 1 || limit.IsSome ->
@@ -586,7 +591,7 @@ and private typeIterInto0 (toSet: bool) (it: Iter) (limit: E option) (count: boo
           let r = stages |> List.fold (fun (s: E) st -> typeE (Lower.iter [ { st with src = s } ] (resolve s.t) None false None)) src
           let r = match limit with Some k -> builtin "take" [ r; k ] | None -> r
           if count then builtin "len" [ r ] else r
-    let r = if toSet && (feed.IsSome || match resolve src.t with TArr _ -> false | _ -> true) then builtin "set" [ r ] else r
+    let r = if toSet && (match resolve src.t with TArr _ -> false | _ -> true) then builtin "set" [ r ] else r
     match at with Some i -> typeIndex r (typeE i) | None -> r
 
 /// A set that the caller may update in place: copied unless nothing else references it.

@@ -1,0 +1,13 @@
+# every consumer of a lazy call streams: folds, #, .set, maps, each-loops (no array in between)
+lazy evens n = 0..n[_%2=0]
+lazy words s = s.split:" "
+println:(evens:10)/+
+println:#(evens:10)
+println:#(evens:10)[>2]
+println:(evens:10).set
+println:(evens:10){_*3}
+println:(evens:10)[>4]@0
+(evens:5){println:_}
+println:(words:"a bb ccc")/{$+_}
+println:(words:"a bb ccc"){#_}/+
+println:#(words:"x y")
