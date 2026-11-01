@@ -1085,6 +1085,14 @@ void *ns_map(const char *dK, const char *dV, void *a) { // inverse of items; a l
   for (int64_t i = 0; i < x->len; i++) { const char *t = tup(ed, x->data + i * x->esz); ns_map_set(r, t, t + vo); }
   return r;
 }
+//@ map ({K:V}) {K:V} = ns_map_m
+//? copy of a map: `counts:xs.map`
+void *ns_map_m(const char *dK, const char *dV, void *p) { // ponytail: drops a `?? d` default
+  (void)dK; (void)dV;
+  Map *m = p; void *r = ns_map_new(HD(p)->d);
+  for (int64_t i = 0; i < m->cap; i++) if (m->st[i] == 1) ns_map_set(r, m->keys + i * m->ksz, m->vals + i * m->vsz);
+  return r;
+}
 //@ map (%[(K,V)]) {K:V} = ns_map_h
 //? map from a set of `(key, value)` pairs
 void *ns_map_h(const char *dK, const char *dV, void *s) { // set of pairs, in hash order

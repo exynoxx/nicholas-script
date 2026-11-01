@@ -1,0 +1,6 @@
+c = "hello".counts.map
+c@"l".println
+d = c.map
+d@"l" += 5
+c@"l".println
+d@"l".println
