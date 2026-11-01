@@ -552,18 +552,22 @@ int64_t ns_subfind(char *s, int64_t i, int64_t j, char *x) { // byte index in th
 }
 char *ns_slice_s(char *s, int64_t i, int64_t j) { clamp(&i, &j, strlen(s)); return str_n(s + i, j - i); }
 static void spush(Arr *r, const char *s, size_t n) { char *c = n == 1 ? chr(*s) : str_n(s, n); apush(r, &c); }
-//@ chars (str) [str]
-//? characters: `chars:"ab"` → `["a","b"]`
-void *ns_chars(char *s) {
+void *ns_arr_s(char *s) {
   Arr *r = ns_arr_new("AS", strlen(s));
   for (; *s; s++) spush(r, s, 1);
   return r;
+}
+//@ chars (str) *str
+//? characters: `chars:"ab"` → `["a","b"]`
+GEN ns_chars(char *s, SINK) {
+  for (; *s; s++) if (!YIELD(chr(*s))) return 0; // immortal: nothing to release
+  return 1;
 }
 //@ split (str,str) [str]
 //? split on a separator: `split:"a,b",","` → `["a","b"]` (empty pieces kept)
 void *ns_split(char *s, char *sep) {
   size_t m = strlen(sep);
-  if (!m) return ns_chars(s);
+  if (!m) return ns_arr_s(s);
   Arr *r = ns_arr_new("AS", 4);
   for (char *e; (e = strstr(s, sep)); s = e + m) spush(r, s, e - s);
   spush(r, s, strlen(s));
@@ -803,7 +807,7 @@ int64_t ns_len(const char *d, const void *v) { // tuples: member count
 void *ns_toarr(const char *d, void *c) {
   switch (*d) {
   case 'A': return ns_arr_copy(c);
-  case 'S': return ns_chars(c);
+  case 'S': return ns_arr_s(c);
   case 'M': case 'H': {
     Map *m = c; Arr *r = ns_arr_new(intern('A', m->kd), m->len);
     for (int64_t i = 0; i < m->cap; i++) if (m->st[i] == 1) ns_arr_push(r, m->keys + i * m->ksz);
@@ -839,7 +843,7 @@ void *ns_vals(const char *dK, const char *dV, void *m) { return ns_map_vals(m); 
 //@ arr (PQ[T]) [T]
 //? converts a collection to an array
 void *ns_arr(const char *dT, void *c) { return ns_toarr(HD(c)->d, c); }
-//@ arr (str) [str] = ns_chars
+//@ arr (str) [str] = ns_arr_s
 //? characters of a string
 //@ pop (Q[T]) T = ns_qpop
 //@ pop (PQ[T]) T = ns_qpop
@@ -1110,7 +1114,7 @@ void *ns_pairwise(const char *dT, const char *dR, void *a) { // [1,2,3] -> [(1,2
 //@ pairwise (str) [(str,str)] = ns_pairwise_s
 //? adjacent character pairs
 void *ns_pairwise_s(const char *dR, char *s) { // "abc" -> [("a","b"),("b","c")]
-  void *c = ns_chars(s), *r = ns_pairwise("S", dR, c);
+  void *c = ns_arr_s(s), *r = ns_pairwise("S", dR, c);
   ns_release(c); return r;
 }
 // Grid neighbours of a (row, col) cell, clockwise: nb4 up right down left; nb8 from up-left. With a bound
@@ -1416,7 +1420,7 @@ static int chr_cmp(const void *a, const void *b) { return *(unsigned char *)a - 
 char *ns_sort_s(char *s) { size_t n = strlen(s); char *r = str_n(s, n); qsort(r, n, 1, chr_cmp); return r; }
 //@ join (str,str) str = ns_join_s
 //? characters joined with sep: `"abc".join:","` → `"a,b,c"`
-char *ns_join_s(char *s, char *sep) { void *c = ns_chars(s); char *r = ns_join("S", c, sep); ns_release(c); return r; }
+char *ns_join_s(char *s, char *sep) { void *c = ns_arr_s(s); char *r = ns_join("S", c, sep); ns_release(c); return r; }
 //@ bsearch ([T], fn(T)->bool) int
 //? first index where the block holds (block must go F…T): `bsearch:xs,{>=5}`
 int64_t ns_bsearch(const char *dT, void *arr, ns_fn f, void *env) { // first index where f holds (f false...true)
@@ -1575,7 +1579,7 @@ void *ns_counts(const char *dT, void *arr) { // element -> number of occurrences
 }
 //@ counts (str) {str:int} = ns_counts_s
 //? character → number of occurrences
-void *ns_counts_s(char *s) { void *c = ns_chars(s), *r = ns_counts("S", c); ns_release(c); return r; }
+void *ns_counts_s(char *s) { void *c = ns_arr_s(s), *r = ns_counts("S", c); ns_release(c); return r; }
 //@ groupby ([T], fn(T)->K) {K:[T]}
 //? key → elements with that key, in order: `groupby:ws,{_@0}`
 void *ns_groupby(const char *dT, const char *dK, void *arr, ns_fn f, void *env) { // key -> its elements, in order
@@ -1609,7 +1613,7 @@ void *ns_rle(const char *dT, const char *dR, void *arr) { // runs of equal neigh
 }
 //@ rle (str) [(str,int)] = ns_rle_s
 //? character runs: `rle:"aab"` → `[("a",2),("b",1)]`
-void *ns_rle_s(const char *dR, char *s) { void *c = ns_chars(s), *r = ns_rle("S", dR, c); ns_release(c); return r; }
+void *ns_rle_s(const char *dR, char *s) { void *c = ns_arr_s(s), *r = ns_rle("S", dR, c); ns_release(c); return r; }
 //@ argsort ([T]) [int]
 //? indices that sort the array (stable): `argsort:[30,10,20]` → `[1,2,0]`
 void *ns_argsort(const char *dT, void *arr) { // indices that sort the array (stable)
