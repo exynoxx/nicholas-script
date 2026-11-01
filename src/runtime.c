@@ -563,15 +563,17 @@ GEN ns_chars(char *s, SINK) {
   for (; *s; s++) if (!YIELD(chr(*s))) return 0; // immortal: nothing to release
   return 1;
 }
-//@ split (str,str) [str]
+static GEN ystr(const char *s, size_t n, SINK) { // yields s[0..n) as a fresh string
+  char *c = n == 1 ? chr(*s) : str_n(s, n);
+  int m = YIELD(c); ns_release(c); return m;
+}
+//@ split (str,str) *str
 //? split on a separator: `split:"a,b",","` → `["a","b"]` (empty pieces kept)
-void *ns_split(char *s, char *sep) {
+GEN ns_split(char *s, char *sep, SINK) {
   size_t m = strlen(sep);
-  if (!m) return ns_arr_s(s);
-  Arr *r = ns_arr_new("AS", 4);
-  for (char *e; (e = strstr(s, sep)); s = e + m) spush(r, s, e - s);
-  spush(r, s, strlen(s));
-  return r;
+  if (!m) return ns_chars(s, sink_, env_);
+  for (char *e; (e = strstr(s, sep)); s = e + m) if (!ystr(s, e - s, sink_, env_)) return 0;
+  return ystr(s, strlen(s), sink_, env_);
 }
 //@ lower (str) str
 //? lowercase (ASCII)
