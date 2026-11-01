@@ -8,6 +8,7 @@ open System.Collections.Generic
 open Ast
 open Core
 open Typer
+open Features.Functions
 open Features
 
 /// `lazy` functions (block ids), and the sink-passing version of each (see `sinkBody`) per argument count.

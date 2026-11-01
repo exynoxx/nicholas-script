@@ -11,7 +11,8 @@ let private optimiser =
         optPasses = [ Opt.Sat.pass; Opt.TailLoop.pass; Opt.Licm.pass; Opt.Fbip.pass; Opt.Cse.pass; Opt.Dce.pass; Opt.StrBuild.pass; Opt.Borrow.pass ] }
 
 let all =
-    [ Fusion.feature
+    [ Functions.feature
+      Fusion.feature
       Ranges.feature
       Arrays.feature
       Strings.feature

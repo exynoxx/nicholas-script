@@ -26,6 +26,7 @@
     <Compile Include="kernel/Repr.fs" />
     <Compile Include="kernel/Codegen.fs" />
     <Compile Include="Feature.fs" />
+    <Compile Include="features/Functions.fs" />
     <Compile Include="features/fusion/Lower.fs" />
     <Compile Include="features/fusion/Fusion.fs" />
     <Compile Include="features/Ranges.fs" />

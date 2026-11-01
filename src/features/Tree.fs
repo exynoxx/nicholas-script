@@ -6,6 +6,7 @@ module Features.Tree
 open Ast
 open Core
 open Typer
+open Features.Functions
 
 /// `t + x`, `t - x`, `has(t, x)` on a tree: the runtime gets the element and its key (the element itself
 /// when the tree has no key block); `+`/`-` change t in place and yield it.

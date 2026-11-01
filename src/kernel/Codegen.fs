@@ -14,7 +14,7 @@ let llty = Repr.llty
 let private isFn t = match resolve t with TFn _ -> true | _ -> false
 
 /// True when evaluating `e` cannot reassign a variable (no statements, no user calls).
-let rec private noAssign (e: E) =
+let rec noAssign (e: E) =
     match e.k with
     | Seq _ | Iter _ -> false
     | UserCall _ -> false
@@ -49,8 +49,28 @@ type Api =
       retain: string -> Ty -> unit
       release: string -> Ty -> unit
       /// declares an external function: name, declaration line
-      declare: string -> string -> unit }
+      declare: string -> string -> unit
+      // ---- for features that emit whole functions ----
+      /// the storage of a variable (a local alloca, a capture parameter or a global)
+      ptrOf: string -> string
+      /// a variable no callee can reassign, so it can be lent without a retain
+      lendable: string -> bool
+      drop: string * bool -> Ty -> unit
+      stmts: S list -> unit
+      varTy: string -> Ty
+      /// runs the generator in a fresh function context with these captures; returns its allocas + body text
+      inFunction: Set<string> -> (unit -> unit) -> string
+      /// the current function's locals: (variable, storage)
+      locals: unit -> (string * string) list
+      /// appends a definition to the module (functions, before main)
+      define: string -> unit
+      /// appends a definition after every function (callback wrappers made on demand)
+      defineLate: string -> unit }
 
+/// A block reference passed to a stdlib function: (api, instance name) -> its C arguments (callback, env).
+let mutable blockArg: Api -> string -> (string * string) list = fun _ _ -> failwith "no feature passes blocks"
+/// Emitters of whole definitions, run before main (user function instances).
+let programs = ResizeArray<Api -> Program -> unit>()
 /// Primitive calls by name: their arguments evaluated (all borrowed but the first `kept`), operands in order.
 let calls = Dictionary<string, Api -> E -> E list -> string list -> string>()
 /// Whole nodes, tried first: (api, node) -> its owned value (array literals, user calls).
@@ -79,7 +99,6 @@ let generate (prog: Program) : string =
     let strings = Dictionary<string, string>()
     let decls = Dictionary<string, string>()
     let globals = prog.globals |> List.map fst |> set
-    let instByName = prog.insts |> List.map (fun i -> i.name, i) |> dict
     let mutable c = Unchecked.defaultof<Ctx>
     // top-level variables no function touches live in main's allocas (registers after mem2reg), not in globals
     let fnGlobals = HashSet<string>()
@@ -161,7 +180,8 @@ let generate (prog: Program) : string =
         not (allCaps.Contains u) && (not (globals.Contains u) || (inMain && not (fnGlobals.Contains u)))
 
     let wrappers = StringBuilder()
-    let wrapped = HashSet<string>()
+    let fns = StringBuilder()
+    let newCtx caps = { body = StringBuilder(); allocas = StringBuilder(); locals = Dictionary(); caps = caps; tmp = 0 }
 
     let rec ex (e: E) : string =
         match (if nodes.Count = 0 then None else nodes |> Seq.tryPick (fun h -> h (api ()) e)) with
@@ -194,23 +214,6 @@ let generate (prog: Program) : string =
         | Call(f, args) when rawCalls.ContainsKey f -> rawCalls.[f] (api ()) e args
         | Call(f, args) -> call e f args
         | StdCall(sg, args) -> stdCall e sg args
-        | UserCall(f, args) ->
-            // user functions own their arguments, except borrowed parameters: those are lent and dropped after
-            let inst = instByName.[f]
-            let evs =
-                List.zip args inst.parms |> List.mapi (fun j (a, (p, _)) ->
-                    if inst.borrowed.Contains p && isPtr a.t then
-                        match a.k with
-                        | Var u when lendable u && List.forall noAssign (List.skip (j + 1) args) -> exB a
-                        | _ -> ex a, true
-                    else ex a, false)
-            let ps = List.zip evs (inst.parms |> List.map snd) |> List.map (fun ((v, _), t) -> llty t + " " + v)
-            let cs = inst.caps |> List.map (fun u -> "ptr " + ptrOf u)
-            let r = tmp ()
-            let argList = ps @ cs |> String.concat ", "
-            emit $"{r} = call {llty inst.ret} @\"{inst.name}\"({argList})"
-            List.zip evs args |> List.iter (fun (v, a) -> drop v a.t)
-            r
         | Index(x, i) ->
             let [ (xv, xo); (iv, io) ] = exArgs 0 [ x; i ]
             let r =
@@ -340,9 +343,7 @@ let generate (prog: Program) : string =
         let cargs =
             List.map2 (fun (p: Stdlib.STy) (a: E) ->
                 match p, a.k with
-                | Stdlib.SFn _, BlockRef b ->
-                    let inst = instByName.[b]
-                    [ "ptr", wrapper inst; "ptr", envOf inst ]
+                | Stdlib.SFn _, BlockRef b -> blockArg (api ()) b
                 | _ ->
                     let v = ex a
                     owned <- (v, a.t) :: owned
@@ -364,46 +365,21 @@ let generate (prog: Program) : string =
         for (v, t) in owned do release v t
         r
 
-    /// `void w.<inst>(ptr env, ptr x, ptr out)`: a C-callable entry for a block instance; env holds its capture
-    /// pointers, x points at the (borrowed) argument's storage, the owned result is stored to out.
-    and wrapper (inst: Inst) : string =
-        if wrapped.Add inst.name then
-            let saved = c
-            c <- { body = StringBuilder(); allocas = StringBuilder(); locals = Dictionary(); caps = Set.empty; tmp = 0 }
-            let caps = inst.caps |> List.mapi (fun i _ -> let slot = instr $"getelementptr ptr, ptr %%env, i64 {i}" in instr $"load ptr, ptr {slot}")
-            // one parameter: x points at it; several: x is an array of pointers to them
-            let args =
-                inst.parms |> List.mapi (fun i (u, pt) ->
-                    let p =
-                        if inst.parms.Length = 1 then "%x"
-                        else let slot = instr $"getelementptr ptr, ptr %%x, i64 {i}" in instr $"load ptr, ptr {slot}"
-                    let a = loadFrom p pt
-                    if not (inst.borrowed.Contains u) then retain a pt // the instance owns its parameter; C passes a borrowed element
-                    llty pt + " " + a)
-            let r = tmp ()
-            let ps = args @ (caps |> List.map (fun p -> "ptr " + p))
-            let argList = String.concat ", " ps
-            emit $"{r} = call {llty inst.ret} @\"{inst.name}\"({argList})"
-            let sr = if resolve inst.ret = TBool then instr $"zext i1 {r} to i8" else r
-            emit ($"store {Repr.storage inst.ret} {sr}, ptr %%out")
-            emit "ret void"
-            wrappers.Append($"define void @\"w.{inst.name}\"(ptr %%env, ptr %%x, ptr %%out) {{\nentry:\n{string c.allocas}{string c.body}}}\n\n") |> ignore
-            c <- saved
-        $"@\"w.{inst.name}\""
-
-    and envOf (inst: Inst) : string =
-        if inst.caps.IsEmpty then "null"
-        else
-            let env = alloca ($"[{inst.caps.Length} x ptr]")
-            inst.caps |> List.iteri (fun i u ->
-                let slot = instr $"getelementptr ptr, ptr {env}, i64 {i}"
-                emit $"store ptr {ptrOf u}, ptr {slot}")
-            env
-
     and api () : Api =
         { ex = ex; exB = exB; rt = rt; instr = instr; emit = emit; alloca = alloca; label = label; place = place
           spill = spill; loadFrom = loadFrom; storeTo = storeTo; outCell = outCell; desc = d; retain = retain; release = release
-          declare = fun name decl -> decls.[name] <- decl }
+          declare = fun name decl -> decls.[name] <- decl
+          ptrOf = ptrOf; lendable = lendable; drop = drop; stmts = stmts; varTy = fun u -> prog.varTy.[u]
+          inFunction = fun caps gen ->
+              let saved = c
+              c <- newCtx caps
+              gen ()
+              let text = string c.allocas + string c.body
+              c <- saved
+              text
+          locals = fun () -> [ for KeyValue(u, p) in c.locals -> u, p ]
+          define = fun d -> fns.Append(d) |> ignore
+          defineLate = fun d -> wrappers.Append(d) |> ignore }
 
     and stmt (s: S) =
         match s with
@@ -442,21 +418,8 @@ let generate (prog: Program) : string =
 
     and stmts ss = List.iter stmt ss
 
-    let newCtx caps = { body = StringBuilder(); allocas = StringBuilder(); locals = Dictionary(); caps = caps; tmp = 0 }
     let out = StringBuilder()
-    let fns = StringBuilder()
-
-    for inst in prog.insts do
-        c <- newCtx (set inst.caps)
-        for (u, t) in inst.parms do emit ($"store {llty t} %%\"p.{u}\", ptr {ptrOf u}")
-        stmts inst.body
-        let r = ex inst.result
-        for KeyValue(u, p) in List.ofSeq c.locals do
-            if isPtr prog.varTy.[u] && not (inst.borrowed.Contains u) then release (instr $"load ptr, ptr {p}") prog.varTy.[u]
-        emit ($"ret {llty inst.ret} {r}")
-        let ps = (inst.parms |> List.map (fun (u, t) -> $"{llty t} %%\"p.{u}\"")) @ (inst.caps |> List.map (fun u -> $"ptr %%\"c.{u}\""))
-        let parmList = String.concat ", " ps
-        fns.Append($"define {llty inst.ret} @\"{inst.name}\"({parmList}) {{\nentry:\n{c.allocas}{c.body}}}\n\n") |> ignore
+    for p in programs do p (api ()) prog
 
     c <- newCtx Set.empty
     inMain <- true

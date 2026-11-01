@@ -10,7 +10,7 @@ let private zeroArity = Stdlib.zeroArity
 let private compounds = set [ "+="; "-="; "*="; "**="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>="; "??=" ]
 
 /// Keywords of other languages: a statement starting with one gets a hint.
-let private foreign =
+let foreign =
     let fn = "define a function as f x = x*2 (or f = {_*2})"
     dict [ "if", "NS has no 'if': write cond ? a : b (or cond ? a)"
            "else", "NS has no 'else': write cond ? a : b"
@@ -25,7 +25,7 @@ let private foreign =
 let onlyIf c a = ETern(c, EGroup [ SExpr a; SExpr(EInt 0L) ], EInt 0L)
 
 /// Implicit names (_ _1 @ $) are never assigned, so `{_=p}` / `[=p]` compare.
-let private assignable (name: string) = not (name.StartsWith "_" || name = "@" || name = "$")
+let assignable (name: string) = not (name.StartsWith "_" || name = "@" || name = "$")
 
 /// In a map block a bare top-level `_ = e` writes the value back (Lower.iter); a parenthesised `(_ = e)` or a
 /// section `{=e}` is a comparison, so it is wrapped in a group, which that write-back does not match.
@@ -44,15 +44,8 @@ let private opensBracket (s: string) = s.EndsWith "(" || s.EndsWith "[" || s.End
 /// Directory of the file being parsed, and every file already imported (each is included once).
 type Imports = { dir: string; seen: HashSet<string> }
 
-type Pat =
-    | PName of string
-    | PLit of Expr
-    | PGroup of bool * Pat list // is an array, items
-
 type Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>, params: HashSet<string>, stdAliases: Dictionary<string, string>, nextId: int ref, imports: Imports) =
     let mutable pos = 0
-    /// base-case clauses (`f 0 [a, b] = a`) waiting for f's general definition: arity, guard statements, a modifier on one of them
-    let clauses = Dictionary<string, int * Stmt list * string option>()
     /// Can this token start an expression? (then a missing operator or ',' is the likely mistake)
     let startsExpr (t: Tok) =
         match t with
@@ -110,6 +103,12 @@ type Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>,
     static member val AssignHooks: Dictionary<string, Parser -> Expr> = Dictionary<string, Parser -> Expr>() with get
     /// Tokens after `f =` that make f a function (besides `{`); a name must be followed by `:` (`f = memo:{…}`)
     static member val FnStarts: HashSet<Tok> = HashSet<Tok>() with get
+    /// Statement forms tried before assignments and expressions (function definitions); None: not this form
+    static member val StmtForms: ResizeArray<Parser -> Stmt option> = ResizeArray<Parser -> Stmt option>() with get
+    /// At each top-level statement start (before parsing): the function this statement defines, if any (forward references)
+    static member val Declares: ResizeArray<Parser -> string option> = ResizeArray<Parser -> string option>() with get
+    /// Run when a file's statements are parsed (a definition still waiting for its rest is an error)
+    static member val Ends: ResizeArray<Parser -> unit> = ResizeArray<Parser -> unit>() with get
     /// Function modifiers: `m f a = …`, `m f = {…}` and `m <base case>` wrap the block as `m:{…}`
     static member val Modifiers: HashSet<string> = HashSet<string>() with get
 
@@ -122,6 +121,7 @@ type Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>,
     member p.Expect s = expect s
     member p.Pos with get () = pos and set v = pos <- v
     member p.Tok j = tokens.[j].tok
+    member p.TokenCount = tokens.Length
     member p.Line() = line ()
     member p.Mark j e = mark j e
     member p.Err msg : 'a = err msg
@@ -129,35 +129,53 @@ type Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>,
     member p.Found() = found ()
     member p.NewId() = (nextId.Value <- nextId.Value + 1; nextId.Value)
     member p.IsFunc name = isFunc name
+    /// Makes name a function from here on (`f:x` parses as a call)
+    member p.AddFunction(name: string) = fnames.Add name |> ignore
+    /// Parses f with these names as parameters: they shadow builtins and may be called (`f x = x: 1`)
+    member p.WithParams (names: string list) (f: unit -> 'a) : 'a =
+        let saved, savedParams = HashSet shadowed, HashSet params
+        for n in names do
+            if builtins.Contains n then shadowed.Add n |> ignore
+            if n <> "_" then params.Add n |> ignore
+        let r = f ()
+        shadowed.Clear(); shadowed.UnionWith saved
+        params.Clear(); params.UnionWith savedParams
+        r
     /// A parser over other tokens that shares this one's names (interpolated code)
     member p.Sub(toks: Token list) = Parser(Array.ofList toks, fnames, shadowed, params, stdAliases, nextId, imports)
 
     member p.Program() =
         p.DeclareFunctions()
         let body = p.Stmts EOF
-        for KeyValue(f, _) in clauses do fail 0 $"base case of '{f}' without a general definition `{f} a b = …` after it"
+        for e in Parser.Ends do e p
         if peek () <> EOF then err ($"unexpected {describeTok (peek ())}")
         body
 
-    /// Forward references: every top-level `f a b = …`, `f = {…}` and `f = memo:…` is a function name from the start,
+    /// Forward references: every top-level `f = {…}`, `f = memo:…` (and a feature's `f a b = …`) is a function name from the start,
     /// so functions can call ones defined later (mutual recursion).
     member p.DeclareFunctions() =
         let mutable depth = 0
         let mutable stmtStart = true
         for j in 0 .. tokens.Length - 1 do
             if stmtStart && depth = 0 then
-                pos <- (match tokens.[j].tok with ID m when Parser.Modifiers.Contains m -> j + 1 | _ -> j) // `memo f a = …`, `lazy f = {…}`
-                match p.FnDefAhead(), tokens.[pos].tok with
-                | Some(f, _, _), _ -> fnames.Add f |> ignore
-                | None, ID f when pos + 2 < tokens.Length && tokens.[pos + 1].tok = SYM "="
-                                  && (tokens.[pos + 2].tok = SYM "{" || Parser.FnStarts.Contains tokens.[pos + 2].tok) -> fnames.Add f |> ignore
-                | _ -> ()
+                pos <- j
+                match Parser.Declares |> Seq.tryPick (fun d -> pos <- j; d p) with
+                | Some f -> fnames.Add f |> ignore
+                | None ->
+                    pos <- j
+                    if p.FnAssignAhead() then (match tokens.[j].tok with ID f -> fnames.Add f |> ignore | _ -> ())
             match tokens.[j].tok with
             | SYM s when opensBracket s -> depth <- depth + 1
             | SYM(")" | "]" | "}") -> depth <- depth - 1
             | _ -> ()
             stmtStart <- tokens.[j].tok = TERM
         pos <- 0
+
+    /// `f = {…}` (or `f = ` a feature's function start) here?
+    member p.FnAssignAhead() =
+        match tokens.[pos].tok with
+        | ID _ -> pos + 2 < tokens.Length && tokens.[pos + 1].tok = SYM "=" && (tokens.[pos + 2].tok = SYM "{" || Parser.FnStarts.Contains tokens.[pos + 2].tok)
+        | _ -> false
 
     member p.Stmts(closer: Tok) : Stmt list =
         let out = ResizeArray<Stmt>()
@@ -241,44 +259,8 @@ type Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>,
         match peek () with
         | SYM s when Parser.StmtHooks.ContainsKey s -> (advance (); Parser.StmtHooks.[s] p)
         | _ ->
-        // a modifier: `memo f a b = body` is `f = memo:{body}` with named parameters; also `m f = {…}` and `m <base case>`
-        let modAt = pos
-        let modifier =
-            match peek () with
-            | ID m when Parser.Modifiers.Contains m && pos + 2 < tokens.Length && (match tokens.[pos + 1].tok with ID _ -> true | _ -> false) ->
-                pos <- pos + 1
-                if p.FnDefAhead().IsSome || p.ClauseAhead().IsSome || tokens.[pos + 1].tok = SYM "=" then Some m else (pos <- pos - 1; None)
-            | _ -> None
-        let wrap fn = match modifier with Some m -> ECall(m, [ fn ]) | None -> fn
-        match p.ClauseAhead() with
-        | Some(f, pats, eq) -> p.Clause(f, pats, eq, modifier)
-        | None ->
-        match p.FnDefAhead() with
-        | Some(f, ps, eq) ->
-            // `f a b = body` is `f = {body}` with a, b naming _1, _2; a `{…}` body holds statements
-            let defAt = pos
-            pos <- eq + 1
-            fnames.Add f |> ignore
-            nextId.Value <- nextId.Value + 1
-            let id = nextId.Value
-            let saved, savedParams = HashSet shadowed, HashSet params
-            for n in List.concat ps do
-                if builtins.Contains n then shadowed.Add n |> ignore
-                if n <> "_" then params.Add n |> ignore
-            let body = if accept "{" then p.Block "}" else [ SLine(line ()); SExpr(p.Expr()) ]
-            shadowed.Clear(); shadowed.UnionWith saved
-            params.Clear(); params.UnionWith savedParams
-            // a modifier on a base case (`memo f 0 = 1`) applies to the whole function
-            let wrap = match clauses.TryGetValue f with | true, (_, _, Some m) when modifier.IsNone -> (fun fn -> ECall(m, [ fn ])) | _ -> wrap
-            let body =
-                match clauses.TryGetValue f with
-                | true, (n, gs, _) ->
-                    clauses.Remove f |> ignore
-                    if n <> List.length ps then errAt defAt $"'{f}' has {List.length ps} parameters but its base cases have {n}"
-                    gs @ body
-                | _ -> body
-            let fn = EBlock(id, ps, body)
-            SAssign([ EVar f ], [ wrap fn ])
+        match Parser.StmtForms |> Seq.tryPick (fun f -> f p) with
+        | Some st -> st
         | None ->
         match p.AssignAhead() with
         | Some "=" ->
@@ -299,8 +281,6 @@ type Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>,
             | [ EVar a ], [ EVar f ] when fnames.Contains f -> fnames.Add a |> ignore
             | _ -> for lv in lvs do (match lv with EVar a when builtins.Contains a && not (fnames.Contains a) -> shadowed.Add a |> ignore | _ -> ())
             match lvs, rhs with
-            | [ EVar f ], [ EBlock _ as fn ] when modifier.IsSome -> SAssign([ EVar f ], [ wrap fn ])
-            | _ when modifier.IsSome -> errAt modAt $"{modifier.Value} marks a function: {modifier.Value} f x = … or {modifier.Value} f = {{…}}"
             | [ EVar a ], [ EVar _ ] when stdAliases.ContainsKey a -> SExpr(EInt 0L)
             | _ -> SAssign(lvs, rhs)
         | Some op when op <> ":=" ->
@@ -325,106 +305,6 @@ type Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>,
             | _ -> ()
             k <- k - 1
         pending > 0
-
-    /// `name param {param} =` starts a function definition: Some(name, params, index of `=`).
-    /// A param is a name or `(a, b, …)`, which unpacks a tuple or array argument (`_` skips an element).
-    member p.FnDefAhead() =
-        let name j = match tokens.[j].tok with ID n when assignable n -> Some n | _ -> None
-        let rec group j acc =
-            let name j = if tokens.[j].tok = ID "_" then Some "_" else name j // `_` skips an element
-            match name j, tokens.[j + 1].tok with
-            | Some n, SYM "," -> group (j + 2) (n :: acc)
-            | Some n, SYM ")" -> Some(List.rev (n :: acc), j + 2)
-            | _ -> None
-        let param j =
-            match name j with
-            | Some n -> Some([ n ], j + 1)
-            | None when tokens.[j].tok = SYM "(" -> group (j + 1) []
-            | None -> None
-        let rec pars j acc =
-            match param j with
-            | Some(ps, j) -> pars j (ps :: acc)
-            | None -> List.rev acc, j
-        match name pos with
-        | Some f when not (foreign.ContainsKey f) ->
-            match pars (pos + 1) [] with
-            | ps, j when not ps.IsEmpty && tokens.[j].tok = SYM "=" -> Some(f, ps, j)
-            | _ -> None
-        | _ -> None
-
-    /// `name pattern {pattern} =` with a literal somewhere: a base case of f (`f 0 (1, x) [a, b] = a + x`).
-    /// A pattern is a name, `_`, a literal, `(p, …)` (a tuple) or `[p, …]` (an array of exactly that length).
-    member p.ClauseAhead() : (string * Pat list * int) option =
-        let rec pat j =
-            match tokens.[j].tok with
-            | ID n when n = "_" || assignable n -> Some(PName n, j + 1)
-            | INT n -> Some(PLit(EInt n), j + 1)
-            | FLOAT x -> Some(PLit(EFloat x), j + 1)
-            | BOOL b -> Some(PLit(EBool b), j + 1)
-            | STR [] -> Some(PLit(EStr ""), j + 1)
-            | STR [ Lit s ] -> Some(PLit(EStr s), j + 1)
-            | SYM "-" -> (match tokens.[j + 1].tok with INT n -> Some(PLit(EInt -n), j + 2) | FLOAT x -> Some(PLit(EFloat -x), j + 2) | _ -> None)
-            | SYM("(" | "[" | "f[" as o) ->
-                let close = if o = "(" then ")" else "]"
-                let rec items j acc =
-                    if tokens.[j].tok = SYM close && (o <> "(" || not (List.isEmpty acc)) then Some(PGroup(o <> "(", List.rev acc), j + 1) else
-                    match pat j with
-                    | Some(x, k) when tokens.[k].tok = SYM "," -> items (k + 1) (x :: acc)
-                    | Some(x, k) when tokens.[k].tok = SYM close -> items k (x :: acc)
-                    | _ -> None
-                items (j + 1) []
-            | _ -> None
-        let rec lit x = match x with PLit _ -> true | PName _ -> false | PGroup(arr, xs) -> arr || List.exists lit xs
-        let rec pats j acc =
-            match pat j with
-            | Some(x, k) -> pats k (x :: acc)
-            | None -> List.rev acc, j
-        match tokens.[pos].tok with
-        | ID f when assignable f && not (foreign.ContainsKey f) && not (builtins.Contains f) ->
-            match pats (pos + 1) [] with
-            | ps, j when List.exists lit ps && tokens.[j].tok = SYM "=" -> Some(f, ps, j)
-            | _ -> None
-        | _ -> None
-
-    /// A base case becomes a hidden function `f'k` of its pattern's names, and a guard `cond ? ret: f'k: names`
-    /// that f's general definition puts first in its body.
-    member p.Clause(f, pats: Pat list, eq, modifier: string option) =
-        let l = line ()
-        pos <- eq + 1
-        let conds, binds = ResizeArray(), ResizeArray()
-        let rec walk v x =
-            match x with
-            | PName "_" -> ()
-            | PName n -> binds.Add(n, v)
-            | PLit e -> conds.Add(EBin("=", v, e))
-            | PGroup(arr, xs) ->
-                if arr then conds.Add(EBin("=", EUn("#", v), EInt(int64 xs.Length)))
-                xs |> List.iteri (fun i x -> walk (EIndex(v, EInt(int64 i))) x)
-        pats |> List.iteri (fun i x -> walk (EVar $"_{i + 1}") x)
-        let names = binds |> Seq.map fst |> List.ofSeq
-        if List.distinct names <> names then errAt eq $"a name appears twice in a base case of '{f}'"
-        let saved, savedParams = HashSet shadowed, HashSet params
-        for n in names do
-            if builtins.Contains n then shadowed.Add n |> ignore
-            params.Add n |> ignore
-        let body = if accept "{" then p.Block "}" else [ SLine(line ()); SExpr(p.Expr()) ]
-        shadowed.Clear(); shadowed.UnionWith saved
-        params.Clear(); params.UnionWith savedParams
-        // a later condition indexes into what an earlier one checked the length of: `c1 ? c2 : F`, not `c1 & c2`
-        let cond = Seq.reduceBack (fun c rest -> ETern(c, rest, EBool false)) conds
-        nextId.Value <- nextId.Value + 1
-        let id = nextId.Value
-        let value, def =
-            if names.IsEmpty then EGroup body, SExpr(EInt 0L)
-            else
-                let h = $"{f}'{id}"
-                fnames.Add h |> ignore
-                ECall(callMark + h, List.ofSeq (Seq.map snd binds)), SAssign([ EVar h ], [ EBlock(id, names |> List.map (fun n -> [ n ]), body) ])
-        let guard = SExpr(ETern(cond, EGroup [ SExpr(ECall(callMark + "ret", [ value ])); SExpr(EInt 0L) ], EInt 0L))
-        let n, gs, m = match clauses.TryGetValue f with | true, c -> c | _ -> pats.Length, [], None
-        if n <> pats.Length then errAt eq $"base cases of '{f}' have different numbers of parameters"
-        clauses.[f] <- (n, gs @ [ SLine l; guard ], (if m.IsSome then m else modifier))
-        def
 
     /// Does `lvalue {, lvalue} =` (or `lvalue op=`) start here? Walks the tokens LValues would take; Some the operator.
     member p.AssignAhead() : string option =
