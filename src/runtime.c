@@ -620,20 +620,19 @@ char *ns_read(void) {
   return r;
 }
 
-// All remaining lines of f (without '\n').
-static void *flines(FILE *f) {
-  Arr *r = ns_arr_new("AS", 16);
-  char *line = NULL; size_t cap = 0; ssize_t n;
-  while ((n = getline(&line, &cap, f)) > 0) {
+// All remaining lines of f (without '\n'); one stopped early leaves the rest unread.
+static GEN flines(FILE *f, SINK) {
+  char *line = NULL; size_t cap = 0; ssize_t n; int64_t more = 1;
+  while (more && (n = getline(&line, &cap, f)) > 0) {
     if (line[n - 1] == '\n') n--;
-    spush(r, line, n);
+    more = ystr(line, n, sink_, env_);
   }
   free(line);
-  return r;
+  return more;
 }
-//@ lines () [str]
+//@ lines () *str
 //? all remaining stdin lines
-void *ns_lines(void) { return flines(stdin); }
+GEN ns_lines(SINK) { return flines(stdin, sink_, env_); }
 
 // ---------- tostr / print / join ----------
 typedef struct { char *p; size_t n, cap; } Buf;
@@ -664,9 +663,9 @@ char *ns_read_file(char *path) {
   fclose(f);
   return done(&b);
 }
-//@ lines (str) [str] = ns_lines_file
+//@ lines (str) *str = ns_lines_file
 //? lines of a file, without `\n`
-void *ns_lines_file(char *path) { FILE *f = fopen_or_die(path); void *r = flines(f); fclose(f); return r; }
+GEN ns_lines_file(char *path, SINK) { FILE *f = fopen_or_die(path); int64_t r = flines(f, sink_, env_); fclose(f); return r; }
 // Runs cmd through /bin/sh (stdout/stderr pass through); returns its exit code, 128+signal if killed.
 //@ spawn (str) int
 //? runs a shell command, returns its exit code
