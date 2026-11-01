@@ -22,5 +22,4 @@ src/.vscode/
 *.sln.DotSettings.user
 src/bench/graph.txt
 
-src/nsc/build/
 dist/

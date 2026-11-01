@@ -1,7 +1,7 @@
 # What to cut from the NS compiler
 
 About 1,200 lines of the compiler's ~5,900 can go without losing anything that matters. Most of them sit in a few
-features that nothing outside their own single test uses: no example program, no benchmark, and not `nsc`.
+features that nothing outside their own single test uses: no example program and no benchmark.
 
 This is a research report: no source files were changed. Line numbers refer to commit `5712f59`.
 
@@ -32,7 +32,6 @@ This is a research report: no source files were changed. Line numbers refer to c
   - the `pureLL` and `runtimeIR` code in `Program.fs`
   - the `CompileRuntime` target and the `runtime.ll` file in `NS.fsproj`
   - the `ns ll` command, which `clang -S -emit-llvm` on the `ns c` output replaces.
-- This also halves the cost of every future backend change. `nsc` writes its own LLVM IR, so it isn't affected.
 
 **2. Graphs `G[..]` / `DG[..]`. Saves about 170 lines.**
 - Where:
@@ -158,5 +157,4 @@ These were checked and pull their weight:
 4. Cut `G` and the keyed form of `BT`.
 5. Cut the front-end sugar (#5, #6, #8, #10, #11).
 
-Taken together that is roughly 1,200 lines. Each cut removes its feature's test, its section in `SPEC.md`, and the
-matching code in `nsc`.
+Taken together that is roughly 1,200 lines. Each cut removes its feature's test and its section in `SPEC.md`.
