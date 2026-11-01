@@ -814,9 +814,9 @@ and private builtin name (args: E list) : E =
         | TInt | TFloat | TBool | TFn _ as t -> err ($"can't destructure {showT t} into {n} names")
         | _ -> x
     | "repeat", [ x; n ] -> typed (Call("repeat", [ own (value x); conv n TInt ])) (TArr x.t)
-    | "zip", [ a; b ] when resolve a.t = TStr || resolve b.t = TStr -> // a string zips its characters
+    | "zip", a :: b :: sink when sink.Length <= 1 && (resolve a.t = TStr || resolve b.t = TStr) -> // a string zips its characters (sink: zip streams)
         let chars (x: E) = if resolve x.t = TStr then stdCall "chars" [ x ] else x
-        stdCall "zip" [ chars a; chars b ]
+        stdCall "zip" ([ chars a; chars b ] @ sink)
     | _ when Stdlib.names.Contains name -> stdCall name args
     | _ -> err ($"unknown function '{name}' with {args.Length} argument(s)" + didYouMean name Parser.builtins)
 

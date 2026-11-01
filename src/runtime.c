@@ -1036,40 +1036,30 @@ int64_t ns_gcd(int64_t a, int64_t b) { // unsigned magnitudes: -INT64_MIN would 
   while (y) { uint64_t t = x % y; x = y; y = t; }
   return (int64_t)x;
 }
-//@ zip ([A],[B]) [(A,B)]
+//@ zip ([A],[B]) *(A,B)
 //? pairs up two arrays, stops at the shorter: `zip:[1,2],"ab"` → `[(1,"a"),(2,"b")]`
-void *ns_zip(const char *dA, const char *dB, const char *dR, void *a, void *b) { // stops at the shorter array
-  int val = dR[1] == 'V';
-  Arr *x = a, *y = b, *r = ns_arr_new(dR, 0);
-  int64_t n = x->len < y->len ? x->len : y->len;
-  for (int64_t i = 0; i < n; i++) {
-    if (val) { char t[16] = {0}; memcpy(t, x->data + i * x->esz, x->esz); memcpy(t + 8, y->data + i * y->esz, y->esz); apush(r, t); continue; }
-    void *t = ns_tup_new(dR + 1);
-    ns_tup_set(t, 0, x->data + i * x->esz); ns_tup_set(t, 1, y->data + i * y->esz);
-    apush(r, &t);
-  }
-  return r;
+GEN ns_zip(const char *dA, const char *dB, const char *dR, void *a, void *b, SINK) { // stops at the shorter array
+  Arr *x = a, *y = b; int64_t n = x->len < y->len ? x->len : y->len;
+  for (int64_t i = 0; i < n && i < x->len && i < y->len; i++) // lengths re-read: the consumer may shrink the arrays
+    if (!ypair(dR, x->data + i * x->esz, x->esz, y->data + i * y->esz, y->esz, sink_, env_)) return 0;
+  return 1;
 }
-//@ cross ([A],[B]) [(A,B)]
+//@ cross ([A],[B]) *(A,B)
 //? every `(x,y)`, x-major: `cross:[1,2],[T,F]`
-void *ns_cross(const char *dA, const char *dB, const char *dR, void *a, void *b) { // every (x, y), x-major
-  int val = dR[1] == 'V';
-  Arr *x = a, *y = b, *r = ns_arr_new(dR, 0);
-  for (int64_t i = 0; i < x->len; i++)
-    for (int64_t j = 0; j < y->len; j++) {
-      if (val) { char t[16] = {0}; memcpy(t, x->data + i * x->esz, x->esz); memcpy(t + 8, y->data + j * y->esz, y->esz); apush(r, t); continue; }
-      void *t = ns_tup_new(dR + 1);
-      ns_tup_set(t, 0, x->data + i * x->esz); ns_tup_set(t, 1, y->data + j * y->esz);
-      apush(r, &t);
-    }
-  return r;
+GEN ns_cross(const char *dA, const char *dB, const char *dR, void *a, void *b, SINK) { // every (x, y), x-major
+  Arr *x = a, *y = b; int64_t nx = x->len, ny = y->len;
+  for (int64_t i = 0; i < nx && i < x->len; i++)
+    for (int64_t j = 0; j < ny && j < y->len; j++)
+      if (!ypair(dR, x->data + i * x->esz, x->esz, y->data + j * y->esz, y->esz, sink_, env_)) return 0;
+  return 1;
 }
-//@ cross (int,int) [(int,int)] = ns_cross_n
+//@ cross (int,int) *(int,int) = ns_cross_n
 //? `cross:n,m` = `cross:0..n,0..m`
-void *ns_cross_n(const char *dR, int64_t a, int64_t b) { // cross:0..a,0..b
-  void *x = ns_range(0, a), *y = ns_range(0, b), *r = ns_cross("I", "I", dR, x, y);
-  ns_release(x); ns_release(y);
-  return r;
+GEN ns_cross_n(const char *dR, int64_t a, int64_t b, SINK) { // cross:0..a,0..b (a negative bound counts down)
+  for (int64_t i = 0; i != a; i += a < 0 ? -1 : 1)
+    for (int64_t j = 0; j != b; j += b < 0 ? -1 : 1)
+      if (!ypair(dR, &i, 8, &j, 8, sink_, env_)) return 0;
+  return 1;
 }
 //@ items ({K:V}) *(K,V)
 //? `(key, value)` pairs in hash order
@@ -1124,17 +1114,22 @@ void ns_tuple2(const char *dT, const char *dR, void *a, void *out) { tuplen(dT, 
 //@ tuple3 ([T]) (T,T,T)
 //? first three elements as a tuple
 void ns_tuple3(const char *dT, const char *dR, void *a, void *out) { tuplen(dT, dR, a, 3, out); }
-//@ pairwise ([T]) [(T,T)]
+//@ pairwise ([T]) *(T,T)
 //? adjacent pairs: `pairwise:[1,2,3]` → `[(1,2),(2,3)]`
-void *ns_pairwise(const char *dT, const char *dR, void *a) { // [1,2,3] -> [(1,2),(2,3)]
-  Arr *x = a; void *t = ns_arr_slice(a, 1, x->len), *r = ns_zip(dT, dT, dR, a, t);
-  ns_release(t); return r;
+GEN ns_pairwise(const char *dT, const char *dR, void *a, SINK) { // [1,2,3] -> [(1,2),(2,3)]
+  Arr *x = a; int64_t n = x->len;
+  for (int64_t i = 0; i + 1 < n && i + 1 < x->len; i++)
+    if (!ypair(dR, x->data + i * x->esz, x->esz, x->data + (i + 1) * x->esz, x->esz, sink_, env_)) return 0;
+  return 1;
 }
-//@ pairwise (str) [(str,str)] = ns_pairwise_s
+//@ pairwise (str) *(str,str) = ns_pairwise_s
 //? adjacent character pairs
-void *ns_pairwise_s(const char *dR, char *s) { // "abc" -> [("a","b"),("b","c")]
-  void *c = ns_arr_s(s), *r = ns_pairwise("S", dR, c);
-  ns_release(c); return r;
+GEN ns_pairwise_s(const char *dR, char *s, SINK) { // "abc" -> [("a","b"),("b","c")]
+  for (; s[0] && s[1]; s++) {
+    char *a = chr(s[0]), *b = chr(s[1]); // immortal
+    if (!ypair(dR, &a, 8, &b, 8, sink_, env_)) return 0;
+  }
+  return 1;
 }
 // Grid neighbours of a (row, col) cell, clockwise: nb4 up right down left; nb8 from up-left. With a bound
 // (width w then height h, or a grid whose #g and #(g@0) give it) cells outside 0<=r<h, 0<=c<w are dropped.
