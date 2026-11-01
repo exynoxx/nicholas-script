@@ -829,14 +829,31 @@ void *ns_toarr(const char *d, void *c) {
   }
 }
 
-//@ keys ({K:V}) [K]
+// Yields the pair (*a, *b) (na, nb bytes) as a tuple of descriptor d: a value tuple inline, a boxed one fresh.
+static GEN ypair(const char *d, const void *a, int64_t na, const void *b, int64_t nb, SINK) {
+  if (*d == 'V') { char t[16] = {0}; memcpy(t, a, na); memcpy(t + 8, b, nb); return YIELDP(t); }
+  void *t = ns_tup_new(d); ns_tup_set(t, 0, a); ns_tup_set(t, 1, b);
+  int m = YIELD(t); ns_release(t); return m;
+}
+// Map generators walk the live slots; adding or removing keys meanwhile would move them, so it is an error.
+static void mapsame(Map *m, int64_t len, char *st) { if (m->len != len || m->st != st) ns_panic("map changed while iterating it"); }
+//@ keys ({K:V}) *K
 //? keys in hash order
-//@ arr ({K:V}) [K] = ns_keys
+GEN ns_keys(const char *dK, const char *dV, void *p, SINK) {
+  Map *m = p; int64_t len = m->len; char *st = m->st;
+  for (int64_t i = 0; i < m->cap; i++, mapsame(m, len, st)) if (st[i] == 1 && !YIELDP(m->keys + i * m->ksz)) return 0;
+  return 1;
+}
+//@ arr ({K:V}) [K] = ns_keys_arr
 //? keys in hash order
-void *ns_keys(const char *dK, const char *dV, void *m) { return ns_toarr("M", m); }
-//@ vals ({K:V}) [V]
+void *ns_keys_arr(const char *dK, const char *dV, void *m) { return ns_toarr("M", m); }
+//@ vals ({K:V}) *V
 //? values in hash order
-void *ns_vals(const char *dK, const char *dV, void *m) { return ns_map_vals(m); }
+GEN ns_vals(const char *dK, const char *dV, void *p, SINK) {
+  Map *m = p; int64_t len = m->len; char *st = m->st;
+  for (int64_t i = 0; i < m->cap; i++, mapsame(m, len, st)) if (st[i] == 1 && !YIELDP(m->vals + i * m->vsz)) return 0;
+  return 1;
+}
 //@ arr ([T]) [T]
 //? converts a collection to an array (copy)
 //@ arr (%[T]) [T]
@@ -1054,12 +1071,13 @@ void *ns_cross_n(const char *dR, int64_t a, int64_t b) { // cross:0..a,0..b
   ns_release(x); ns_release(y);
   return r;
 }
-//@ items ({K:V}) [(K,V)]
+//@ items ({K:V}) *(K,V)
 //? `(key, value)` pairs in hash order
-void *ns_items(const char *dK, const char *dV, const char *dR, void *m) { // (key, value) pairs in hash order
-  void *k = ns_toarr("M", m), *v = ns_map_vals(m), *r = ns_zip(dK, dV, dR, k, v);
-  ns_release(k); ns_release(v);
-  return r;
+GEN ns_items(const char *dK, const char *dV, const char *dR, void *p, SINK) { // (key, value) pairs in hash order
+  Map *m = p; int64_t len = m->len; char *st = m->st;
+  for (int64_t i = 0; i < m->cap; i++, mapsame(m, len, st))
+    if (st[i] == 1 && !ypair(dR, m->keys + i * m->ksz, m->ksz, m->vals + i * m->vsz, m->vsz, sink_, env_)) return 0;
+  return 1;
 }
 static const char *dintern(const char *d);
 //@ map ([(K,V)]) {K:V}
