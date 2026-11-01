@@ -648,7 +648,7 @@ let private dce (cx: Ctx) (prog: Program) (insts: Inst list) =
         let le, ls = occurrences local (HashSet())
         iterE le ls e
         not s.effect && not s.partial && not s.refWrite && s.mutates.Count = 0
-        && s.writes |> Seq.forall (fun u -> isTemp u && local.[u] = all.[u])
+        && s.writes |> Seq.forall (fun u -> isTemp u && local.GetValueOrDefault u = all.GetValueOrDefault u) // a callback may write elsewhere
     let rec sweep (ss: S list) : S list =
         ss |> List.choose (fun s ->
             match s with

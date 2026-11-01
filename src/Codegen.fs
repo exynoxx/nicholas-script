@@ -483,7 +483,7 @@ let generate (prog: Program) : string =
                 let out = outCell e.t
                 rt "void" sg.csym (descs @ cargs @ [ "ptr", out ]) |> ignore
                 loadFrom out e.t
-            | Stdlib.SBool ->
+            | Stdlib.SBool | Stdlib.SGen _ -> // a generator gives whether its sink still wants more
                 let b = rt "i64" sg.csym (descs @ cargs)
                 instr $"icmp ne i64 {b}, 0"
             | _ -> rt (llty e.t) sg.csym (descs @ cargs)

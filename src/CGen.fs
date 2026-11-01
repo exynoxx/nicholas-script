@@ -378,7 +378,7 @@ let generate (prog: Program) : string =
                 let out = outCell e.t
                 rt "void" sg.csym (descs @ cargs @ [ out ]) |> ignore
                 loadFrom out e.t
-            | Stdlib.SBool -> instr "bool" (rt "int64_t" sg.csym (descs @ cargs) + " != 0")
+            | Stdlib.SBool | Stdlib.SGen _ -> instr "bool" (rt "int64_t" sg.csym (descs @ cargs) + " != 0")
             | _ -> rt (cty e.t) sg.csym (descs @ cargs)
         for (v, t) in owned do release v t
         r

@@ -140,14 +140,26 @@ let private lazyCall (e: E) =
         | _ -> None
     | _ -> None
 
+/// `f:args` with f a generator stdlib function (`//@ f (…) *T`, see Stdlib.fs) and no user function: Some(f, args).
+let private genCall (e: E) =
+    match e.k with
+    | Call(name, args) when not (name.StartsWith negMark) -> // `?f`: a bare name, a call when no variable has it
+        let f = if name.StartsWith callMark || name.StartsWith nameMark then name.Substring 1 else name
+        let sigs = Stdlib.overloads f
+        if (name = f || (lookup f).IsNone)
+           && not (sigs |> List.exists (fun sg -> not (Stdlib.isGen sg) && sg.parms.Length = args.Length))
+           && sigs |> List.exists (fun sg -> Stdlib.isGen sg && Stdlib.arity sg = args.Length) then Some(f, args)
+        else None
+    | _ -> None
+
 /// The source of an untyped map/filter chain (e itself when it is none).
 let rec private chainSrc (e: E) =
     match e.k with
     | Iter it when e.t = TUnk && (it.kind = IMap || it.kind = IFilter) -> chainSrc it.src
     | _ -> e
 
-/// Is e a `lazy` call, or a map/filter chain fed by one?
-let private streams (e: E) = e.t = TUnk && (lazyCall (chainSrc e)).IsSome
+/// Is e a `lazy` or generator call, or a map/filter chain fed by one?
+let private streams (e: E) = e.t = TUnk && ((lazyCall (chainSrc e)).IsSome || (genCall (chainSrc e)).IsSome)
 
 /// e's chain source replaced by h.
 let rec private withChainSrc (e: E) (h: E) =
@@ -464,6 +476,9 @@ and private typeAt (e: E) : E =
             let send (x: E) = Assign(m, mk (Call(sink, [ x ])))
             match lazyCall e with
             | Some(id, _, args) -> typeE (mk (Seq([ Assign(m, mk (Call("%lazy", mk (Int(int64 id)) :: args @ [ mk (Var sink) ]))) ], mk (Int 0L))))
+            | None when (genCall e).IsSome ->
+                let f, args = (genCall e).Value
+                typeE (mk (Seq([ Assign(m, mk (Call(f, args @ [ mk (Var sink) ]))) ], mk (Int 0L))))
             | None ->
                 let h = chainSrc e
                 let th = typeE h
@@ -549,14 +564,19 @@ and private typeIterInto0 (toSet: bool) (it: Iter) (limit: E option) (count: boo
         | Iter inner when it.src.t = TUnk && (inner.kind = IMap || inner.kind = IFilter) -> chain inner (it :: acc)
         | _ -> it :: acc
     let stages = chain it []
-    // a `lazy` call feeding a chain streams into it: the stages run per element, no array
+    // a `lazy` or generator call feeding a chain streams into it: the stages run per element, no array
     let lazySrc =
-        match lazyCall stages.Head.src with
-        | Some(id, f, args) ->
+        match lazyCall stages.Head.src, genCall stages.Head.src with
+        | Some(id, f, args), _ ->
             let args = args |> List.map (typeE >> own)
             let plain = typeE { stages.Head.src with k = Call(f, args) } // types the call, gives the result type
             let feed fn = mk (Call("%lazy", mk (Int(int64 id)) :: args @ [ fn ]))
             Some(plain, (match resolve plain.t with TArr _ -> Some feed | _ -> None))
+        | None, Some(f, args) ->
+            // a generator takes the sink as its last argument; the stand-in source only says "an array" (the sink's
+            // parameter gets the element type when the call is typed)
+            let args = args |> List.map (typeE >> own)
+            Some(typed (Arr []) (TArr(newHole ())), Some(fun fn -> mk (Call(f, args @ [ fn ]))))
         | _ -> None
     let feed = lazySrc |> Option.bind snd
     let src = match lazySrc with Some(plain, _) -> plain | None -> typeE stages.Head.src
@@ -819,6 +839,7 @@ and private stdCall name (args: E list) : E =
         | Stdlib.SBT t -> TTree(toTy env t, None)
         | Stdlib.STup ts -> TTup(List.map (toTy env) ts)
         | Stdlib.SFn _ -> err "nested block types are not supported"
+        | Stdlib.SGen _ -> TBool // a generator fed its sink: whether the sink still wants more
     /// binds unbound variables from the actual type; true when no conversion is needed
     let rec bind (env: Dictionary<string, Ty>) (p: Stdlib.STy) (t: Ty) : bool =
         match p, resolve t with
@@ -832,7 +853,15 @@ and private stdCall name (args: E list) : E =
         | Stdlib.SFn _, TFn _ -> true
         | Stdlib.SInt, TInt | Stdlib.SFloat, TFloat | Stdlib.SStr, TStr | Stdlib.SBool, TBool -> true
         | _ -> false
-    let candidates = Stdlib.overloads name |> List.filter (fun (sg: Stdlib.Sig) -> sg.parms.Length = args.Length)
+    let isBlock (a: E) = match resolve a.t with TFn _ -> true | _ -> false
+    let candidates =
+        Stdlib.overloads name
+        |> List.filter (fun (sg: Stdlib.Sig) -> sg.parms.Length = args.Length && not (Stdlib.isGen sg && not (isBlock (List.last args)))) // a generator only with its sink (args has one then)
+    // a generator called without its sink: the identity map over it, whose loop (a stream source, see genCall) pushes each element
+    if candidates.IsEmpty && Stdlib.overloads name |> List.exists (fun sg -> Stdlib.isGen sg && Stdlib.arity sg = args.Length) then
+        let el = Desugar.fresh "_"
+        typeE (mk (Iter { kind = IMap; src = mk (Call(name, args)); el = el; ix = Desugar.fresh "@"; acc = Desugar.fresh "$"; body = [ Do(mk (Var el)) ]; post = [] }))
+    else
     if candidates.IsEmpty then err ($"{name}: no overload takes {args.Length} argument(s)")
     // no overload fits: list them all, e.g. "max takes (T,T), [T] or BT T, not str"
     let mismatch () =
@@ -850,7 +879,7 @@ and private stdCall name (args: E list) : E =
                 // one tuple for a block that names `_1 _2 …` (or takes several parameters): its parts, as in a map block
                 let id =
                     match pts with
-                    | [ pt ] when (Desugar.namesParts.Contains id || Desugar.arity.[id] > 1) && not (memos.Contains id) ->
+                    | [ pt ] when (Desugar.namesParts.Contains id || Desugar.arity.GetValueOrDefault id > 1) && not (memos.Contains id) ->
                         match resolve (toTy env pt) with TTup _ -> spreadBlock id | _ -> id
                     | _ -> id
                 let call = userCall id (pts |> List.map (fun pt -> typed (Int 0L) (toTy env pt)))
@@ -870,7 +899,7 @@ and private stdCall name (args: E list) : E =
     // descriptors are rendered by codegen, once every hole is resolved
     let descs = sg.tvars |> List.map (fun v -> typed Desc (toTy env (Stdlib.SVar v)))
     let ret = toTy env sg.ret
-    let rdesc = if sg.rdesc then [ typed Desc ret ] else []
+    let rdesc = if sg.rdesc then [ typed Desc (match sg.ret with Stdlib.SGen t -> toTy env t | _ -> ret) ] else [] // a generator: its element's
     typed (StdCall(sg, descs @ rdesc @ args)) ret
 
 /// `t + x`, `t - x`, `has(t, x)` on a tree: the runtime gets the element and its key (the element itself
@@ -899,7 +928,10 @@ and private lazyArgs (x: E) =
     | Some(_, f, args) ->
         let call = { h with k = Call(f, args |> List.map (typeE >> own)) }
         withChainSrc x call, (match resolve (typeE call).t with TArr _ -> true | _ -> false)
-    | None -> x, false
+    | None ->
+        match genCall h with
+        | Some(_, args) -> withChainSrc x { h with k = Call((match h.k with Call(n, _) -> n | _ -> ""), args |> List.map (typeE >> own)) }, true
+        | None -> x, false
 
 /// The sink-passing version of `lazy` function `id` called with n arguments: one more parameter, the sink block.
 and private lazySink id n =

@@ -76,6 +76,18 @@ static inline void retv(const char *d, const void *p) { if (ptrk(d)) ns_retain(l
 static inline void relv(const char *d, const void *p) { if (ptrk(d)) ns_release(ldp(p)); }
 static inline void cpy(const char *d, void *dst, const void *src) { memmove(dst, src, esz(d)); retv(d, src); } // copy + retain
 
+typedef void (*ns_fn)(void *env, const void *x, void *out); // a compiled NS block: borrowed x, owned *out
+// Generators (`//@ name (params) *T`): instead of returning an array, the function hands each element to the
+// consumer's sink block, which the compiler fuses with the consumer's loop (no array is built unless the consumer
+// needs one). Declare it `GEN name(params..., SINK)`; `YIELD(v)` passes a value (YIELDP(p): a pointer to its storage)
+// and is false once the consumer wants no more: then free what you hold and `return 0`; at the end `return 1`.
+// Yielded elements are lent: the sink retains what it keeps, so release a fresh string/tuple after yielding it.
+// always_inline: the producer, then the (known) sink, inline into the consumer: one loop.
+#define GEN __attribute__((always_inline)) int64_t
+#define SINK ns_fn sink_, void *env_
+#define YIELDP(p) ({ unsigned char m_[8] = {0}; sink_(env_, (p), m_); m_[0]; })
+#define YIELD(v) ({ __typeof__(v) y_ = (v); YIELDP(&y_); })
+
 // Returns a pointer just past the descriptor starting at d.
 static const char *skip(const char *d) {
   switch (*d) {
@@ -1201,16 +1213,16 @@ int64_t ns_starts(char *s, char *p) { return strncmp(s, p, strlen(p)) == 0; }
 //@ ends (str,str) bool
 //? suffix test
 int64_t ns_ends(char *s, char *p) { size_t n = strlen(s), m = strlen(p); return m <= n && strcmp(s + n - m, p) == 0; }
-//@ nums (str) [int]
+//@ nums (str) *int
 //? every integer in s: `nums:"x=3, y=-4"` → `[3,-4]`
-void *ns_nums(char *s) { // every integer; '-' is a sign unless it follows a letter or digit ("1-3" is [1,3])
-  Arr *r = ns_arr_new("AI", 4);
+GEN ns_nums(char *s, SINK) { // every integer; '-' is a sign unless it follows a letter or digit ("1-3" is [1,3])
   for (char *c = s; *c;) {
     int neg = *c == '-' && isdigit((unsigned char)c[1]) && (c == s || !isalnum((unsigned char)c[-1]));
     if (!isdigit((unsigned char)*c) && !neg) { c++; continue; }
-    char *e; int64_t v = strtoll(c, &e, 10); apush(r, &v); c = e;
+    char *e; int64_t v = strtoll(c, &e, 10); c = e;
+    if (!YIELD(v)) return 0;
   }
-  return r;
+  return 1;
 }
 //@ trim (str) str
 //? strips leading and trailing whitespace
@@ -1233,7 +1245,6 @@ char *ns_replace(char *s, char *a, char *b) { // every occurrence of a in s repl
 }
 
 // ---------- stdlib: math, search, folds, block callbacks ----------
-typedef void (*ns_fn)(void *env, const void *x, void *out); // a compiled NS block: borrowed x, owned *out
 
 //@ min (T,T) T = ns_min2
 //? smaller of two values

@@ -1,0 +1,29 @@
+# generator stdlib functions (`//@ f (…) *T`) stream into their consumer: no array unless one is needed
+s = "x=3, y=-4; 10 20 7"
+# full consumers: fold, count, set, map, each
+println:(nums:s){_*2}/+
+println:#nums:s
+println:#(nums:s)[>5]
+println:(nums:s).set
+println:(nums:s){_+1}
+(nums:"1 2"){println:_}
+# early exit: index, take, any, has, first match
+println:(nums:s)@1
+println:(nums:s)[>5]@0
+println:(nums:s).take:2
+println:(nums:s){_<0}.any
+println:(nums:s)@?10
+# a consumer that needs the array gets one
+a = nums:s
+println:a
+println:rev:a
+# side effects interleave per element; the consumer's variables are updated by the sink
+n = 0
+(nums:s){n += 1; print:_; print:" "}
+println:n
+# inside a function and a lazy function
+f t = (nums:t)/+
+println:f:"1 2 3"
+lazy g t = nums:t
+println:(g:"5 6 7")@1
+println:(g:"5 6 7")/+

@@ -190,8 +190,8 @@ let rec private tyOf (e: E) : Ty option =
             | ("min" | "max" | "abs"), x :: _ -> tyOf x
             | _ ->
                 Stdlib.overloads f
-                |> List.tryFind (fun s -> s.parms.Length = args.Length)
-                |> Option.bind (fun s -> ofSTy s.ret)
+                |> List.tryFind (fun s -> Stdlib.arity s = args.Length)
+                |> Option.bind (fun s -> ofSTy (match s.ret with Stdlib.SGen t -> Stdlib.SArr t | t -> t))
     | Index(x, i) ->
         match tyOf x, i.k with
         | Some(TTup ts), Int k when int k < ts.Length -> Some(resolve ts.[int k])

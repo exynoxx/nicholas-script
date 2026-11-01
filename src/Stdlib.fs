@@ -1,7 +1,8 @@
 /// The standard library lives in runtime.c. Each function there is declared by a signature comment
 ///   //@ name (param, ...) result [= c_symbol]
 /// with types int float str bool, type variables (single capitals), [t] arrays, {k:v} maps, %[t] sets, Q[t] and PQ[t]
-/// queues, BT[t] sorted trees, (a,b) tuples and fn(t)->r blocks.
+/// queues, BT[t] sorted trees, (a,b) tuples and fn(t)->r blocks. A result *t makes a generator: it yields t's to a
+/// sink block (an extra last parameter fn(t)->bool, "want more") instead of returning an array; see runtime.c.
 /// The C function receives one descriptor (const char*) per type variable first, then its arguments;
 /// a result type containing a tuple also passes the result's descriptor (after the type variables'), so the
 /// runtime never rebuilds a tuple layout itself. Type-variable values and tuples travel as pointers to their storage, a block as
@@ -25,6 +26,7 @@ type STy =
     | SQ of STy
     | SPQ of STy
     | SBT of STy
+    | SGen of STy // a generator's result: yields t's to its sink
 
 /// A signature type in the notation of the docs (SPEC.md), for error messages.
 let rec showSTy (t: STy) =
@@ -42,6 +44,7 @@ let rec showSTy (t: STy) =
     | SQ t -> "Q " + showSTy t
     | SPQ t -> "PQ " + showSTy t
     | SBT t -> "BT " + showSTy t
+    | SGen t -> "*" + showSTy t
 
 type Sig = { name: string; parms: STy list; ret: STy; csym: string; tvars: string list; rdesc: bool }
 
@@ -55,6 +58,7 @@ let rec private parseTy (s: string) : STy =
     | _ when s.StartsWith "fn(" ->
         let close = s.IndexOf ")->"
         SFn(splitTop ',' (s.Substring(3, close - 3)) |> List.map parseTy, parseTy (s.Substring(close + 3)))
+    | _ when s.StartsWith "*" -> SGen(parseTy (s.Substring 1))
     | _ when s.StartsWith "%[" -> SSet(parseTy (s.Substring(2, s.Length - 3)))
     | _ when s.StartsWith "Q[" -> SQ(parseTy (s.Substring(2, s.Length - 3)))
     | _ when s.StartsWith "PQ[" -> SPQ(parseTy (s.Substring(3, s.Length - 4)))
@@ -86,7 +90,7 @@ and private splitTop (sep: char) (s: string) : string list =
 let rec private vars (t: STy) =
     match t with
     | SVar v -> [ v ]
-    | SArr t | SSet t | SQ t | SPQ t | SBT t -> vars t
+    | SArr t | SSet t | SQ t | SPQ t | SBT t | SGen t -> vars t
     | SMap(k, v) -> vars k @ vars v
     | STup ts -> List.collect vars ts
     | SFn(ps, b) -> List.collect vars ps @ vars b
@@ -95,7 +99,7 @@ let rec private vars (t: STy) =
 let rec private hasTup (t: STy) =
     match t with
     | STup _ -> true
-    | SArr t | SSet t | SQ t | SPQ t | SBT t -> hasTup t
+    | SArr t | SSet t | SQ t | SPQ t | SBT t | SGen t -> hasTup t
     | SMap(k, v) -> hasTup k || hasTup v
     | _ -> false
 
@@ -120,6 +124,7 @@ let private parseSig (line: string) : Sig =
             | _ -> ()
     let parms = splitTop ',' (body.Substring(open' + 1, close - open' - 1)) |> List.map parseTy
     let ret = parseTy (body.Substring(close + 1))
+    let parms = match ret with SGen t -> parms @ [ SFn([ t ], SBool) ] | _ -> parms // the sink
     { name = name; parms = parms; ret = ret; csym = defaultArg csym ("ns_" + name)
       tvars = (parms @ [ ret ]) |> List.collect vars |> List.distinct
       rdesc = hasTup ret }
@@ -143,5 +148,8 @@ let docs : (string * string) list =
     |> List.ofArray
 
 let names = sigs |> List.map (fun s -> s.name) |> set
-let zeroArity = sigs |> List.filter (fun s -> s.parms.IsEmpty) |> List.map (fun s -> s.name) |> set
+let isGen (sg: Sig) = match sg.ret with SGen _ -> true | _ -> false
+/// The arguments a call passes (a generator's sink is not one).
+let arity (sg: Sig) = sg.parms.Length - (if isGen sg then 1 else 0)
+let zeroArity = sigs |> List.filter (fun s -> arity s = 0) |> List.map (fun s -> s.name) |> set
 let overloads name = sigs |> List.filter (fun s -> s.name = name)
