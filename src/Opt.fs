@@ -46,11 +46,11 @@ let private mutatingBuiltins = set [ "push"; "add"; "del"; "merge" ]
 /// Stdlib functions (runtime.c `//@` names) without side effects. Anything else is an effect.
 /// TODO: move this into runtime.c as a `//@ pure name (...)` marker so new stdlib functions declare it themselves.
 let private pureStd =
-    set [ "rev"; "chars"; "split"; "lower"; "upper"; "ws"; "isupper"; "islower"; "isdigit"; "ord"; "chr"; "join"
+    set [ "%charat"; "rev"; "chars"; "split"; "lower"; "upper"; "ws"; "isupper"; "islower"; "isdigit"; "ord"; "chr"; "join"
           "sort"; "keys"; "vals"; "arr"; "min"; "max"; "hex"; "gcd"; "pow"; "zip"; "uniq"; "find"; "bsearch"; "sortby"
           "minkey"; "maxkey"; "flatten"; "pairwise"; "tuple2"; "tuple3"; "nums"; "take"; "items"; "nb4"; "nb8" ]
 /// Of those, the ones that never fail.
-let private totalStd = set [ "rev"; "chars"; "split"; "lower"; "upper"; "ws"; "isupper"; "islower"; "isdigit"; "join"; "sort"; "keys"; "vals"; "arr"; "hex"; "zip"; "uniq"; "pairwise"; "nums"; "nb4"; "nb8" ]
+let private totalStd = set [ "%charat"; "rev"; "chars"; "split"; "lower"; "upper"; "ws"; "isupper"; "islower"; "isdigit"; "join"; "sort"; "keys"; "vals"; "arr"; "hex"; "zip"; "uniq"; "pairwise"; "nums"; "nb4"; "nb8" ]
 
 let rec private isRef t =
     match resolve t with

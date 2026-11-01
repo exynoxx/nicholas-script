@@ -55,7 +55,6 @@ let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option)
     let snapshot =
         match srcTy with
         | TArr _ -> v s
-        | TStr -> call "chars" [ v s ]
         | TMap _ when folding -> call "vals" [ v s ]
         | _ -> call "arr" [ v s ]
     // a range source is iterated as a counter (lo, lo+step, ...) instead of a materialised array
@@ -69,6 +68,8 @@ let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option)
               Assign(t, mk (If(bin "<=" (v s) (v hi), i64 1L, i64 -1L)))
               Assign(n, bin "*" (bin "-" (v hi) (v s)) (v t)) ]
         | None when drain -> [ Assign(s, it0.src) ]
+        // a string is iterated by byte index (each element the shared 1-char string, as `chars` gives): no array
+        | None when srcTy = TStr -> [ Assign(s, it0.src); Assign(n, call "len" [ v s ]) ]
         | None -> [ Assign(s, it0.src); Assign(t, snapshot); Assign(n, call "len" [ v t ]) ]
     let load =
         match range with
@@ -87,6 +88,7 @@ let rec iterInto (toSet: bool) (stages: Iter list) (srcTy: Ty) (limit: E option)
         | _ when isMap && not folding ->
             [ Assign(key, mk (Index(v t, v c))); Assign(it0.ix, v key); Assign(it0.el, mk (Index(v s, v key))) ]
         | Some _ -> [ Assign(it0.el, bin "+" (v s) (bin "*" (v c) (v t))); Assign(it0.ix, v c) ]
+        | None when srcTy = TStr -> [ Assign(it0.el, call "%charat" [ v s; v c ]); Assign(it0.ix, v c) ]
         | None -> [ Assign(it0.el, mk (Index(v t, v c))); Assign(it0.ix, v c) ]
     // mapping a map, a top-level `_ = e` assigns the value and writes it back: `m{_ = _ + 1}` updates m in place
     let writeBack (st: Iter) =

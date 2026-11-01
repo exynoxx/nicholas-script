@@ -563,6 +563,9 @@ GEN ns_chars(char *s, SINK) {
   for (; *s; s++) if (!YIELD(chr(*s))) return 0; // immortal: nothing to release
   return 1;
 }
+//@ %charat (str,int) str = ns_charat
+// s's byte i as chars gives it, unchecked: string iteration (Lower) indexes 0..#s
+char *ns_charat(char *s, int64_t i) { return chr(s[i]); }
 static GEN ystr(const char *s, size_t n, SINK) { // yields s[0..n) as a fresh string
   char *c = n == 1 ? chr(*s) : str_n(s, n);
   int m = YIELD(c); ns_release(c); return m;

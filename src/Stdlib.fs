@@ -139,7 +139,7 @@ let sigs : Sig list = lines |> Array.filter (fun l -> l.StartsWith "//@ ") |> Ar
 let docs : (string * string) list =
     lines
     |> Array.mapi (fun i l ->
-        if not (l.StartsWith "//@ ") then None
+        if not (l.StartsWith "//@ ") || l.StartsWith "//@ %" then None // `%name`: internal, not callable
         else
             let sg = match l.LastIndexOf " = " with -1 -> l.Substring 4 | j -> l.Substring(4, j - 4)
             let doc = if i + 1 < lines.Length && lines.[i + 1].StartsWith "//? " then lines.[i + 1].Substring(4).Trim() else ""
