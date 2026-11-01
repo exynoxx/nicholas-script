@@ -346,8 +346,10 @@ memo paths r c = r=0 | c=0 ? 1 : (paths:r-1,c)+(paths:r,c-1)   # same, with name
 
 `lazy f a = body` (or `lazy f = {…}`, top-level only) marks a function whose array result streams into its consumer
 instead of being built first (a C# iterator without `yield`). When a call is the source of a chain (maps and filters
-pass through) ending in `@k` (k ≥ 0), `.one`, `.take:n`, `.any`, `.all`, `/|` or `/&` of bools, or `@?x`, the body
-hands its elements over one at a time and stops once the ending has its answer. Any other use gets the plain array.
+pass through) or of `#`, `.set`, `@k` (k ≥ 0), `.one`, `.take:n`, `.any`, `.all` or `@?x`, the body hands its elements
+over one at a time to the chain's loop (a fold, scan, map, filter or each), and an ending that stops early (`@k`,
+`.one`, `.take:n`, `.any`, `.all`, `/|` or `/&` of bools, `@?x`) stops it once it has its answer. Any other use
+(assigning, printing, …) gets the plain array.
 Removing `lazy` changes no result, only the cost (and how side effects interleave). Statements before the body's last
 expression run once per call; the last expression streams: a fused chain, `a ++ b` (b only if more are wanted),
 `c ? a : b`, `[x, y]`, `.flatten` of a map (a flat-map), a call to a lazy function (recursion works), or any other
@@ -461,6 +463,13 @@ Everything else is the **standard library, implemented in `runtime.c`**. Each fu
 using `int float str bool`, type variables (`T`, `K`, …), `[t]`, `(a,b)` and blocks `fn(t)->r`. Overloads are tried in order
 (an exact type match wins, otherwise the first one with conversions). Adding a function = writing it in C with its `//@` line;
 the compiler needs no change. An optional `//? text` line right after the signature documents it (`ns doc` lists signatures and docs; the VS Code extension shows them on hover). A block argument is passed to C as a callback, e.g. `bsearch:xs,{>=5}`, `sortby:ws,{#_}`; a block with several parameters is `fn(A,B)->r` (C passes `x` as an array of pointers to the arguments).
+
+A result `*t` makes a **generator**: the C function yields its elements one at a time instead of building an array,
+and the compiler turns the consumer's loop into the sink it yields to, so `(nums:s){_*2}/+` is one loop with no array.
+It streams into every consumer a `lazy` call streams into (§4), including the early-exit ones; any other use gets an
+array (built by the same loop). Generators: `chars split lines nums keys vals items zip cross pairwise`. Side effects of
+the consumer interleave with the producer (`(lines){…}.take:2` reads only two lines); adding or removing keys of a
+map while iterating its `keys`/`vals`/`items` is a runtime error.
 
 Current library (see `grep '^//@' runtime.c`):
 - I/O: `read` (a line, `""` at EOF), `lines` (all remaining stdin lines); zero-argument functions are called by bare name. With a path: `read:"f.txt"` (whole file), `lines:"f.txt"` (its lines, without `\n`); a missing file is a runtime error. `write:"f.txt",s` replaces the file with s and

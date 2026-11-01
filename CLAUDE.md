@@ -45,6 +45,11 @@ by the `CompileRuntime` target in `NS.fsproj`.
   Q/PQ, strings, print/tostr, sort, stdlib functions.
 - **Adding a stdlib function** = write it in `runtime.c` with a `//@ name (params) result [= c_symbol]` comment. Follow it with a `//? one-line description` (shown in VS Code hovers via `ns doc`).
   `Stdlib.fs` parses those comments; the parser and typer pick it up automatically. No F# change needed.
+- **A generator** (streams instead of returning an array) has result `*T`: `//@ name (params) *T`, written
+  `GEN ns_name(params..., SINK) { … if (!YIELD(v)) return 0; … return 1; }` (`YIELDP(p)` for a pointer to storage;
+  free what you hold before `return 0`; elements are lent, so release a fresh string/tuple after yielding it). See the
+  macros after `cpy` in `runtime.c`. Generators are stream sources in `Typer.fs` (`genCall`, next to `lazyCall`); a call
+  that is not in a chain becomes an identity map (`Typer.stdCall`), whose loop builds the array.
 - Typer-only primitives (`neg`, `len`, …, in `Typer.builtin`) are *not* in `Parser.builtins`, so users can't
   call them by name.
 

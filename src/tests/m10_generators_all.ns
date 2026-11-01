@@ -1,0 +1,23 @@
+# every generator stdlib function, streaming (fold / early exit) and materialised
+println:lines.take:2         # reads two lines only
+println:read
+println:#lines               # the rest
+println:(chars:"hello")[_ != "l"]/+
+println:(chars:"hello")@4
+println:("a,bb,,ccc".split:","){#_}
+println:("a,bb,,ccc".split:",")[_ = ""]@0 = ""
+println:"x y z"/" "
+m = [->] ?? 0
+"abbccc"{m@_ += 1}
+println:(items:m){_2 * 10}/+
+println:(items:m)[_1 = "c"]@0
+println:(keys:m).sort
+println:((vals:m)[>1]).sort
+println:(zip:[1,2,3],"ab"){_1 * 2}
+println:zip:[1,2,3],[T,F]
+println:(cross:2,3)[_1 + _2 = 2]
+println:(cross:["a","b"],[1,2]).take:3
+println:#cross:-2,3
+println:(pairwise:[1,4,9,16]){_2 - _1}
+println:("abcd".pairwise)@-1
+println:pairwise:"ab"

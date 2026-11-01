@@ -4,7 +4,7 @@
 /// queues, BT[t] sorted trees, (a,b) tuples and fn(t)->r blocks. A result *t makes a generator: it yields t's to a
 /// sink block (an extra last parameter fn(t)->bool, "want more") instead of returning an array; see runtime.c.
 /// The C function receives one descriptor (const char*) per type variable first, then its arguments;
-/// a result type containing a tuple also passes the result's descriptor (after the type variables'), so the
+/// a result type containing a tuple also passes the result's descriptor (a generator's: its element's; after the type variables'), so the
 /// runtime never rebuilds a tuple layout itself. Type-variable values and tuples travel as pointers to their storage, a block as
 /// (callback, env). This module only reads the table.
 module Stdlib
