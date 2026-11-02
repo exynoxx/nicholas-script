@@ -1,11 +1,7 @@
 // Live diagnostics: pipes the buffer to `ns check <file>` and turns `path:line[:col]: error: msg` into a squiggle.
 // Hovers: stdlib signatures and docs from `ns doc` (one `signature<TAB>doc` line per overload), loaded once;
 // variable types from `ns types` (`line<TAB>col<TAB>name<TAB>type`; col 0 = assigned on that line), per buffer version.
-// Debugging (F5 on a .ns file): builds it with `ns build -g`, then hands the binary to gdb through the C/C++
-// extension (cppdbg), with ns_gdb.py printing NS arrays/maps/... as the program would print them.
 const vscode = require('vscode');
-const os = require('os');
-const path = require('path');
 const { execFile } = require('child_process');
 
 function activate(context) {
@@ -93,34 +89,7 @@ function activate(context) {
     },
   };
 
-  const debugConfig = {
-    resolveDebugConfiguration(_folder, config) {
-      const file = config.program || vscode.window.activeTextEditor?.document.fileName;
-      if (!file || !file.endsWith('.ns')) {
-        vscode.window.showErrorMessage('NS: open a .ns file to debug it');
-        return undefined;
-      }
-      const out = path.join(os.tmpdir(), 'ns-debug', path.basename(file, '.ns'));
-      return new Promise((done) =>
-        execFile(exe, ['build', '-g', file, '-o', out], { timeout: 60000 }, (err, _out, stderr) => {
-          if (err) {
-            vscode.window.showErrorMessage(`NS: build failed: ${stderr || err.message}`);
-            return done(undefined);
-          }
-          done({
-            type: 'cppdbg', request: 'launch', name: config.name || 'Debug NS', program: out,
-            args: config.args || [], cwd: config.cwd || path.dirname(file), MIMode: 'gdb', externalConsole: false,
-            setupCommands: [
-              { text: '-enable-pretty-printing' },
-              { text: `source ${path.join(context.extensionPath, 'ns_gdb.py')}` },
-            ],
-          });
-        }));
-    },
-  };
-
   context.subscriptions.push(
-    vscode.debug.registerDebugConfigurationProvider('ns', debugConfig),
     vscode.languages.registerHoverProvider('ns', hover),
     diags,
     vscode.workspace.onDidOpenTextDocument(check),

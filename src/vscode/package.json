@@ -1,7 +1,7 @@
 {
   "name": "ns-lang",
   "displayName": "NS",
-  "description": "Syntax highlighting, error squiggles, stdlib hovers and gdb debugging for the NS golf language",
+  "description": "Syntax highlighting, error squiggles and stdlib hovers for the NS golf language",
   "version": "0.5.0",
   "publisher": "nicholas",
   "engines": {
@@ -39,66 +39,10 @@
           "description": "Path to the ns compiler (used for `ns check`, `ns doc` and `ns types`)."
         }
       }
-    },
-    "breakpoints": [
-      {
-        "language": "ns"
-      }
-    ],
-    "debuggers": [
-      {
-        "type": "ns",
-        "label": "NS (gdb)",
-        "languages": [
-          "ns"
-        ],
-        "configurationAttributes": {
-          "launch": {
-            "properties": {
-              "program": {
-                "type": "string",
-                "description": "The .ns file to debug (default: the active editor's)."
-              },
-              "args": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Command-line arguments."
-              },
-              "cwd": {
-                "type": "string",
-                "description": "Working directory (default: the file's directory)."
-              }
-            }
-          }
-        },
-        "initialConfigurations": [
-          {
-            "type": "ns",
-            "request": "launch",
-            "name": "Debug NS file",
-            "program": "${file}"
-          }
-        ],
-        "configurationSnippets": [
-          {
-            "label": "NS: Debug file",
-            "body": {
-              "type": "ns",
-              "request": "launch",
-              "name": "Debug NS file",
-              "program": "^\"\\${file}\""
-            }
-          }
-        ]
-      }
-    ]
+    }
   },
   "main": "./extension.js",
   "activationEvents": [
-    "onLanguage:ns",
-    "onDebugResolve:ns",
-    "onDebugInitialConfigurations"
+    "onLanguage:ns"
   ]
 }

@@ -750,16 +750,6 @@ static void tostr(Buf *b, const char *d, const void *v, int q) {
   }
 }
 char *ns_tostr(const char *d, const void *v) { Buf b = {0}; tostr(&b, d, v, 0); return done(&b); }
-// Debugger hook (vscode/ns_gdb.py): a heap object as NS prints it, per its header descriptor. Keeps only the last
-// result alive, so a debugger copies the text before asking again.
-const char *ns_debug_str(const void *p) {
-  static char *last;
-  ns_release(last);
-  last = NULL;
-  if (!p) return "null";
-  last = ns_tostr(HD(p)->d, &p);
-  return last;
-}
 void ns_print(const char *d, const void *v) { Buf b = {0}; tostr(&b, d, v, 0); fputs(b.p ? b.p : "", stdout); free(b.p); }
 void ns_println(const char *d, const void *v) { Buf b = {0}; tostr(&b, d, v, 0); puts(b.p ? b.p : ""); free(b.p); }
 //@ join ([T],str) str

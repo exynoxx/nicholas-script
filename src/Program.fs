@@ -29,7 +29,6 @@ let private showError (path: string) line col (msg: string) =
 
 /// Runs the pipeline up to `stage` and returns its printable output.
 let private pipelineSrc (stage: string) (src: string) (path: string) : string =
-    Codegen.srcPath <- Path.GetFullPath path
     let toks = Lexer.lex src 1 1
     if stage = "tokens" then toks |> List.map (fun t -> $"{t.line}: {showTok t.tok}") |> String.concat "\n"
     else
@@ -140,9 +139,7 @@ let private build (path: string) (exe: string) : string option =
         // NS_ASAN=1 builds with Address/LeakSanitizer to verify reference counting
         let asan = if Environment.GetEnvironmentVariable "NS_ASAN" = "1" then "-g -fsanitize=address" else ""
         let asan = asan + noEarlyExitVec.Force()
-        // -g: unoptimised, so every local keeps its stack cell and stepping follows the source
-        let opt = if Codegen.debug then "-O0 -g" else "-O2"
-        let code, _, err = run "clang" ($"{opt} -w {asan} \"{ll}\" {libm} -o \"{exe}\"") None
+        let code, _, err = run "clang" ($"-O2 -w {asan} \"{ll}\" {libm} -o \"{exe}\"") None
         if code = 0 then None else Some("clang failed:\n" + err)
     with
     | CompileError(line, col, msg) -> Some(showError path line col msg)
@@ -213,7 +210,6 @@ commands:
 
 options:
   --debug                   println every assignment as `line: name = value`
-  -g                        emit debug info (unoptimised) for lldb/gdb; VS Code: F5 on a .ns file
   --c                       build/run/test through the C backend ($CC, default cc) instead of LLVM
 
 environment:
@@ -251,7 +247,6 @@ let main argv =
         | ex -> (Console.Error.WriteLine($"{path}: error: {ex.Message}"); 1)
     useC <- flag "--c"
     Desugar.debug <- flag "--debug"
-    Codegen.debug <- flag "-g"
     match positional with
     | [ path ] when path.EndsWith ".ns" -> runFile path
     | [ "test" ] -> test "tests"
