@@ -169,7 +169,7 @@ Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter;
 
 ### Block shortcuts
 - **Operator section**: a block body starting with a binary operator gets `_` on its left: `x{*2}`, `x[>2]`, `x{^^2}`. `-` never starts a section (`x{-1}` is the constant -1).
-- **Function section**: a map, filter or plain block whose whole body is a function name calls it on `_`: `x{int}` is `x{int:_}`, `x[even]`, `sortby:xs,{str}`; so does a negated one: `s[!ws]` is `s[!ws:_]`, and a negated block: `x[!{_>2}]` calls `!{_>2}` on each element
+- **Function section**: a map, filter or plain block whose whole body is a function name calls it on `_`: `x{int}` is `x{int:_}`, `x[even]`, `sortby:xs,{str}`; so does a negated one: `s[!ws]` is `s[!ws:_]`, and a negated block: `x[!{_>2}]` calls `!{_>2}` on each element. A parameter bound to a block works the same (`keep xs c = xs[c]`, `xs[!c]`); one bound to a value is just that value (`f n = xs{n}`)
   (the block must return bool). A plain block as the whole body is an error: write `x[_>2]`, not `x[{_>2}]`.
   Blocks are not values in collections or conditions: `[{_}]` and `f ? a : b` with a block `f` are compile errors.
 - Nested blocks: the innermost block owns `_`, `@`, `$`.

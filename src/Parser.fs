@@ -86,6 +86,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
     let expect s = if not (accept s) then err ($"expected '{s}' but found {found ()}")
     // a builtin name assigned a value (`max = 3`) or used as a parameter is a variable in the rest of its block
     let isFunc name = fnames.Contains name || (builtins.Contains name && not (shadowed.Contains name))
+    /// a parameter may be bound to a block: sections `x[c]` / `x[!c]` mark it, and the typer calls it only if it is one
+    let isSection name = isFunc name || params.Contains name
     let markCall (mark: string) f args =
         match stdAliases.TryGetValue f with
         | true, b -> ECall(b, args)
@@ -193,7 +195,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
 
     member p.Section(block: Stmt list) =
         match block with
-        | [ SLine l; SExpr(EVar f) ] when isFunc f -> [ SLine l; SExpr(markCall nameMark f [ EVar "_" ]) ]
+        | [ SLine l; SExpr(EVar f) ] when isSection f -> [ SLine l; SExpr(markCall nameMark f [ EVar "_" ]) ]
         | [ SLine l; SExpr(EBlock(id, [], body) as b) ] when (match List.tryLast body with Some(SExpr(EUn("!b", _))) -> true | _ -> false) ->
             let f = $"not'{id}"
             [ SLine l; SAssign([ EVar f ], [ b ]); SExpr(ECall(callMark + f, [ EVar "_" ])) ]
@@ -575,7 +577,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         else
             let l = line ()
             match p.Not() with
-            | EVar f when isFunc f ->
+            | EVar f when isSection f ->
                 nextId.Value <- nextId.Value + 1
                 ECall(negMark + f, [ EBlock(nextId.Value, [], [ SLine l; SExpr(EUn("!", markCall nameMark f [ EVar "_" ])) ]) ])
             | EBlock(id, ps, body) when (match List.tryLast body with Some(SExpr _) -> true | _ -> false) ->

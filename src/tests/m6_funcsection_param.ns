@@ -1,0 +1,8 @@
+h c = [1,5,3][c]
+k c = [1,5,3][!c]
+m n = [1,5,3]{n}
+g b = [1,5,3][b]
+println: h: {_ > 2}
+println: k: {_ > 2}
+println: m: 7
+println: g: T
