@@ -9,7 +9,7 @@ Language ideas for NS, with status. The `fix` design further down is the main pr
 | `x'` previous-iteration value | done (`f5aed31`) |
 | Draining map over `Q`/`PQ` (`@` = priority) | done (`477c161`) |
 | `nb4` / `nb8` tuple neighbours | in progress |
-| `ns explain` ungolfer | in progress |
+| `ns explain` ungolfer | removed |
 | `fix` | designed, see below |
 | Early-stopping endings `chain@k`, `.one` | done (uncommitted) |
 | `lazy` functions | done (no infinite sources) |
@@ -35,7 +35,7 @@ Stars rate how new the idea is; cost is the rough implementation effort.
 | 10 | Infinite ranges + `@?` | superseded by `lazy` (below); `@k`/`.one` early exit done | ★ | — |
 | 11 | Distributions `D[…]` | exact probability arithmetic, lifted like broadcasting | ★★ | medium |
 | 12 | The binary is the answer | input-free pure program → runs at compile time, binary just prints | ★★ | low |
-| 13 | `ns explain` | in progress | ★★ | — |
+| 13 | `ns explain` | removed | ★★ | — |
 | 14 | `memo` → DP table | bounded int args → flat array, filled bottom-up when the recursion has a clear order | ★★ | medium–high |
 | 15 | Grid helpers | reduced to `nb4`/`nb8` on tuples (no grid type) | ★ | — |
 | 16 | Goal-directed evaluation | Icon/Verse-style backtracking over ranges, compiled to loops | ★★★ | high |
