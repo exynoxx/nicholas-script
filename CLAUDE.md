@@ -17,6 +17,10 @@ NS_ASAN=1 dotnet run -c Release -- f.ns    # ASan/LSan: checks reference countin
 The `ns` on PATH is an installed copy (`~/.local/bin/ns` → `~/.local/share/ns/ns`), not this build: after every
 feature, reinstall it with `dotnet publish src -c Release -o ~/.local/share/ns` (from the repo root).
 
+**Every language change** (syntax, semantics, stdlib) also needs, in the same commit/session: `src/SPEC.md`; the VS Code
+extension `src/vscode/` (grammar keywords/operators, snippets); the NS skill `~/.claude/skills/ns/SKILL.md` (cheat sheet,
+idioms, gotchas — fix anything the change made wrong); and the system reinstall above.
+
 New feature → add `tests/<milestone>_<name>.ns` + `.out`. A `.err` file instead expects a compile error
 (the message after `path:`, with the source line and caret); see `tests/e_*`. `runtime.c` is compiled to `obj/.../runtime.ll`
 by the `CompileRuntime` target in `NS.fsproj`.
