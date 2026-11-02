@@ -119,6 +119,13 @@ let private noEarlyExitVec =
 /// The front end (desugar, typer, ...) keeps global state, so only one `pipeline` runs at a time.
 let private frontLock = obj ()
 
+/// NS_ASAN=1 builds with Address/LeakSanitizer to verify reference counting.
+let private clangFlags =
+    lazy ((if Environment.GetEnvironmentVariable "NS_ASAN" = "1" then "-g -fsanitize=address" else "") + noEarlyExitVec.Force())
+
+/// Set by `test`: the runtime precompiled once, so each test compiles only its own IR (~10x faster than whole-program).
+let mutable private runtimeObj : string option = None
+
 /// Compiles a source file to a native binary at `exe`; returns an error message on failure.
 let private build (path: string) (exe: string) : string option =
     try
@@ -131,12 +138,11 @@ let private build (path: string) (exe: string) : string option =
         if code = 0 then None else Some(cc + " failed:\n" + err)
       else
         let ll = Path.ChangeExtension(exe, ".ll")
-        // whole-program module so LLVM can inline the runtime (array access, refcounts, ...)
-        File.WriteAllText(ll, pureLL (lock frontLock (fun () -> pipeline "ll" path)))
-        // NS_ASAN=1 builds with Address/LeakSanitizer to verify reference counting
-        let asan = if Environment.GetEnvironmentVariable "NS_ASAN" = "1" then "-g -fsanitize=address" else ""
-        let asan = asan + noEarlyExitVec.Force()
-        let code, _, err = run "clang" ($"-O2 -w {asan} \"{ll}\" {libm} -o \"{exe}\"") None
+        let ir = lock frontLock (fun () -> pipeline "ll" path)
+        // whole-program module so LLVM can inline the runtime (array access, refcounts, ...); `test` links a shared runtime.o
+        let ir, rt = match runtimeObj with Some o -> ir, $"\"{o}\"" | None -> pureLL ir, ""
+        File.WriteAllText(ll, ir)
+        let code, _, err = run "clang" ($"-O2 -w {clangFlags.Force()} \"{ll}\" {rt} {libm} -o \"{exe}\"") None
         if code = 0 then None else Some("clang failed:\n" + err)
     with
     | CompileError(line, col, msg) -> Some(showError path line col msg)
@@ -146,6 +152,12 @@ let private build (path: string) (exe: string) : string option =
 let private test (dir: string) =
     let tmp = Directory.CreateTempSubdirectory("ns").FullName
     let files = Directory.GetFiles(dir, "*.ns") |> Array.sort
+    if not useC then
+        let rtLL, rtO = Path.Combine(tmp, "runtime.ll"), Path.Combine(tmp, "runtime.o")
+        File.WriteAllText(rtLL, runtimeIR.Force())
+        let code, _, err = run "clang" ($"-c -O2 -w {clangFlags.Force()} \"{rtLL}\" -o \"{rtO}\"") None
+        if code <> 0 then failwith ("clang failed on the runtime:\n" + err)
+        runtimeObj <- Some rtO
     // clang and the test binaries run in parallel; results print in file order
     let check (f: string) =
         let name = Path.GetFileNameWithoutExtension f
