@@ -24,6 +24,23 @@ let rec private noAssign (e: E) =
     | Conv x -> noAssign x
     | _ -> true
 
+/// Variables assigned anywhere in `e` (not inside block literals: those are other functions).
+let rec assigned (acc: HashSet<string>) (e: E) =
+    match e.k with
+    | Seq(ss, x) -> (List.iter (assignedS acc) ss; assigned acc x)
+    | If(a, b, c) -> List.iter (assigned acc) [ a; b; c ]
+    | Call(_, xs) | StdCall(_, xs) | UserCall(_, xs) | Arr xs -> List.iter (assigned acc) xs
+    | Bin(_, a, b) | Index(a, b) -> (assigned acc a; assigned acc b)
+    | Conv x -> assigned acc x
+    | _ -> ()
+and assignedS (acc: HashSet<string>) (s: S) =
+    match s with
+    | Assign(u, x) -> (acc.Add u |> ignore; assigned acc x)
+    | SetIdx(x, i, v) -> List.iter (assigned acc) [ x; i; v ]
+    | While(cnd, body) -> (assigned acc cnd; List.iter (assignedS acc) body)
+    | Do x -> assigned acc x
+    | Line _ -> ()
+
 type private Ctx =
     { body: StringBuilder
       allocas: StringBuilder
@@ -108,7 +125,26 @@ let generate (prog: Program) : string =
     let d t = "ptr", strConst (desc t)
     // Reference counting: every expression yields an owned (+1) value; runtime args are borrowed.
     let isPtr = Repr.isPtr
-    let release (v: string) t = if isPtr t then rt "void" "ns_release" [ "ptr", v ] |> ignore
+    // Inside a `?? stmt` body, an owned temporary sits in a slot from creation until its release (or move), so the
+    // catch path can release what a panic skipped. Slots stay null when empty; volatile so they survive the longjmp.
+    // ponytail: only the statement's own temporaries; a panicking callee's locals and temporaries still leak.
+    let mutable trySlots : (Dictionary<string, string> * ResizeArray<string>) option = None // live temporary -> slot; all slots
+    let unown (v: string) =
+        match trySlots with
+        | Some(slots, _) when slots.ContainsKey v ->
+            emit $"store volatile ptr null, ptr {slots.[v]}"
+            slots.Remove v |> ignore
+        | _ -> ()
+    let own (v: string) t =
+        match trySlots with
+        | Some(slots, all) when isPtr t && v.StartsWith "%" ->
+            let p = alloca "ptr"
+            all.Add p
+            c.allocas.Append($"  store ptr null, ptr {p}\n") |> ignore
+            emit $"store volatile ptr {v}, ptr {p}"
+            slots.[v] <- p
+        | _ -> ()
+    let release (v: string) t = if isPtr t then (unown v; rt "void" "ns_release" [ "ptr", v ] |> ignore)
     let retain (v: string) t = if isPtr t then rt "void" "ns_retain" [ "ptr", v ] |> ignore
 
     // a variable no callee can reassign: not captured by any instance, not a global a function touches
@@ -133,17 +169,37 @@ let generate (prog: Program) : string =
         | Fn _ -> "0"
         | Arr xs ->
             let a = rt "ptr" "ns_arr_new" [ d e.t; "i64", string xs.Length ]
+            own a e.t
             for x in xs do
                 let v = ex x
                 storeTo v x.t (rt "ptr" "ns_arr_append" [ "ptr", a ]) // the owned value moves in
+            unown a
             a
         | Bin(op, a, b) -> binop op a b
         | If(cond, a, b) ->
             let res = if isFn e.t then "" else alloca (llty e.t)
             let lt, le, lend = label (), label (), label ()
+            let isTry = match cond.k with Call("try", []) -> true | _ -> false
+            if isTry then
+                // a variable the statement assigns must be reread after a panic: escaping its cell keeps it in
+                // memory across the setjmp (promoted to a register, the catch path would see its old value)
+                let vs = HashSet<string>()
+                assigned vs a
+                for u in vs do
+                    if not (isFn prog.varTy.[u]) then
+                        emit $"call void asm sideeffect \"\", \"r,~{{memory}}\"(ptr {ptrOf u})"
             emit ($"br i1 {ex cond}, label %%{lt}, label %%{le}")
+            let outer = trySlots
+            let slots = Dictionary<string, string>(), ResizeArray<string>()
             for (l, x) in [ lt, a; le, b ] do
                 place l
+                if isTry && l = lt then trySlots <- Some slots
+                if isTry && l = le then
+                    trySlots <- outer
+                    for p in snd slots do
+                        let v = instr $"load volatile ptr, ptr {p}"
+                        rt "void" "ns_release" [ "ptr", v ] |> ignore
+                        emit $"store volatile ptr null, ptr {p}"
                 let v = ex x
                 if res <> "" then emit ($"store {llty e.t} {v}, ptr {res}")
                 emit ($"br label %%{lend}")
@@ -155,13 +211,19 @@ let generate (prog: Program) : string =
         | UserCall(f, args) ->
             // user functions own their arguments, except borrowed parameters: those are lent and dropped after
             let inst = instByName.[f]
+            let lent (a: E, (p, _)) = inst.borrowed.Contains p && isPtr a.t
             let evs =
-                List.zip args inst.parms |> List.mapi (fun j (a, (p, _)) ->
-                    if inst.borrowed.Contains p && isPtr a.t then
-                        match a.k with
-                        | Var u when lendable u && List.forall noAssign (List.skip (j + 1) args) -> exB a
-                        | _ -> ex a, true
-                    else ex a, false)
+                List.zip args inst.parms |> List.mapi (fun j ap ->
+                    let a = fst ap
+                    let v, o =
+                        if lent ap then
+                            match a.k with
+                            | Var u when lendable u && List.forall noAssign (List.skip (j + 1) args) -> exB a
+                            | _ -> ex a, true
+                        else ex a, false
+                    if o || not (lent ap) then own v a.t
+                    v, o)
+            for (v, ap) in List.zip evs (List.zip args inst.parms) do if not (lent ap) then unown (fst v) // the callee owns it now
             let ps = List.zip evs (inst.parms |> List.map snd) |> List.map (fun ((v, _), t) -> llty t + " " + v)
             let cs = inst.caps |> List.map (fun u -> "ptr " + ptrOf u)
             let r = tmp ()
@@ -203,6 +265,7 @@ let generate (prog: Program) : string =
             let v, owned = exB x
             if resolve x.t = resolve e.t then (if owned then v else (retain v x.t; v))
             else
+                if owned then own v x.t
                 let r = convert1 v x.t e.t
                 drop (v, owned) x.t
                 r
@@ -221,7 +284,9 @@ let generate (prog: Program) : string =
     /// Operands left to right; one is borrowed only if nothing evaluated after it can reassign variables.
     and exArgs (owned: int) (es: E list) =
         es |> List.mapi (fun i e ->
-            if i >= owned && List.forall noAssign (List.skip (i + 1) es) then exB e else ex e, true)
+            let v, o = if i >= owned && List.forall noAssign (List.skip (i + 1) es) then exB e else ex e, true
+            if o then own v e.t
+            v, o)
 
     and drop (v: string, owned) t = if owned then release v t
 
@@ -309,6 +374,7 @@ let generate (prog: Program) : string =
             | _ -> 0
         let evs = exArgs kept args
         let r = call1 e f args (List.map fst evs)
+        evs |> List.take kept |> List.iter (fst >> unown) // passed through as the result
         List.zip evs args |> List.skip kept |> List.iter (fun (v, a) -> drop v a.t)
         r
 
@@ -400,6 +466,7 @@ let generate (prog: Program) : string =
                     [ "ptr", wrapper inst; "ptr", envOf inst ]
                 | _ ->
                     let v = ex a
+                    own v a.t
                     owned <- (v, a.t) :: owned
                     match p with
                     | Stdlib.SVar _ | Stdlib.STup _ -> [ "ptr", spill v a.t ]

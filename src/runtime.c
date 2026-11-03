@@ -44,7 +44,7 @@ typedef struct { int64_t len, cap; char *data; int64_t esz; const char *d; } PQ;
 
 // `?? stmt` (Codegen): ns_try pushes a handler in the caller's 512-byte frame buffer, the caller _setjmps into it,
 // ns_untry pops it. A panic under a handler pops it and jumps back, so the statement is skipped.
-// ponytail: objects the statement had allocated or retained before the panic leak.
+// Codegen releases the statement's own temporaries on the catch path; a panicking callee's locals and temporaries leak.
 typedef struct Catch { jmp_buf jb; struct Catch *prev; } Catch;
 _Static_assert(sizeof(Catch) <= 512, "Catch must fit the buffer Codegen allocates");
 static Catch *catcher;

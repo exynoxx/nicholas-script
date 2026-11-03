@@ -439,7 +439,8 @@ expr                       # expression statement
 `?? stmt` catches every runtime error raised while stmt runs (missing map key, index out of range, popping an empty
 queue, division by zero, ...), including inside functions it calls: `?? println:m@a + m@b` prints only if both keys
 exist, `?? out@k = m@a + m@b` assigns only if every read succeeds. Effects that happened before the failure stay
-(`?? xs{println:m@_}` prints up to the first missing key), and so does anything the failing part allocated (it leaks).
+(`?? xs{println:m@_}` prints up to the first missing key), and so do variables it assigned. The statement's temporaries are
+released; locals of a user function that panicked inside it leak.
 
 Debug mode: `--debug` (on run/build/test) prints `line: name = value` after every assignment to a user variable, including `x@i = v` and compound assignments.
 

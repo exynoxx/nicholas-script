@@ -1,0 +1,11 @@
+# a failing ?? keeps what it assigned before the panic, and releases its temporaries (checked by NS_ASAN=1)
+c = 0
+xs = [1,2,3]
+?? println:xs[c += 1; _ > 9]@0
+println:c
+s = "a"
+?? println:(s = s + "b"; xs@7)
+println:s
+q = Q[]
+?? println:q.pop
+println:"end"
