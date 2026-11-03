@@ -150,7 +150,7 @@ x@..2  x@1..     # open slices: first 2 / from 1 to the end; x@-2.. is the last 
 |----------|-----------------|--------------|---------|
 | map      | `x{body}`       | `x{_^^2}`    | new array of body results |
 | filter   | `x[body]`       | `x[_>2]`     | keep items where body is truthy |
-| fold     | `x/{body}`      | `x/{$+_}`    | `$` = accumulator, seeded with first element; no seed syntax; folding an empty collection is a runtime error, except `$+_ $*_ $&_ $\|_ $^_` (and `/+ /* /& /\| /^`), which give the identity: `0`/`0.0`/`""`/`[]`, `1`, `T` (int `-1`), `F`/`0` |
+| fold     | `x/{body}`      | `x/{$+_}`    | `$` = accumulator, seeded with first element; no seed syntax; folding an empty collection is a runtime error, except `$+_ $*_ $&_ $\|_ $^_` (and `/+ /* /& /\| /^`), which give the identity: `0`/`0.0`/`""`/`[]`, `1`, `T` (int `-1`), `F`/`0`; over sets `/+ /\|` give `%[]` |
 | op-fold  | `x/op`          | `x/+`        | sum, `x/*` product, `x/>` max, `x/<` min, `x/&` all, `x/\|` any |
 | scan     | `x\{body}` `x\op` | `x\+`      | running fold, returns array |
 | sort     | `x${key}`       | `w${#_}`     | array sorted by key (stable; `x${-_}` descending); later ops see the sorted order: `w${#_}{upper}`. On a map `_` is a `(key, value)` tuple: `m${-_2}{_1}` = keys by value, largest first |
@@ -283,6 +283,17 @@ Lexing/typing rules for collections:
   compile error; it binds looser than `|`, so `(m ?? 0)@k`. Maps built from m (`m{…}`, `m[…]`) don't inherit the default.
 - Popping or peeking an empty queue is a runtime error.
 - Destructuring: N lvalues with one array on the right unpack it (`d,n = q.pop`). All right-hand expressions are evaluated before any assignment.
+- String pattern: a string with holes on the left of `=` cuts the right-hand string apart, scanf-style. Each hole is a
+  name, maybe followed by a conversion applied to its piece: `{n:int}` (= `piece.int`, any function), `{bs/","}`
+  (= `piece/","`, any postfix code); `{_}` skips. A hole ends at the first occurrence of the text after it; the last
+  hole takes the rest, up to the final text, which must end the string. Two holes need text between them. A string
+  that doesn't match is a runtime error (`??` skips the statement). A statement only counts as a pattern when every
+  hole is a name, so `"{x+1}" = s` still compares.
+  ```
+  "move {n:int} from {a:int} to {b:int}" = line
+  "{k}:{vs/","}" = "x:b1,b2"          # k = "x", vs = ["b1","b2"]
+  lines{"{a} -> {b}" = _; g@a ++= b}
+  ```
 
 ### Compound assignment
 `x op= e` for every binary op (`+= -= *= **= /= %= ^^= &= |=`), meaning `x = x op e`, except that on maps/sets/queues every `op=` mutates in place, so aliases see the change. `m+=n` merges map `n` into `m`.
@@ -305,17 +316,23 @@ Named parameters are local to the function: assigning one never changes an outer
 A parameter `(a, b, …)` unpacks a tuple or array argument (`_` skips an element: `mid (_, b, _) = b`): `dot (a, b) (c, d) = a*c + b*d`, `dot:(1,2),(3,4)`.
 **Base cases**: lines `f pattern … = value` before f's definition are tried first, in order; the first whose
 patterns all match gives the result, else the definition runs. A pattern is a name (binds the argument), `_`, a literal
-(`0`, `-1`, `"hi"`, `T`), `(p, …)` (a tuple, matched element by element) or `[p, …]` (an array of exactly that length):
+(`0`, `-1`, `"hi"`, `T`), a string pattern (`"addx {n:int}"`, as in assignment: matches when the string fits, binding
+its holes), `(p, …)` (a tuple, matched element by element) or `[p, …]` (an array of exactly that length):
 ```
 fib 0 = 0
 fib 1 = 1
 fib n = (fib: n-1) + (fib: n-2)
 f (0, 0) [a, b, c] = a + b     # f:(0,0),[1,2,3] → 3
 f tup arr = arr.sum
+step "noop" = 0
+step "addx {n:int}" = n
+step s = -1
 ```
 A base case must have as many parameters as the definition. `memo` on the definition or on any base case memoizes the whole function (`memo fib 0 = 0`).
 Blocks capture variables from the enclosing scope **by reference** (`s=0; x{s+=_}` updates `s`). In v1 blocks may not escape (be returned or stored in collections), so captures live on the stack. A block without parameters (no `_`, `_1`, …) is called by its bare name, like `read`: after `n = 0; tick = {n += 1; n}`, `tick; println: tick` prints 2 (`tick:0` also works). Any other block isn't a value: it can be called, named, or passed to a function that takes a block (`sortby`, `memo`, `BT`), but printing one, putting it in a tuple or a ternary branch, or returning one is a compile error.
 A name is bound before its block body is checked, so blocks can recurse: `f={_<2?_:f:_-1}`.
+A recursive call combined with a set (`|` `&` `++`) or an array (`++`) gives that collection's type, so a function can
+return a collection built from its own calls: `once dfs e = %[e] | g@e{dfs}/|`, `f e = { s = %[e]; g@e{s = s | f: _}; s }`.
 A function whose body ends in a map over its own recursive calls (a DFS: `f p = {vis += p; p.nb4[g@_=1 & !(vis@?_)]{f:_}}`)
 would have an infinite type `[[[..]]]`; that map runs as an each instead and the function is void. The same holds
 for such a map in a match arm next to a void arm (`f p = ?{!(p in vis) => {vis += p; p.nb4{f}}}`). Any other
@@ -504,7 +521,8 @@ n = int:read; println: 1..(n+1)/*                       # factorial
 ```
 program   = { stmt TERM } ;
 TERM      = NEWLINE | ";" ;
-stmt      = "??" stmt | fndef | assign | while | expr ;
+stmt      = "??" stmt | fndef | assign | strpat | while | expr ;
+strpat    = STRING "=" expr ;      (* every hole `{name [conversion]}` *)
 fndef     = IDENT param { param } "=" ( "{" block "}" | expr ) ;
 basecase  = IDENT pattern { pattern } "=" ( "{" block "}" | expr ) ;   (* some pattern holds a literal or [..] *)
 param     = IDENT | "(" pname { "," pname } ")" ;   (* pname = IDENT | "_" *)

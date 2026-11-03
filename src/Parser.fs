@@ -51,9 +51,20 @@ let private opensBracket (s: string) = s.EndsWith "(" || s.EndsWith "[" || s.End
 /// Directory of the file being parsed, and every file already imported (each is included once).
 type private Imports = { dir: string; seen: HashSet<string> }
 
+/// A hole of a string pattern: a name, then maybe a conversion (`{x}`, `{n:int}`, `{bs/","}`); name, rest, rest's offset.
+let private hole (src: string) =
+    let m = System.Text.RegularExpressions.Regex.Match(src, @"^\s*([A-Za-z_][A-Za-z0-9_]*)(.*)$", System.Text.RegularExpressions.RegexOptions.Singleline)
+    if m.Success then Some(m.Groups.[1].Value, m.Groups.[2].Value, m.Groups.[2].Index) else None
+
+/// `"{a}:{b}"` is a string pattern (in an assignment's target or a base case): every hole is a name
+let private isStrPattern (parts: Part list) =
+    parts |> List.exists (function Code _ -> true | _ -> false)
+    && parts |> List.forall (function Code(src, _, _) -> (hole src).IsSome | Lit _ -> true)
+
 type private Pat =
     | PName of string
     | PLit of Expr
+    | PStr of Part list * int // a string pattern, its token index
     | PGroup of bool * Pat list // is an array, items
 
 type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>, params: HashSet<string>, stdAliases: Dictionary<string, string>, nextId: int ref, imports: Imports) =
@@ -205,6 +216,23 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
     member p.Stmt() : Stmt =
         // `?? stmt`: skip the statement if it fails at runtime (missing key, index out of range, ...)
         if accept "??" then SExpr(EUn("??", EGroup [ p.Stmt(); SExpr(EInt 0L) ])) else
+        match peek (), tokens.[pos + 1].tok with
+        | STR parts, SYM "=" when isStrPattern parts ->
+            // `"{a}:{n:int}" = s`: t = unfmt: s, [texts], 1; a = t@0; n = (t@1).int
+            let at = pos
+            pos <- pos + 2
+            let lits, holes = p.StrPattern(parts, at)
+            let rhs = p.Expr()
+            nextId.Value <- nextId.Value + 1
+            let t = EVar $"pat'{nextId.Value}"
+            let assigns =
+                holes |> List.mapi (fun i (n, conv) ->
+                    if n = "_" then []
+                    else
+                        if builtins.Contains n && not (fnames.Contains n) then shadowed.Add n |> ignore
+                        [ SAssign([ EVar n ], [ conv (EIndex(t, EInt(int64 i))) ]) ])
+            SExpr(EGroup(SAssign([ t ], [ ECall("unfmt", [ rhs; EArr(List.map EStr lits); EInt 1L ]) ]) :: List.concat assigns @ [ SExpr(EInt 0L) ]))
+        | _ ->
         // `memo f a b = body` is `f = memo:{body}` with named parameters
         let memo = peek () = ID "memo" && (pos <- pos + 1; p.FnDefAhead().IsSome || p.ClauseAhead().IsSome || (pos <- pos - 1; false))
         // `once f a b = body` is `f = once:{body}`
@@ -333,6 +361,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             | BOOL b -> Some(PLit(EBool b), j + 1)
             | STR [] -> Some(PLit(EStr ""), j + 1)
             | STR [ Lit s ] -> Some(PLit(EStr s), j + 1)
+            | STR parts when isStrPattern parts -> Some(PStr(parts, j), j + 1)
             | SYM "-" -> (match tokens.[j + 1].tok with INT n -> Some(PLit(EInt -n), j + 2) | FLOAT x -> Some(PLit(EFloat -x), j + 2) | _ -> None)
             | SYM("(" | "[" | "f[" as o) ->
                 let close = if o = "(" then ")" else "]"
@@ -344,7 +373,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                     | _ -> None
                 items (j + 1) []
             | _ -> None
-        let rec lit x = match x with PLit _ -> true | PName _ -> false | PGroup(arr, xs) -> arr || List.exists lit xs
+        let rec lit x = match x with PLit _ | PStr _ -> true | PName _ -> false | PGroup(arr, xs) -> arr || List.exists lit xs
         let rec pats j acc =
             match pat j with
             | Some(x, k) -> pats k (x :: acc)
@@ -367,6 +396,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             | PName "_" -> ()
             | PName n -> binds.Add(n, v)
             | PLit e -> conds.Add(EBin("=", v, e))
+            | PStr(parts, at) ->
+                // ponytail: each hole re-runs the match; bind the pieces once if patterns with many holes get hot
+                let lits, holes = p.StrPattern(parts, at)
+                let pieces = ECall("unfmt", [ v; EArr(List.map EStr lits); EInt 0L ])
+                conds.Add(EBin(">", EUn("#", pieces), EInt 0L))
+                holes |> List.iteri (fun i (n, conv) -> if n <> "_" then binds.Add(n, conv (EIndex(pieces, EInt(int64 i)))))
             | PGroup(arr, xs) ->
                 if arr then conds.Add(EBin("=", EUn("#", v), EInt(int64 xs.Length)))
                 xs |> List.iteri (fun i x -> walk (EIndex(v, EInt(int64 i))) x)
@@ -784,6 +819,31 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
 
     /// After `(`: a `;` at this paren's top level makes it a statement group `(s1; s2; value)`.
     member p.GroupAhead() = p.Ahead TERM
+
+    /// A string pattern's texts around its holes (one more than holes), and per hole its name and its piece's
+    /// conversion: the code after the name, applied to the piece (`{n:int}` = `piece.int`, `{bs/","}` = `piece/","`).
+    member p.StrPattern(parts: Part list, at: int) =
+        let lits, holes = ResizeArray [ "" ], ResizeArray()
+        for part in parts do
+            match part with
+            | Lit s -> lits.[lits.Count - 1] <- lits.[lits.Count - 1] + s
+            | Code(src, l, c) ->
+                if holes.Count > 0 && lits.[lits.Count - 1] = "" then errAt at "a string pattern needs text between two holes"
+                let name, rest, off = (hole src).Value
+                if name <> "_" && not (assignable name) then errAt at $"can't assign to '{name}' in a string pattern"
+                let conv =
+                    if rest.Trim() = "" then id
+                    else
+                        nextId.Value <- nextId.Value + 1
+                        let tmp = $"piece'{nextId.Value}"
+                        let rest = rest.TrimStart()
+                        let rest = if rest.StartsWith ":" then "." + rest.Substring 1 else rest // `{n:int}` = `piece.int`
+                        let toks = { tok = ID tmp; line = l; col = c } :: Lexer.lex rest l (c + off)
+                        let e = Parser(Array.ofList toks, fnames, shadowed, params, stdAliases, nextId, imports).InterpExpr()
+                        fun piece -> EGroup [ SAssign([ EVar tmp ], [ piece ]); SExpr e ]
+                holes.Add((name, conv))
+                lits.Add ""
+        List.ofSeq lits, List.ofSeq holes
 
     member p.InterpExpr() =
         let e = p.Expr()

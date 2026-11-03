@@ -1,0 +1,15 @@
+"{a}:{bs/","}" = "x:b1,b2,b3"
+println: a; println: bs
+"move {n:int} from {f:int} to {t:int}" = "move 3 from 1 to 2"
+println: n + f + t
+"{x}.txt" = "a.b.txt"
+println: x
+r = [->] ?? []
+["a:b,c", "d:b"]{"{k}:{vs/","}" = _; vs{r@_ ++= k}}
+println: r@"b"
+?? "{p}={q}" = "nope"
+println: "ok"
+step "noop" = 0
+step "addx {n:int}" = n
+step s = -1
+println: ["noop", "addx 5", "addx -3", "foo"]{step}

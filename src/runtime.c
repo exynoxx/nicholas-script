@@ -1263,6 +1263,32 @@ char *ns_replace(char *s, char *a, char *b) { // every occurrence of a in s repl
   return r;
 }
 
+// String pattern `"{a}:{b}" = s` (Parser): lits are the texts around the n holes (n + 1 of them, lits[0] before the
+// first hole). Each hole but the last ends at the first occurrence of the text after it; the last takes the rest up to
+// the final text, which must end s. Gives the n pieces; on no match an empty array, or a panic when must is set.
+//@ unfmt (str,[str],int) [str]
+void *ns_unfmt(char *s, void *lits, int64_t must) {
+  Arr *l = lits, *r = ns_arr_new("AS", l->len - 1);
+  char *lit = ldp(l->data);
+  size_t m = strlen(lit), n = strlen(s);
+  if (strncmp(s, lit, m)) goto fail;
+  s += m; n -= m;
+  for (int64_t i = 1; i < l->len; i++) {
+    lit = ldp(l->data + i * l->esz); m = strlen(lit);
+    char *e;
+    if (i < l->len - 1) { if (!(e = strstr(s, lit))) goto fail; }
+    else { if (n < m || strcmp(s + n - m, lit)) goto fail; e = s + n - m; }
+    spush(r, s, e - s);
+    n -= e - s + m; s = e + m;
+  }
+  return r;
+fail:
+  for (int64_t i = 0; i < r->len; i++) ns_release(ldp(r->data + i * r->esz));
+  r->len = 0;
+  if (must) { ns_release(r); ns_panic("string does not match the pattern"); }
+  return r;
+}
+
 // ---------- stdlib: math, search, folds, block callbacks ----------
 
 //@ min (T,T) T = ns_min2
