@@ -78,7 +78,7 @@ int:"42"      float:x     str:3.5     bool:n
 | Level | Ops | Assoc |
 |-------|-----|-------|
 | 0 primary | `a..b` range (start is an atom; end is `+ - * ** / %` over atoms, so `0..n-1` ends at n-1; postfix `{}` `[]` `/+` still apply to the range) | none |
-| 1 postfix | `x{…}` map, `x[…]` filter, `x${…}` sort, `x/{…}` `x/op` fold, `x\{…}` `x\op` scan, `x@i` index, `x@%i` wrap-around index, `.name` method call; `x'` previous iteration (part of the name) | left |
+| 1 postfix | `x{…}` map, `x[…]` filter, `x${…}` sort, `x%{…}` reach, `x/{…}` `x/op` fold, `x\{…}` `x\op` scan, `x@i` index, `x@%i` wrap-around index, `.name` method call; `x'` previous iteration (part of the name) | left |
 | 2 prefix  | `-x` `#x` (length) | right |
 | 3 power   | `^^` | right |
 | 4 mul     | `* ** / %` | left |
@@ -154,6 +154,7 @@ x@..2  x@1..     # open slices: first 2 / from 1 to the end; x@-2.. is the last 
 | op-fold  | `x/op`          | `x/+`        | sum, `x/*` product, `x/>` max, `x/<` min, `x/&` all, `x/\|` any |
 | scan     | `x\{body}` `x\op` | `x\+`      | running fold, returns array |
 | sort     | `x${key}`       | `w${#_}`     | array sorted by key (stable; `x${-_}` descending); later ops see the sorted order: `w${#_}{upper}`. On a map `_` is a `(key, value)` tuple: `m${-_2}{_1}` = keys by value, largest first |
+| reach    | `x%{next}`      | `[s]%{g@_}`  | breadth-first search from every element of x: the block gives the elements `_` leads to (any collection), `@` is `_`'s depth. Each element is expanded once (cycles are fine). The result is a map from every element reached (x included) to its depth: `#r` counts, `e in r` tests, `r@e` is the shortest distance. Grid BFS: `[s]%{(nb4:_,g)[g@_1@_2 != "#"]}` |
 
 `/op` is always a fold (`xs/+ * 2` doubles the sum), except `/-` followed by an operand, which is division by a negation (`x/-1`, `x/-#y`, `x/-.5`).
 Chained maps and filters (and a fold or scan at the end) fuse into one loop with no intermediate arrays, so each
@@ -164,7 +165,7 @@ chain (`xs[>5]{*2}.take:2`) the fused loop stops as soon as it has n results, so
 Indexing a chain does the same: `chain@k` (k a literal >= 0 or a variable) stops after k+1 results, and `chain.one`
 (= `chain@0`) after the first: `1..1000000[_*_ > 50].one` is 8 after 8 elements. Too few results is the usual
 index-out-of-range error.
-`${` directly after an expression is a sort; elsewhere `$` stays the fold accumulator.
+`%{` directly after an expression is a reach (BFS). `${` directly after an expression is a sort; elsewhere `$` stays the fold accumulator.
 Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter; otherwise it starts a literal. `/` followed by `{` (spaces allowed: `x / {$+_}`) or an operator token is a fold; otherwise division.
 
 ### Block shortcuts

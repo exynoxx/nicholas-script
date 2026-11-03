@@ -93,6 +93,7 @@ type Expr =
     | EIter of IterKind * Expr * Stmt list
     | EIterOp of IterKind * Expr * string // fold or scan with an operator
     | ESort of Expr * Stmt list // `x${key}`
+    | EReach of Expr * Stmt list // `x%{next}`: everything reachable from x -> its BFS depth
     | EBlock of int * string list list * Stmt list // id, named params (`f a (b, c) = …`; a group unpacks), body
     | EGroup of Stmt list               // (s1; s2; value)
     | EMatch of string * Expr * Expr    // "map" `x ?{}` | "filter" `x ?[]` | "whole" (array-literal pattern): subject, arms (`_` = subject/element)
@@ -159,6 +160,7 @@ let rec showExpr (e: Expr) : string =
     | EIter(k, src, body) -> $"EIter({showKind k}, {showExpr src}, {showStmts body})"
     | EIterOp(k, src, op) -> $"EIterOp({showKind k}, {showExpr src}, {op})"
     | ESort(src, body) -> $"ESort({showExpr src}, {showStmts body})"
+    | EReach(src, body) -> $"EReach({showExpr src}, {showStmts body})"
     | EBlock(id, ps, body) -> $"EBlock({id}, {ps}, {showStmts body})"
     | EGroup body -> $"EGroup {showStmts body}"
     | EMatch(kind, x, arms) -> $"EMatch({kind}, {showExpr x}, {showExpr arms})"

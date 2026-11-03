@@ -1,0 +1,13 @@
+# x%{next}: everything reachable from x, mapped to its BFS depth (`_` = element, `@` = its depth)
+g = [1->[2,3], 2->[4], 3->[4], 4->[1], 5->[1]] ?? []
+d = [1]%{g@_}
+println: (#d, d@1, d@4, 5 in d)
+println: #[1]%{@ < 1 ? g@_ : []}
+println: #[0]%{[_+1, _*2][<20]}
+println: #%[5]%{g@_}
+# grid BFS: distance to the far corner around walls
+w = ["..#.", ".##.", "...."]
+e = [(0,0)]%{(nb4:_,w)[w@_1@_2 != "#"]}
+println: (e@(0,3), #e)
+# block with statements
+println: [1]%{n = g@_; n[>2]} .keys.sort

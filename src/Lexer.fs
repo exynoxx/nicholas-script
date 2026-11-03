@@ -12,7 +12,7 @@ let private symbols =
 
 /// A block starting with one of these gets an implicit `_` on its left (operator section).
 let private sectionOps = set [ "+"; "*"; "**"; "/"; "%"; "^^"; "++"; "^"; "<<"; ">>"; ">>>"; ">>>"; "="; "!="; "<"; ">"; "<="; ">="; "&"; "|" ]
-let private openers = set [ "{"; "m{"; "f["; "/{"; "\\{"; "${" ]
+let private openers = set [ "{"; "m{"; "f["; "/{"; "\\{"; "${"; "%{" ]
 let private foldOps = [ "+"; "*"; ">"; "<"; "&"; "|"; "^"; "-" ]
 
 /// `startCol` is the column of src's first character (interpolations are lexed on their own).
@@ -68,7 +68,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         | "(" -> stack.Push('(', tokLine, tokCol)
         | "f[" -> stack.Push('f', tokLine, tokCol) // a filter holds statements, like a block
         | "[" | "%[" | "Q[" | "PQ[" | "BT[" -> stack.Push('[', tokLine, tokCol)
-        | "{" | "m{" | "~{" | "/{" | "\\{" | "?{" | "${" -> stack.Push('{', tokLine, tokCol)
+        | "{" | "m{" | "~{" | "/{" | "\\{" | "?{" | "${" | "%{" -> stack.Push('{', tokLine, tokCol)
         | "?[" -> stack.Push('?', tokLine, tokCol)
         | ")" | "]" | "}" ->
             if stack.Count = 0 then failAt tokLine tokCol $"'{s}' has no matching opening bracket"
@@ -246,6 +246,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         elif c = '"' then lexString ()
         elif c = '$' && at 1 = '{' && endsExpr () then (sym "${"; i <- i + 2) // `x${key}` sorts by key
         elif c = '$' then (add (ID "$"); i <- i + 1)
+        elif c = '%' && at 1 = '{' && endsExpr () then (sym "%{"; i <- i + 2) // `x%{next}` reachable from x
         elif c = '_' then
             let start = i
             i <- i + 1
