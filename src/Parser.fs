@@ -125,6 +125,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                 pos <- if tokens.[j].tok = ID "memo" || tokens.[j].tok = ID "once" || tokens.[j].tok = ID "lazy" then j + 1 else j // `memo f a = …`, `lazy f = {…}`
                 match p.FnDefAhead(), tokens.[pos].tok with
                 | Some(f, _, _), _ -> fnames.Add f |> ignore
+                | None, _ when (p.ClauseAhead()).IsSome -> fnames.Add (let f, _, _ = (p.ClauseAhead()).Value in f) |> ignore
                 | None, ID f when pos + 2 < tokens.Length && tokens.[pos + 1].tok = SYM "="
                                   && (tokens.[pos + 2].tok = SYM "{" || tokens.[pos + 2].tok = SYM "?{" || tokens.[pos + 2].tok = SYM "?[" || tokens.[pos + 2].tok = ID "memo" || tokens.[pos + 2].tok = ID "once") -> fnames.Add f |> ignore
                 | _ -> ()
@@ -429,7 +430,27 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         let n, gs, m = match clauses.TryGetValue f with | true, c -> c | _ -> pats.Length, [], false
         if n <> pats.Length then errAt eq $"base cases of '{f}' have different numbers of parameters"
         clauses.[f] <- (n, gs @ [ SLine l; guard ], m || memo)
-        def
+        if p.ContinuesDef f then def
+        else
+            // only base cases: the last one's value is the body, and no match is a runtime error
+            clauses.Remove f |> ignore
+            fnames.Add f |> ignore
+            let fail = ECall("panic", [ EStr $"no base case of '{f}' matches" ])
+            let body = gs @ [ SLine l; SExpr(onlyIf (EUn("!", cond)) fail); SExpr value ]
+            nextId.Value <- nextId.Value + 1
+            let fn = EBlock(nextId.Value, List.init n (fun i -> [ $"arg'{i + 1}" ]), body)
+            SExpr(EGroup [ def; SAssign([ EVar f ], [ (if m || memo then ECall("memo", [ fn ]) else fn) ]); SExpr(EInt 0L) ])
+
+    /// Does the next statement go on defining f: another base case of it, or its general definition?
+    member p.ContinuesDef f =
+        let saved = pos
+        while tokens.[pos].tok = TERM do pos <- pos + 1
+        if tokens.[pos].tok = ID "memo" || tokens.[pos].tok = ID "once" || tokens.[pos].tok = ID "lazy" then pos <- pos + 1
+        let r =
+            (match p.ClauseAhead() with Some(g, _, _) -> g = f | None -> false)
+            || (match p.FnDefAhead() with Some(g, _, _) -> g = f | None -> false)
+        pos <- saved
+        r
 
     /// Does `lvalue {, lvalue} =` (or `lvalue op=`) start here? Walks the tokens LValues would take; Some the operator.
     member p.AssignAhead() : string option =

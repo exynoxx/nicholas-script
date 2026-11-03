@@ -1,0 +1,16 @@
+unpack "{a}:{b}" = (a, b/",")
+println: unpack: "x:1,2"
+step "noop" = 0
+step "addx {n:int}" = n
+println: ["noop", "addx 5"]{step}
+fib 0 = 0
+fib 1 = 1
+fib n = (fib: n-1) + (fib: n-2)
+println: fib: 10
+size [] = 0
+size [_] = 1
+println: size: [7]
+memo f "{a}-{b:int}" = b < 1 ? 0 : 1 + f: "{a}-{b-1}"
+println: f: "q-5"
+?? println: step: "boom"
+println: "after"

@@ -328,7 +328,11 @@ step "noop" = 0
 step "addx {n:int}" = n
 step s = -1
 ```
-A base case must have as many parameters as the definition. `memo` on the definition or on any base case memoizes the whole function (`memo fib 0 = 0`).
+A base case must have as many parameters as the definition. A function may be only base cases: when no definition
+follows, the last base case's value is the body, and an argument no case matches is a runtime error:
+```
+unpack "{a}:{b}" = (a, b/",")      # unpack: "x:1,2" → ("x",["1","2"]); unpack: "x" → error
+``` `memo` on the definition or on any base case memoizes the whole function (`memo fib 0 = 0`).
 Blocks capture variables from the enclosing scope **by reference** (`s=0; x{s+=_}` updates `s`). In v1 blocks may not escape (be returned or stored in collections), so captures live on the stack. A block without parameters (no `_`, `_1`, …) is called by its bare name, like `read`: after `n = 0; tick = {n += 1; n}`, `tick; println: tick` prints 2 (`tick:0` also works). Any other block isn't a value: it can be called, named, or passed to a function that takes a block (`sortby`, `memo`, `BT`), but printing one, putting it in a tuple or a ternary branch, or returning one is a compile error.
 A name is bound before its block body is checked, so blocks can recurse: `f={_<2?_:f:_-1}`.
 A recursive call combined with a set (`|` `&` `++`) or an array (`++`) gives that collection's type, so a function can
