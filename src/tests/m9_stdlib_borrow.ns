@@ -1,0 +1,13 @@
+# stdlib calls read array variables without copying them; values stay independent
+g = [[1,2],[3,4]]
+n = nb8: (0,0), g
+r = rev: g
+g@0@0 = 9; g@1 ++= 5
+println: n
+println: r
+println: g
+# a block running during the call may change the variable: the call still sees the old value
+xs = [3,1,2]
+ys = xs.sortby: {xs ++= 9; _}
+println: ys
+println: #xs

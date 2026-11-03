@@ -872,6 +872,9 @@ and private stdCall name (args: E list) : E =
     let exact (sg: Stdlib.Sig) = let env = Dictionary() in List.forall2 (bind env) sg.parms (args |> List.map (fun a -> a.t))
     let sg = candidates |> List.tryFind exact |> Option.defaultValue candidates.Head
     let env = Dictionary<string, Ty>()
+    // the runtime only reads an array argument; a variable needs its own copy only when user code (a block, a
+    // generator's sink) runs during the call and could change it
+    let runsUser = List.exists isBlock args
     let args =
         List.map2 (fun (p: Stdlib.STy) (a: E) ->
             match p, resolve a.t with
@@ -895,7 +898,7 @@ and private stdCall name (args: E list) : E =
                 let a = value a
                 bind env p a.t |> ignore
                 let a = match tryConv a (toTy env p) with Some a -> a | None -> err (mismatch ())
-                match a.k with Var _ -> own a | _ -> a) sg.parms args // an element argument is only read
+                match a.k with Var _ when runsUser -> own a | _ -> a) sg.parms args
     // descriptors are rendered by codegen, once every hole is resolved
     let descs = sg.tvars |> List.map (fun v -> typed Desc (toTy env (Stdlib.SVar v)))
     let ret = toTy env sg.ret
