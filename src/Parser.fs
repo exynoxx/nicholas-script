@@ -5,7 +5,7 @@ open System.Collections.Generic
 open Ast
 
 /// language primitives plus every function declared in runtime.c (see Stdlib.fs)
-let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ"; "BT"; "memo"; "ret"; "one"; "take1"; "isint"; "isfloat"; "isstr" ] + Stdlib.names
+let builtins = set [ "print"; "println"; "int"; "float"; "str"; "bool"; "set"; "Q"; "PQ"; "BT"; "memo"; "once"; "ret"; "one"; "take1"; "isint"; "isfloat"; "isstr" ] + Stdlib.names
 let private zeroArity = Stdlib.zeroArity
 let private compounds = set [ "+="; "-="; "*="; "**="; "/="; "%="; "^^="; "++="; "&="; "|="; "^="; "<<="; ">>="; ">>>="; "??=" ]
 
@@ -111,11 +111,11 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         let mutable stmtStart = true
         for j in 0 .. tokens.Length - 1 do
             if stmtStart && depth = 0 then
-                pos <- if tokens.[j].tok = ID "memo" || tokens.[j].tok = ID "lazy" then j + 1 else j // `memo f a = …`, `lazy f = {…}`
+                pos <- if tokens.[j].tok = ID "memo" || tokens.[j].tok = ID "once" || tokens.[j].tok = ID "lazy" then j + 1 else j // `memo f a = …`, `lazy f = {…}`
                 match p.FnDefAhead(), tokens.[pos].tok with
                 | Some(f, _, _), _ -> fnames.Add f |> ignore
                 | None, ID f when pos + 2 < tokens.Length && tokens.[pos + 1].tok = SYM "="
-                                  && (tokens.[pos + 2].tok = SYM "{" || tokens.[pos + 2].tok = SYM "?{" || tokens.[pos + 2].tok = SYM "?[" || tokens.[pos + 2].tok = ID "memo") -> fnames.Add f |> ignore
+                                  && (tokens.[pos + 2].tok = SYM "{" || tokens.[pos + 2].tok = SYM "?{" || tokens.[pos + 2].tok = SYM "?[" || tokens.[pos + 2].tok = ID "memo" || tokens.[pos + 2].tok = ID "once") -> fnames.Add f |> ignore
                 | _ -> ()
             match tokens.[j].tok with
             | SYM s when opensBracket s -> depth <- depth + 1
@@ -207,13 +207,15 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         if accept "??" then SExpr(EUn("??", EGroup [ p.Stmt(); SExpr(EInt 0L) ])) else
         // `memo f a b = body` is `f = memo:{body}` with named parameters
         let memo = peek () = ID "memo" && (pos <- pos + 1; p.FnDefAhead().IsSome || p.ClauseAhead().IsSome || (pos <- pos - 1; false))
+        // `once f a b = body` is `f = once:{body}`
+        let once = not memo && peek () = ID "once" && (pos <- pos + 1; p.FnDefAhead().IsSome || (pos <- pos - 1; false))
         // `lazy f a = body` / `lazy f = {…}`: `f = lazy:{…}` (lazy is not callable by name)
         let lazyAt = pos
         let lazy' =
             peek () = ID "lazy" && pos + 2 < tokens.Length && (match tokens.[pos + 1].tok, tokens.[pos + 2].tok with ID _, _ -> true | _ -> false)
             && (pos <- pos + 1
                 p.FnDefAhead().IsSome || tokens.[pos + 1].tok = SYM "=" || (pos <- pos - 1; false))
-        let wrap fn = if memo then ECall("memo", [ fn ]) elif lazy' then ECall("lazy", [ fn ]) else fn
+        let wrap fn = if memo then ECall("memo", [ fn ]) elif once then ECall("once", [ fn ]) elif lazy' then ECall("lazy", [ fn ]) else fn
         match p.ClauseAhead() with
         | Some(f, pats, eq) -> p.Clause(f, pats, eq, memo)
         | None ->
@@ -249,7 +251,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             let lvs = p.LValues()
             advance ()
             match lvs with
-            | [ EVar f ] when isSym "{" || isSym "?{" || isSym "?[" || (peek () = ID "memo" && tokens.[pos + 1].tok = SYM ":") -> fnames.Add f |> ignore
+            | [ EVar f ] when isSym "{" || isSym "?{" || isSym "?[" || ((peek () = ID "memo" || peek () = ID "once") && tokens.[pos + 1].tok = SYM ":") -> fnames.Add f |> ignore
             | _ -> ()
             let rhs =
                 match lvs with

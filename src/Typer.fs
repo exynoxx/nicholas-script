@@ -54,6 +54,8 @@ let mutable private inPlace: E option = None
 let mutable private counter = 0
 /// Blocks wrapped in `memo:`, and the cache variable of every memoized instance.
 let private memos = HashSet<int>()
+/// Blocks wrapped in `once:`: a repeated call (same arguments, even while the first is still running) returns zero.
+let private onces = HashSet<int>()
 let private memoCaches = ResizeArray<string>()
 /// Element types of empty literals ([] %[] [->]), and the blocks (instance key prefix) whose call fixed an outer one.
 let private emptyEls = ResizeArray<Ty>()
@@ -208,6 +210,18 @@ let private memoize (arity: int) (body: S list) =
         let miss = mk (Seq(List.rev rest @ [ Assign(r, value); SetIdx(v cache, v key, v r) ], v r))
         [ Assign(key, k); Do(mk (If(mk (Call("has", [ v cache; v key ])), mk (Index(v cache, v key)), miss))) ]
     | _ -> body
+
+/// `once:{..}`: an instance records its arguments in its own global cache; a call whose arguments are already there
+/// returns the zero value at once, so `f e = f: e` stops.
+let private onceize (arity: int) (body: S list) =
+    let seen, key = Desugar.fresh "once", Desugar.fresh "k"
+    memoCaches.Add(declare global0 seen (TMap(newHole (), TBool)))
+    let v n = mk (Var n)
+    let args = List.init arity (fun i -> v $"_{i + 1}")
+    let k = match args with [ a ] -> a | [] -> mk (Int 0L) | _ -> mk (Call("tuple", args))
+    let rest, value = match List.rev body with Do x :: r -> List.rev r, x | _ -> body, mk (Call("%void", []))
+    let run = mk (Seq(SetIdx(v seen, v key, mk (Bool true)) :: rest, value))
+    [ Assign(key, k); Do(mk (If(mk (Call("has", [ v seen; v key ])), mk (Call("zero", [])), run))) ]
 
 // ---------- conversions ----------
 
@@ -794,6 +808,8 @@ and private builtin name (args: E list) : E =
     | "try", [] -> call TBool
     | "untry", [] -> call TInt
     | "memo", [ { k = Fn(id, _) } as f ] -> (memos.Add id |> ignore; f)
+    | "once", [ { k = Fn(id, _) } as f ] -> (onces.Add id |> ignore; f)
+    | "once", _ -> err "once: expects a block, as in f = once:{...}"
     | "memo", _ -> err "memo: expects a block, as in f = memo:{...}"
     | "lazy", [ { k = Fn(id, _) } as f ] ->
         if cur.inst.IsSome then err "lazy: only a top-level function can be lazy"
@@ -882,7 +898,7 @@ and private stdCall name (args: E list) : E =
                 // one tuple for a block that names `_1 _2 …` (or takes several parameters): its parts, as in a map block
                 let id =
                     match pts with
-                    | [ pt ] when (Desugar.namesParts.Contains id || Desugar.arity.GetValueOrDefault id > 1) && not (memos.Contains id) ->
+                    | [ pt ] when (Desugar.namesParts.Contains id || Desugar.arity.GetValueOrDefault id > 1) && not (memos.Contains id || onces.Contains id) ->
                         match resolve (toTy env pt) with TTup _ -> spreadBlock id | _ -> id
                     | _ -> id
                 let call = userCall id (pts |> List.map (fun pt -> typed (Int 0L) (toTy env pt)))
@@ -1000,7 +1016,7 @@ and private userCall id (args: E list) : E =
             let saved, savedLine, savedCol = cur, line, col
             cur <- fr
             let typeBody body =
-                try typeStmts (if memos.Contains id then memoize tys.Length body else body)
+                try typeStmts (if memos.Contains id then memoize tys.Length body elif onces.Contains id then onceize tys.Length body else body)
                 with CompileError(l, c, msg) when not (msg.Contains "(when called at line ") ->
                     // the body is fine in general; say which call's argument types broke it
                     let ats = if tys.IsEmpty then "" else " with " + (tys |> List.map showT |> String.concat ", ")
@@ -1029,6 +1045,10 @@ and private userCall id (args: E list) : E =
                     | _ -> ss
                 with VoidRetry n when n = inst.name -> if (voidTail body).IsSome then retry () else err voidMix
             incomplete.RemoveAll(fun j -> obj.ReferenceEquals(inst, j)) |> ignore
+            // a once function whose result only comes from calls to itself (`f e = f: e`) runs for its effects
+            match List.rev ss with
+            | Do r :: _ when onces.Contains id && unfixed inst.ret && obj.ReferenceEquals(resolve inst.ret, resolve r.t) -> unify inst.ret TVoid |> ignore
+            | _ -> ()
             match List.rev ss with
             | Do r :: _ when unfixed inst.ret && holeIn inst.ret r.t ->
                 err "this function's result contains its own result ([[..]] without end); give it a base case of a fixed type first, or end it in a map of the recursive calls to run it for effect"
@@ -1123,7 +1143,7 @@ let private propagateCaptures () =
 
 let check (prog: S list) : Program =
     hovers.Clear(); varTy.Clear(); globals.Clear(); fnDefs.Clear(); spreads.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear(); freshTemps.Clear()
-    incomplete.Clear(); voidMaps.Clear(); memos.Clear(); memoCaches.Clear(); emptyEls.Clear(); fixers.Clear(); lazyFns.Clear(); lazySinks.Clear()
+    incomplete.Clear(); voidMaps.Clear(); memos.Clear(); onces.Clear(); memoCaches.Clear(); emptyEls.Clear(); fixers.Clear(); lazyFns.Clear(); lazySinks.Clear()
     cur <- global0
     let main = typeStmts prog
     let caches =

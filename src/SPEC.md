@@ -345,6 +345,15 @@ memo paths r c = r=0 | c=0 ? 1 : (paths:r-1,c)+(paths:r,c-1)   # same, with name
 ```
 `memo f a b = body` is `f a b = body` memoized (`f = memo:{…}` with named parameters).
 
+`once f a b = body` (or `f = once:{…}`) runs the body at most once per argument (tuple): a later call with the same
+arguments, including a recursive call while the first one is still running, returns the zero value of the result
+(`0`, `""`, `[]`, …) without running anything, so `once f e = f: e` stops. It does not cache results (that is `memo`).
+A once function whose result only comes from calls to itself is void, run for its effects. DFS without a visited set:
+```
+once visit n = {c += 1; g@n{visit: _}}       # each node once, cycles are fine
+once size n = 1 + (g@n{size:_}).sum          # nodes reachable from n, each counted once
+```
+
 `lazy f a = body` (or `lazy f = {…}`, top-level only) marks a function whose array result streams into its consumer
 instead of being built first (a C# iterator without `yield`). When a call is the source of a chain (maps and filters
 pass through) or of `#`, `.set`, `@k` (k ≥ 0), `.one`, `.take:n`, `.any`, `.all` or `@?x`, the body hands its elements

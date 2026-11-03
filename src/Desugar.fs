@@ -414,7 +414,7 @@ and private visitE fe fs (e: E) : E =
     fe e
     mapE (visitE fe fs) (fun b -> visitSS fe fs b; b) e
 
-let private impure = set [ "print"; "println"; "read"; "lines"; "write"; "spawn"; "pop"; "btadd"; "btdel"; "keep"; "memo"; "ret" ]
+let private impure = set [ "print"; "println"; "read"; "lines"; "write"; "spawn"; "pop"; "btadd"; "btdel"; "keep"; "memo"; "once"; "ret" ]
 
 /// `a = chain; …; s` where `a` (an iteration: `0..n[…]`, `xs{…}`) is assigned once and used once, in a later
 /// statement s of the same list, outside any loop or block of s: the chain moves into s, so its consumer decides whether an array

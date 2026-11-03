@@ -1,0 +1,22 @@
+# once f a = body: a call with arguments seen before (even while the first call runs) returns zero at once
+once f e = f: e
+f: 3
+once loop n = {println: n; loop: (n+1)%3}
+loop: 0
+println: "done"
+g = [1->[2,3], 2->[4], 3->[4], 4->[1], 5->[1]] ?? []
+c = 0
+once visit n = {c += 1; g@n{visit: _}}
+visit: 1
+println: c
+once size n = 1 + (g@n{size:_}).sum
+println: size: 5
+once name n = "x" + str: n
+a = name: 1
+b = name: 1
+println: (a, b, name: 2)
+once add x y = x + y
+println: [add: 1, 2]
+println: [add: 1, 2]
+h = once:{_ * 2}
+println: [(h: 4), (h: 4)]
