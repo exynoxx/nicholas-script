@@ -246,7 +246,7 @@ let lex (src: string) (startLine: int) (startCol: int) : Token list =
         elif c = '"' then lexString ()
         elif c = '$' && at 1 = '{' && endsExpr () then (sym "${"; i <- i + 2) // `x${key}` sorts by key
         elif c = '$' then (add (ID "$"); i <- i + 1)
-        elif c = '%' && at 1 = '{' && endsExpr () then (sym "%{"; i <- i + 2) // `x%{next}` reachable from x
+        elif c = '%' && at 1 = '{' && endsExpr () then (sym "%{"; i <- i + 2) // `x%{…}` once: map skipping seen elements
         elif c = '_' then
             let start = i
             i <- i + 1

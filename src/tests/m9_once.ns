@@ -1,0 +1,19 @@
+# x%{f}: map that skips elements already seen, on any collection
+println: [3,1,3,2,1]%{_*10}
+println: %[3,1,2]%{_+1}
+println: BT[5,4,5]%{_}
+println: "abca".chars%{_}
+# a queue the block pushes to: BFS visiting each node once (cycles are fine)
+g = [1->[2,3], 2->[4], 3->[4], 4->[1], 5->[1]] ?? []
+q = Q[1]
+println: q%{q ++= g@_; _}
+# grid BFS, counting reachable cells
+w = ["..#.", ".##.", "...."]
+c = Q[(0,0)]
+println: #c%{c ++= (nb4:_,w)[w@_1@_2 != "#"]}
+# PQ: Dijkstra, stale entries skipped (keyed by `_`, not by the priority)
+h = [1->[(2,7),(3,1)], 3->[(2,1)], 2->[(4,1)]] ?? []
+p = PQ[(0,1)]
+d = [->]
+p%{d@_ = @; k = @; h@_{p += (k+_2, _1)}}
+println: d

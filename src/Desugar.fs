@@ -135,28 +135,17 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
                     | Do key when j = last -> Do(mk (Call("tuple", [ key; mk (Var env'.["@"]); mk (Var env'.["_"]) ])))
                     | s -> s))
         iter env IMap (mk (Call("sort", [ keyed ]))) (fun env' -> [ Do(mk (Index(mk (Var env'.["_"]), mk (Int 2L)))) ])
-    | EReach(src, body) ->
-        // d = [->]; q = Q[]; src{d@_ = 0; q += _}; q{k = d@_; next[!(_ in d)]{d@_ = k+1; q += _}}; d
-        // `_` in the block is the element being expanded, `@` its depth
-        let d, q = fresh "reach", fresh "queue"
+    | EOnce(src, body) ->
+        // seen = %[]; src[_ in seen ? false : (seen += _; true)]{body}: pushes onto a queue source are visited too (BFS)
+        let seen = fresh "seen"
         let v n = mk (Var n)
-        let visit (x: E) depth =
-            [ SetIdx(v d, x, depth); Assign(q, mk (Bin("+", v q, x))); Do(mk (Call("%void", []))) ]
-        let seed = iter env IEach (ex src) (fun e -> visit (v e.["_"]) (mk (Int 0L)))
-        let expand =
-            iter env IEach (v q) (fun e ->
-                let k = fresh "depth"
-                let ss = block (e.Add("@", k)) body
-                let last = ss |> List.findIndexBack (function Do _ -> true | _ -> false)
-                let next = match ss.[last] with Do x -> x | _ -> failwith "unreachable"
-                let pre = List.take last ss @ List.skip (last + 1) ss
-                let step =
-                    iter e IEach next (fun e' ->
-                        let x = v e'.["_"]
-                        [ Do(mk (If(mk (Call("has", [ v d; x ])), mk (Int 0L),
-                                    mk (Seq(visit x (mk (Bin("+", v k, mk (Int 1L)))), mk (Int 0L)))))) ])
-                Assign(k, mk (Index(v d, v e.["_"]))) :: pre @ [ Do step; Do(mk (Call("%void", []))) ])
-        mk (Seq([ Assign(d, mk (Call("mapof", [ mk (Arr []); mk (Arr []) ]))); Assign(q, mk (Call("Q", [ mk (Arr []) ]))); Do seed; Do expand ], v d))
+        let fresh1 =
+            iter env IFilter (ex src) (fun e ->
+                let x = v e.["_"]
+                [ Do(mk (If(mk (Call("has", [ v seen; x ])), mk (Bool false),
+                            mk (Seq([ Assign(seen, mk (Bin("+", v seen, x))) ], mk (Bool true)))))) ])
+        let once = iter (ownsI body env) IMap fresh1 (fun env' -> block env' body)
+        mk (Seq([ Assign(seen, mk (Call("set", [ mk (Arr []) ]))) ], once))
     | EIterOp(kind, src, op) ->
         iter env kind (ex src) (fun (env': Map<string, string>) ->
             let acc, el = mk (Var env'.["$"]), mk (Var env'.["_"])

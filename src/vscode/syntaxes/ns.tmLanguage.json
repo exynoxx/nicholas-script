@@ -58,7 +58,7 @@
       ]
     },
     "fold": {
-      "comment": "x/+ x\\max: op-fold/scan only when no operand follows (Lexer.tryOpAfter); x${..} sort, x%{..} reach",
+      "comment": "x/+ x\\max: op-fold/scan only when no operand follows (Lexer.tryOpAfter); x${..} sort, x%{..} once",
       "match": "[/\\\\](?:[+*<>&|^-])(?=[ \\t]*(?:$|[;)\\]},.{\\[/\\\\#]))|[/\\\\](?=[ \\t]*\\{)|(?<=[\\w)\\]}\"])[$%](?=\\{)",
       "name": "keyword.operator.fold.ns"
     },
