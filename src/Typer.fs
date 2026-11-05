@@ -57,6 +57,9 @@ let private memos = HashSet<int>()
 /// Blocks wrapped in `once:`: a repeated call (same arguments, even while the first is still running) returns zero.
 let private onces = HashSet<int>()
 let private memoCaches = ResizeArray<string>()
+/// Caches of memo/once blocks nested in a function: a local of that function's instance, made fresh on each call of it
+/// (the block may capture its variables, so entries from an earlier call would be wrong).
+let private localCaches = ResizeArray<Inst * string>()
 /// Element types of empty literals ([] %[] [->]), and the blocks (instance key prefix) whose call fixed an outer one.
 let private emptyEls = ResizeArray<Ty>()
 let private fixers = HashSet<string>()
@@ -198,12 +201,18 @@ let private sinkBody (body: S list) (sink: string) : S list =
     | Do last :: rest -> List.rev rest @ [ Assign(m, mk (Bool true)) ] @ emit last @ [ Do(v m) ]
     | _ -> body
 
-/// `memo:{..}`: an instance first looks its arguments up in its own global cache (a map, created at program start).
-let private memoize (arity: int) (body: S list) =
+/// A memo/once cache for a block defined in frame fr: global at top level, else a local of the enclosing instance.
+let private newCache (fr: Frame) name ty =
+    match fr.inst with
+    | None -> memoCaches.Add(declare global0 name ty)
+    | Some i -> localCaches.Add(i, declare fr name ty)
+
+/// `memo:{..}`: an instance first looks its arguments up in its own cache (a map, see `newCache`).
+let private memoize (fr: Frame) (arity: int) (body: S list) =
     match List.rev body with
     | Do value :: rest ->
         let cache, key, r = Desugar.fresh "memo", Desugar.fresh "k", Desugar.fresh "r"
-        memoCaches.Add(declare global0 cache (TMap(newHole (), newHole ())))
+        newCache fr cache (TMap(newHole (), newHole ()))
         let v n = mk (Var n)
         let args = List.init arity (fun i -> v $"_{i + 1}")
         let k = match args with [ a ] -> a | [] -> mk (Int 0L) | _ -> mk (Call("tuple", args))
@@ -213,9 +222,9 @@ let private memoize (arity: int) (body: S list) =
 
 /// `once:{..}`: an instance records its arguments in its own global cache; a call whose arguments are already there
 /// returns the zero value at once, so `f e = f: e` stops.
-let private onceize (arity: int) (body: S list) =
+let private onceize (fr: Frame) (arity: int) (body: S list) =
     let seen, key = Desugar.fresh "once", Desugar.fresh "k"
-    memoCaches.Add(declare global0 seen (TMap(newHole (), TBool)))
+    newCache fr seen (TMap(newHole (), TBool))
     let v n = mk (Var n)
     let args = List.init arity (fun i -> v $"_{i + 1}")
     let k = match args with [ a ] -> a | [] -> mk (Int 0L) | _ -> mk (Call("tuple", args))
@@ -1016,7 +1025,7 @@ and private userCall id (args: E list) : E =
             let saved, savedLine, savedCol = cur, line, col
             cur <- fr
             let typeBody body =
-                try typeStmts (if memos.Contains id then memoize tys.Length body elif onces.Contains id then onceize tys.Length body else body)
+                try typeStmts (if memos.Contains id then memoize defFr tys.Length body elif onces.Contains id then onceize defFr tys.Length body else body)
                 with CompileError(l, c, msg) when not (msg.Contains "(when called at line ") ->
                     // the body is fine in general; say which call's argument types broke it
                     let ats = if tys.IsEmpty then "" else " with " + (tys |> List.map showT |> String.concat ", ")
@@ -1143,15 +1152,17 @@ let private propagateCaptures () =
 
 let check (prog: S list) : Program =
     hovers.Clear(); varTy.Clear(); globals.Clear(); fnDefs.Clear(); spreads.Clear(); insts.Clear(); instList.Clear(); global0.vars.Clear(); freshTemps.Clear()
-    incomplete.Clear(); voidMaps.Clear(); memos.Clear(); onces.Clear(); memoCaches.Clear(); emptyEls.Clear(); fixers.Clear(); lazyFns.Clear(); lazySinks.Clear()
+    incomplete.Clear(); voidMaps.Clear(); memos.Clear(); onces.Clear(); memoCaches.Clear(); localCaches.Clear(); emptyEls.Clear(); fixers.Clear(); lazyFns.Clear(); lazySinks.Clear()
     cur <- global0
     let main = typeStmts prog
-    let caches =
-        memoCaches |> Seq.map (fun u ->
-            match resolve varTy.[u] with
-            | TMap(k, v) as t -> Assign(u, typed (Call("mapof", [ typed (Arr []) (TArr k); typed (Arr []) (TArr v) ])) t)
-            | t -> err $"memo cache of type {showT t}") |> List.ofSeq
-    let main = caches @ main
+    let init u =
+        match resolve varTy.[u] with
+        | TMap(k, v) as t -> Assign(u, typed (Call("mapof", [ typed (Arr []) (TArr k); typed (Arr []) (TArr v) ])) t)
+        | t -> err $"memo cache of type {showT t}"
+    let main = (memoCaches |> Seq.map init |> List.ofSeq) @ main
+    // a cache whose instance was retyped (`retry`) is no longer one of its locals
+    for i, u in localCaches do
+        if i.owned.Contains u then i.body <- init u :: i.body
     propagateCaptures ()
     { main = main
       globals = globals |> Seq.map (fun g -> g, varTy.[g]) |> List.ofSeq

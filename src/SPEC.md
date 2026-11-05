@@ -357,7 +357,8 @@ A function's parameter types are inferred per call site (monomorphised at compil
 
 `memo:{…}` memoizes a block (Python's `@lru_cache`, unbounded): each call first looks its arguments up in a cache,
 keyed on the argument (or the tuple of arguments), and runs the body only on a miss. Each typed instance has its own cache.
-Captured variables are not part of the key.
+Captured variables are not part of the key. A memo (or once) function defined inside another function starts with an
+empty cache on every call of that function, so it may capture the caller's variables (`solv f = { g = …; memo h i = g@i … }`).
 ```
 fib = memo:{_<2 ? _ : (fib:_-1)+(fib:_-2)}
 fib:90                                       # 2880067194370816120, instantly

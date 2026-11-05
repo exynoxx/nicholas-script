@@ -1,0 +1,10 @@
+# a memo/once function nested in another one gets a fresh cache per call of the outer one (it may capture its variables)
+solv k = {
+    memo f n = n * k
+    once g n = n + k
+    println: "{f: 2} {g: 1}"
+}
+solv: 10
+solv: 100
+fact n = { memo h 0 = n; memo h i = h: i-1; h: 3 }
+println: "{fact: 5} {fact: 7}"
