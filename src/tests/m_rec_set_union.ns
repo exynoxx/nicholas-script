@@ -1,0 +1,22 @@
+# recursive calls combined with a collection take its type: s | f: x, xs ++ f: x, %[e] | xs{f}/|
+g = ["a"->["b","c"], "b"->["c","a"]] ?? []
+t = ["a"->["b","c"], "b"->["c"]] ?? []
+f e = { s = %[e]; t@e{s = s | f: _}; s }
+println: #f: "a"
+once h e = { s = [e]; g@e{s ++= h: _}; s }
+println: h: "a"
+once d e = %[e] | g@e{d}/|
+println: #d: "a"
+once k e = %[e] | g@e{k}/+
+println: #k: "c"
+xs = [%[1]]
+println: xs[#_>3]/|
+# mutual recursion: each function's result takes the set type from the other's call
+m = [1->[2], 2->[3,1]] ?? []
+once ma e = %[e] | m@e{mb}/|
+once mb e = %[e] | m@e{ma}/|
+println: #ma: 1
+# an array built by recursion on the right of ++, ended by a guard
+cd n<1 = [0]
+cd n = [n] ++ cd: n-1
+println: cd: 4

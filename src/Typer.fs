@@ -79,6 +79,11 @@ let rec private holeIn (h: Ty) (t: Ty) =
     | _, TTree(x, k) -> holeIn h x || (match k with Some(_, kt) -> holeIn h kt | None -> false)
     | _, TTup ts -> List.exists (holeIn h) ts
     | _ -> false
+/// Is t the still-unknown result of a function whose body is being typed (a recursive call)?
+let private recRet (t: Ty) =
+    match resolve t with
+    | THole _ -> incomplete |> Seq.exists (fun i -> (match resolve i.ret with THole _ -> holeIn i.ret t | _ -> false))
+    | _ -> false
 let private typed k t = { k = k; t = t }
 /// A type as errors show it: a block is "a block", not its internal fn<id>.
 let private showT t = match resolve t with TFn _ -> "a block" | t -> showTy t
@@ -408,7 +413,8 @@ and private typeAt (e: E) : E =
             | "+", TFloat -> typed (Float 0.0) TFloat
             | "*", TFloat -> typed (Float 1.0) TFloat
             | "+", TStr -> typed (Str "") TStr
-            | "+", TArr _ -> typed (Arr []) acc.t
+            | ("+" | "++"), TArr _ -> typed (Arr []) acc.t
+            | ("+" | "|" | "++"), TSet el -> builtin "set" [ typed (Arr []) (TArr el) ]
             | "&", TBool -> typed (Bool true) TBool
             | ("|" | "^"), TBool -> typed (Bool false) TBool
             | _ -> typeE (mk (Seq([ Do(mk (Call("panic", [ mk (Str "fold of empty collection") ]))) ], acc)))
@@ -420,7 +426,16 @@ and private typeAt (e: E) : E =
                 (match resolve v with THole _ -> unify v b.t |> ignore | _ -> ())
                 stdCall "mapdef" [ a; conv b v ]
             | t -> err $"?? gives a map a default value (m ?? d), not {showT t}"
-        | Bin(op, a, b) -> typeBin op (inPlace |> Option.exists (fun x -> obj.ReferenceEquals(x, e))) (noVoid (typeE a)) (noVoid (typeE b))
+        | Bin(op, a, b) ->
+            let a = noVoid (typeE a)
+            // `s | xs{f}/|` in f's body: recursive calls on the right give s's collection type (like a ternary's branches)
+            let saved = expect
+            match op, resolve a.t with
+            | ("|" | "&" | "++"), TSet _ | "++", TArr _ when incomplete.Count > 0 -> expect <- Some a.t
+            | _ -> ()
+            let b = noVoid (typeE b)
+            expect <- saved
+            typeBin op (inPlace |> Option.exists (fun x -> obj.ReferenceEquals(x, e))) a b
         | Call("%own", [ x ]) -> setCopy (typeE x) // a fold's first element becomes the accumulator, which is updated in place
         | If(c, a, b) ->
             let c = conv (typeE c) TBool
@@ -652,6 +667,9 @@ and private typeBin op inPlace (a: E) (b: E) : E =
     | THole _, None when op = "++" ->
         unify a.t (match resolve b.t with TArr _ -> b.t | t -> TArr t) |> ignore
     | THole _, None -> unify a.t b.t |> ignore
+    // `s | f: x`, `xs ++ f: x` in f's own body: the recursive call gives the collection it combines with
+    | (TSet _ | TArr _ as l), _ when recRet b.t && (op = "++" || (op = "|" || op = "&") && (match l with TSet _ -> true | _ -> false)) ->
+        unify b.t a.t |> ignore
     | _ -> ()
     let L = resolve a.t
     let same x = typed (Bin(op, a, conv b L)) L
