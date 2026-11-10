@@ -452,8 +452,9 @@ The test is an expression in which `=` compares (`x=0 => …`, `_ = _.int => …
 `in` tests `_` (`>9 =>`, `in seen =>`), a bare number or string literal compares `_` with it (`0 =>`, `"noop" =>`, `-1 =>`),
 and `a, b => v` takes either test. The value is a statement, as in a block: `M@i = x` assigns, `c += 1` and `println: x`
 give no value; `=> { s1; s2 }` runs several and gives the last expression. Arrows must all give a value or all give none,
-like ternary branches: a block or group whose arrows give values needs a last line (the default) after them, and one
-whose arrows give none is void when nothing follows (`[1,2,3]{ 2 => c += 1 }`).
+like ternary branches: a block or group whose arrows give values and has no last line (the default) after them gives the
+type's zero value when no test holds (`(x<0 => x*2)` is 0 for x ≥ 0, `{ 1 => "one" }` gives ""), and one whose arrows give
+none is void when nothing follows (`[1,2,3]{ 2 => c += 1 }`).
 
 ### Match filter `?[ ]`
 

@@ -444,7 +444,14 @@ and private typeAt (e: E) : E =
             match resolve a.t with
             | THole _ -> ()
             | t -> expect <- Some t
-            let b = value (typeE b)
+            // no else (`c ? v`, a last arrow `c => v`): a valued branch's else is its type's zero value
+            let b =
+                match b.k, resolve a.t with
+                | Call("%void", []), t when t <> TVoid && not (match t with THole _ -> true | _ -> false) ->
+                    let z = typeE (mk (Call("zero", [])))
+                    unify z.t a.t |> ignore
+                    z
+                | _ -> value (typeE b)
             expect <- saved
             let isVoid (x: E) = resolve x.t = TVoid
             let unfixed (x: E) = match resolve x.t with THole _ -> true | _ -> false
