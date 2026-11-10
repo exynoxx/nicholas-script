@@ -110,18 +110,21 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             fnames.Add a |> ignore
 
     member p.Program() =
-        p.DeclareFunctions()
+        p.DeclareFunctions(0)
         let body = p.Stmts EOF
         for KeyValue(f, _) in clauses do fail 0 $"base case of '{f}' without a general definition `{f} a b = …` after it"
         if peek () <> EOF then err ($"unexpected {describeTok (peek ())}")
         body
 
-    /// Forward references: every top-level `f a b = …`, `f = {…}` and `f = memo:…` is a function name from the start,
-    /// so functions can call ones defined later (mutual recursion).
-    member p.DeclareFunctions() =
+    /// Forward references: every `f a b = …`, `f = {…}` and `f = memo:…` at the top level of the program, or of the
+    /// block starting at token `from`, is a function name from the start, so functions can call ones defined later
+    /// (mutual recursion, also between functions nested in one block).
+    member p.DeclareFunctions(from: int) =
+        let saved = pos
         let mutable depth = 0
         let mutable stmtStart = true
-        for j in 0 .. tokens.Length - 1 do
+        let mutable j = from
+        while j < tokens.Length && depth >= 0 do
             if stmtStart && depth = 0 then
                 pos <- if tokens.[j].tok = ID "memo" || tokens.[j].tok = ID "once" || tokens.[j].tok = ID "lazy" then j + 1 else j // `memo f a = …`, `lazy f = {…}`
                 match p.FnDefAhead(), tokens.[pos].tok with
@@ -135,7 +138,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             | SYM(")" | "]" | "}") -> depth <- depth - 1
             | _ -> ()
             stmtStart <- tokens.[j].tok = TERM
-        pos <- 0
+            j <- j + 1
+        pos <- saved
 
     member p.Stmts(closer: Tok) : Stmt list =
         let out = ResizeArray<Stmt>()
@@ -230,6 +234,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         c, value
 
     member p.Block(closer: string) =
+        if closer = "}" then p.DeclareFunctions pos
         let saved = HashSet shadowed
         let body = p.Stmts(SYM closer)
         expect closer

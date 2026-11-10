@@ -353,8 +353,9 @@ self-referential type is a compile error.
 `c ? a` without `:`, a map whose body is void (`xs{println:_}`), and a function whose body ends in one of these.
 A void value can't be assigned, passed, printed or computed with (compile error). Ternary/arrow branches must all
 give a value or all give none; a literal `0` branch pairs with a void one (`c ? println:x : 0`).
-Top-level functions (`f a = …`, `f = {…}`, `f = memo:…`) may call functions defined later in the file, so they can be
-mutually recursive: `ev x = x=0 ? T : (od:x-1)` before `od x = x=0 ? F : (ev:x-1)`. Top-level code still calls a
+Functions (`f a = …`, `f = {…}`, `f = memo:…`) may call functions defined later in the same file or block, so they can be
+mutually recursive: `ev x = x=0 ? T : (od:x-1)` before `od x = x=0 ? F : (ev:x-1)`, also nested in a function, where
+they may capture its variables and a `memo` keeps a fresh cache per call of it. Other code still calls a
 function only after its definition.
 `a = f` with `f` a function makes `a` an alias: `a:x`, `x.a` and `xs{a}` call `f` (`fa = fact` then `fa:5`). An alias
 cannot later be reassigned to another function. Aliasing a stdlib function works the same (`m = max`, `u = upper`), and the alias keeps

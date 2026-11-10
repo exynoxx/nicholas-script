@@ -1,0 +1,29 @@
+# functions nested in one block may call ones defined later in it (mutual recursion)
+par x = {
+  ev 0 = T
+  ev n = od: n-1
+  od 0 = F
+  od n = ev: n-1
+  ((ev: x), od: x)
+}
+println: par: 7
+# capturing the outer parameter; memo keeps a fresh cache per call of the outer function
+cnt k = {
+  memo a n<1 = 1
+  a n = (b: n-1) + k
+  memo b n<1 = 0
+  b n = (a: n-1) * 2
+  a: 20
+}
+println: ((cnt: 1), cnt: 2)
+# a cycle of three
+tri x = {
+  p n = n<1 ? 0 : 1 + q: n-1
+  q n = n<1 ? 0 : 10 + r: n-1
+  r n = n<1 ? 0 : 100 + p: n-1
+  p: x
+}
+println: tri: 5
+# in a block function
+g = { h n = n<1 ? 0 : i: n-1; i n = n + h: n; h: _ }
+println: g: 4
