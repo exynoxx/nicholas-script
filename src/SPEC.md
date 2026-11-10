@@ -173,7 +173,9 @@ Disambiguation: `[` after an expression (spaces allowed: `xs [>0]`) is a filter;
 - **Function section**: a map, filter or plain block whose whole body is a function name calls it on `_`: `x{int}` is `x{int:_}`, `x[even]`, `sortby:xs,{str}`; so does a negated one: `s[!ws]` is `s[!ws:_]`, and a negated block: `x[!{_>2}]` calls `!{_>2}` on each element. A parameter bound to a block works the same (`keep xs c = xs[c]`, `xs[!c]`); one bound to a value is just that value (`f n = xs{n}`)
   (the block must return bool).
 - **Filter-map** `x[{ body }]`: a filter whose whole body is a block maps each element with the block and drops results
-  equal to their type's zero value (`0`, `0.0`, `""`, `F`, empty collection, all-zero tuple): `xs[{ >4 => _*2 }]` keeps
+  equal to their type's zero value (`0`, `0.0`, `""`, `F`, empty collection, all-zero tuple) or that give no value (void:
+  a branch that is a statement, `xs[{ >4 => _*2; println: _ }]` prints and drops the rest; a body that is all statements
+  runs for its effects and keeps nothing): `xs[{ >4 => _*2 }]` keeps
   the doubled elements over 4 (a value arrow with no last line gives zero), `ss[{ _.trim }]` drops blank lines. It fuses
   like `x{…}[…]`. `x[_{…}]` is still a filter whose condition maps the inner array.
   Blocks are not values in collections or conditions: `[{_}]` and `f ? a : b` with a block `f` are compile errors.

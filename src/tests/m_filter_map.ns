@@ -9,3 +9,9 @@ println: [[1,2],[3]][_{>1}]
 println: [0,1,2][{ >0 => (_,1) }]
 println: [0.0,1.5][{_*2.0}]
 println: [1,2,3][{ >1 => %[_] }]
+println: xs[{ >4 => _*2; print: "skip{_} " }]
+println: xs[{ <5 => print: "v{_} "; "s{_}" }]
+c = 0
+println: #xs[{ c += _ }]
+println: c
+println: xs[{ print: "p{_} " }]

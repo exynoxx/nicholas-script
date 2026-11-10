@@ -49,6 +49,8 @@ let hovers = ResizeArray<int * int * string * Ty>()
 let mutable private col = 0
 /// Type of the then-branch while typing an else-branch; resolves `rec + rec` in recursive functions.
 let mutable private expect: Ty option = None
+/// typing the body of a filter-map `xs[{…}]`: a void branch gives zero, so the element is dropped
+let mutable private dropVoid = false
 /// The `x op e` of the statement `x = x op e` (also `x op= e` and a fold step): a set operator there updates x in place.
 let mutable private inPlace: E option = None
 let mutable private counter = 0
@@ -398,6 +400,14 @@ and private typeAt (e: E) : E =
                     | Seq(ss, y) -> { e with k = Seq(ss |> List.map (function SetIdx(a, i, y) -> SetIdx(sub a, sub i, sub y) | s -> s), sub y) }
                     | _ -> e
                 typeE (sub put)
+        | Call("%dropvoid", [ x ]) ->
+            // the body of a filter-map `xs[{…}]`; all void: run it, keep nothing
+            let saved = dropVoid
+            dropVoid <- true
+            let x = try typeE x finally dropVoid <- saved
+            if resolve x.t <> TVoid then x else
+            let z = typeE (mk (Call("zero", [])))
+            typed (Seq([ Do x ], z)) z.t
         | Call("zero", []) ->
             // the zero value of a type known later (Desugar: `x'` before enough iterations); the runtime builds it
             let h = newHole ()
@@ -465,6 +475,15 @@ and private typeAt (e: E) : E =
                 | _ -> false
             // `c ? println:x : 0`: a literal 0 is the old way of writing "nothing"
             let zero (x: E) = match x.k with Int 0L -> true | _ -> false
+            let a, b =
+                if dropVoid && isVoid a <> isVoid b && not (unfixed a || unfixed b) then
+                    let fill (x: E) (other: E) =
+                        if not (isVoid x) then x else
+                        let z = typeE (mk (Call("zero", [])))
+                        unify z.t other.t |> ignore
+                        typed (Seq([ Do x ], z)) other.t
+                    fill a b, fill b a
+                else a, b
             if isVoid a <> isVoid b && not (unfixed a || unfixed b || assigns a || assigns b || zero a || zero b) then
                 let v = if isVoid a then b else a
                 // a map of recursive calls: retype that function with it run as `each`
@@ -599,7 +618,9 @@ and private typeIter (it: Iter) (limit: E option) (count: bool) (at: E option) :
 and private typeIterInto (toSet: bool) (it: Iter) (limit: E option) (count: bool) (at: E option) : E =
     let flag = ref false
     voidMaps.Push flag
-    let r = try typeIterInto0 toSet it limit count at finally voidMaps.Pop() |> ignore
+    let savedDV = dropVoid
+    dropVoid <- false
+    let r = try typeIterInto0 toSet it limit count at finally (voidMaps.Pop() |> ignore; dropVoid <- savedDV)
     if flag.Value then typed (Seq([ Do r ], typed (Int 0L) TVoid)) TVoid else r
 
 and private typeIterInto0 (toSet: bool) (it: Iter) (limit: E option) (count: bool) (at: E option) : E =
@@ -1017,6 +1038,11 @@ and private spreadBlock id =
         w
 
 and private userCall id (args: E list) : E =
+    let savedDV = dropVoid
+    dropVoid <- false
+    try userCall0 id args finally dropVoid <- savedDV
+
+and private userCall0 id (args: E list) : E =
     let tys = args |> List.map (fun a -> resolve a.t)
     let body, defFr = fnDefs.[id]
     // a block nested in a function belongs to that function's instance: it captures that instance's variables
