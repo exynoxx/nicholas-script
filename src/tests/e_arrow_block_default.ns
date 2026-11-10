@@ -1,0 +1,2 @@
+f x = { x=1 => "one"; x=2 => "two" }
+println: f: 1

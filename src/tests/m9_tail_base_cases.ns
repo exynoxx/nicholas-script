@@ -4,5 +4,5 @@ println: parity: 7
 down n = (n < 1) ? (upper: "low") : (n = 5) ? (upper: "five") : down: n - 3
 println: down: 5
 println: down: 7
-m n = n ?{ 0 => "zero"; 1 => "one"; m: n - 2 }
+m n = (n=0 => "zero"; n=1 => "one"; m: n - 2)
 println: m: 6

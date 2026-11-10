@@ -13,7 +13,7 @@ println:(split:"the fast golf language"," ").sortby:{-#_}   # ["language",…]
 ```
 
 ```ns
-q = {p = #_ ? _@0 : 0; #_<2 ? _ : (q:_[<p])++_[=p]++(q:_[>p])}   # quicksort
+q xs = { #xs<2 => xs; p = xs@0; (q:xs[<p]) ++ xs[=p] ++ q:xs[>p] }   # quicksort
 ```
 
 No type annotations, yet every expression is typed at compile time. `{}` maps, `[]` filters, `/` folds, `\` scans,
@@ -271,21 +271,17 @@ n>1 ~{
 }
 println:c                   # => 111   (Collatz steps for 27)
 
-# "x ?{ ... }" is a match. Arms are tried in order; the first one wins.
+# Arrows: "test => value" inside ( ) or { }. The first test that holds gives the value; the last line is the default.
 n = 3
-println:n ?{
-  1 => "one"
-  2, 3 => "few"             # any of several values
-  >9 => "big"               # an arm starting with a comparison tests n
-  _ => "some"               # default
-}                           # => few
-# Without a subject, each arm is a condition.
-println:?{ n<0 => "neg"; n=0 => "zero"; "pos" }   # => pos
-# An array subject maps the match over its elements; ?[ ] filters with it.
-println:[95,85,10] ?{ >=90 => "A"; >=80 => "B"; "C" }   # => ["A","B","C"]
-println:[1,2,5,9,12] ?[ 1, 2; >8 ]                       # => [1,2,9,12]
-# An array-literal pattern compares the whole array.
-println:[] ?{ [] => "empty"; _ => "other" }             # => empty
+println:(n=1 => "one"; n=2, n=3 => "few"; n>9 => "big"; "some")   # => few
+# In a block, a leading comparison tests _ and a bare literal compares _ with it.
+println:[95,85,10]{ >=90 => "A"; >=80 => "B"; "C" }   # => ["A","B","C"]
+println:[1,2,3]{ 2 => "two"; "-" }                     # => ["-","two","-"]
+# In a function body an arrow is an early return.
+sign x = { x<0 => -1; x=0 => 0; 1 }
+println:sign:-4                                        # => -1
+# ?[ ] keeps the elements matching an arm.
+println:[1,2,5,9,12] ?[ 1, 2; >8 ]                     # => [1,2,9,12]
 
 # ==================================================
 # 7. Functions
@@ -325,7 +321,7 @@ println:s                   # => 6
 println:sq:1.5              # => 2.25
 
 # Quicksort in one line.
-q = {p = #_ ? _@0 : 0; #_<2 ? _ : (q:_[<p])++_[=p]++(q:_[>p])}
+q xs = { #xs<2 => xs; p = xs@0; (q:xs[<p]) ++ xs[=p] ++ q:xs[>p] }
 println:q:[3,6,1,8,2,9,2]   # => [1,2,2,3,6,8,9]
 
 # ==================================================

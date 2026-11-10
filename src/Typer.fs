@@ -276,7 +276,7 @@ let private own = ownIn (fun _ -> false)
 
 /// A function body with its tail maps (the value's map, through ternaries, groups and matches) run as `each`,
 /// giving no value: None when it has none.
-let private voidMix = "another gives no value (void: a statement, println, or a match without a `_ =>` default arm); give every branch a value, or none"
+let private voidMix = "another gives no value (void: a statement, println, or arrows with no last line after them); give every branch a value, or none"
 
 let private voidTail (body: S list) : S list option =
     let rec tail (e: E) : E option =
@@ -330,7 +330,7 @@ and private value (x: E) : E =
 /// A void expression (a statement, `println`, a match without a default arm, a void function) can't be used as a value.
 and private noVoid (x: E) : E =
     match resolve x.t with
-    | TVoid -> err "this gives no value (void): a statement, println, a match without a `_ =>` default arm or a function run for its effects"
+    | TVoid -> err "this gives no value (void): a statement, println, arrows with no last line after them, or a function run for its effects"
     | _ -> x
 
 // ---------- expressions ----------

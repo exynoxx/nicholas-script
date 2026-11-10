@@ -127,7 +127,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                 | Some(f, _, _), _ -> fnames.Add f |> ignore
                 | None, _ when (p.ClauseAhead()).IsSome -> fnames.Add (let f, _, _ = (p.ClauseAhead()).Value in f) |> ignore
                 | None, ID f when pos + 2 < tokens.Length && tokens.[pos + 1].tok = SYM "="
-                                  && (tokens.[pos + 2].tok = SYM "{" || tokens.[pos + 2].tok = SYM "?{" || tokens.[pos + 2].tok = SYM "?[" || tokens.[pos + 2].tok = ID "memo" || tokens.[pos + 2].tok = ID "once") -> fnames.Add f |> ignore
+                                  && (tokens.[pos + 2].tok = SYM "{" || tokens.[pos + 2].tok = SYM "?[" || tokens.[pos + 2].tok = ID "memo" || tokens.[pos + 2].tok = ID "once") -> fnames.Add f |> ignore
                 | _ -> ()
             match tokens.[j].tok with
             | SYM s when opensBracket s -> depth <- depth + 1
@@ -143,6 +143,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         let noop () =
             unused |> Option.iter (fun j ->
                 errAt j "can't assign to this: only names, x@i and a, b can be assigned; a comparison here has no effect")
+        // the last arrow `c => v`; when it is also the last statement, nothing follows to be its else: `c ? v` (void)
+        let mutable lastArrow = None
         let mutable go = true
         while go do
             while peek () = TERM do advance ()
@@ -165,7 +167,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                 noop ()
                 let start, at = peek (), pos
                 out.Add(SLine(line ()))
-                let s = p.Stmt()
+                let s =
+                    if p.Ahead(SYM "=>") && p.ClauseAhead().IsNone && p.FnDefAhead().IsNone then
+                        let c, v = p.Arrow()
+                        lastArrow <- Some(out.Count, c, v)
+                        SExpr(mark at (ETern(c, EGroup [ SExpr(ECall(callMark + "ret", [ v ])); SExpr(ECall("%void", [])) ], ECall("%void", []))))
+                    else p.Stmt()
                 out.Add s
                 // `_ = e` in a map body writes the element
                 unused <-
@@ -185,7 +192,41 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                         errAt (pos - 1) (if hint <> "" then $"'{f}' is not a function{hint}" else $"'{f}' is not a function: define it with a block, e.g. f = {{_+1}}")
                     | _ -> err ($"expected end of statement, found {found ()}")
         if closer = EOF then noop ()
+        match lastArrow with
+        | Some(k, c, v) when out |> Seq.skip (k + 1) |> Seq.forall (function SLine _ -> true | _ -> false) ->
+            out.[k] <- SExpr(ETern(c, v, ECall("%void", [])))
+        | _ -> ()
         List.ofSeq out
+
+    /// `test => value` in a block or group: if test holds, the block's value is value and the rest is skipped
+    /// (`test ? ret: value`; what follows is the else). A leading comparison or `in` tests `_` (`>9 => …`), a bare
+    /// literal compares `_` with it (`0 => …`), `a, b => v` takes either, and `=` on the left compares. The value is
+    /// a statement (`c => n += 1`, value-less) or `{ stmts }`, whose last expression is the value.
+    member p.Arrow() : Expr * Expr =
+        let test () =
+            match peek () with
+            | SYM("=" | "!=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, EVar "_", p.Shift()))
+            | ID "in" -> (advance (); EHas(p.Shift(), EVar "_"))
+            | _ ->
+                match p.Expr() with
+                | EInt _ | EFloat _ | EStr _ | EUn("-", (EInt _ | EFloat _)) as lit -> EBin("=", EVar "_", lit)
+                | e -> e
+        let tests = ResizeArray [ test () ]
+        while accept "," do tests.Add(test ())
+        expect "=>"
+        let c = List.reduce (fun a b -> EBin("|", a, b)) (List.ofSeq tests)
+        let value =
+            if isSym "{" then
+                advance ()
+                let body = p.Block "}"
+                match body |> List.filter (function SLine _ -> false | _ -> true) |> List.tryLast with
+                | Some(SExpr _) -> EGroup body
+                | _ -> EGroup(body @ [ SExpr(ECall("%void", [])) ])
+            else
+                match p.Stmt() with
+                | SExpr e -> e
+                | st -> EGroup [ st; SExpr(ECall("%void", [])) ]
+        c, value
 
     member p.Block(closer: string) =
         let saved = HashSet shadowed
@@ -280,16 +321,15 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             let lvs = p.LValues()
             advance ()
             match lvs with
-            | [ EVar f ] when isSym "{" || isSym "?{" || isSym "?[" || ((peek () = ID "memo" || peek () = ID "once") && tokens.[pos + 1].tok = SYM ":") -> fnames.Add f |> ignore
+            | [ EVar f ] when isSym "{" || isSym "?[" || ((peek () = ID "memo" || peek () = ID "once") && tokens.[pos + 1].tok = SYM ":") -> fnames.Add f |> ignore
             | _ -> ()
             let rhs =
                 match lvs with
-                | [ EVar _ ] when isSym "?{" || isSym "?[" -> // `f = ?{ arms }` is `f = { _ ?{ arms } }`
-                    let filter = isSym "?["
+                | [ EVar _ ] when isSym "?[" -> // `f = ?[ arms ]` is `f = { _ ?[ arms ] }`
                     advance ()
                     nextId.Value <- nextId.Value + 1
                     let id = nextId.Value
-                    [ EBlock(id, [], [ SExpr(p.Match(Some(EVar "_"), filter)) ]) ]
+                    [ EBlock(id, [], [ SExpr(p.MatchFilter(EVar "_")) ]) ]
                 | _ -> p.ExprList()
             match lvs, rhs with
             | [ EVar f ], [ ECall(g, _) ] when g.StartsWith negMark -> fnames.Add f |> ignore // g = !ws
@@ -531,22 +571,19 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         if accept "?" then
             let a = p.Expr()
             mark j (if accept ":" then ETern(c, a, p.Expr()) else onlyIf c a)
-        elif accept "?{" then p.Match(Some c, false)
-        elif accept "?[" then p.Match(Some c, true)
+        elif isSym "?{" then err "`?{ }` is gone: write arrows in a block or group, e.g. `(x<0 => -1; x=0 => 0; 1)`, `xs{ >9 => \"big\"; \"small\" }`, `f = { 0 => \"zero\"; \"other\" }`"
+        elif accept "?[" then p.MatchFilter c
         else c
 
-    /// `x ?{ 1 => a; 2, 3 => b; >9 => c; d }` compares x with each arm's values (an arm starting with a comparison
-    /// tests x with it; `_` is x); `?{ c1 => a; c2 => b; d }` takes the first true condition. The first matching arm
-    /// wins; `_ => d` (or a last arm without `=>`) is the default; without one it is a ternary chain like `c ? a` (value 0).
-    /// An array x maps the match over its elements, unless a pattern is an array literal (`[1,2] => …`): then x is
-    /// matched whole. `xs ?[ 1, 2; >9 ]` keeps the elements matching an arm.
-    member p.Match(subject: Expr option, filter: bool) : Expr =
-        let closer = if filter then "]" else "}"
+    /// `xs ?[ 1, 2; >9; _%2=0 => F; _ => T ]` keeps the elements matching an arm: an arm's values are compared with
+    /// the element (an arm starting with a comparison tests it, one mentioning `_` is a condition); `=> v` gives the
+    /// arm's verdict (truthiness); `_ => v` decides the rest (default F).
+    member p.MatchFilter(subject: Expr) : Expr =
         let test () =
-            match subject, peek () with
-            | Some _, SYM("=" | "!=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, EVar "_", p.Shift()))
-            | Some _, _ ->
-                // an arm that mentions `_` (outside a nested block) is a condition on the subject: `_%2=0 => …`
+            match peek () with
+            | SYM("=" | "!=" | "<" | ">" | "<=" | ">=" as op) -> (advance (); EBin(op, EVar "_", p.Shift()))
+            | _ ->
+                // an arm that mentions `_` (outside a nested block) is a condition on the element: `_%2=0 => …`
                 let start = pos
                 let e = p.Expr()
                 let mutable depth, uses = 0, false
@@ -557,12 +594,9 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                     | ID "_" when depth = 0 -> uses <- true
                     | _ -> ()
                 if uses then e else EBin("=", EVar "_", e)
-            | None, _ -> p.Expr()
         let skipTerms () = while peek () = TERM do advance ()
-        // in `?[ ]` every arm's value is tested for truthiness on its own, so arms may give different types
-        let truth r = if filter then ETern(r, EBool true, EBool false) else r
-        // an arm's result may be a statement (`5 => c += 1`); its value is then 0. `=> { s1; s2 }` runs several
-        // statements in the match's scope (`_` stays the subject); the last expression is the value, else 0
+        // every arm's value is tested for truthiness on its own, so arms may give different types
+        let truth r = ETern(r, EBool true, EBool false)
         let result () =
             let start = pos
             if isSym "{" then
@@ -570,42 +604,31 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                 let body = p.Block "}"
                 match body |> List.filter (function SLine _ -> false | _ -> true) |> List.tryLast with
                 | Some(SExpr _) -> truth (EGroup body)
-                | _ when filter -> errAt start "a ?[ ] arm's block must end in a value: truthy keeps the element, falsy drops it"
-                | _ -> EGroup(body @ [ SExpr(ECall("%void", [])) ])
+                | _ -> errAt start "a ?[ ] arm's block must end in a value: truthy keeps the element, falsy drops it"
             else
                 match p.Stmt() with
                 | SExpr e -> truth e
-                | _ when filter -> errAt start "a ?[ ] arm must give a value, not a statement: truthy keeps the element, falsy drops it"
-                | st -> EGroup [ st; SExpr(ECall("%void", [])) ]
+                | _ -> errAt start "a ?[ ] arm must give a value, not a statement: truthy keeps the element, falsy drops it"
         let arms = ResizeArray<Expr list * Expr>()
         let mutable deflt = None
         skipTerms ()
-        while not (isSym closer) do
-            if deflt.IsSome then err "the default arm (`_ => …`, or one without '=>') must be the last arm"
+        while not (isSym "]") do
+            if deflt.IsSome then err "the default arm `_ => …` must be the last arm"
             if peek () = ID "_" && tokens.[pos + 1].tok = SYM "=>" then
                 advance (); advance ()
                 deflt <- Some(result ())
-            elif filter || p.Ahead(SYM "=>") then
+            else
                 let tests = ResizeArray [ test () ]
                 while accept "," do tests.Add(test ())
-                if accept "=>" then arms.Add(List.ofSeq tests, result ())
-                elif filter then arms.Add(List.ofSeq tests, EBool true)
-            else deflt <- Some(result ())
+                arms.Add(List.ofSeq tests, (if accept "=>" then result () else EBool true))
             if peek () = TERM then skipTerms ()
-            elif not (isSym closer) then err ($"expected '=>', a new arm or '{closer}', found {found ()}")
-        expect closer
-        if arms.Count = 0 && (filter || deflt.IsNone) then err "a match needs at least one arm"
-        let deflt = if filter && deflt.IsNone then Some(EBool false) else deflt
+            elif not (isSym "]") then err ($"expected '=>', a new arm or ']', found {found ()}")
+        expect "]"
+        if arms.Count = 0 then err "a match needs at least one arm"
         let chain =
-            Seq.foldBack (fun (tests, r) acc ->
-                let c = List.reduce (fun a b -> EBin("|", a, b)) tests
-                // no default arm: the match gives no value (void), so every arm must give none either
-                Some(match acc with Some e -> ETern(c, r, e) | None -> ETern(c, r, ECall("%void", [])))) arms deflt
-        // an array-literal pattern (`[1,2] => …`) matches an array subject as a whole instead of per element
-        let whole = arms |> Seq.exists (fst >> List.exists (function EBin(_, _, EArr _) -> true | _ -> false))
-        match subject with
-        | Some s -> EMatch((if filter then "filter" elif whole then "whole" else "map"), s, chain.Value)
-        | None -> chain.Value
+            Seq.foldBack (fun (tests, r) acc -> ETern(List.reduce (fun a b -> EBin("|", a, b)) tests, r, acc))
+                arms (defaultArg deflt (EBool false))
+        EMatch("filter", subject, chain)
 
     /// One left-associative level: `next {op next}` for op in ops.
     member p.LeftAssoc(ops: string list, next: unit -> Expr) =
@@ -812,7 +835,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             let items = if isSym "]" then [] else p.ExprList()
             expect "]"
             ECollLit((if s = "%[" then "set" else s.TrimEnd '['), items)
-        | SYM "?{" -> p.Match(None, false)
+        | SYM "?{" -> errAt at "`?{ }` is gone: write arrows in a block or group, e.g. `(x<0 => -1; x=0 => 0; 1)`, `xs{ >9 => \"big\"; \"small\" }`, `f = { 0 => \"zero\"; \"other\" }`"
         | SYM "{" ->
             nextId.Value <- nextId.Value + 1
             let id = nextId.Value
@@ -838,8 +861,8 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             j <- j + 1
         found
 
-    /// After `(`: a `;` at this paren's top level makes it a statement group `(s1; s2; value)`.
-    member p.GroupAhead() = p.Ahead TERM
+    /// After `(`: a `;` or an arrow at this paren's top level makes it a statement group `(s1; s2; value)`, `(c => a; b)`.
+    member p.GroupAhead() = p.Ahead TERM || p.Ahead(SYM "=>")
 
     /// A string pattern's texts around its holes (one more than holes), and per hole its name and its piece's
     /// conversion: the code after the name, applied to the piece (`{n:int}` = `piece.int`, `{bs/","}` = `piece/","`).

@@ -53,7 +53,7 @@
         { "match": "\\bin\\b", "name": "keyword.operator.in.ns" },
         { "match": "~\\{", "name": "keyword.control.while.ns" },
         { "match": "\\bret(?=\\s*:)", "name": "keyword.control.return.ns" },
-        { "match": "\\?(?=[\\{\\[])", "name": "keyword.control.match.ns" },
+        { "match": "\\?(?=\\[)", "name": "keyword.control.match.ns" },
         { "match": "\\b[TF]\\b", "name": "constant.language.boolean.ns" }
       ]
     },
@@ -86,7 +86,8 @@
     },
     "operator": {
       "patterns": [
-        { "match": "->|=>|\\.\\.|@\\?|@", "name": "keyword.operator.special.ns" },
+        { "match": "=>", "name": "keyword.control.arrow.ns" },
+        { "match": "->|\\.\\.|@\\?|@", "name": "keyword.operator.special.ns" },
         { "match": "[?:]", "name": "keyword.operator.ternary.ns" },
         { "match": ">>>=?|\\^\\^=?|\\*\\*=?|\\+\\+=?|<<=?|>>=?|[!<>]=|[-+*/%&|^]=|[-+*/%^&|!<>=#]", "name": "keyword.operator.ns" }
       ]

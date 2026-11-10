@@ -96,7 +96,7 @@ type Expr =
     | EOnce of Expr * Stmt list // `x%{…}`: map that skips elements already seen
     | EBlock of int * string list list * Stmt list // id, named params (`f a (b, c) = …`; a group unpacks), body
     | EGroup of Stmt list               // (s1; s2; value)
-    | EMatch of string * Expr * Expr    // "map" `x ?{}` | "filter" `x ?[]` | "whole" (array-literal pattern): subject, arms (`_` = subject/element)
+    | EMatch of string * Expr * Expr    // "filter" `x ?[]`: subject, arms (`_` = the element)
 
 and Stmt =
     | SAssign of Expr list * Expr list

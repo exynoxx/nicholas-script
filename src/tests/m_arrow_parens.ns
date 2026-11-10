@@ -1,0 +1,30 @@
+# arrows in a group ( ): the first test that holds gives the group's value; the last line is the default
+x = 4
+println: (x<0 => "neg"; x=0 => "zero"; "pos")
+x = 0
+println: (x<0 => "neg"; x=0 => "zero"; "pos")
+# a single arrow makes a group too; with a statement it is void
+c = 0
+(x=0 => c += 1)
+(x=1 => c += 10)
+println: c
+# `=` compares on the left; `,` takes either test
+s = "b"
+println: (s="a", s="b" => 1; 2)
+# statements before and between arrows run only when reached; their names stay visible
+seen = %[5]
+d = (k = 5; k in seen => 0; c = 99; 1)
+println: (d, k, c)
+# a { } value runs several statements
+n = 3
+r = (n=1 => "one"; n=3 => { c += 1; "three" }; "many")
+println: (r, c)
+# nested groups: each arrow leaves only its own group
+println: [1,2,3,4]{ (_%2=0 => (_=2 => "two"; "even"); "odd") }
+# inside a block, a leading comparison, `in` or a bare literal tests `_`
+println: [-1,0,1,5]{ (in seen => "s"; -1, 0 => "low"; >0 => "hi"; "?") }
+# the group's value joins an expression
+println: [3,12]{ (>9 => 9; _) * 10 }
+# a group with arrows inside a function: the arrow leaves the group, not the function
+f x = { y = (x>0 => 1; 2); y+10 }
+println: ((f: 5), f: -5)

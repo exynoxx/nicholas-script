@@ -88,7 +88,7 @@ int:"42"      float:x     str:3.5     bool:n
 | 7.5 not   | `!x` (binds looser than compare, like Python `not`: `!_%2` = `!(_%2)`); `!f` of a function or block is the negated function: `g = !ws`, `xs.sortby:!isupper`, `!{_>2}` | right |
 | 8 logic   | `&` then `^` (xor) then `\|` (short-circuit on bools; bitwise on ints; set ops on sets) | left |
 | 8.5 map default | `m ?? d` (m with default value d for missing keys, see maps) | left |
-| 9 ternary | `x ?{…}` `x ?[…]` match (§5); `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (void); branches of unrelated types run as a statement (void) | right |
+| 9 ternary | `x ?[…]` match filter (§5); `c ? a : b`; `c ? a` without `:` runs `a` only when `c` holds (void); branches of unrelated types run as a statement (void) | right |
 | 10 call   | `f:a,b` (args extend to end of statement / closing bracket, so `(f:1,2, f:3,4)` is an error: write `((f:1,2), f:3,4)`; passing a block more arguments than it has parameters / highest `_k` is an error). `IDENT:` is a call only if the name is bound to a block or built-in; otherwise `:` belongs to a ternary. A block can be passed to a function and called through its parameter (`apply f x = f: x`, `{_1: _2}`), except in a ternary's then-branch, where `p :` is the ternary's `:` (write `c ? (f: x) : y`) | right |
 | 11 assign | `x = e`, `a,b = b,a`; `x := e` inside an expression | right |
 
@@ -339,12 +339,12 @@ A recursive call combined with a set (`|` `&` `++`) or an array (`++`) gives tha
 return a collection built from its own calls: `once dfs e = %[e] | g@e{dfs}/|`, `f e = { s = %[e]; g@e{s = s | f: _}; s }`.
 A function whose body ends in a map over its own recursive calls (a DFS: `f p = {vis += p; p.nb4[g@_=1 & !(vis@?_)]{f:_}}`)
 would have an infinite type `[[[..]]]`; that map runs as an each instead and the function is void. The same holds
-for such a map in a match arm next to a void arm (`f p = ?{!(p in vis) => {vis += p; p.nb4{f}}}`). Any other
+for such a map in an arrow's value next to a void arm (`f p = { !(p in vis) => {vis += p; p.nb4{f}} }`). Any other
 self-referential type is a compile error.
 
-**void** is the type of things that give no value: statements, `print`/`println`, a match without a default arm,
+**void** is the type of things that give no value: statements, `print`/`println`, arrows without a last line after them,
 `c ? a` without `:`, a map whose body is void (`xs{println:_}`), and a function whose body ends in one of these.
-A void value can't be assigned, passed, printed or computed with (compile error). Ternary/match branches must all
+A void value can't be assigned, passed, printed or computed with (compile error). Ternary/arrow branches must all
 give a value or all give none; a literal `0` branch pairs with a void one (`c ? println:x : 0`).
 Top-level functions (`f a = …`, `f = {…}`, `f = memo:…`) may call functions defined later in the file, so they can be
 mutually recursive: `ev x = x=0 ? T : (od:x-1)` before `od x = x=0 ? F : (ev:x-1)`. Top-level code still calls a
@@ -398,6 +398,7 @@ lazy walk i = i < #t ? (walk:2*i+1) ++ [t@i] ++ walk:2*i+2 : []
 c ? a : b                  # ternary
 c ? a                      # if without else
 c ? (x = 1; y = 2) : 0     # statement group: `;` inside parens, value = last statement
+(x<0 => -1; x=0 => 0; 1)   # arrows: the first test that holds gives the value
 1..10{println:_}             # for-each = map
 cond ~{ body }             # while statement: whole `cond` expression re-evaluated each pass
 ```
@@ -418,45 +419,50 @@ f q seen = {
 }
 ```
 
-### Match `?{ }` / `?[ ]`
+### Arrows `test => value`
 
 ```
-n ?{                       # with a subject: arm values are compared with =
-  1 => "one"
-  2, 3 => "few"            # any of several values
-  >9 => "big"              # an arm starting with a comparison tests the subject
-  _ => "some"              # default arm (also: a last arm without =>)
-}
-?{ x<0 => "neg"; x=0 => "zero"; "pos" }      # no subject: each arm is a condition
-[1,5,12] ?{ >10 => _*100; _ }               # array subject: the match maps over the elements
-[1,2,5,9] ?[ 1, 2; >8 ]                     # ?[ ] keeps the elements matching an arm → [1,2,9]
-l ?{ [1,2,3] => "exact"; [] => "empty"; _ => "other" }   # an array-literal pattern: l is matched whole
-n ?{
-  1 => "one"
-  2, 3 => {                # a block arm: several statements, the last expression is the value
-    c += 1
-    "few"
-  }
-  _ => { c = 0; "some" }
+sign x = { x<0 => -1; x=0 => 0; 1 }          # in a block: leave it with the value; the rest is the else
+y = (n=1 => "one"; n=2, n=3 => "few"; "many")  # in a group ( ): the group's value
+xs{ <0 => 0; >9 => 9; _ }                      # a leading comparison tests `_` (a clamp)
+xs{ 1 => "one"; 2, 3 => "few"; "many" }        # a bare literal compares `_` with it
+xs[ in seen => F; _%2=0 ]                      # filter: the value keeps or drops the element
+xs/{ _>$ => _; $ }                             # fold: the new accumulator
+f x i = {
+  !M@?i         => M@i = x                     # a statement value: no value (void)
+  x<M@i & !L@?i => { L@i = x; c += 1 }         # { } runs several statements; its last expression is the value
+  f: x, i+1
 }
 ```
-`f = ?{ arms }` defines a function that matches its argument: it is `f = { _ ?{ arms } }` (and `f = ?[ arms ]` a filter
-function, `big = ?[>9]; big:xs`). For a subject-less match as a value, parenthesize: `x = (?{ c => a; b })`.
+A statement `test => value` in a `{ }` block (a function body, a map, filter or fold body) or a `( )` group means:
+when `test` holds, the block's (group's) value is `value` and the rest is skipped; it is `test ? ret: value`, so the
+statements after it are its else branch and a recursive call after it is still a tail call. It leaves only its own block
+or group: `{ xs{ _=x => 9; 0 }; 7 }` gives 7. Arrows are statements, so several fit on a line with `;`; a group with an
+arrow is a statement group even without `;` (`(c => println: x)`), and a group stays on one line.
 
-Arms are separated by newline or `;` and tried in order; the first match wins. Inside a subject match `_` is the
-subject (the element, for an array); an arm that mentions `_` is a condition used as is (`_%2=0 => …`, `_ = _.int => …`),
-any other arm value is compared with the subject. If any pattern is an array literal (`[1,2] =>`, `[] =>`, `<[2] =>`), an array
-subject is compared as a whole value instead of mapped over. An arm's result may be a statement (`5 => c += 1`, void), or a block `=> { … }` of statements separated by
-newlines or `;`: it runs in the match's own scope (`_` is still the subject, assignments are visible after the match),
-and its value is its last expression, or void if that is a statement. An arm block is not a function value; as in any block,
-a body starting with an operator gets `_` on its left (`=> { *2 }` is `_*2`). Without a default
-the match gives no value (void), so its arms must give none either: `x ?{1 => println:"a"; 2 => c += 1}` is fine,
-`y = x ?{1 => "one"; 2 => "two"}` is a compile error (add `_ => …`). `=> {}` is an arm that does nothing. In `?[ ]` an arm without `=>` keeps its
-elements, `=> F` drops them, and `_ =>` decides the rest (default `F`). Every `?[ ]` arm must give a value, which is
-tested for truthiness on its own (`?[>4 => "a"; _ => 0]` keeps the elements over 4); a statement arm, or an arm block
-that doesn't end in a value, is an error. `?[` directly after an operand is a match filter unless its `]` is followed
+The test is an expression in which `=` compares (`x=0 => …`, `_ = _.int => …`). A test starting with a comparison or
+`in` tests `_` (`>9 =>`, `in seen =>`), a bare number or string literal compares `_` with it (`0 =>`, `"noop" =>`, `-1 =>`),
+and `a, b => v` takes either test. The value is a statement, as in a block: `M@i = x` assigns, `c += 1` and `println: x`
+give no value; `=> { s1; s2 }` runs several and gives the last expression. Arrows must all give a value or all give none,
+like ternary branches: a block or group whose arrows give values needs a last line (the default) after them, and one
+whose arrows give none is void when nothing follows (`[1,2,3]{ 2 => c += 1 }`).
+
+### Match filter `?[ ]`
+
+```
+[1,2,5,9] ?[ 1, 2; >8 ]                     # keeps the elements matching an arm → [1,2,9]
+[1,5,9] ?[ 5 => F; _ => T ]                 # => F drops, `_ =>` decides the rest
+big = ?[ >9 ]                               # a filter function: big:xs
+```
+Arms are separated by newline or `;` and tried in order; the first match wins. `_` is the element; an arm that
+mentions `_` is a condition used as is (`_%2=0 => …`), an arm starting with a comparison tests the element, any other arm
+value is compared with it. An arm without `=>` keeps its elements, `=> F` drops them, and `_ =>` decides the rest
+(default `F`). Every arm must give a value, which is tested for truthiness on its own (`?[>4 => "a"; _ => 0]` keeps the
+elements over 4); a statement arm, or an arm block that doesn't end in a value, is an error. `f = ?[ arms ]` is
+`f = { _ ?[ arms ] }`. `?[` directly after an operand is a match filter unless its `]` is followed
 by `:` (then it is a ternary with an array literal: `c?[1]:[2]`), except when the brackets can't be an array literal
 (`?[>4]`, arms with `=>` or `;`) or an earlier `?` is still waiting for its `:` (`c ? xs?[>4] : xs`).
+`x ?{ … }` (a match on one value) is gone: write arrows, `(x=1 => "one"; "other")`, or `xs{ 1 => …; … }` to map.
 
 ## 6. Statements
 `import "file.ns"` splices in another file's statements (path relative to the importing file; each file is included once, so imports may repeat or be mutual).
@@ -538,9 +544,10 @@ lvalue    = IDENT { "@" prefix } ;
 exprlist  = expr { "," expr } ;
 expr      = lvalue ":=" expr | call ;
 call      = FUNC ":" exprlist | ternary ;   (* FUNC = IDENT bound to block/built-in *)
-ternary   = logic [ "?" expr [ ":" expr ] | ( "?{" arms "}" | "?[" arms "]" ) ] ;
+ternary   = logic [ "?" expr [ ":" expr ] | "?[" arms "]" ] ;
 arms      = arm { TERM arm } ;  arm = "_" "=>" stmt | test { "," test } [ "=>" stmt ] ;
-test      = [ CMPOP ] expr ;                 (* bare CMPOP only with a subject *)
+test      = [ CMPOP ] expr ;                 (* a CMPOP or `in` first tests `_` *)
+arrow     = test { "," test } "=>" ( stmt | "{" stmts "}" ) ;   (* a statement of a block or group *)
 logic     = not { ("&" | "|") not } ;
 not       = "!" not | compare ;
 compare   = add [ CMPOP add ] ;

@@ -31,7 +31,7 @@ Stars rate how new the idea is; cost is the rough implementation effort.
 | 6 | `~` invertible blocks | `dec = enc~` for blocks built from invertible primitives | ★★ | medium |
 | 7 | Integer width from range analysis | i64 where proven safe, bigint otherwise, no runtime overflow checks | ★★ | high |
 | 8 | `x'` | done | ★ | — |
-| 9 | Interpolation as a pattern | `?{"move {n} from {a} to {b}" => …}`; each hole's type is inferred from how it is used | ★★★ | medium |
+| 9 | Interpolation as a pattern | `lines{ "move {n} from {a} to {b}" => …; … }` (string patterns as arrow tests); each hole's type is inferred from how it is used | ★★★ | medium |
 | 10 | Infinite ranges + `@?` | superseded by `lazy` (below); `@k`/`.one` early exit done | ★ | — |
 | 11 | Distributions `D[…]` | exact probability arithmetic, lifted like broadcasting | ★★ | medium |
 | 12 | The binary is the answer | input-free pure program → runs at compile time, binary just prints | ★★ | low |

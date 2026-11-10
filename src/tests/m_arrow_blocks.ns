@@ -1,0 +1,44 @@
+# arrows in a { } block: test => value leaves the block with value; the rest of the block is the else
+sign x = { x<0 => -1; x=0 => 0; 1 }
+println: [-5,0,7]{sign}
+# a function body over several lines, statements between arrows
+f c k i = {
+  (a,b,n) = c@i
+  k>=n => f: c, k-n, i+1
+  a>b  => a-k
+  a+k
+}
+println: f: [(1,5,3),(10,2,4)], 5, 0
+# an early exit protects what follows (no pivot when xs is empty)
+q xs = { #xs<2 => xs; p = xs@0; (q: xs[<p]) ++ xs[=p] ++ q: xs[>p] }
+println: q: [5,3,8,1,9,2]
+println: q: []
+# a block function: a leading comparison tests `_`, a bare literal compares `_`
+g = { 0 => "zero"; <0 => "neg"; "pos" }
+println: [-1,0,2]{g}
+# map blocks: the element's value
+println: [-3,4,12]{ <0 => 0; >9 => 9; _ }
+println: [1,2,3,9]{ 1 => "one"; 2, 3 => "few"; "many" }
+# fold blocks: the new accumulator
+println: [1,5,3]/{ _>$ => _; $ }
+# an arrow leaves only its own block
+h x = { [1,2]{ _=x => 9; 0 }; 7 }
+println: h: 1
+# statement arms; void when every arm is a statement and there is no last line
+M = [->]; L = [->]
+bone x i = {
+  !M@?i         => M@i = x
+  x<M@i & !L@?i => L@i = x
+  bone: x, i+1
+}
+[5,3,8,1]{bone: _, 0}
+println: (M.vals, L.vals)
+cnt = 0
+[1,5,9]{ 5 => cnt += 10; 9 => cnt += 100 }
+println: cnt
+# arrows in [ ] filter blocks: the value keeps (truthy) or drops the element
+println: [1,2,3,4,5,6][ <2 => F; _%2=0 ]
+w = %[2,5]
+println: [1,2,3,4,5,6][ in w => T; _>4 ]
+println: [1,2,3,4,5,6][ t = _*2; t>8 => T; t<4 ]
+println: [1,2,3,4,5,6][ _=3 => F; T ]

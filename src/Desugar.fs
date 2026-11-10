@@ -178,10 +178,10 @@ and private exprAt (env: Map<string, string>) (e: Expr) : E =
     | EMatch(kind, x, arms) ->
         let t = fresh "_"
         let saved = loop
-        if kind <> "whole" then loop <- None // the arms run per element, but outside the loop's `x'` shifts
+        loop <- None // the arms run per element, but outside the loop's `x'` shifts
         let arms = expr (env.Add("_", t).Add("_#", t)) arms
         loop <- saved
-        if kind = "whole" then mk (Seq([ Assign(t, ex x) ], arms)) else mk (MatchOn(ex x, t, arms, (kind = "filter")))
+        mk (MatchOn(ex x, t, arms, (kind = "filter")))
     | EGroup body ->
         match List.rev (block env body) with
         | Do last :: rest -> mk (Seq(List.rev rest, last))
