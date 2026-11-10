@@ -754,7 +754,13 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
             let j = if isSym "." then pos + 1 else pos // a method call is at its name
             match peek () with
             | SYM "m{" -> (advance (); e <- EIter(IMap, e, p.MapSection(p.Block "}")))
-            | SYM "f[" -> (advance (); e <- EIter(IFilter, e, predicate (p.SectionBlock "]")))
+            | SYM "f[" ->
+                advance ()
+                match p.Block "]" with
+                // `xs[{ body }]`: map with body, drop results that are zero/empty (`xs[{ >4 => _*2 }]`)
+                | [ SLine l; SExpr(EBlock(_, [], body)) ] when (match List.tryLast body with Some(SExpr(EUn("!b", _))) -> false | _ -> true) ->
+                    e <- EIter(IFilter, EIter(IMap, e, body), [ SLine l; SExpr(EBin("!=", EVar "_", ECall("zero", []))) ])
+                | block -> e <- EIter(IFilter, e, predicate (p.Section block))
             | SYM "/{" -> (advance (); e <- EIter(IFold, e, p.Block "}"))
             | SYM "${" -> (advance (); e <- ESort(e, p.SectionBlock "}"))
             | SYM "%{" -> (advance (); e <- EOnce(e, p.SectionBlock "}"))

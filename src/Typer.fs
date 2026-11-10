@@ -315,7 +315,7 @@ and private conv (e: E) (ty: Ty) : E =
     | Some e -> e
     | None ->
         match resolve e.t with
-        | TFn _ when resolve ty = TBool -> err "a block can't be used as bool; to filter or test, write the condition itself: x[_>2], not x[{_>2}]"
+        | TFn _ when resolve ty = TBool -> err "a block can't be used as bool; to test, write the condition itself: c ? a : b, x[_>2]"
         | TFn _ -> err ($"a block can't be used as {showT ty}; to use its result, call it: f:x")
         | TVoid -> noVoid e
         | _ -> err ($"cannot convert {showVal e} to {showT ty}")
