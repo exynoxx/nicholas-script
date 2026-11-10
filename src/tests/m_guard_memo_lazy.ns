@@ -1,0 +1,26 @@
+# memo on a guarded base case memoizes the whole function
+memo paths r<0 c = 0
+paths r c<0 = 0
+paths 0 0 = 1
+paths r c = (paths: r-1, c) + paths: r, c-1
+println: paths: 16, 16
+# memo on the general definition
+fb n<2 = n
+memo fb n = (fb: n-1) + fb: n-2
+println: fb: 80
+# memo nested in a function: the guard uses the outer function's parameter, a fresh cache per call
+stairs top = {
+  memo ways n>top = 0
+  ways n>=top = 1
+  ways n = (ways: n+1) + (ways: n+2) + ways: n+3
+  ways: 0
+}
+println: ((stairs: 10), stairs: 30)
+# lazy on the definition: the result streams, so a consumer can stop early; the guard ends the recursion
+tree = [8, 4, 12, 2, 6, 10, 14, 1, 3, 5, 7, 9, 11, 13, 15]
+seen = 0
+walk i>=#tree = []
+lazy walk i = { seen += 1; (walk: 2*i+1) ++ [tree@i] ++ walk: 2*i+2 }
+println: (walk: 0).take:3
+println: seen
+println: walk: 0

@@ -66,6 +66,7 @@ type private Pat =
     | PLit of Expr
     | PStr of Part list * int // a string pattern, its token index
     | PGroup of bool * Pat list // is an array, items
+    | PGuard of string * string * int * int // `n<2`, `p in seen`: name, operator, operand's first token and end
 
 type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<string>, params: HashSet<string>, stdAliases: Dictionary<string, string>, nextId: int ref, imports: Imports) =
     let mutable pos = 0
@@ -394,8 +395,31 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
     /// `name pattern {pattern} =` with a literal somewhere: a base case of f (`f 0 (1, x) [a, b] = a + x`).
     /// A pattern is a name, `_`, a literal, `(p, …)` (a tuple) or `[p, …]` (an array of exactly that length).
     member p.ClauseAhead() : (string * Pat list * int) option =
+        // a guard's operand: atoms (a literal, a name, a bracket group, with prefix - #) joined by @ . .. + - * / %
+        let rec operand j =
+            let rec atom j =
+                match tokens.[j].tok with
+                | SYM("-" | "#") -> atom (j + 1)
+                | INT _ | FLOAT _ | STR _ | BOOL _ | ID _ -> Some(j + 1)
+                | SYM s when opensBracket s ->
+                    let mutable k, depth = j + 1, 1
+                    while depth > 0 && tokens.[k].tok <> EOF do
+                        match tokens.[k].tok with
+                        | SYM s when opensBracket s -> depth <- depth + 1
+                        | SYM(")" | "]" | "}") -> depth <- depth - 1
+                        | _ -> ()
+                        k <- k + 1
+                    Some k
+                | _ -> None
+            atom j |> Option.bind (fun k ->
+                match tokens.[k].tok with
+                | SYM("@" | "." | ".." | "+" | "-" | "*" | "/" | "%") -> operand (k + 1)
+                | _ -> Some k)
         let rec pat j =
             match tokens.[j].tok with
+            | ID n when assignable n && (match tokens.[j + 1].tok with SYM("<" | ">" | "<=" | ">=" | "!=") | ID "in" -> true | _ -> false) ->
+                let op = match tokens.[j + 1].tok with SYM op -> op | _ -> "in"
+                operand (j + 2) |> Option.map (fun k -> PGuard(n, op, j + 2, k), k)
             | ID n when n = "_" || assignable n -> Some(PName n, j + 1)
             | INT n -> Some(PLit(EInt n), j + 1)
             | FLOAT x -> Some(PLit(EFloat x), j + 1)
@@ -414,7 +438,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
                     | _ -> None
                 items (j + 1) []
             | _ -> None
-        let rec lit x = match x with PLit _ | PStr _ -> true | PName _ -> false | PGroup(arr, xs) -> arr || List.exists lit xs
+        let rec lit x = match x with PLit _ | PStr _ | PGuard _ -> true | PName _ -> false | PGroup(arr, xs) -> arr || List.exists lit xs
         let rec pats j acc =
             match pat j with
             | Some(x, k) -> pats k (x :: acc)
@@ -431,11 +455,12 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
     member p.Clause(f, pats: Pat list, eq, memo) =
         let l = line ()
         pos <- eq + 1
-        let conds, binds = ResizeArray(), ResizeArray()
+        let conds, binds, guards = ResizeArray(), ResizeArray(), ResizeArray()
         let rec walk v x =
             match x with
             | PName "_" -> ()
             | PName n -> binds.Add(n, v)
+            | PGuard(n, op, s, e) -> (binds.Add(n, v); guards.Add(n, op, s, e))
             | PLit e -> conds.Add(EBin("=", v, e))
             | PStr(parts, at) ->
                 // ponytail: each hole re-runs the match; bind the pieces once if patterns with many holes get hot
@@ -453,9 +478,28 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         for n in names do
             if builtins.Contains n then shadowed.Add n |> ignore
             params.Add n |> ignore
+        // guards may use any of the clause's names (`f a b<a = …`): they run in a hidden function of them, after the shape tests
+        let guardTest =
+            guards |> Seq.map (fun (n, op, s, e) ->
+                let back = pos
+                pos <- s
+                let rhs = p.Shift()
+                if pos <> e then errAt pos "a guard in a base case compares a parameter with a simple operand: n<2, i>=#xs, p in seen"
+                pos <- back
+                if op = "in" then EHas(rhs, EVar n) else EBin(op, EVar n, rhs))
+            |> Seq.toList
         let body = if accept "{" then p.Block "}" else [ SLine(line ()); SExpr(p.Expr()) ]
         shadowed.Clear(); shadowed.UnionWith saved
         params.Clear(); params.UnionWith savedParams
+        let guardDef =
+            match guardTest with
+            | [] -> []
+            | gs ->
+                nextId.Value <- nextId.Value + 1
+                let g = $"{f}'g{nextId.Value}"
+                fnames.Add g |> ignore
+                conds.Add(ECall(callMark + g, List.ofSeq (Seq.map snd binds)))
+                [ SAssign([ EVar g ], [ EBlock(nextId.Value, names |> List.map (fun n -> [ n ]), [ SLine l; SExpr(List.reduce (fun a b -> EBin("&", a, b)) gs) ]) ]) ]
         // a later condition indexes into what an earlier one checked the length of: `c1 ? c2 : F`, not `c1 & c2`
         let cond = Seq.reduceBack (fun c rest -> ETern(c, rest, EBool false)) conds
         nextId.Value <- nextId.Value + 1
@@ -470,6 +514,7 @@ type private Parser(tokens: Token[], fnames: HashSet<string>, shadowed: HashSet<
         let n, gs, m = match clauses.TryGetValue f with | true, c -> c | _ -> pats.Length, [], false
         if n <> pats.Length then errAt eq $"base cases of '{f}' have different numbers of parameters"
         clauses.[f] <- (n, gs @ [ SLine l; guard ], m || memo)
+        let def = if guardDef.IsEmpty then def else SExpr(EGroup(guardDef @ [ def; SExpr(EInt 0L) ]))
         if p.ContinuesDef f then def
         else
             // only base cases: the last one's value is the body, and no match is a runtime error

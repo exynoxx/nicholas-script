@@ -1,0 +1,32 @@
+# several guarded parameters in one head: every test must hold
+f a>0 b>0 = "both"
+f a>0 b = "a"
+f a b>0 = "b"
+f a b = "none"
+println: [(1,1),(1,-1),(-1,1),(-1,-1)]{f: _1, _2}
+# guards mixed with literals and tuple patterns; the operand may use earlier names
+g 0 _ = "zero"
+g n (lo, hi>lo) = "range {lo}..{hi} for {n}"
+g n (lo, hi) = "empty"
+println: g: 0, (1, 2)
+println: g: 5, (1, 9)
+println: g: 5, (9, 1)
+# a range test: one guard checks both ends
+z n in 1..10 = "small"
+z n in 10..100 = "medium"
+z n<0 = "negative"
+z n = "other"
+println: [5,10,99,-3,0,500]{z}
+# many clauses, tried in order; the first that holds wins
+cls t>=30 w = "hot"
+cls t>=20 w>5 = "warm and windy"
+cls t>=20 w = "warm"
+cls t w>10 = "stormy"
+cls t w = "cold"
+println: [(35,0),(25,9),(25,1),(5,20),(5,1)]{cls: _1, _2}
+# set membership and length guards together, recursion through all of them
+vis = %[2]
+walk p in vis n = n
+walk p>=#"abcde" n = n
+walk p n = walk: p+1, n+1
+println: ((walk: 0, 0), walk: 3, 0)

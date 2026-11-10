@@ -317,7 +317,11 @@ A parameter `(a, b, …)` unpacks a tuple or array argument (`_` skips an elemen
 **Base cases**: lines `f pattern … = value` before f's definition are tried first, in order; the first whose
 patterns all match gives the result, else the definition runs. A pattern is a name (binds the argument), `_`, a literal
 (`0`, `-1`, `"hi"`, `T`), a string pattern (`"addx {n:int}"`, as in assignment: matches when the string fits, binding
-its holes), `(p, …)` (a tuple, matched element by element) or `[p, …]` (an array of exactly that length):
+its holes), `(p, …)` (a tuple, matched element by element), `[p, …]` (an array of exactly that length), or a **guard**
+`name op operand` with op one of `< > <= >= != in`, which binds the name and tests it (`fib n<2 = n`, `z n in 1..10 = …`).
+A guard's operand is atoms (a literal, a name, `#x`, a bracket group) joined by `@ . .. + - * / %`, and may use any of the
+case's names (`gd a b<a = …`); a head with several guards needs all of them to hold. `=` can't be a guard (it would read
+as the definition's `=`): equality with a constant is a literal pattern, anything else is an arrow in the body (§5):
 ```
 fib 0 = 0
 fib 1 = 1
@@ -327,6 +331,9 @@ f tup arr = arr.sum
 step "noop" = 0
 step "addx {n:int}" = n
 step s = -1
+cls t>=30 w = "hot"            # guards: tried in order like any base case
+cls t>=20 w>5 = "warm and windy"
+cls t w = "cold"
 ```
 A base case must have as many parameters as the definition. A function may be only base cases: when no definition
 follows, the last base case's value is the body, and an argument no case matches is a runtime error:

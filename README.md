@@ -312,6 +312,11 @@ println:mean:[2,4,9]        # => 5
 fib = {_<2 ? _ : (fib:_-1)+(fib:_-2)}
 println:fib:20              # => 6765
 
+# Base cases come first; a parameter may carry a guard (< > <= >= != in).
+fb n<2 = n
+fb n = (fb:n-1) + fb:n-2
+println:fb:20               # => 6765
+
 # Blocks capture variables by reference.
 s = 0
 [1,2,3]{s += _}

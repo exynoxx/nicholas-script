@@ -1,0 +1,36 @@
+# a base case's parameter may carry a comparison: n<2, s>=90, p in walls, i>=#xs
+fib n<2 = n
+fib n = (fib:n-1) + fib:n-2
+println: fib: 10
+grade s>=90 = "A"
+grade s>=80 = "B"
+grade s = "F"
+println: [95,85,10]{grade}
+xs = [1,2,3]
+sm i>=#xs acc = acc
+sm i acc = sm: i+1, acc + xs@i
+println: sm: 0, 0
+walls = %[3]
+step p in walls d = (p, -d)
+step p d = (p + d, d)
+println: ((step: 3, 1), step: 2, 1)
+# the operand may use other parameters
+gd a b<a = gd: a-b, b
+gd a b>a = gd: a, b-a
+gd a b = a
+println: gd: 12, 18
+# with literals, memo, nested functions, and only base cases
+memo m 0 = 1
+m n<2 = 1
+m n = (m:n-1) + m:n-2
+println: m: 50
+h x = {
+  k n<0 = 0
+  k n = n*x
+  (k: 3) + k: -1
+}
+println: h: 2
+cl n<0 = 0
+cl n>9 = 9
+cl n = n
+println: [-4,5,40]{cl}
