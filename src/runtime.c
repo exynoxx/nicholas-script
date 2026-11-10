@@ -652,7 +652,6 @@ static FILE *fopen_or_die(const char *path) {
   if (!f) { fprintf(stderr, "error: cannot open %s\n", path); exit(1); }
   return f;
 }
-// Whole file / its lines.
 //@ read (str) str = ns_read_file
 //? whole file: `read:"f.txt"`
 char *ns_read_file(char *path) {
@@ -682,7 +681,6 @@ int64_t ns_spawn(char *cmd) {
   return WIFEXITED(st) ? WEXITSTATUS(st) : 128 + WTERMSIG(st);
 #endif
 }
-// Replaces the file with s; returns the number of bytes written.
 //@ write (str,str) int
 //? `write:path,s` replaces the file with s, returns the byte count
 int64_t ns_write(char *path, char *s) {
@@ -1253,7 +1251,7 @@ char *ns_trim(char *s) {
 }
 //@ replace (str,str,str) str
 //? `replace:s,old,new`, every occurrence
-char *ns_replace(char *s, char *a, char *b) { // every occurrence of a in s replaced by b
+char *ns_replace(char *s, char *a, char *b) {
   size_t m = strlen(a), k = strlen(b), cnt = 0;
   if (!m) return str_n(s, strlen(s));
   for (char *e = s; (e = strstr(e, a)); e += m) cnt++;

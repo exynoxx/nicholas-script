@@ -28,16 +28,16 @@ let private startsExpr (t: Tok) =
     | SYM("(" | "[" | "{" | "%[" | "Q[" | "PQ[" | "BT[") -> true
     | _ -> false
 
-/// `c ? a` without `:` runs a only when c holds; its value is 0
+/// `c ? a` without `:` runs a only when c holds
 let private onlyIf c a = ETern(c, EGroup [ SExpr a; SExpr(ECall("%void", [])) ], ECall("%void", []))
 
 /// Implicit names (_ _1 @ $) are never assigned, so `{_=p}` / `[=p]` compare.
 let private assignable (name: string) = not (name.StartsWith "_" || name = "@" || name = "$")
 
-/// In a map block a bare top-level `_ = e` writes the value back (Lower.iter); a parenthesised `(_ = e)` or a
-/// section `{=e}` is a comparison, so it is wrapped in a group, which that write-back does not match.
 /// `x@%i` wraps around: `x@(i % #x)` (floor modulo, so -1 is the last element)
 let private wrapIndex x i = EIndex(x, EBin("%", i, EUn("#", x)))
+/// In a map block a bare top-level `_ = e` writes the value back (Lower.iter); a parenthesised `(_ = e)` or a
+/// section `{=e}` is a comparison, so it is wrapped in a group, which that write-back does not match.
 let private compared e = match e with EBin("=", EVar "_", _) -> EGroup [ SExpr e ] | e -> e
 
 /// A filter's last statement is its predicate, so `xs[a@_ = b@_]` compares; earlier statements still assign.
